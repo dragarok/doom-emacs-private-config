@@ -1,0 +1,58 @@
+;; Must Have packages
+(package! helm-org-rifle)
+(package! org-ql)
+(package! org-super-agenda)
+(package! org-timeline)
+(package! elfeed)
+(package! elfeed-org)
+(package! ox-pandoc)
+;; ox twitter bootstrap
+(package! ox-twbs)
+;;(package! deadgrep)
+(package! org-web-tools)
+;; Optional
+(package! org-sidebar)
+(package! pdf-tools)
+(package! gnuplot)
+(package! gnuplot-mode)
+;; Testing
+;; analyze when you have entered data and filter activity
+(package! org-analyzer)
+(package! org-autolist)
+(package! org-mru-clock)
+(package! org-time-budgets)
+(package! grip-mode)
+(package! web-beautify)
+(package! ox-reveal)
+(package! grab-x-link)
+;;(package! org-noter)
+;;(package! golden-ratio)
+(package! helm-bibtex)
+(package! nov)
+(package! flutter)
+(package! ob-mermaid)
+;;(package! org-roam
+;;  :recipe (:host github :repo "jethrokuan/org-roam")
+;;  :pin "df29da1b6d")
+
+(package! mathpix.el
+  :recipe (:host github :repo "jethrokuan/mathpix.el"))
+(package! org-ref-ex-hugo
+  :recipe (:host github :repo "jethrokuan/org-ref-ox-hugo" :branch "custom/overrides"))
+(package! org-pdftools)
+;;(package! org-noter-pdftools
+;;  :recipe (:host github :repo "fuxialexander/org-pdftools"))
+(package! xkcd)
+(package! leetcode)
+(package! anki-editor)
+(package! org-ref)
+(package! julia-snail)
+(package! nepali-romanized
+  :recipe (:host github :repo "bishesh/emacs-nepali-romanized"))
+(package! all-the-icons-dired)
+(package! dired-hacks)
+(package! zoom)
+(package! evil-tutor)
+;;(package! memrise)
+(package! org-clock-convenience)
+(package! lsp-julia :recipe (:host github :repo "non-jedi/lsp-julia"))
