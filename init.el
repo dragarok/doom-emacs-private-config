@@ -18,13 +18,13 @@
        :completion
        (company
         +tng)
-       (helm
-        +fuzzy)             ; the *other* search engine for love and life
+       ;;(helm
+       ;; +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
-       ;;(ivy
-       ;; +fuzzy
-       ;; +prescient
-       ;; +childframe)               ; a search engine for love and life
+       (ivy
+        +fuzzy
+        +prescient
+        +childframe)               ; a search engine for love and life
 
        :ui
        deft              ; notational velocity for Emacs
@@ -88,6 +88,7 @@
        :tools
        ;;ansible
        ;;debugger          ; FIXME stepping through code, to help you add bugs
+       biblio
        direnv
        docker
        ;;editorconfig      ; let someone else argue about tabs vs spaces
@@ -157,7 +158,7 @@
        (org              ; organize your plain life in plain text
         +attach
         +roam
-        +dragndrop       ; drag & drop files/images into org buffers
+;;        +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
         +gnuplot
         +jupyter        ; ipython/jupyter support for babel
