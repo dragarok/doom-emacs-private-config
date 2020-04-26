@@ -25,7 +25,7 @@
 (package! web-beautify)
 (package! ox-reveal)
 (package! grab-x-link)
-;;(package! org-noter)
+(package! org-noter)
 ;;(package! golden-ratio)
 ;;(package! helm-bibtex)
 (package! nov)
@@ -40,8 +40,8 @@
 (package! org-ref-ex-hugo
   :recipe (:host github :repo "jethrokuan/org-ref-ox-hugo" :branch "custom/overrides"))
 (package! org-pdftools)
-;;(package! org-noter-pdftools
-;;  :recipe (:host github :repo "fuxialexander/org-pdftools"))
+(package! org-noter-pdftools
+  :recipe (:host github :repo "fuxialexander/org-pdftools"))
 (package! xkcd)
 (package! leetcode)
 (package! anki-editor)
@@ -60,3 +60,7 @@
 (package! org-clock-convenience)
 (package! lsp-julia :recipe (:host github :repo "non-jedi/lsp-julia"))
 (package! org-download)
+(package! webkit-katex-render
+  :recipe (:host github :repo "fuxialexander/emacs-webkit-katex-render"))
+(package! org-roam-bibtex
+  :recipe (:host github :repo "zaeph/org-roam-bibtex"))

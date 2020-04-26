@@ -56,7 +56,7 @@
        (evil +commands +everywhere); come to the dark side, we have cookies
        file-templates    ; auto-snippets for empty files
        fold              ; (nigh) universal code folding
-       format  ; automated prettiness
+       format            ; automated prettiness
        ;;god               ; run Emacs commands without modifier keys
        ;;lispy             ; vim for lisp, for people who don't like vim
        multiple-cursors  ; editing in many places at once
@@ -162,7 +162,6 @@
         +hugo            ; use Emacs for hugo blogging
         +gnuplot
         +jupyter        ; ipython/jupyter support for babel
-        +noter
         +pandoc          ; export-with-pandoc support
         +export
         +pomodoro        ; be fruitful with the tomato technique

@@ -18,8 +18,6 @@
 
 
 
-
-
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
 
@@ -30,7 +28,6 @@
 
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
-
 
 ;; pretty mode hassling everywhere even when not needed
 ;;(remove-hook 'after-change-major-mode-hook #'+pretty-code-init-pretty-symbols-h)
@@ -79,6 +76,7 @@
       (insert (make-string (or (cdr +doom-dashboard-banner-padding) 0)
                            ?\n)))))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Basic-fns                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -89,10 +87,18 @@
 
 ;; replacement to buggy golden ratio mode
 (require 'zoom)
-(setq-default zoom-mode t)
+
+(custom-set-variables
+ '(zoom-mode t))
+(custom-set-variables
+ '(zoom-size '(0.618 . 0.618)))
+;;(defun size-callback ()
+;;  (cond ((> (frame-pixel-width) 1280) '(90 . 0.75))
+;;        (t                            '(0.5 . 0.5))))
+;;(custom-set-variables
+;; '(zoom-size 'size-callback))
+
 ;;(setq zoom-size '(0.618 . 0.618))
-
-
 ;;wallpapers
 
 ;;(use-package dired-subtree
@@ -126,15 +132,15 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 17)
-      doom-variable-pitch-font (font-spec :family "Iosevka Nerd Font" :size 18)
-      doom-unicode-font (font-spec :family "Iosevka Nerd Font")
+(setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 16)
+      doom-variable-pitch-font (font-spec :family "Iosevka Nerd Font" :size 15)
+      doom-unicode-font (font-spec :family "Iosevka Nerd Font" :size 14)
       doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 13))
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-dark+)
+(setq doom-theme 'doom-challenger-deep)
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 
 ;;elfeed
@@ -221,12 +227,12 @@
 ;;                                        Novel mode                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
 (use-package nov
   :defer t
   :config
   (setq nov-text-width t
         visual-fill-column-center-text t)
-  (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
   (defun my-nov-font-setup ()
     (face-remap-add-relative 'variable-pitch :family "Liberation Serif"
                              :size 16
@@ -269,7 +275,11 @@
 (use-package org-pdftools
   :defer t
   :init (setq org-pdftools-search-string-separator "??")
-  :config (setq org-pdftools-root-dir "~/Dropbox/pdfs/")
+  :config
+  (define-key pdf-view-mode-map (kbd "i") 'pdf-annot-add-highlight-markup-annotation)
+  (define-key pdf-view-mode-map (kbd "p") 'pdf-annot-add-text-annotation)
+  (define-key pdf-view-mode-map (kbd "x") 'pdf-annot-delete)
+  (setq org-pdftools-root-dir "~/Dropbox/pdfs/")
   (after! org
     (org-link-set-parameters "pdftools"
                              :follow #'org-pdftools-open
@@ -325,7 +335,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (use-package org-noter
-  :defer t
+  :defer 5
   :commands
   (org-noter org-noter-create-skeleton)
   :config
@@ -375,6 +385,12 @@
 ;;        (require 'company-org-roam)
 ;;        (company-org-roam-init))))
 ;;
+
+;; If you installed via MELPA
+(use-package org-roam-bibtex
+  :hook (org-roam-mode . org-roam-bibtex-mode))
+
+
 (after! org-roam
   (setq org-roam-directory "~/Dropbox/org/notes/")
   (setq org-roam-capture-templates
@@ -382,9 +398,13 @@
            "%?"
            :file-name "${slug}"
            :head "#+SETUPFILE:./hugo_setup.org
+#+TITLE: ${title}
 #+HUGO_SECTION: braindump
 #+HUGO_SLUG: ${slug}
-#+TITLE: ${title}\n"
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
            :unnarrowed t)
 
           ("e" "ref" plain (function org-roam--capture-get-point)
@@ -732,11 +752,11 @@
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;                                        Org mode UI                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;; beautiful bullets
-  (setq org-bullets-bullet-list '("◉" "◎" "✸" "✿" "✤" "⚫")
-        org-hide-emphasis-markers t
-        org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+"))
-        org-ellipsis "▼")
+;;  ;; beautiful bullets
+;;  (setq org-bullets-bullet-list '("◉" "◎" "✸" "✿" "✤" "⚫")
+;;        org-hide-emphasis-markers t
+;;        org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+"))
+;;        org-ellipsis "▼")
 
   ;; emphasis beautiful
   (setq org-emphasis-alist
@@ -763,7 +783,7 @@
      `(org-level-5 ((t (:foreground "brown",@headline ,@variable-tuple :height 1.2))))
      `(org-level-4 ((t (:foreground "#c397d8",@headline ,@variable-tuple :height 1.25))))
      `(org-level-3 ((t (:foreground "DarkOliveGreen3",@headline ,@variable-tuple :height 1.30))))
-     `(org-level-2 ((t (:foreground "goldenred",@headline ,@variable-tuple :height 1.35))))
+     `(org-level-2 ((t (:foreground "DarkGoldenrod4",@headline ,@variable-tuple :height 1.35))))
      `(org-level-1 ((t (:foreground "#d54e53" ,@headline ,@variable-tuple :height 1.4))))
      `(org-document-title ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.45 :underline nil))))))
 
@@ -801,6 +821,7 @@
 ;; Popup rules for certain buffers
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
+  (set-popup-rule! "*Org Select" :side 'bottom :size .45 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "Dictionary" :side 'bottom :height .40 :width 20 :select t :vslot 3 :ttl 3)
   (set-popup-rule! "*eww*" :side 'right :size .40 :slect t :vslot 5 :ttl 3)
   (set-popup-rule! "*deadgrep" :side 'bottom :height .40 :select t :vslot 4 :ttl 3)
@@ -1415,51 +1436,6 @@
 
 
 
-(use-package! smerge-mode
-  :bind (("C-c h s" . jethro/hydra-smerge/body))
-  :init
-  (defun jethro/enable-smerge-maybe ()
-    "Auto-enable `smerge-mode' when merge conflict is detected."
-    (save-excursion
-      (goto-char (point-min))
-      (when (re-search-forward "^<<<<<<< " nil :noerror)
-        (smerge-mode 1))))
-  (add-hook 'find-file-hook #'jethro/enable-smerge-maybe :append)
-  :config
-  (defhydra jethro/hydra-smerge (:color pink
-                                        :hint nil
-                                        :pre (smerge-mode 1)
-                                        ;; Disable `smerge-mode' when quitting hydra if
-                                        ;; no merge conflicts remain.
-                                        :post (smerge-auto-leave))
-    "
-   ^Move^       ^Keep^               ^Diff^                 ^Other^
-   ^^-----------^^-------------------^^---------------------^^-------
-   _n_ext       _b_ase               _<_: upper/base        _C_ombine
-   _p_rev       _u_pper           g   _=_: upper/lower       _r_esolve
-   ^^           _l_ower              _>_: base/lower        _k_ill current
-   ^^           _a_ll                _R_efine
-   ^^           _RET_: current       _E_diff
-   "
-    ("n" smerge-next)
-    ("p" smerge-prev)
-    ("b" smerge-keep-base)
-    ("u" smerge-keep-upper)
-    ("l" smerge-keep-lower)
-    ("a" smerge-keep-all)
-    ("RET" smerge-keep-current)
-    ("\C-m" smerge-keep-current)
-    ("<" smerge-diff-base-upper)
-    ("=" smerge-diff-upper-lower)
-    (">" smerge-diff-base-lower)
-    ("R" smerge-refine)
-    ("E" smerge-ediff)
-    ("C" smerge-combine-with-next)
-    ("r" smerge-resolve)
-    ("k" smerge-kill-current)
-    ("q" nil "cancel" :color blue)))
-
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1487,98 +1463,6 @@
                            (:title "Personal Tasks" :tags "+@personal" :budget "19:00" :block week)))
 )
 
-
-;;(after! org
-;;  (appendq! +pretty-code-symbols
-;;            '(:checkbox    "☐"
-;;              :pending     "◼"
-;;              :checkedbox  "☑"
-;;              :results     "🠶"
-;;              :property    "☸"
-;;              :properties  "⚙"
-;;              :end         "∎"
-;;              :options     "⌥"
-;;              :begin_quote "❮"
-;;              :end_quote   "❯"
-;;              :em_dash     "—"))
-;;  (set-pretty-symbols! 'org-mode
-;;    :merge t
-;;    :checkbox    "[ ]"
-;;    :pending     "[-]"
-;;    :checkedbox  "[X]"
-;;    :results     "#+RESULTS:"
-;;    :property    "#+PROPERTY:"
-;;    :property    ":PROPERTIES:"
-;;    :end         ":END:"
-;;    :options     "#+OPTIONS:"
-;;    :title       "#+TITLE:"
-;;    :author      "#+AUTHOR:"
-;;    :date        "#+DATE:"
-;;    :begin_quote "#+BEGIN_QUOTE"
-;;    :end_quote   "#+END_QUOTE"
-;;    :em_dash     "---")
-;;)
-;;(plist-put +pretty-code-symbols :name "⁍")
-
-;;(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
-
-;;(after! latex
-;;  (setq +latex-viewers '(skim evince sumatrapdf zathura pdf-tools )))
-
-
-
-
-
-
-
-;;  '(("*" (bold :foreground "Orange" ))
-;;    ("/" italic)
-;;    ("_" underline)
-;;    ("=" (:foreground "maroon"))
-;;    ("@" (:foreground "#d54e53"))
-;;    ("~" (:foreground "deep sky blue"))
-;;    ("+" (:strike-through t))))
-
-
-;;
-;;
-;;(defun my-html-mark-tag (text backend info)
-;;  "Transcode :blah: into <mark>blah</mark> in body text."
-;;  (when (org-export-derived-backend-p backend 'html)
-;;
-;;    (let ((text (replace-regexp-in-string "[^\\w]\\(~\\)[^\n\t\r]+\\(~\\)[^\\w]" "<span style=\"background-color: #A8D1FF\">"  text nil nil 1 nil)))
-;;      (replace-regexp-in-string "[^\\w]\\(<span style=\"background-color: #A8D1FF\">\\)[^\n\t\r]+\\(~\\)[^\\w]" "</span>" text nil nil 2 nil))
-;;
-;;    (let ((text (replace-regexp-in-string "[^\\w]\\(@\\)[^\n\t\r]+\\(@\\)[^\\w]" "<span style=\"background-color: #FFB7B7\">"  text nil nil 1 nil)))
-;;      (replace-regexp-in-string "[^\\w]\\(<span style=\"background-color: #FFB7B7\">\\)[^\n\t\r]+\\(@\\)[^\\w]" "</span>" text nil nil 2 nil))
-;;
-;;    (let ((text (replace-regexp-in-string "[^\\w]\\(=\\)[^\n\t\r]+\\(=\\)[^\\w]" "<span style=\"background-color: #FFB7B7\">"  text nil nil 1 nil)))
-;;      (replace-regexp-in-string "[^\\w]\\(<span style=\"background-color: #FFB7B7\">\\)[^\n\t\r]+\\(=\\)[^\\w]" "</span>" text nil nil 2 nil))
-;;
-;;    (let ((text (replace-regexp-in-string "[^\\w]\\(:\\)[^\n\t\r]+\\(:\\)[^\\w]" "<span style=\"background-color: #FFF2A8\">"  text nil nil 1 nil)))
-;;      (replace-regexp-in-string "[^\\w]\\(<span style=\"background-color: #FFF2A8\">\\)[^\n\t\r]+\\(:\\)[^\\w]" "</span>" text nil nil 2 nil))
-;;
-;;))
-;;
-;;(add-to-list 'org-export-filter-plain-text-functions 'my-html-mark-tag)
-;;
-;;(after! org
-;;  (defun org-add-my-extra-markup ()
-;;    "Add highlight emphasis."
-;;    (add-to-list 'org-font-lock-extra-keywords
-;;                 '("[^\\w]\\(=\\[^\n\r\t]+=\\)[^\\w]"
-;;                   (1 '(face highlight invisible nil)))))
-;;
-;;  (add-hook 'org-font-lock-set-keywords-hook #'org-add-my-extra-markup)
-;;
-;;  (defun my-html-mark-tag (text backend info)
-;;    "Transcode :blah: into <mark>blah</mark> in body text."
-;;    (when (org-export-derived-backend-p backend 'html)
-;;      (let ((text (replace-regexp-in-string "[^\\w]\\(=\\)[^\n\t\r]+\\(=\\)[^\\w]" "<span style=\"background-color: #FFB7B7\">"  text nil nil 1 nil)))
-;;        (replace-regexp-in-string "[^\\w]\\(<span style=\"background-color: #FFB7B7\">\\)[^\n\t\r]+\\(=\\)[^\\w]" "</span>" text nil nil 2 nil))))
-;;
-;;  (add-to-list 'org-export-filter-plain-text-functions 'my-html-mark-tag)
-;;)
 
 
 (use-package dired-rainbow
@@ -1617,6 +1501,7 @@
               ("<S-iso-lefttab>" . dired-subtree-remove)))
 
 (use-package winner
+  :defer 5
   :hook (after-init . winner-mode)
   :bind ("<s-right>" . winner-redo)
          ("<s-left>" . winner-undo))
@@ -1637,3 +1522,9 @@
       (org-download-image tmp-file)))
   (global-set-key (kbd "<print>") 'my-org-download-screenshot)
 )
+
+(use-package webkit-katex-render
+  :defer t
+  :commands (webkit-katex-render-mode)
+  :config
+  (setq webkit-katex-render--background-color (doom-color 'bg)))
