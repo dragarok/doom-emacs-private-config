@@ -246,8 +246,159 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Pdf tools                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; (use-package pdf-tools
+;;   :defer t
+;;   ;; :pin manual ;; manually update
+;;   ;; :straight tablist
+;;   ;; :straight hydra
+;;   ;; :straight web-server
+;;   ;; :load-path (lambda () (if (memq system-type '(windows-nt)) ;; If under Windows, use the customed build in Dropbox.
+;;   ;;                       (expand-file-name "elisp/pdf-tools-20180428.827/"
+;;   ;;                                         my-emacs-conf-directory)))
+;;   ;; Tell Emacs to autoloads the package
+;;   ;; :init (load "pdf-tools-autoloads" nil t)
+;;   ;; If under Linux, manually install it with package-install.
+;;   ;; If there's error for pdf-occur mode, delete pdf-occur.elc manually.
+;;   :bind (:map pdf-view-mode-map
+;;               ("C-s" . 'isearch-forward)
+;;               ("C-r" . 'isearch-backward)
+;;               ("C-z p" . hydra-pdftools/body)
+;;               ("M-w" . 'pdf-view-kill-ring-save)
+;;               ("c" . 'pdf-annot-add-highlight-markup-annotation)
+;;               ("d" . 'pdf-annot-add-text-annotation)
+;;               ("D" . 'pdf-annot-delete)
+;;               ("S" . 'sync-pdf-in-pdfjs)
+;;               )
+;;   :magic ("%PDF" . pdf-view-mode)
+;;   :config
+;;   ()
+;;   (add-to-list 'load-path "/home/light/.emacs-web-server")
+;;   (require 'web-server)
+;;   (setq-default pdf-view-display-size 'fit-width)
+;;   ;; automatically annotate highlights
+;;   (setq pdf-annot-activate-created-annotations t)
+;;   ;; zoom set to 10% instead of 25
+;;   (setq pdf-view-resize-factor 1.1)
+;;   ;; keyboard shortcuts
+;;   (define-key pdf-view-mode-map (kbd "c") 'pdf-annot-add-highlight-markup-annotation)
+;;   (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-add-text-annotation)
+;;   (define-key pdf-view-mode-map (kbd "D") 'pdf-annot-delete)
+;;   ;; use normal isearch
+;;   (define-key pdf-view-mode-map (kbd "C-s-/") 'isearch-forward)
+;;   ;; automatically annotate highlights
+;;   (setq pdf-annot-activate-created-annotation t)
+
+;;   (pdf-tools-install t) ;; Install pdf tools with no queries
+
+;;   ;; Start a CORS-enabled web-server from within Emacs, so that PDF.js can synchronize with pdf-tools
+;;   (lexical-let ((docroot (expand-file-name "pdfs" org-directory)))
+;;     (ws-start
+;;      (lambda (request)
+;;        (with-slots (process headers) request
+;;          (let ((path (substring (cdr (assoc :GET headers)) 1)))
+;;            (if (ws-in-directory-p docroot path)
+;;                (if (file-directory-p path)
+;;                    (ws-send-directory-list process
+;;                                            (expand-file-name path docroot) "^[^\.]")
+;;                  (ws-response-header process 200 '("Access-Control-Allow-Origin" . "*"))
+;;                  (ws-send-file process (expand-file-name path docroot)))
+;;              (ws-send-404 process)))))
+;;      9005 nil :name (format "pdfjs-%s" docroot)))
+
+;;   ;; In Arch Linux, need to install pdfjs package first.
+;;   (defun sync-pdf-in-pdfjs (&optional file)
+;;     "Open current PDF in the corresponding page in PDF.js."
+;;     (interactive)
+;;     (or file
+;;         (setq file (buffer-name))
+;;         (error "Current buffer has no file"))
+;;     (let ((browse-url-browser-function 'browse-url-chromium)
+;;           (port 9005)) ;; Should match to CORS-enabled server that points to PDF directory
+;;       (browse-url (format "%s?file=%s#page=%d"
+;;                           "file:///usr/share/pdf.js/web/viewer.html"
+;;                           (format "http://localhost:%d/%s" port (url-hexify-string file))
+;;                           (pdf-view-current-page)))
+;;       (run-hooks 'browse-url-of-file-hook)))
+
+;;   (defun open-text-in-firefox (beg end)
+;;     "Export selected region as HTML, and open it in Firefox.
+;; Useful for utilizing some plugins in Firefox (e.g: to make Anki cards)"
+;;     (interactive "r")
+;;     (copy-region-as-kill beg end)
+;;     (let ((tmpfile (make-temp-file "cyf-text" nil ".html")))
+;;       (with-temp-file tmpfile
+;;         (yank)
+;;         (mark-whole-buffer)
+;;         (org-html-convert-region-to-html)
+;;         (browse-url-firefox (concat "file://" tmpfile))))
+;;     )
+
+;;   (defhydra hydra-pdftools (:color blue :hint nil)
+;;     "
+;;                                                                       ╭───────────┐
+;;        Move  History   Scale/Fit     Annotations  Search/Link    Do   │ PDF Tools │
+;;    ╭──────────────────────────────────────────────────────────────────┴───────────╯
+;;          ^^_g_^^      _B_    ^↧^    _+_    ^ ^      [_al_] list    [_s_] search    [_u_] revert buffer
+;;          ^^^↑^^^      ^↑^    _H_    ^↑^  ↦ _W_ ↤     [_am_] markup  [_o_] outline   [_i_] info
+;;          ^^_p_^^      ^ ^    ^↥^    _0_    ^ ^      [_at_] text    [_F_] link      [_d_] dark mode
+;;          ^^^↑^^^      ^↓^  ╭─^─^─┐  ^↓^  ╭─^ ^─┐   [_ad_] delete  [_f_] search link
+;;     _h_ ←pag_e_→ _l_  _N_  │ _P_ │  _-_    _b_     [_aa_] dired
+;;          ^^^↓^^^      ^ ^  ╰─^─^─╯  ^ ^  ╰─^ ^─╯   [_y_]  yank
+;;          ^^_n_^^      ^ ^  _r_eset slice box
+;;          ^^^↓^^^
+;;          ^^_G_^^
+;;    --------------------------------------------------------------------------------
+;;         "
+;;     ("\\" hydra-master/body "back")
+;;     ("<ESC>" nil "quit")
+;;     ("al" pdf-annot-list-annotations)
+;;     ("ad" pdf-annot-delete)
+;;     ("aa" pdf-annot-attachment-dired)
+;;     ("am" pdf-annot-add-markup-annotation)
+;;     ("at" pdf-annot-add-text-annotation)
+;;     ("y"  pdf-view-kill-ring-save)
+;;     ("+" pdf-view-enlarge :color red)
+;;     ("-" pdf-view-shrink :color red)
+;;     ("0" pdf-view-scale-reset)
+;;     ("H" pdf-view-fit-height-to-window)
+;;     ("W" pdf-view-fit-width-to-window)
+;;     ("P" pdf-view-fit-page-to-window)
+;;     ("n" pdf-view-next-page-command :color red)
+;;     ("p" pdf-view-previous-page-command :color red)
+;;     ("d" pdf-view-dark-minor-mode)
+;;     ("b" pdf-view-set-slice-from-bounding-box)
+;;     ("r" pdf-view-reset-slice)
+;;     ("g" pdf-view-first-page)
+;;     ("G" pdf-view-last-page)
+;;     ("e" pdf-view-goto-page)
+;;     ("o" pdf-outline)
+;;     ("s" pdf-occur)
+;;     ("i" pdf-misc-display-metadata)
+;;     ("u" pdf-view-revert-buffer)
+;;     ("F" pdf-links-action-perfom)
+;;     ("f" pdf-links-isearch-link)
+;;     ("B" pdf-history-backward :color red)
+;;     ("N" pdf-history-forward :color red)
+;;     ("l" image-forward-hscroll :color red)
+;;     ("h" image-backward-hscroll :color red))
+;;   )
+
+
+
+
+
 (use-package pdf-tools
   :defer t
+  :bind (:map pdf-view-mode-map
+              ("C-s" . 'isearch-forward)
+              ("C-r" . 'isearch-backward)
+              ("C-c h" . hydra-pdftools/body)
+              ("M-w" . 'pdf-view-kill-ring-save)
+              ("c" . 'pdf-annot-add-highlight-markup-annotation)
+              ("d" . 'pdf-annot-add-text-annotation)
+              ("D" . 'pdf-annot-delete)
+              )
   :config
   ;; initialise
   (pdf-tools-install)
@@ -257,17 +408,60 @@
   (setq pdf-annot-activate-created-annotations t)
   ;; zoom set to 10% instead of 25
   (setq pdf-view-resize-factor 1.1)
-  ;; keyboard shortcuts
-  (define-key pdf-view-mode-map (kbd "c") 'pdf-annot-add-highlight-markup-annotation)
-  (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-add-text-annotation)
-  (define-key pdf-view-mode-map (kbd "D") 'pdf-annot-delete)
-  ;; use normal isearch
-  (define-key pdf-view-mode-map (kbd "C-s-/") 'isearch-forward)
   (with-eval-after-load "pdf-annot"
     (define-key pdf-annot-edit-contents-minor-mode-map (kbd "<return>") 'pdf-annot-edit-contents-commit)
     (define-key pdf-annot-edit-contents-minor-mode-map (kbd "<S-return>") 'newline)
     ;; save after adding comment
     (advice-add 'pdf-annot-edit-contents-commit :after 'bjm/save-buffer-no-args))
+
+  (defhydra hydra-pdftools (:color blue :hint nil)
+    "
+                                                                      ╭───────────┐
+       Move  History   Scale/Fit     Annotations  Search/Link    Do   │ PDF Tools │
+   ╭──────────────────────────────────────────────────────────────────┴───────────╯
+         ^^_g_^^      _B_    ^↧^    _+_    ^ ^      [_al_] list    [_s_] search    [_u_] revert buffer
+         ^^^↑^^^      ^↑^    _H_    ^↑^  ↦ _W_ ↤     [_am_] markup  [_o_] outline   [_i_] info
+         ^^_p_^^      ^ ^    ^↥^    _0_    ^ ^      [_at_] text    [_F_] link      [_d_] dark mode
+         ^^^↑^^^      ^↓^  ╭─^─^─┐  ^↓^  ╭─^ ^─┐   [_ad_] delete  [_f_] search link
+    _h_ ←pag_e_→ _l_  _N_  │ _P_ │  _-_    _b_     [_aa_] dired
+         ^^^↓^^^      ^ ^  ╰─^─^─╯  ^ ^  ╰─^ ^─╯   [_y_]  yank
+         ^^_n_^^      ^ ^  _r_eset slice box
+         ^^^↓^^^
+         ^^_G_^^
+   --------------------------------------------------------------------------------
+        "
+    ("\\" hydra-master/body "back")
+    ("<ESC>" nil "quit")
+    ("al" pdf-annot-list-annotations)
+    ("ad" pdf-annot-delete)
+    ("aa" pdf-annot-attachment-dired)
+    ("am" pdf-annot-add-markup-annotation)
+    ("at" pdf-annot-add-text-annotation)
+    ("y"  pdf-view-kill-ring-save)
+    ("+" pdf-view-enlarge :color red)
+    ("-" pdf-view-shrink :color red)
+    ("0" pdf-view-scale-reset)
+    ("H" pdf-view-fit-height-to-window)
+    ("W" pdf-view-fit-width-to-window)
+    ("P" pdf-view-fit-page-to-window)
+    ("n" pdf-view-next-page-command :color red)
+    ("p" pdf-view-previous-page-command :color red)
+    ("d" pdf-view-dark-minor-mode)
+    ("b" pdf-view-set-slice-from-bounding-box)
+    ("r" pdf-view-reset-slice)
+    ("g" pdf-view-first-page)
+    ("G" pdf-view-last-page)
+    ("e" pdf-view-goto-page)
+    ("o" pdf-outline)
+    ("s" pdf-occur)
+    ("i" pdf-misc-display-metadata)
+    ("u" pdf-view-revert-buffer)
+    ("F" pdf-links-action-perfom)
+    ("f" pdf-links-isearch-link)
+    ("B" pdf-history-backward :color red)
+    ("N" pdf-history-forward :color red)
+    ("l" image-forward-hscroll :color red)
+    ("h" image-backward-hscroll :color red))
 )
 
 
@@ -322,6 +516,7 @@
   (setq bibtex-completion-library-path "~/Dropbox/pdfs/"
       bibtex-completion-bibliography "~/Dropbox/org/references/articles.bib"
       bibtex-completion-notes-path "~/Dropbox/org/references/articles.org"
+      bibtex-completion-notes-extension "org"
       bibtex-completion-notes-path "~/Dropbox/org/references/articles.org")
 
   (setq org-ref-notes-directory "~/Dropbox/org/notes/"
@@ -387,8 +582,8 @@
 ;;
 
 ;; If you installed via MELPA
-(use-package org-roam-bibtex
-  :hook (org-roam-mode . org-roam-bibtex-mode))
+;;(use-package org-roam-bibtex
+;;  :hook (org-roam-mode . org-roam-bibtex-mode))
 
 
 (after! org-roam
@@ -754,10 +949,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  ;; beautiful bullets
 ;;  (setq org-bullets-bullet-list '("◉" "◎" "✸" "✿" "✤" "⚫")
-;;        org-hide-emphasis-markers t
-;;        org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+"))
-;;        org-ellipsis "▼")
-
+(after! org
+  (setq org-hide-emphasis-markers t
+        org-superstar-headline-bullets-list '("⚫" "⦾" "◉" "◎" "❥" "✤")
+        org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+"))
+        org-ellipsis "⤵"
+        +pretty-code-enabled-modes '(org-mode)
+        )
+)
   ;; emphasis beautiful
   (setq org-emphasis-alist
   '(("*" (bold :foreground "Orange" ))
@@ -792,6 +991,8 @@
    '(variable-pitch ((t (:family "JetBrainsMono Nerd Font" :height 180 :weight medium))))
    '(fixed-pitch ((t ( :family "JetBrainsMono Nerd Font" :slant normal :weight normal :height 1.0 :width normal)))))
   (add-hook 'org-mode-hook 'variable-pitch-mode)
+  ;; so that texts are no longer bulky
+  (add-hook 'org-mode-hook 'auto-fill-mode)
   (add-hook 'org-mode-hook 'visual-line-mode)
   (custom-theme-set-faces
    'user
@@ -822,6 +1023,7 @@
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "*Org Select" :side 'bottom :size .45 :select t :vslot 2 :ttl 3)
+  (set-popup-rule! "*Calendar*" :side 'right :size .30 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "Dictionary" :side 'bottom :height .40 :width 20 :select t :vslot 3 :ttl 3)
   (set-popup-rule! "*eww*" :side 'right :size .40 :slect t :vslot 5 :ttl 3)
   (set-popup-rule! "*deadgrep" :side 'bottom :height .40 :select t :vslot 4 :ttl 3)
@@ -830,8 +1032,6 @@
   (set-popup-rule! "*xwidget" :side 'right :size .40 :select t :vslot 5 :ttl 3)
   (set-popup-rule! "*eshell*" :side 'bottom :size .30 :select t :hslot 2 :ttl 3)
 )
-
-;; comehere--todo
 ;; reveal js presentation configuration
 ;;(after! org
 ;;  (require 'ox-reveal)
@@ -1041,7 +1241,7 @@
 ;;; Note: Anki capture templates are in anki side and roam capture in roam side
 (after! org
     (add-to-list 'org-capture-templates
-                 '("j"  "Contact" entry (file "~/Dropbox/org/contacts.org")
+                 '("C"  "Contact" entry (file "~/Dropbox/org/contacts.org")
                    "* %(org-contacts-template-name)
     :PROPERTIES:
     :EMAIL: %(org-contacts-template-email)
@@ -1098,7 +1298,7 @@
 ")))
 
 (after! org (add-to-list 'org-capture-templates
-             '("i" "Coding notes" entry(file+headline"~/Dropbox/org/notes/examples.org" "INBOX")
+             '("i" "Coding notes" entry(file+headline"~/Dropbox/org/examples.org" "INBOX")
 "* %^{example}
 :PROPERTIES: :SOURCE:  %^{source|Command|Script|Code|Usage} :SUBJECT: %^{subject}
 :END:
@@ -1528,3 +1728,29 @@
   :commands (webkit-katex-render-mode)
   :config
   (setq webkit-katex-render--background-color (doom-color 'bg)))
+
+(setq +pretty-code-enabled-modes nil)
+
+(after! cdlatex
+  (setq ;; cdlatex-math-symbol-prefix ?\; ;; doesn't work at the moment :(
+   cdlatex-math-symbol-alist
+   '( ;; adding missing functions to 3rd level symbols
+     (?_    ("\\downarrow"  ""           "\\inf"))
+     (?2    ("^2"           "\\sqrt{?}"     ""     ))
+     (?3    ("^3"           "\\sqrt[3]{?}"  ""     ))
+     (?^    ("\\uparrow"    ""           "\\sup"))
+     (?k    ("\\kappa"      ""           "\\ker"))
+     (?m    ("\\mu"         ""           "\\lim"))
+     (?c    (""             "\\circ"     "\\cos"))
+     (?d    ("\\delta"      "\\partial"  "\\dim"))
+     (?D    ("\\Delta"      "\\nabla"    "\\deg"))
+     ;; no idea why \Phi isnt on 'F' in first place, \phi is on 'f'.
+     (?F    ("\\Phi"))
+     ;; now just conveniance
+     (?.    ("\\cdot" "\\dots"))
+     (?:    ("\\vdots" "\\ddots"))
+     (?*    ("\\times" "\\star" "\\ast")))
+   cdlatex-math-modify-alist
+   '( ;; my own stuff
+     (?B    "\\mathbb"        nil          t    nil  nil)
+     (?a    "\\abs"           nil          t    nil  nil))))
