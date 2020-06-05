@@ -21,7 +21,7 @@
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
 
-
+(add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Personal-info                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,9 +29,15 @@
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
+(global-disable-mouse-mode)
 ;; pretty mode hassling everywhere even when not needed
 ;;(remove-hook 'after-change-major-mode-hook #'+pretty-code-init-pretty-symbols-h)
 
+
+(load! "+functions")
+(after! neotree
+  ;;(setq neo-theme 'icons)
+  (setq neo-smart-open t))
 
 ;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
 (defun doom-dashboard-widget-banner ()
@@ -87,20 +93,12 @@
 
 ;; replacement to buggy golden ratio mode
 (require 'zoom)
-
 (custom-set-variables
  '(zoom-mode t))
 (custom-set-variables
  '(zoom-size '(0.618 . 0.618)))
-;;(defun size-callback ()
-;;  (cond ((> (frame-pixel-width) 1280) '(90 . 0.75))
-;;        (t                            '(0.5 . 0.5))))
-;;(custom-set-variables
-;; '(zoom-size 'size-callback))
 
-;;(setq zoom-size '(0.618 . 0.618))
 ;;wallpapers
-
 ;;(use-package dired-subtree
 ;;  :ensure t
 ;;  :after dired
@@ -133,15 +131,18 @@
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
 (setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 16)
-      doom-variable-pitch-font (font-spec :family "Iosevka Nerd Font" :size 15)
-      doom-unicode-font (font-spec :family "Iosevka Nerd Font" :size 14)
-      doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 13))
+      doom-variable-pitch-font (font-spec :family "Source Code Variable" :size 15)
+      doom-unicode-font (font-spec :family "Iosevka Nerd Font Mono" :size 14)
+      doom-big-font (font-spec :family "ShureTechMono Nerd Font Mono" :size 13))
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-challenger-deep)
-(setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
+
+(if (not window-system)
+  (setq doom-theme 'doom-acario-dark))
+
+;;(setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 
 ;;elfeed
 (after! org (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
@@ -160,6 +161,17 @@
   :commands (deft deft-open-file deft-new-file-named)
   :config
   (setq deft-directory "~/Dropbox/org/notes/"
+        ;; deft-strip-summary-regexp (concat "\\(?:"
+        ;;                                   "^%+" ; line beg with %
+        ;;                                   "\\|#\\+hugo_draft: *" ; hugo draft
+        ;;                                   "\\|#\\+hugo_categories: *" ; hugo categories
+        ;;                                   "\\|#\\+hugo_section: *" ; hugo section
+        ;;                                   "\\|#\\+hugo_tags: *" ; hugo tags
+        ;;                                   "\\|^[#* ]+" ; line beg with #, * and/or space
+        ;;                                   "\\|-\\*-[[:alpha:]]+-\\*-" ; -*- .. -*- lines
+        ;;                                   "\\|^Title:[\t ]*" ; MultiMarkdown metadata
+        ;;                                   "\\|#+" ; line with just # chars
+        ;;                                   "$\\)")
         deft-auto-save-interval 0
         deft-use-filename-as-title nil
         deft-current-sort-method 'title
@@ -218,7 +230,8 @@
 ;;
 ;;       )))
   (provide 'my-deft-title)
-  (require 'my-deft-title) (advice-add 'deft-parse-title :around #'my-deft/parse-title-with-directory-prepended))
+  (require 'my-deft-title)
+  (advice-add 'deft-parse-title :around #'my-deft/parse-title-with-directory-prepended))
 
 
 
@@ -247,147 +260,6 @@
 ;;                                        Pdf tools                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (use-package pdf-tools
-;;   :defer t
-;;   ;; :pin manual ;; manually update
-;;   ;; :straight tablist
-;;   ;; :straight hydra
-;;   ;; :straight web-server
-;;   ;; :load-path (lambda () (if (memq system-type '(windows-nt)) ;; If under Windows, use the customed build in Dropbox.
-;;   ;;                       (expand-file-name "elisp/pdf-tools-20180428.827/"
-;;   ;;                                         my-emacs-conf-directory)))
-;;   ;; Tell Emacs to autoloads the package
-;;   ;; :init (load "pdf-tools-autoloads" nil t)
-;;   ;; If under Linux, manually install it with package-install.
-;;   ;; If there's error for pdf-occur mode, delete pdf-occur.elc manually.
-;;   :bind (:map pdf-view-mode-map
-;;               ("C-s" . 'isearch-forward)
-;;               ("C-r" . 'isearch-backward)
-;;               ("C-z p" . hydra-pdftools/body)
-;;               ("M-w" . 'pdf-view-kill-ring-save)
-;;               ("c" . 'pdf-annot-add-highlight-markup-annotation)
-;;               ("d" . 'pdf-annot-add-text-annotation)
-;;               ("D" . 'pdf-annot-delete)
-;;               ("S" . 'sync-pdf-in-pdfjs)
-;;               )
-;;   :magic ("%PDF" . pdf-view-mode)
-;;   :config
-;;   ()
-;;   (add-to-list 'load-path "/home/light/.emacs-web-server")
-;;   (require 'web-server)
-;;   (setq-default pdf-view-display-size 'fit-width)
-;;   ;; automatically annotate highlights
-;;   (setq pdf-annot-activate-created-annotations t)
-;;   ;; zoom set to 10% instead of 25
-;;   (setq pdf-view-resize-factor 1.1)
-;;   ;; keyboard shortcuts
-;;   (define-key pdf-view-mode-map (kbd "c") 'pdf-annot-add-highlight-markup-annotation)
-;;   (define-key pdf-view-mode-map (kbd "d") 'pdf-annot-add-text-annotation)
-;;   (define-key pdf-view-mode-map (kbd "D") 'pdf-annot-delete)
-;;   ;; use normal isearch
-;;   (define-key pdf-view-mode-map (kbd "C-s-/") 'isearch-forward)
-;;   ;; automatically annotate highlights
-;;   (setq pdf-annot-activate-created-annotation t)
-
-;;   (pdf-tools-install t) ;; Install pdf tools with no queries
-
-;;   ;; Start a CORS-enabled web-server from within Emacs, so that PDF.js can synchronize with pdf-tools
-;;   (lexical-let ((docroot (expand-file-name "pdfs" org-directory)))
-;;     (ws-start
-;;      (lambda (request)
-;;        (with-slots (process headers) request
-;;          (let ((path (substring (cdr (assoc :GET headers)) 1)))
-;;            (if (ws-in-directory-p docroot path)
-;;                (if (file-directory-p path)
-;;                    (ws-send-directory-list process
-;;                                            (expand-file-name path docroot) "^[^\.]")
-;;                  (ws-response-header process 200 '("Access-Control-Allow-Origin" . "*"))
-;;                  (ws-send-file process (expand-file-name path docroot)))
-;;              (ws-send-404 process)))))
-;;      9005 nil :name (format "pdfjs-%s" docroot)))
-
-;;   ;; In Arch Linux, need to install pdfjs package first.
-;;   (defun sync-pdf-in-pdfjs (&optional file)
-;;     "Open current PDF in the corresponding page in PDF.js."
-;;     (interactive)
-;;     (or file
-;;         (setq file (buffer-name))
-;;         (error "Current buffer has no file"))
-;;     (let ((browse-url-browser-function 'browse-url-chromium)
-;;           (port 9005)) ;; Should match to CORS-enabled server that points to PDF directory
-;;       (browse-url (format "%s?file=%s#page=%d"
-;;                           "file:///usr/share/pdf.js/web/viewer.html"
-;;                           (format "http://localhost:%d/%s" port (url-hexify-string file))
-;;                           (pdf-view-current-page)))
-;;       (run-hooks 'browse-url-of-file-hook)))
-
-;;   (defun open-text-in-firefox (beg end)
-;;     "Export selected region as HTML, and open it in Firefox.
-;; Useful for utilizing some plugins in Firefox (e.g: to make Anki cards)"
-;;     (interactive "r")
-;;     (copy-region-as-kill beg end)
-;;     (let ((tmpfile (make-temp-file "cyf-text" nil ".html")))
-;;       (with-temp-file tmpfile
-;;         (yank)
-;;         (mark-whole-buffer)
-;;         (org-html-convert-region-to-html)
-;;         (browse-url-firefox (concat "file://" tmpfile))))
-;;     )
-
-;;   (defhydra hydra-pdftools (:color blue :hint nil)
-;;     "
-;;                                                                       ╭───────────┐
-;;        Move  History   Scale/Fit     Annotations  Search/Link    Do   │ PDF Tools │
-;;    ╭──────────────────────────────────────────────────────────────────┴───────────╯
-;;          ^^_g_^^      _B_    ^↧^    _+_    ^ ^      [_al_] list    [_s_] search    [_u_] revert buffer
-;;          ^^^↑^^^      ^↑^    _H_    ^↑^  ↦ _W_ ↤     [_am_] markup  [_o_] outline   [_i_] info
-;;          ^^_p_^^      ^ ^    ^↥^    _0_    ^ ^      [_at_] text    [_F_] link      [_d_] dark mode
-;;          ^^^↑^^^      ^↓^  ╭─^─^─┐  ^↓^  ╭─^ ^─┐   [_ad_] delete  [_f_] search link
-;;     _h_ ←pag_e_→ _l_  _N_  │ _P_ │  _-_    _b_     [_aa_] dired
-;;          ^^^↓^^^      ^ ^  ╰─^─^─╯  ^ ^  ╰─^ ^─╯   [_y_]  yank
-;;          ^^_n_^^      ^ ^  _r_eset slice box
-;;          ^^^↓^^^
-;;          ^^_G_^^
-;;    --------------------------------------------------------------------------------
-;;         "
-;;     ("\\" hydra-master/body "back")
-;;     ("<ESC>" nil "quit")
-;;     ("al" pdf-annot-list-annotations)
-;;     ("ad" pdf-annot-delete)
-;;     ("aa" pdf-annot-attachment-dired)
-;;     ("am" pdf-annot-add-markup-annotation)
-;;     ("at" pdf-annot-add-text-annotation)
-;;     ("y"  pdf-view-kill-ring-save)
-;;     ("+" pdf-view-enlarge :color red)
-;;     ("-" pdf-view-shrink :color red)
-;;     ("0" pdf-view-scale-reset)
-;;     ("H" pdf-view-fit-height-to-window)
-;;     ("W" pdf-view-fit-width-to-window)
-;;     ("P" pdf-view-fit-page-to-window)
-;;     ("n" pdf-view-next-page-command :color red)
-;;     ("p" pdf-view-previous-page-command :color red)
-;;     ("d" pdf-view-dark-minor-mode)
-;;     ("b" pdf-view-set-slice-from-bounding-box)
-;;     ("r" pdf-view-reset-slice)
-;;     ("g" pdf-view-first-page)
-;;     ("G" pdf-view-last-page)
-;;     ("e" pdf-view-goto-page)
-;;     ("o" pdf-outline)
-;;     ("s" pdf-occur)
-;;     ("i" pdf-misc-display-metadata)
-;;     ("u" pdf-view-revert-buffer)
-;;     ("F" pdf-links-action-perfom)
-;;     ("f" pdf-links-isearch-link)
-;;     ("B" pdf-history-backward :color red)
-;;     ("N" pdf-history-forward :color red)
-;;     ("l" image-forward-hscroll :color red)
-;;     ("h" image-backward-hscroll :color red))
-;;   )
-
-
-
-
-
 (use-package pdf-tools
   :defer t
   :bind (:map pdf-view-mode-map
@@ -395,13 +267,14 @@
               ("C-r" . 'isearch-backward)
               ("C-c h" . hydra-pdftools/body)
               ("M-w" . 'pdf-view-kill-ring-save)
-              ("c" . 'pdf-annot-add-highlight-markup-annotation)
+              ("C" . 'pdf-annot-add-highlight-markup-annotation)
               ("d" . 'pdf-annot-add-text-annotation)
+              ("c" . 'pdf-view-goto-page)
               ("D" . 'pdf-annot-delete)
               )
   :config
   ;; initialise
-  (pdf-tools-install)
+  ;;(pdf-tools-install)
   ;; open pdfs scaled to fit page
   (setq-default pdf-view-display-size 'fit-width)
   ;; automatically annotate highlights
@@ -589,12 +462,25 @@
 (after! org-roam
   (setq org-roam-directory "~/Dropbox/org/notes/")
   (setq org-roam-capture-templates
-        '(("x" "default" plain (function org-roam--capture-get-point)
+        '(("x" "braindump" plain (function org-roam--capture-get-point)
            "%?"
            :file-name "${slug}"
            :head "#+SETUPFILE:./hugo_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: braindump
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
+           :unnarrowed t)
+
+          ("t" "ai" plain (function org-roam--capture-get-point)
+           "%?"
+           :file-name "${slug}"
+           :head "#+SETUPFILE:./hugo_setup.org
+#+TITLE: ${title}
+#+HUGO_SECTION: ai
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
@@ -940,7 +826,7 @@
         projectile-project-search-path '("/run/media/light/Project/work/"))
 
 
-
+)
 
 
 
@@ -951,40 +837,42 @@
 ;;  (setq org-bullets-bullet-list '("◉" "◎" "✸" "✿" "✤" "⚫")
 (after! org
   (setq org-hide-emphasis-markers t
-        org-superstar-headline-bullets-list '("⚫" "⦾" "◉" "◎" "❥" "✤")
-        org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+"))
+        org-superstar-headline-bullets-list '("✪" "◉" "⦾" "❥" "✤" "◎")
+        org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+") ("a." . "1."))
         org-ellipsis "⤵"
         +pretty-code-enabled-modes '(org-mode)
         )
-)
-  ;; emphasis beautiful
   (setq org-emphasis-alist
   '(("*" (bold :foreground "Orange" ))
-    ("/" italic)
+    ("/" (italic :foreground "VioletRed"))
     ("_" underline)
     ("=" (:foreground "maroon"))
     ("@" (:foreground "seashell"))
     ("~" (:foreground "deep sky blue"))
-    ("+" (:strike-through t))))
+    ("+" (:strike-through t :foreground "slate grey" ))))
+)
+  ;; emphasis beautiful
+(after! org
+  (if window-system
+      (let* ((variable-tuple
+              (cond ((x-list-fonts "Iosevka Nerd Font") '(:font "Iosevka Nerd Font"))
+                    ((x-list-fonts "Liberation Serif")   '(:font "Liberation Serif"))
+                    ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
+                    (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
+             (headline           `(:inherit default :weight bold )))
 
-  (let* ((variable-tuple
-          (cond ((x-list-fonts "Iosevka Nerd Font") '(:font "Iosevka Nerd Font"))
-                ((x-list-fonts "Liberation Serif")   '(:font "Liberation Serif"))
-                ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
-                (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-         (headline           `(:inherit default :weight bold )))
-
-    (custom-theme-set-faces
-     'user
-     `(org-level-8 ((t (:foreground "DarkGoldenrod4" ,@headline ,@variable-tuple :height 1.0))))
-     `(org-level-7 ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.10))))
-     `(org-level-6 ((t (:foreground "DarkGoldenrod2",@headline ,@variable-tuple :height 1.15))))
-     `(org-level-5 ((t (:foreground "brown",@headline ,@variable-tuple :height 1.2))))
-     `(org-level-4 ((t (:foreground "#c397d8",@headline ,@variable-tuple :height 1.25))))
-     `(org-level-3 ((t (:foreground "DarkOliveGreen3",@headline ,@variable-tuple :height 1.30))))
-     `(org-level-2 ((t (:foreground "DarkGoldenrod4",@headline ,@variable-tuple :height 1.35))))
-     `(org-level-1 ((t (:foreground "#d54e53" ,@headline ,@variable-tuple :height 1.4))))
-     `(org-document-title ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.45 :underline nil))))))
+        (custom-theme-set-faces
+         'user
+         `(org-level-8 ((t (:foreground "DarkGoldenrod4" ,@headline ,@variable-tuple :height 1.0))))
+         `(org-level-7 ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.0))))
+         `(org-level-6 ((t (:foreground "DarkGoldenrod2",@headline ,@variable-tuple :height 1.0))))
+         `(org-level-5 ((t (:foreground "brown",@headline ,@variable-tuple :height 1.05))))
+         `(org-level-4 ((t (:foreground "#c397d8",@headline ,@variable-tuple :height 1.10))))
+         `(org-level-3 ((t (:foreground "DarkOliveGreen3",@headline ,@variable-tuple :height 1.15))))
+         `(org-level-2 ((t (:foreground "DarkGoldenrod4",@headline ,@variable-tuple :height 1.20))))
+         `(org-level-1 ((t (:foreground "#d54e53" ,@headline ,@variable-tuple :height 1.25))))
+         `(org-document-title ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.3 :underline nil))))))
+    )
 
   (custom-theme-set-faces
    'user
@@ -1017,11 +905,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(set-popup-rule! "*helm*" :side 'bottom :height .35 :select t :vslot 5 :ttl 3)
 
 ;; Popup rules for certain buffers
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
+  ;;(set-popup-rule! "*helm*" :side 'bottom :height .35 :select t :vslot 5 :ttl 3)
+  (set-popup-rule! "^\\*Org Src" :side 'bottom :slot -2 :height 0.6 :width 0.5 :select t :autosave t :ttl nil :quit nil)
+  (set-popup-rule! "\\*RefTeX Select\\*" :size 80)
   (set-popup-rule! "*Org Select" :side 'bottom :size .45 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "*Calendar*" :side 'right :size .30 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "Dictionary" :side 'bottom :height .40 :width 20 :select t :vslot 3 :ttl 3)
@@ -1031,6 +921,7 @@
   (set-popup-rule! "\\Swiper" :side 'bottom :size .30 :select t :vslot 4 :ttl 3)
   (set-popup-rule! "*xwidget" :side 'right :size .40 :select t :vslot 5 :ttl 3)
   (set-popup-rule! "*eshell*" :side 'bottom :size .30 :select t :hslot 2 :ttl 3)
+  (set-popup-rule! "*Org clock budget report*" :side 'bottom :size .40 :select t :hslot 2 :ttl 3)
 )
 ;; reveal js presentation configuration
 ;;(after! org
@@ -1298,7 +1189,18 @@
 ")))
 
 (after! org (add-to-list 'org-capture-templates
-             '("i" "Coding notes" entry(file+headline"~/Dropbox/org/examples.org" "INBOX")
+          '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/ideas.org")
+           "* %^{Logging for...} :idea:
+:PROPERTIES:
+:Created: %U
+:Linked: %(grab-x-link-firefox-insert-org-link)
+:END:
+%i
+%?")
+))
+
+(after! org (add-to-list 'org-capture-templates
+             '("I" "Coding notes" entry(file+headline"~/Dropbox/org/examples.org" "INBOX")
 "* %^{example}
 :PROPERTIES: :SOURCE:  %^{source|Command|Script|Code|Usage} :SUBJECT: %^{subject}
 :END:
@@ -1347,6 +1249,11 @@
                "** <%<%I:%M:%S>> %^{diary entry}
 %?")))
 
+
+(after! org (add-to-list 'org-capture-templates
+             '("r" "Routine Log" entry(file+olp+datetree"~/Dropbox/org/journal/routine.org")
+               "** Routine
+%?")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1411,7 +1318,6 @@
       (when (org-entry-is-done-p)
         (org-archive-subtree)))))
 
-
 (defun my/last-captured-org-note ()
   "Move to the last line of the last org capture note."
   (interactive)
@@ -1427,17 +1333,29 @@
   (interactive)
   (switch-to-buffer "*scratch*"))
 
-
-
+(defun switch-dark-mode()
+  "Switch to dark mode with a key"
+  (interactive)
+  (if (equal doom-theme 'doom-solarized-light)
+      (progn
+        (message "Dark theme enabled")
+        (load-theme 'doom-tomorrow-night 'noconfirm)
+        (doom/reload-theme))
+    (progn
+      (message "Light theme enabled")
+      (load-theme 'doom-solarized-light 'noconfirm)
+      (doom/reload-theme))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Keybindings                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+(bind-key "<f5>" 'switch-dark-mode)
 (bind-key "C-c 2" 'vsplit-last-buffer)
 (bind-key "C-c 3" 'hsplit-last-buffer)
 (bind-key "s-<return>" 'newline-and-indent)
+(bind-key "s-e" #'+ivy/project-search-specific-files)
+(bind-key "s-/" #'doom/toggle-comment-region-or-line)
 (map! :leader
       (:prefix "e"
         :n "e" #'ace-window
@@ -1652,17 +1570,6 @@
           ("<S-left>" . org-clock-convenience-fill-gap-both)))
 
 
-(after! org
-  (setq org-time-budgets '((:title "Work" :tags "+@work" :budget "30:00" :block workweek)
-                           (:title "Sideprojects" :tags "+@personal+project" :budget "15:00" :block week)
-                           (:title "Music Practice" :tags "+music" :budget "4:00" :block week)
-                           (:title "Evolution" :tags "+@growth" :budget "5:00" :block week)
-                           (:title "Easy work" :tags "+Easy" :budget "40:00" :block week)
-                           (:title "Average" :tags "+Average" :budget "20:00" :block week)
-                           (:title "Challenge" :tags "+Challenge" :budget "10:00" :block week)
-                           (:title "Personal Tasks" :tags "+@personal" :budget "19:00" :block week)))
-)
-
 
 
 (use-package dired-rainbow
@@ -1709,7 +1616,7 @@
 
 
 (after! org
-  (load! "+dragndrop")
+;;  (load! "+dragndrop")
   (defun my-org-download-screenshot ()
     "Capture screenshot and insert the resulting file. The screenshot tool is determined by `org-download-screenshot-method'."
     (interactive)
@@ -1720,7 +1627,7 @@
       (while (not (file-exists-p tmp-file))
         (sleep-for 2))
       (org-download-image tmp-file)))
-  (global-set-key (kbd "<print>") 'my-org-download-screenshot)
+  (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 )
 
 (use-package webkit-katex-render
@@ -1754,3 +1661,1691 @@
    '( ;; my own stuff
      (?B    "\\mathbb"        nil          t    nil  nil)
      (?a    "\\abs"           nil          t    nil  nil))))
+
+
+
+(defvar chrome-bookmarks-file
+  (cl-find-if
+   #'file-exists-p
+   ;; Base on `helm-chrome-file'
+   (list
+    "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
+    "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
+    "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
+   ;; "~/.config/google-chrome/Default/Bookmarks"
+   ;; "~/bookmarks_edge_beta.json"
+   ;; "~/bookmarks_edge_dev.json"
+   ;; "~/bookmarks_edge.json"
+    "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
+   ;; "~/.config/google-chrome/Default/Bookmarks"
+   ;; "~/.config/chromium/Default/Bookmarks"
+    (substitute-in-file-name
+     "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
+    (substitute-in-file-name
+     "$USERPROFILE/Local Settings/Application Data/Google/Chrome/User Data/Default/Bookmarks")))
+  "Path to Google Chrome Bookmarks file (it's JSON).")
+
+(defun chrome-bookmarks-insert-as-org ()
+  "Insert Chrome Bookmarks as org-mode headings."
+  (interactive)
+  (require 'json)
+  (require 'org)
+  (let ((data (let ((json-object-type 'alist)
+                    (json-array-type  'list)
+                    (json-key-type    'symbol)
+                    (json-false       nil)
+                    (json-null        nil))
+                (json-read-file chrome-bookmarks-file)))
+        level)
+    (cl-labels ((fn
+                 (al)
+                 (pcase (alist-get 'type al)
+                   ("folder"
+                    (insert
+                     (format "%s %s\n"
+                             (make-string level ?*)
+                             (alist-get 'name al)))
+                    (cl-incf level)
+                    (mapc #'fn (alist-get 'children al))
+                    (cl-decf level))
+                   ("url"
+                    (insert
+                     (format "%s %s\n"
+                             (make-string level ?*)
+                             (org-make-link-string
+                              (alist-get 'url al)
+                              (alist-get 'name al))))))))
+      (setq level 1)
+      (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
+      (setq level 1)
+      (fn (alist-get 'other (alist-get 'roots data))))))
+
+
+
+
+
+;; New here
+;;
+;; * Markup commands for org-mode
+
+
+(defun org-markup-region-or-point (type beginning-marker end-marker)
+  "Apply the markup TYPE with BEGINNING-MARKER and END-MARKER to region, word or point.
+This is a generic function used to apply markups. It is mostly
+the same for the markups, but there are some special cases for
+subscripts and superscripts."
+  (cond
+   ;; We have an active region we want to apply
+   ((region-active-p)
+    (let* ((bounds (list (region-beginning) (region-end)))
+	   (start (apply 'min bounds))
+	   (end (apply 'max bounds))
+	   (lines))
+      (unless (memq type '(subscript superscript))
+	(save-excursion
+	  (goto-char start)
+	  (unless (looking-at " \\|\\<")
+	    (backward-word)
+	    (setq start (point)))
+	  (goto-char end)
+	  (unless (or (looking-at " \\|\\>")
+		      (looking-back "\\>" 1))
+	    (forward-word)
+	    (setq end (point)))))
+      (setq lines
+	    (s-join "\n" (mapcar
+			  (lambda (s)
+			    (if (not (string= (s-trim s) ""))
+				(concat beginning-marker
+					(s-trim s)
+					end-marker)
+			      s))
+			  (split-string
+			   (buffer-substring start end) "\n"))))
+      (setf (buffer-substring start end) lines)
+      (forward-char (length lines))))
+   ;; We are on a word with no region selected
+   ((thing-at-point 'word)
+    (cond
+     ;; beginning of a word
+     ((looking-back " " 1)
+      (insert beginning-marker)
+      (re-search-forward "\\>")
+      (insert end-marker))
+     ;; end of a word
+     ((looking-back "\\>" 1)
+      (insert (concat beginning-marker end-marker))
+      (backward-char (length end-marker)))
+     ;; not at start or end so we just sub/sup the character at point
+     ((memq type '(subscript superscript))
+      (insert beginning-marker)
+      (forward-char (- (length beginning-marker) 1))
+      (insert end-marker))
+     ;; somewhere else in a word and handled sub/sup. mark up the
+     ;; whole word.
+     (t
+      (re-search-backward "\\<")
+      (insert beginning-marker)
+      (re-search-forward "\\>")
+      (insert end-marker))))
+   ;; not at a word or region insert markers and put point between
+   ;; them.
+   (t
+    (insert (concat beginning-marker end-marker))
+    (backward-char (length end-marker)))))
+
+
+(defun org-italics-region-or-point ()
+  "Italicize the region, word or character at point.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'italics "/" "/"))
+
+
+(defun org-bold-region-or-point ()
+  "Bold the region, word or character at point.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'bold "*" "*"))
+
+
+(defun org-underline-region-or-point ()
+  "Underline the region, word or character at point.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'underline "_" "_"))
+
+
+(defun org-code-region-or-point ()
+  "Mark the region, word or character at point as code.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'underline "~" "~"))
+
+
+(defun org-verbatim-region-or-point ()
+  "Mark the region, word or character at point as verbatim.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'underline "=" "="))
+
+
+(defun org-strikethrough-region-or-point ()
+  "Mark the region, word or character at point as strikethrough.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'strikethrough "+" "+"))
+
+
+(defun org-subscript-region-or-point ()
+  "Mark the region, word or character at point as a subscript.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'subscript "_{" "}"))
+
+
+(defun org-superscript-region-or-point ()
+  "Mark the region, word or character at point as superscript.
+This function tries to do what you mean:
+1. If you select a region, markup the region.
+2. If in a word, markup the word.
+3. Otherwise wrap the character at point in the markup."
+  (interactive)
+  (org-markup-region-or-point 'superscript "^{" "}"))
+
+
+(defun org-latex-math-region-or-point (&optional arg)
+  "Wrap the selected region in latex math markup.
+\(\) or $$ (with prefix ARG) or @@latex:@@ with double prefix.
+With no region selected, insert those and put point in the middle
+to add an equation. Finally, if you are between these markers
+then exit them."
+  (interactive "P")
+  (if (memq 'org-latex-and-related (get-char-property (point) 'face))
+      ;; in a fragment, let's get out.
+      (goto-char (or (next-single-property-change (point) 'face) (line-end-position)))
+    (let ((chars
+	   (cond
+	    ((null arg)
+	     '("\\(" . "\\)"))
+	    ((equal arg '(4))
+	     '("$" . "$"))
+	    ((equal arg '(16))
+	     '("@@latex:" . "@@")))))
+      (if (region-active-p)
+	  ;; wrap region
+	  (progn
+	    (goto-char (region-end))
+	    (insert (cdr chars))
+	    (goto-char (region-beginning))
+	    (insert (car chars)))
+	(cond
+	 ((thing-at-point 'word)
+	  (save-excursion
+	    (end-of-thing 'word)
+	    (insert (cdr chars)))
+	  (save-excursion
+	    (beginning-of-thing 'word)
+	    (insert (car chars)))
+	  (forward-char (length (car chars))))
+	 (t
+	  (insert (concat  (car chars) (cdr chars)))
+	  (backward-char (length (cdr chars)))))))))
+
+(require 'org-inlinetask)
+(defun scimax/org-return (&optional ignore)
+  "Add new list item, heading or table row with RET.
+A double return on an empty element deletes it.
+Use a prefix arg to get regular RET. "
+  (interactive "P")
+  (if ignore
+      (org-return)
+    (cond
+
+     ((eq 'line-break (car (org-element-context)))
+      (org-return-indent))
+
+     ;; Open links like usual, unless point is at the end of a line.
+     ;; and if at beginning of line, just press enter.
+     ((or (and (eq 'link (car (org-element-context))) (not (eolp)))
+	  (bolp))
+      (org-return))
+
+     ;; It doesn't make sense to add headings in inline tasks. Thanks Anders
+     ;; Johansson!
+     ((org-inlinetask-in-task-p)
+      (org-return))
+
+     ;; checkboxes - add new or delete empty
+     ((org-at-item-checkbox-p)
+      (cond
+       ;; at the end of a line.
+       ((and (eolp)
+	     (not (eq 'item (car (org-element-context)))))
+	(org-insert-todo-heading nil))
+       ;; no content, delete
+       ((and (eolp) (eq 'item (car (org-element-context))))
+	(setf (buffer-substring (line-beginning-position) (point)) ""))
+       ((eq 'paragraph (car (org-element-context)))
+	(goto-char (org-element-property :end (org-element-context)))
+	(org-insert-todo-heading nil))
+       (t
+	(org-return))))
+
+     ;; lists end with two blank lines, so we need to make sure we are also not
+     ;; at the beginning of a line to avoid a loop where a new entry gets
+     ;; created with only one blank line.
+     ((org-in-item-p)
+      (cond
+       ;; empty definition list
+       ((and (looking-at " ::")
+	     (looking-back "- " 3))
+	(beginning-of-line)
+	(delete-region (line-beginning-position) (line-end-position)))
+       ;; empty item
+       ((and (looking-at "$")
+	     (looking-back "- " 3))
+	(beginning-of-line)
+	(delete-region (line-beginning-position) (line-end-position)))
+       ;; numbered list
+       ((and (looking-at "$")
+	     (looking-back "[0-9]+. " (line-beginning-position)))
+	(beginning-of-line)
+	(delete-region (line-beginning-position) (line-end-position)))
+       ;; insert new item
+       (t
+	(end-of-line)
+	(org-insert-item))))
+
+     ;; org-heading
+     ((org-at-heading-p)
+      (if (not (string= "" (org-element-property :title (org-element-context))))
+	  (progn
+	    ;; Go to end of subtree suggested by Pablo GG on Disqus post.
+	    (org-end-of-subtree)
+	    (org-insert-heading-respect-content)
+	    (outline-show-entry))
+	;; The heading was empty, so we delete it
+	(beginning-of-line)
+	(setf (buffer-substring
+	       (line-beginning-position) (line-end-position)) "")))
+
+     ;; tables
+     ((org-at-table-p)
+      (if (-any?
+	   (lambda (x) (not (string= "" x)))
+	   (nth
+	    (- (org-table-current-dline) 1)
+	    (remove 'hline (org-table-to-lisp))))
+	  (org-return)
+	;; empty row
+	(beginning-of-line)
+	(setf (buffer-substring
+	       (line-beginning-position) (line-end-position)) "")
+	(org-return)))
+
+     ;; fall-through case
+     (t
+      (org-return)))))
+
+
+;;* org-numbered headings
+(defun scimax-overlay-numbered-headings ()
+  "Put numbered overlays on the headings."
+  (interactive)
+  (loop for (p lv) in (let ((counters (copy-list '(0 0 0 0 0 0 0 0 0 0)))
+			    (current-level 1)
+			    last-level)
+			(mapcar (lambda (x)
+				  (list (car x)
+					;; trim trailing zeros
+					(let ((v (nth 1 x)))
+					  (while (= 0 (car (last v)))
+					    (setq v (butlast v)))
+					  v)))
+				(org-map-entries
+				 (lambda ()
+				   (let* ((hl (org-element-context))
+					  (level (org-element-property :level hl)))
+				     (setq last-level current-level
+					   current-level level)
+				     (cond
+				      ;; no level change or increase, increment level counter
+				      ((or (= last-level current-level)
+					   (> current-level last-level))
+				       (incf (nth current-level counters)))
+
+				      ;; decrease in level
+				      (t
+				       (loop for i from (+ 1 current-level) below (length counters)
+					     do
+					     (setf (nth i counters) 0))
+				       (incf (nth current-level counters))))
+
+				     (list (point) (-slice counters 1)))))))
+	do
+	(let ((ov (make-overlay p p)))
+	  (overlay-put ov 'before-string (concat (mapconcat 'number-to-string lv ".") ". "))
+	  (overlay-put ov 'numbered-heading t))))
+
+
+(define-minor-mode scimax-numbered-org-mode
+  "Minor mode to number org headings."
+  :init-value nil
+  (cl-labels ((fl-noh (limit) (save-restriction
+				(widen)
+				(ov-clear 'numbered-heading)
+				(scimax-overlay-numbered-headings))))
+
+    (if scimax-numbered-org-mode
+	(progn
+	  (font-lock-add-keywords
+	   nil
+	   `((fl-noh 0 nil)))
+	  (font-lock-fontify-buffer))
+      (ov-clear 'numbered-heading)
+      (font-lock-remove-keywords
+       nil
+       `((fl-noh 0 nil))))))
+
+
+(after! org
+(bind-key "s--" 'org-subscript-region-or-point)
+(bind-key "s-=" 'org-superscript-region-or-point)
+(bind-key "s-i" 'org-italics-region-or-point)
+(bind-key "s-b" 'org-bold-region-or-point)
+(bind-key "s-v" 'org-verbatim-region-or-point)
+(bind-key "s-c" 'org-code-region-or-point)
+(bind-key "s-u" 'org-underline-region-or-point)
+(bind-key "s-+" 'org-strikethrough-region-or-point)
+(bind-key "s-4" 'org-latex-math-region-or-point)
+)
+
+
+;;;###autoload
+(defhydra scimax-dired (:color blue :hint nil :inherit (scimax-base/heads))
+  "
+Mark              Operate         Misc              Navigate
+----              -------         ----              --------
+_fd_: flag del    _C_: copy       _+_: mkdir        _<up>_: up directory
+_f#_: autosave    _R_: rename     _o_: open other
+_f~_: backups     _D_: delete
+_f&_: garbage     _F_: open marks
+_fe_: extension
+----
+_m_: mark         _T_: touch
+_/_: directories  _M_: chmod
+_@_: symlinks     _G_: chgrp
+_O_: omitted      _O_: chown
+----
+_U_: unmark all   _A_: find regx
+_t_: toggle marks _Q_: find/rep
+"
+  ;; marking
+  ("t" dired-toggle-marks "Toggle marks")
+  ("m" dired-mark "mark")
+  ("u" dired-unmark "unmark")
+  ("fd" dired-flag-file-deletion "Flag for deletion")
+  ("f#" dired-flag-auto-save-files "Flag autosave")
+  ("f~" dired-flag-backup-files "Flag backup files")
+  ("f&" dired-flag-garbage-files "Flag garbage files")
+  ("fe" dired-flag-extension "Flag extension")
+  ("/" dired-mark-directories "Mark directories")
+  ("@" dired-mark-symlinks "Mark symlinks")
+  ("." dired-mark-extension  "Mark extension")
+  ("O" dired-mark-omitted "Mark omitted")
+  ("U" dired-unmark-all-marks "Unmark all marks")
+
+  ("C" dired-do-copy)
+  ("R" dired-do-rename)
+  ("D" dired-do-delete)
+  ("F" dired-do-find-marked-files)
+  ("!" dired-do-shell-command)
+  ("&" dired-do-async-shell-command)
+
+  ("T" dired-do-touch)
+  ("M" dired-do-chmod)
+  ("G" dired-do-chgrp)
+  ("O" dired-do-chown)
+
+  ("A" dired-do-find-regexp)
+  ("Q" dired-do-find-regexp-and-replace)
+
+  ("+" dired-create-directory)
+  ("o" dired-find-file-other-window)
+
+  ("<up>" dired-up-directory))
+
+
+;;;###autoload
+(defhydra scimax-org-table (:color red :hint nil :inherit (scimax-base/heads))
+  "
+org table
+_ic_: insert column    _M-<left>_: move col left    _d_: edit field
+_dc_: delete colum     _M-<right>_: move col right  _e_: eval formula
+_ir_: insert row       _M-<up>_: move row up        _E_: export table
+_ic_: delete row       _M-<down>_: move row down    _r_: recalculate
+_i-_: insert line      _w_: wrap region             _I_: org-table-iterate
+_-_: insert line/move  ^ ^                          _D_: formula debugger
+_s_ort  _t_ranspose _m_ark
+_<_: beginning of table _>_: end of table
+"
+  ("ic" org-table-insert-column)
+  ("ir" org-table-insert-row)
+  ("dc" org-table-delete-column)
+  ("dr" org-table-kill-row)
+  ("i-" org-table-insert-hline)
+  ("-" org-table-hline-and-move)
+
+  ("d" org-table-edit-field)
+  ("e" org-table-eval-formula)
+  ("E" org-table-export :color blue)
+  ("r" org-table-recalculate)
+  ("I" org-table-iterate)
+  ("B" org-table-iterate-buffer-tables)
+  ("w" org-table-wrap-region)
+  ("D" org-table-toggle-formula-debugger)
+
+  ("M-<up>" org-table-move-row-up)
+  ("M-<down>" org-table-move-row-down)
+  ("M-<left>" org-table-move-column-left)
+  ("M-<right>" org-table-move-column-right)
+  ("t" org-table-transpose-table-at-point)
+
+  ("m" (progn (goto-char (org-table-begin))
+	      (org-mark-element)))
+  ("s" org-table-sort-lines)
+  ("<" (goto-char (org-table-begin)))
+  (">" (progn (goto-char (org-table-begin))
+	      (goto-char (org-element-property :end (org-element-context))))))
+
+
+;;;###autoload
+(defhydra scimax-org-headline (:color red :hint nil :inherit (scimax-base/heads))
+  "
+org headline
+Navigation               Organize         insert
+--------------------------------------------------------------------------------------------------------------------
+_n_ext heading           _mu_: move up    _ip_: set property    _s_: narrow subtree _I_: clock in   _,_: priority
+_p_revious heading       _md_: move down  _dp_: delete property _w_: widen          _O_: clock out  _0_: rm priority
+_f_: forward same level  _mr_: demote     _it_: tag             _r_: refile         _e_: set effort _1_: A
+_b_: back same level     _ml_: promote    _t_: todo             _mm_: mark           _E_: inc effort _2_: B
+_j_ump to heading        _ih_: insert hl  _id_: deadline        _=_: columns        ^ ^             _3_: C
+_F_: next block          _a_: archive     _is_: schedule
+_B_: previous block      _S_: sort        _v_: agenda           _/_: sparse tree
+"
+
+  ;; Navigation
+  ("n" org-next-visible-heading)
+  ("p" org-previous-visible-heading)
+  ("f" org-forward-heading-same-level)
+  ("b" org-backward-heading-same-level)
+  ("j" org-goto)
+  ("F" org-next-block)
+  ("B" org-previous-block)
+  ("a" org-archive-subtree-default-with-confirmation)
+  ("ih" org-insert-heading)
+  ("S" org-sort)
+  ("mm" org-mark-subtree)
+
+  ;; organization
+  ("mu" org-move-subtree-up)
+  ("md" org-move-subtree-down)
+  ("mr" org-demote-subtree)
+  ("ml" org-promote-subtree)
+
+  ("ip" org-set-property)
+  ("dp" org-delete-property)
+  ("id" org-deadline)
+  ("is" org-schedule)
+  ("t" org-todo)
+  ("it" org-set-tags)
+  ("<tab>" org-cycle)
+
+  ("r" org-refile)
+  ("#" org-toggle-comment)
+  ("s" org-narrow-to-subtree)
+  ("w" widen)
+  ("=" org-columns)
+
+  ("I" org-clock-in)
+  ("O" org-clock-out)
+  ("e" org-set-effort)
+  ("E" org-inc-effort)
+  ("," org-priority)
+  ("0" (org-priority 32))
+  ("1" (org-priority 65))
+  ("2" (org-priority 66))
+  ("3" (org-priority 67))
+
+  ;; misc
+  ("v" org-agenda)
+  ("/" org-sparse-tree))
+
+;;;###autoload
+(defhydra scimax-python-mode (:color red :hint nil :inherit (scimax-base/heads))
+  "
+Python helper
+_a_: begin def/class  _w_: move up   _x_: syntax    _Sb_: send buffer
+_e_: end def/class    _s_: move down _n_: next err  _Ss_: switch shell
+_<_: dedent line      ^ ^            _p_: prev err
+_>_: indent line
+_j_: jump to
+_._: goto definition
+_t_: run tests _m_: magit  _8_: autopep8
+"
+  ("a" beginning-of-defun)
+  ("e" end-of-defun)
+  ("<" python-indent-shift-left)
+  (">" python-indent-shift-right)
+  ("j" counsel-imenu)
+
+  ("t" elpy-test)
+  ("." elpy-goto-definition)
+  ("x" elpy-check)
+  ("n" elpy-flymake-next-error)
+  ("p" elpy-flymake-previous-error)
+
+  ("m" magit-status)
+
+  ("w" elpy-nav-move-line-or-region-up)
+  ("s" elpy-nav-move-line-or-region-down)
+
+  ("Sb" elpy-shell-send-region-or-buffer)
+  ("Ss" elpy-shell-switch-to-shell)
+
+  ("8" autopep8))
+
+
+(defun autopep8 ()
+  "Replace Python code block contents with autopep8 corrected code."
+  (interactive)
+  (unless (executable-find "autopep8")
+    (if (executable-find "pip")
+	(shell-command "python -c \"import pip; pip.main(['install','autopep8'])\"")
+      (shell-command "python -c \"from setuptools.command import easy_install; easy_install.main(['-U','autopep8'])\"")))
+  (let* ((src (org-element-context))
+	 (beg (org-element-property :begin src))
+	 (value (org-element-property :value src)))
+    (save-excursion
+      (goto-char beg)
+      (search-forward value)
+      (shell-command-on-region
+       (match-beginning 0)
+       (match-end 0)
+       "autopep8 -a -a -" nil t))))
+
+
+;; * pylint
+(defvar pylint-options
+  '()
+  "List of options to use with pylint.")
+
+(setq pylint-options
+      '("-r no "			 ; no reports
+	;; we are not usually writing programs where it
+	;; makes sense to be too formal on variable
+	;; names.
+	"--disable=invalid-name "
+	;; don't usually have modules, which triggers
+	;; this when there is not string at the top
+	"--disable=missing-docstring "
+	;; superfluous-parens is raised with print(),
+	;; which I am promoting for python3
+	;; compatibility.
+	"--disable=superfluous-parens "	;
+
+	;; these do not seem important for my work.
+	"--disable=too-many-locals "	;
+
+	;; this is raised in solving odes and is
+	;; unimportant for us.
+	"--disable=unused-argument "	;
+	"--disable=unused-wildcard-import "
+	"--disable=redefined-outer-name "
+	;; this is triggered a lot from fsolve
+	"--disable=unbalanced-tuple-unpacking "
+	"--disable=wildcard-import "
+	"--disable=redefined-builtin "
+	;; I dont mind semicolon separated lines
+	"--disable=multiple-statements "
+	;; pylint picks up np.linspace as a no-member error. That does not make sense.
+	"--disable=no-member "
+	"--disable=wrong-import-order "
+	"--disable=unused-import "))
+
+(defun pylint ()
+  "Run pylint on a source block.
+Opens a buffer with links to what is found. This function installs pylint if needed."
+  (interactive)
+  (let ((eop (org-element-at-point))
+	(temporary-file-directory ".")
+        (cb (current-buffer))
+	(n) ; for line number
+	(cn) ; column number
+	(content) ; error on line
+	(pb "*pylint*")
+	(link)
+	(tempfile))
+
+    (unless (executable-find "pylint")
+      (if (executable-find "pip")
+	  (shell-command "python -c \"import pip; pip.main(['install','pylint'])\"")
+	(shell-command "python -c \"from setuptools.command import easy_install; easy_install.main(['pylint'])\"")))
+
+    ;; rm buffer if it exists
+    (when (get-buffer pb) (kill-buffer pb))
+
+    ;; only run if in a python code-block
+    (when (and (eq 'src-block (car eop))
+	       (string= "python" (org-element-property :language eop)))
+
+      ;; tempfile for the code
+      (setq tempfile (make-temp-file "org-py-check" nil ".py"))
+      ;; create code file
+      (with-temp-file tempfile
+	(insert (org-element-property :value eop)))
+
+      ;; pylint
+      (let ((status (shell-command
+		     (concat
+		      "pylint "
+		      (mapconcat 'identity pylint-options " ")
+		      " "
+		      ;; this is the file to check.
+		      (file-name-nondirectory tempfile))))
+
+	    ;; remove empty strings
+	    (output (delete "" (split-string
+				(with-current-buffer "*Shell Command Output*"
+				  (buffer-string)) "\n"))))
+
+	;; also remove this line so the output is empty if nothing
+	;; comes up
+	(setq output (delete
+		      "No config file found, using default configuration"
+		      output))
+
+	(kill-buffer "*Shell Command Output*")
+	(if output
+	    (progn
+	      (set-buffer (get-buffer-create pb))
+	      (insert (format "\n\n* pylint (status = %s)\n" status))
+	      (insert "pylint checks your code for errors, style and convention. Click on the links to jump to each line.
+")
+
+	      (dolist (line output)
+		;; pylint gives a line and column number
+		(if
+		    (string-match "[A-Z]:\\s-+\\([0-9]*\\),\\s-*\\([0-9]*\\):\\(.*\\)"
+				  line)
+		    (let ((line-number (match-string 1 line))
+			  (column-number (match-string 2 line))
+			  (content (match-string 3 line)))
+
+		      (setq link (format "[[elisp:(progn (switch-to-buffer-other-window \"%s\")(goto-char %s)(forward-line %s)(forward-line 0)(forward-char %s))][%s]]\n"
+					 cb
+					 (org-element-property :begin eop)
+					 line-number
+					 column-number
+					 line)))
+		  ;; no match, just insert line
+		  (setq link (concat line "\n")))
+		(insert link)))
+	  (message "pylint was clean!")))
+
+      (when (get-buffer pb)
+	;; open the buffer
+	(switch-to-buffer-other-window pb)
+	(goto-char (point-min))
+	(insert "Press q to close the window\n")
+	(org-mode)
+	(org-cycle '(64))  ; open everything
+	;; make read-only and press q to quit
+	(setq buffer-read-only t)
+	(use-local-map (copy-keymap org-mode-map))
+	(local-set-key "q" #'(lambda () (interactive) (kill-buffer)))
+	(switch-to-buffer-other-window cb))
+      ;; final cleanup and delete file
+      (delete-file tempfile))))
+
+
+
+
+(defun number-line-src-block ()
+  "Add line numbers to an org src-block."
+  (interactive)
+  (save-excursion
+    (let* ((src-block (org-element-context))
+           (nlines (- (length
+                       (s-split
+                        "\n"
+                        (org-element-property :value src-block)))
+                      1)))
+      ;; clear any existing overlays
+      (when number-line-overlays
+	(mapc 'delete-overlay
+	      number-line-overlays)
+	(setq number-line-overlays '()))
+
+      (goto-char (org-element-property :begin src-block))
+      ;; the beginning may be header, so we move forward to get the #+BEGIN
+      ;; line. Then jump one more to get in the code block
+      (while (not (looking-at "#\\+BEGIN"))
+	(forward-line))
+      (forward-line)
+      (loop for i from 1 to nlines
+            do
+            (beginning-of-line)
+            (let (ov)
+              (setq ov (make-overlay (point)(point)))
+              (overlay-put
+	       ov
+	       'before-string (propertize
+			       (format "%03s:" (number-to-string i))
+			       'font-lock-face '(:foreground "black" :background "gray80")
+			       'local-map (let ((map (make-sparse-keymap)))
+					    (define-key map [mouse-1]
+					      (lambda ()
+						(interactive)
+						(mapc 'delete-overlay
+						      number-line-overlays)
+						(setq number-line-overlays '())))
+					    map)))
+	      (overlay-put ov 'mouse-face 'highlight)
+	      (overlay-put ov 'help-echo "Click to remove")
+	      (overlay-put ov 'local-map (let ((map (make-sparse-keymap)))
+					   (define-key map [mouse-1]
+					     (lambda ()
+					       (interactive)
+					       (mapc 'delete-overlay
+						     number-line-overlays)
+					       (setq number-line-overlays '())))
+					   map))
+              (add-to-list 'number-line-overlays ov))
+            (next-line))))
+  (add-hook 'post-command-hook 'number-line-src-block nil 'local))
+
+
+
+(defun chunyang-yank-html ()
+  "Yank HTML from clipboard as Org or Markdown code."
+  (interactive)
+  (let* ((result
+          (condition-case err
+              ;; hex-encoded string:
+              ;;           < m e t a ......>
+              ;; «data HTML3C6D657461......3E»
+              (do-applescript "the clipboard as «class HTML»")
+            (error
+             ;; assume it's user's fault
+             (user-error "Can't get HTML data from the clipboard: %s"
+                         (error-message-string err)))))
+         (data (substring result 10 -1))
+         (html (with-temp-buffer
+                 (set-buffer-multibyte nil)
+                 (let* ((i 0))
+                   (while (> (length data) (+ 2 i))
+                     (insert (string-to-number (substring data i (+ 2 i)) 16))
+                     (cl-incf i 2)))
+                 (decode-coding-region (point-min) (point-max) 'utf-8 t)))
+         (target (cond ((derived-mode-p 'org-mode) "org")
+                       ;; the official Markdown doesn't support table?
+                       (t "gfm"))))
+    (insert
+     (with-temp-buffer
+       (if (zerop (call-process-region html nil "pandoc" nil t nil
+                                       ;; https://stackoverflow.com/a/35812743/2999892
+                                       "-f" "html-native_divs-native_spans"
+                                       "-t" target))
+           (buffer-string)
+         (error "pandoc failed: %s" (buffer-string)))))))
+
+
+(after! org
+  (defun unpackaged/org-element-descendant-of (type element)
+    "Return non-nil if ELEMENT is a descendant of TYPE.
+TYPE should be an element type, like `item' or `paragraph'.
+ELEMENT should be a list like that returned by `org-element-context'."
+    ;; MAYBE: Use `org-element-lineage'.
+    (when-let* ((parent (org-element-property :parent element)))
+      (or (eq type (car parent))
+          (unpackaged/org-element-descendant-of type parent))))
+
+;;;###autoload
+  (defun unpackaged/org-return-dwim (&optional default)
+    "A helpful replacement for `org-return-indent'.  With prefix, call `org-return-indent'.
+
+On headings, move point to position after entry content.  In
+lists, insert a new item or end the list, with checkbox if
+appropriate.  In tables, insert a new row or end the table."
+    ;; Inspired by John Kitchin: http://kitchingroup.cheme.cmu.edu/blog/2017/04/09/A-better-return-in-org-mode/
+    (interactive "P")
+    (if default
+        (org-return t)
+      (cond
+       ;; Act depending on context around point.
+
+       ;; NOTE: I prefer RET to not follow links, but by uncommenting this block, links will be
+       ;; followed.
+
+       ;; ((eq 'link (car (org-element-context)))
+       ;;  ;; Link: Open it.
+       ;;  (org-open-at-point-global))
+
+       ((org-at-heading-p)
+        ;; Heading: Move to position after entry content.
+        ;; NOTE: This is probably the most interesting feature of this function.
+        (let ((heading-start (org-entry-beginning-position)))
+          (goto-char (org-entry-end-position))
+          (cond ((and (org-at-heading-p)
+                      (= heading-start (org-entry-beginning-position)))
+                 ;; Entry ends on its heading; add newline after
+                 (end-of-line)
+                 (insert "\n\n"))
+                (t
+                 ;; Entry ends after its heading; back up
+                 (forward-line -1)
+                 (end-of-line)
+                 (when (org-at-heading-p)
+                   ;; At the same heading
+                   (forward-line)
+                   (insert "\n")
+                   (forward-line -1))
+                 ;; FIXME: looking-back is supposed to be called with more arguments.
+                 (while (not (looking-back (rx (repeat 3 (seq (optional blank) "\n")))))
+                   (insert "\n"))
+                 (forward-line -1)))))
+
+       ((org-at-item-checkbox-p)
+        ;; Checkbox: Insert new item with checkbox.
+        (org-insert-todo-heading nil))
+
+       ((org-in-item-p)
+        ;; Plain list.  Yes, this gets a little complicated...
+        (let ((context (org-element-context)))
+          (if (or (eq 'plain-list (car context))  ; First item in list
+                  (and (eq 'item (car context))
+                       (not (eq (org-element-property :contents-begin context)
+                                (org-element-property :contents-end context))))
+                  (unpackaged/org-element-descendant-of 'item context))  ; Element in list item, e.g. a link
+              ;; Non-empty item: Add new item.
+              (org-insert-item)
+            ;; Empty item: Close the list.
+            ;; TODO: Do this with org functions rather than operating on the text. Can't seem to find the right function.
+            (delete-region (line-beginning-position) (line-end-position))
+            (insert "\n"))))
+
+       ((when (fboundp 'org-inlinetask-in-task-p)
+          (org-inlinetask-in-task-p))
+        ;; Inline task: Don't insert a new heading.
+        (org-return t))
+
+       ((org-at-table-p)
+        (cond ((save-excursion
+                 (beginning-of-line)
+                 ;; See `org-table-next-field'.
+                 (cl-loop with end = (line-end-position)
+                          for cell = (org-element-table-cell-parser)
+                          always (equal (org-element-property :contents-begin cell)
+                                        (org-element-property :contents-end cell))
+                          while (re-search-forward "|" end t)))
+               ;; Empty row: end the table.
+               (delete-region (line-beginning-position) (line-end-position))
+               (org-return t))
+              (t
+               ;; Non-empty row: call `org-return-indent'.
+               (org-return t))))
+       (t
+        ;; All other cases: call `org-return-indent'.
+        (org-return t)))))
+  (advice-add #'org-return-indent :override #'unpackaged/org-return-dwim))
+
+
+(after! prodigy
+  (prodigy-define-tag
+    :name 'webpack
+    :ready-message "Compiled successfully!")
+
+  (prodigy-define-tag
+    :name 'hugook
+    :ready-message "Hugo service started")
+
+  (prodigy-define-tag
+    :name 'serve
+    :ready-message "Serving!")
+  (prodigy-define-service
+    :name "Python app"
+    :command "python"
+    :args '("-m" "SimpleHTTPServer" "6001")
+    :cwd "~/"
+    :tags '(work)
+    :stop-signal 'sigkill
+    :kill-process-buffer-on-stop t)
+
+  (prodigy-define-service
+    :name "Hugo server"
+    :port 5000
+    :command "hugo"
+    :args '("server" "-t")
+    :cwd "~/Dropbox/org/blogging/"
+    :stop-signal 'sigkill
+    :tags '(hugook)
+    :kill-process-buffer-on-stop t))
+
+
+(setq hs-special-modes-alist
+          (append
+           '((prog-mode "\"\"\"" "\"\"\"" "\"")
+             (yaml-mode "\\s-*\\_<\\(?:[^:]+\\)\\_>"
+                        ""
+                        "#"
+                        +hideshow-forward-block-by-indent nil))
+           hs-special-modes-alist
+           '((t))))
+
+(setq doom-scratch-buffer-major-mode t)
+;(setq frame-resize-pixelwise t)
+(setq show-trailing-whitespace t)
+
+
+(use-package! org-clock-budget
+  :commands (org-clock-budget-report)
+  :init
+  (defun my-buffer-face-mode-org-clock-budget ()
+    "Sets a fixed width (monospace) font in current buffer"
+    (interactive)
+    (setq buffer-face-mode-face '(:family "Iosevka" :height 1.0))
+    (buffer-face-mode)
+    (setq-local line-spacing nil))
+  :config
+  (map! :map org-clock-budget-report-mode-map
+        :nm "h" #'org-shifttab
+        :nm "l" #'org-cycle
+        :nm "e" #'org-clock-budget-report
+        :nm "s" #'org-clock-budget-report-sort
+        :nm "d" #'org-clock-budget-remove-budget
+        :nm "q" #'quit-window)
+  (add-hook! 'org-clock-budget-report-mode-hook
+    (toggle-truncate-lines 1)
+    (my-buffer-face-mode-org-clock-budget)))
+
+
+
+(use-package! webkit-katex-render
+  :when (featurep 'xwidget-internal)
+  :commands (webkit-katex-render-mode)
+  :config
+  (setq webkit-katex-render--background-color (doom-color 'bg)))
+
+
+
+;;;###autoload
+(defun *org-eldoc-get-timestamp (str)
+  "Return timestamp if on a headline or nil."
+  (if str
+      (concat
+       (let ((deadline (org-entry-get
+                        (point)
+                        "DEADLINE"
+                        t))
+             (scheduled (org-entry-get
+                         (point)
+                         "SCHEDULED"
+                         t))
+             (closed (org-entry-get
+                      (point)
+                      "CLOSED"
+                      t))
+             timestamp)
+         (if deadline
+             (setq timestamp
+                   (concat
+                    timestamp
+                    (propertize
+                     (substring deadline 1 -1)
+                     'face
+                     'org-deadline-custom)
+                    " ")))
+         (if scheduled
+             (setq timestamp
+                   (concat
+                    timestamp
+                    (propertize
+                     (substring scheduled 1 -1)
+                     'face
+                     'org-scheduled-custom)
+                    " ")))
+         (if closed
+             (setq timestamp
+                   (concat
+                    timestamp
+                    (propertize
+                     (substring closed 1 -1)
+                     'face
+                     'org-closed-custom)
+                    " ")))
+         timestamp)
+       str)
+    nil))
+
+
+;;;###autoload
+(defun +org-private/*org-ctrl-c-ctrl-c-counsel-org-tag ()
+  "Hook for `org-ctrl-c-ctrl-c-hook' to use `counsel-org-tag'."
+  (if (save-excursion
+        (beginning-of-line)
+        (looking-at "[ \t]*$"))
+      (or (run-hook-with-args-until-success
+           'org-ctrl-c-ctrl-c-final-hook)
+          (user-error
+           "C-c C-c can do nothing useful at this location"))
+    (let* ((context (org-element-context))
+           (type (org-element-type context)))
+      (case type
+        ;; When at a link, act according to the parent instead.
+        (link
+         (setq context
+               (org-element-property
+                :parent context))
+         (setq type
+               (org-element-type context)))
+        ;; Unsupported object types: refer to the first supported
+        ;; element or object containing it.
+        ((bold
+          code
+          entity
+          export-snippet
+          inline-babel-call
+          inline-src-block
+          italic
+          latex-fragment
+          line-break
+          macro
+          strike-through
+          subscript
+          superscript
+          underline
+          verbatim)
+         (setq context
+               (org-element-lineage
+                context
+                '(radio-target
+                  paragraph
+                  verse-block
+                  table-cell)))))
+      ;; For convenience: at the first line of a paragraph on the
+      ;; same line as an item, apply function on that item instead.
+      (when (eq type 'paragraph)
+        (let ((parent (org-element-property
+                       :parent context)))
+          (when (and (eq (org-element-type parent)
+                         'item)
+                     (= (line-beginning-position)
+                        (org-element-property
+                         :begin parent)))
+            (setq context
+                  parent
+                  type
+                  'item))))
+      (case type
+        ((headline inlinetask)
+         (save-excursion
+           (goto-char
+            (org-element-property
+             :begin context))
+           (call-interactively
+            'counsel-org-tag))
+         t)))))
+
+
+
+
+(defun +org-private/get-name-src-block ()
+  (interactive)
+
+
+  (let ((completion-ignore-case t)
+        (case-fold-search t)
+        (all-block-names (org-babel-src-block-names)))
+    (ivy-read "Named Source Blocks: " all-block-names
+              :require-match t
+              :history 'get-name-src-block-history
+              :preselect (let (select (thing-at-point 'symbol))
+                           (if select (substring-no-properties select)))
+              :caller '+org-private/get-name-src-block
+              :action #'+org-private/get-name-src-block-action-insert)))
+
+
+
+;;;###autoload (autoload '+org-private@org-babel-hydra/body "~/.doom.d/modules/lang/org-private/autoload/org-babel" nil t)
+(defhydra +org-private@org-babel-hydra (:color pink :hint nil)
+    "
+Org-Babel: _j_/_k_ next/prev   _g_oto     _TAB_/_i_/_I_ show/hide
+           _'_ edit   _c_lear result      _e_xecute     _s_plit"
+    ("c" org-babel-remove-result)
+    ("e" org-babel-execute-src-block)
+    ("'" org-edit-src-code)
+    ("TAB" org-hide-block-toggle-maybe)
+    ("s" org-babel-demarcate-block)
+    ("g" org-babel-goto-named-src-block)
+    ("i" org-show-block-all)
+    ("I" org-hide-block-all)
+    ("j" org-babel-next-src-block)
+    ("k" org-babel-previous-src-block)
+    ("q" nil "cancel" :color blue))
+
+
+;; Fontification taken from https://tex.stackexchange.com/a/86119/81279
+(setq font-latex-match-reference-keywords
+      '(;; biblatex
+        ("printbibliography" "[{")
+        ("addbibresource" "[{")
+        ;; Standard commands
+        ("cite" "[{")
+        ("citep" "[{")
+        ("citet" "[{")
+        ("Cite" "[{")
+        ("parencite" "[{")
+        ("Parencite" "[{")
+        ("footcite" "[{")
+        ("footcitetext" "[{")
+        ;; Style-specific commands
+        ("textcite" "[{")
+        ("Textcite" "[{")
+        ("smartcite" "[{")
+        ("Smartcite" "[{")
+        ("cite*" "[{")
+        ("parencite*" "[{")
+        ("supercite" "[{")
+        ;; Qualified citation lists
+        ("cites" "[{")
+        ("Cites" "[{")
+        ("parencites" "[{")
+        ("Parencites" "[{")
+        ("footcites" "[{")
+        ("footcitetexts" "[{")
+        ("smartcites" "[{")
+        ("Smartcites" "[{")
+        ("textcites" "[{")
+        ("Textcites" "[{")
+        ("supercites" "[{")
+        ;; Style-independent commands
+        ("autocite" "[{")
+        ("Autocite" "[{")
+        ("autocite*" "[{")
+        ("Autocite*" "[{")
+        ("autocites" "[{")
+        ("Autocites" "[{")
+        ;; Text commands
+        ("citeauthor" "[{")
+        ("Citeauthor" "[{")
+        ("citetitle" "[{")
+        ("citetitle*" "[{")
+        ("citeyear" "[{")
+        ("citedate" "[{")
+        ("citeurl" "[{")
+        ;; Special commands
+        ("fullcite" "[{")
+        ;; cleveref
+        ("cref" "{")
+        ("Cref" "{")
+        ("cpageref" "{")
+        ("Cpageref" "{")
+        ("cpagerefrange" "{")
+        ("Cpagerefrange" "{")
+        ("crefrange" "{")
+        ("Crefrange" "{")
+        ("labelcref" "{")))
+
+(setq font-latex-match-textual-keywords
+      '(;; biblatex brackets
+
+        ;; Auxiliary Commands
+        ("textelp" "{")
+        ("textelp*" "{")
+        ("textins" "{")
+        ("textins*" "{")
+        ;; subcaption
+        ("subcaption" "[{")))
+
+(setq font-latex-match-variable-keywords
+      '(;; amsmath
+        ("numberwithin" "{")
+        ;; enumitem
+        ("setlist" "[{")
+        ("setlist*" "[{")
+        ("newlist" "{")
+        ("renewlist" "{")
+        ("setlistdepth" "{")
+        ("restartlist" "{")
+        ("crefname" "{")))
+
+
+
+
+(use-package! reftex
+  :hook (LaTeX-mode . reftex-mode)
+  :config
+  ;; set up completion for citations and references
+  (set-company-backend! 'reftex-mode 'company-reftex-labels 'company-reftex-citations)
+  ;; Get ReTeX working with biblatex
+  ;; http://tex.stackexchange.com/questions/31966/setting-up-reftex-with-biblatex-citation-commands/31992#31992
+  (setq reftex-cite-format
+        '((?a . "\\autocite[]{%l}")
+          (?b . "\\blockcquote[]{%l}{}")
+          (?c . "\\cite[]{%l}")
+          (?f . "\\footcite[]{%l}")
+          (?n . "\\nocite{%l}")
+          (?p . "\\parencite[]{%l}")
+          (?s . "\\smartcite[]{%l}")
+          (?t . "\\textcite[]{%l}"))
+        reftex-plug-into-AUCTeX t
+        reftex-toc-split-windows-fraction 0.3)
+  (map! :map reftex-mode-map
+        :localleader :n ";" 'reftex-toc)
+  (after! reftex-toc
+    (set-popup-rule! "\\*toc\\*" :size 80 :side 'left :transient nil :select t :quit nil)
+    (advice-add 'reftex-toc :override #'+latex*reftex-toc)
+
+    (add-hook! 'reftex-toc-mode-hook
+      (reftex-toc-rescan)))
+  ;; (add-hook! 'reftex-toc-mode-hook
+  ;;   (reftex-toc-rescan)
+  ;;   (map! :local
+  ;;         :e "j"   #'next-line
+  ;;         :e "k"   #'previous-line
+  ;;         :e "q"   #'kill-buffer-and-window
+  ;;         :e "ESC" #'kill-buffer-and-window))
+)
+
+(after! bibtex
+  (setq bibtex-dialect 'biblatex
+        bibtex-align-at-equal-sign t
+        bibtex-text-indentation 20)
+  (define-key bibtex-mode-map (kbd "C-c \\") #'bibtex-fill-entry))
+
+
+
+;; set different line spacing on org-agenda view
+(defun my:org-agenda-time-grid-spacing ()
+  "Set different line spacing w.r.t. time duration."
+  (save-excursion
+    (let* ((background (alist-get 'background-mode (frame-parameters)))
+           (background-dark-p (string= background "dark"))
+           (colors (if background-dark-p
+                       (list "#aa557f" "DarkGreen" "DarkSlateGray" "DarkSlateBlue")
+                     (list "#F6B1C3" "#FFFF9D" "#BEEB9F" "#ADD5F7")))
+           pos
+           duration)
+      (nconc colors colors)
+      (goto-char (point-min))
+      (while (setq pos (next-single-property-change (point) 'duration))
+        (goto-char pos)
+        (when (and (not (equal pos (point-at-eol)))
+                   (setq duration (org-get-at-bol 'duration)))
+          (let ((line-height (if (< duration 30) 1.0 (+ 0.5 (/ duration 60))))
+                (ov (make-overlay (point-at-bol) (1+ (point-at-eol)))))
+            (overlay-put ov 'face `(:background ,(car colors)
+                                                :foreground
+                                                ,(if background-dark-p "black" "white")))
+            (setq colors (cdr colors))
+            (overlay-put ov 'line-height line-height)
+            (overlay-put ov 'line-spacing (1- line-height))))))))
+(add-hook 'org-agenda-finalize-hook #'my:org-agenda-time-grid-spacing)
+
+(use-package smerge-mode
+  :after hydra
+  :config
+  (defhydra unpackaged/smerge-hydra
+    (:color pink :hint nil :post (smerge-auto-leave))
+    "
+^Move^       ^Keep^               ^Diff^                 ^Other^
+^^-----------^^-------------------^^---------------------^^-------
+_n_ext       _b_ase               _<_: upper/base        _C_ombine
+_p_rev       _u_pper              _=_: upper/lower       _r_esolve
+^^           _l_ower              _>_: base/lower        _k_ill current
+^^           _a_ll                _R_efine
+^^           _RET_: current       _E_diff
+"
+    ("n" smerge-next)
+    ("p" smerge-prev)
+    ("b" smerge-keep-base)
+    ("u" smerge-keep-upper)
+    ("l" smerge-keep-lower)
+    ("a" smerge-keep-all)
+    ("RET" smerge-keep-current)
+    ("\C-m" smerge-keep-current)
+    ("<" smerge-diff-base-upper)
+    ("=" smerge-diff-upper-lower)
+    (">" smerge-diff-base-lower)
+    ("R" smerge-refine)
+    ("E" smerge-ediff)
+    ("C" smerge-combine-with-next)
+    ("r" smerge-resolve)
+    ("k" smerge-kill-current)
+    ("ZZ" (lambda ()
+            (interactive)
+            (save-buffer)
+            (bury-buffer))
+     "Save and bury buffer" :color blue)
+    ("q" nil "cancel" :color blue))
+  :hook (magit-diff-visit-file . (lambda ()
+                                   (when smerge-mode
+                                     (unpackaged/smerge-hydra/body)))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Magit add date to commits                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defun unpackaged/magit-log--add-date-headers (&rest _ignore)
+  "Add date headers to Magit log buffers."
+  (when (derived-mode-p 'magit-log-mode)
+    (save-excursion
+      (ov-clear 'date-header t)
+      (goto-char (point-min))
+      (cl-loop with last-age
+               for this-age = (-some--> (ov-in 'before-string 'any (line-beginning-position) (line-end-position))
+                                        car
+                                        (overlay-get it 'before-string)
+                                        (get-text-property 0 'display it)
+                                        cadr
+                                        (s-match (rx (group (1+ digit) ; number
+                                                            " "
+                                                            (1+ (not blank))) ; unit
+                                                     (1+ blank) eos)
+                                                 it)
+                                        cadr)
+               do (when (and this-age
+                             (not (equal this-age last-age)))
+                    (ov (line-beginning-position) (line-beginning-position)
+                        'after-string (propertize (concat " " this-age "\n")
+                                                  'face 'magit-section-heading)
+                        'date-header t)
+                    (setq last-age this-age))
+               do (forward-line 1)
+               until (eobp)))))
+
+(define-minor-mode unpackaged/magit-log-date-headers-mode
+  "Display date/time headers in `magit-log' buffers."
+  :global t
+  (if unpackaged/magit-log-date-headers-mode
+      (progn
+        ;; Enable mode
+        (add-hook 'magit-post-refresh-hook #'unpackaged/magit-log--add-date-headers)
+        (advice-add #'magit-setup-buffer-internal :after #'unpackaged/magit-log--add-date-headers))
+    ;; Disable mode
+    (remove-hook 'magit-post-refresh-hook #'unpackaged/magit-log--add-date-headers)
+    (advice-remove #'magit-setup-buffer-internal #'unpackaged/magit-log--add-date-headers)))
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Magit when called
+;;                                        from the buffer opens it and
+;;                                        goes to it's unchanged place
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;###autoload
+(defun unpackaged/magit-status ()
+  "Open a `magit-status' buffer and close the other window so only Magit is visible.
+If a file was visited in the buffer that was active when this
+command was called, go to its unstaged changes section."
+  (interactive)
+  (let* ((buffer-file-path (when buffer-file-name
+                             (file-relative-name buffer-file-name
+                                                 (locate-dominating-file buffer-file-name ".git"))))
+         (section-ident `((file . ,buffer-file-path) (unstaged) (status))))
+    (call-interactively #'magit-status)
+    (delete-other-windows)
+    (when buffer-file-path
+      (goto-char (point-min))
+      (cl-loop until (when (equal section-ident (magit-section-ident (magit-current-section)))
+                       (magit-section-show (magit-current-section))
+                       (recenter)
+                       t)
+               do (condition-case nil
+                      (magit-section-forward)
+                    (error (cl-return (magit-status-goto-initial-section-1))))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Iedit or Flyspell                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;###autoload
+(defun unpackaged/iedit-or-flyspell ()
+  "Toggle `iedit-mode' or correct previous misspelling with `flyspell', depending on context.
+
+With point in code or when `iedit-mode' is already active, toggle
+`iedit-mode'.  With point in a comment or string, and when
+`iedit-mode' is not already active, auto-correct previous
+misspelled word with `flyspell'.  Call this command a second time
+to choose a different correction."
+  (interactive)
+  (if (or (bound-and-true-p iedit-mode)
+          (and (derived-mode-p 'prog-mode)
+               (not (or (nth 4 (syntax-ppss))
+                        (nth 3 (syntax-ppss))))))
+      ;; prog-mode is active and point is in a comment, string, or
+      ;; already in iedit-mode
+      (call-interactively #'iedit-mode)
+    ;; Not prog-mode or not in comment or string
+    (if (not (equal flyspell-previous-command this-command))
+        ;; FIXME: This mostly works, but if there are two words on the
+        ;; same line that are misspelled, it doesn't work quite right
+        ;; when correcting the earlier word after correcting the later
+        ;; one
+
+        ;; First correction; autocorrect
+        (call-interactively 'flyspell-auto-correct-previous-word)
+      ;; First correction was not wanted; use popup to choose
+      (progn
+        (save-excursion
+          (undo))  ; This doesn't move point, which I think may be the problem.
+        (flyspell-region (line-beginning-position) (line-end-position))
+        (call-interactively 'flyspell-correct-previous-word-generic)))))
+
+
+
+(defvar unpackaged/flex-fill-paragraph-column nil
+  "Last fill column used in command `unpackaged/flex-fill-paragraph'.")
+
+;;;###autoload
+(defun unpackaged/flex-fill-paragraph (&optional fewer-lines unfill)
+  "Fill paragraph, incrementing fill column to cause a change when repeated.
+The global value of `fill-column' is not modified; it is only
+bound around calls to `fill-paragraph'.
+
+When called for the first time in a sequence, unfill to the
+default `fill-column'.
+
+When called repeatedly, increase `fill-column' until filling
+changes.
+
+With one universal prefix, increase `fill-column' until the
+number of lines is reduced.  With two, unfill completely."
+  (interactive "P")
+  (let* ((fewer-lines (or fewer-lines (equal current-prefix-arg '(4))))
+         (unfill (or unfill (equal current-prefix-arg '(16))))
+         (fill-column
+          (cond (unfill (setf unpackaged/flex-fill-paragraph-column nil)
+                        most-positive-fixnum)
+                (t (setf unpackaged/flex-fill-paragraph-column
+                         (if (equal last-command this-command)
+                             (or (unpackaged/flex-fill-paragraph--next-fill-column fewer-lines)
+                                 fill-column)
+                           fill-column))))))
+    (fill-paragraph)
+    (message "Fill column: %s" fill-column)))
+
+(defun unpackaged/flex-fill-paragraph--next-fill-column (&optional fewer-lines)
+  "Return next `fill-column' value.
+If FEWER-LINES is non-nil, reduce the number of lines in the
+buffer, otherwise just change the current paragraph."
+  ;; This works well, but because of all the temp buffers, sometimes when called
+  ;; in rapid succession, it can cause GC, which can be noticeable.  It would be
+  ;; nice to avoid that.  Note that this has primarily been tested on
+  ;; `emacs-lisp-mode'; hopefully it works well in other modes.
+  (let* ((point (point))
+         (source-buffer (current-buffer))
+         (mode major-mode)
+         (fill-column (or unpackaged/flex-fill-paragraph-column fill-column))
+         (old-fill-column fill-column)
+         (hash (unless fewer-lines
+                 (buffer-hash)))
+         (original-num-lines (when fewer-lines
+                               (line-number-at-pos (point-max)))))
+    (with-temp-buffer
+      (delay-mode-hooks
+        (funcall mode))
+      (insert-buffer-substring source-buffer)
+      (goto-char point)
+      (cl-loop while (and (fill-paragraph)
+                          (if fewer-lines
+                              (= original-num-lines (line-number-at-pos (point-max)))
+                            (string= hash (buffer-hash))))
+               ;; If filling doesn't change after 100 iterations, abort by returning nil.
+               if (> (- fill-column old-fill-column) 100)
+               return nil
+               else do (cl-incf fill-column)
+               finally return fill-column))))
+
+
+(use-package! ace-link
+  :commands (ace-link))
+(after! avy
+  (setq avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\;)))
+(after! ace-window
+  (setq aw-keys '(?f ?d ?s ?r ?e ?w)
+        aw-scope 'frame
+        aw-ignore-current t
+        aw-background nil))
+
+
+(defmacro unpackaged/define-chooser (name &rest choices)
+  "Define a chooser command NAME offering CHOICES.
+Each of CHOICES should be a list, the first of which is the
+choice's name, and the rest of which is its body forms."
+  (declare (indent defun))
+  ;; Avoid redefining existing, non-chooser functions.
+  (cl-assert (or (not (fboundp name))
+                 (get name :unpackaged/define-chooser)))
+  (let* ((choice-names (mapcar #'car choices))
+         (choice-list (--map (cons (car it) `(lambda (&rest args)
+                                               ,@(cdr it)))
+                             choices))
+         (prompt (format "Choose %s: " name))
+         (docstring (concat "Choose between: " (s-join ", " choice-names))))
+    `(progn
+       (defun ,name ()
+         ,docstring
+         (interactive)
+         (let* ((choice-name (completing-read ,prompt ',choice-names)))
+           (funcall (alist-get choice-name ',choice-list nil nil #'equal))))
+       (put ',name :unpackaged/define-chooser t))))
+
+
+
+;; (defun elfeed-display-buffer (buf &optional act)
+;;   (pop-to-buffer buf)
+;;   (set-window-text-height (get-buffer-window) (round (* 0.7 (frame-height)))))
+
+;; (setq elfeed-show-entry-switch #'elfeed-display-buffer)
+
+;; (defun elfeed-search-show-entry-pre (&optional lines)
+;; "Returns a function to scroll forward or back in the Elfeed
+;; search results, displaying entries without switching to them."
+;;     (lambda (times)
+;;       (interactive "p")
+;;       (forward-line (* times (or lines 0)))
+;;       (recenter)
+;;       (call-interactively #'elfeed-search-show-entry)
+;;       (select-window (previous-window))
+;;       (unless elfeed-search-remain-on-entry (forward-line -1))))
+
+;; (define-key 'elfeed-search-mode-map (kbd "P") (elfeed-search-show-entry-pre +1))
+;; (define-key 'elfeed-search-mode-map (kbd "p") (elfeed-search-show-entry-pre -1))
+;; (define-key 'elfeed-search-mode-map (kbd "M-RET") (elfeed-search-show-entry-pre))
+
+
+;; (defun elfeed-scroll-up-command (&optional arg)
+;;   "Scroll up or go to next feed item in Elfeed"
+;;   (interactive "^P")
+;;   (let ((scroll-error-top-bottom nil))
+;;     (condition-case-unless-debug nil
+;;         (scroll-up-command arg)
+;;       (error (elfeed-show-next)))))
+
+;; (defun elfeed-scroll-down-command (&optional arg)
+;;   "Scroll up or go to next feed item in Elfeed"
+;;   (interactive "^P")
+;;   (let ((scroll-error-top-bottom nil))
+;;     (condition-case-unless-debug nil
+;;         (scroll-down-command arg)
+;;       (error (elfeed-show-prev)))))
+
+;; (define-key 'elfeed-show-mode-map (kbd "SPC") 'elfeed-scroll-up-command)
+;; (define-key 'elfeed-show-mode-map (kbd "S-SPC") 'elfeed-scroll-down-command)
+
+;; (defun elfeed-tag-selection-as (mytag)
+;;     "Returns a function that tags an elfeed entry or selection as
+;; MYTAG"
+;;     (lambda ()
+;;       "Toggle a tag on an Elfeed search selection"
+;;       (interactive)
+;;       (elfeed-search-toggle-all mytag)))
+
+;; ;;Tag with a single letter keybind:
+
+;; (define-key 'elfeed-search-mode-map "D" (elfeed-tag-selection-as 'readlater))
+;; (define-key 'elfeed-search-mode-map "d" (elfeed-tag-selection-as 'junk))
+
+
+;; (defun elfeed-show-eww-open (&optional use-generic-p)
+;;   "open with eww"
+;;   (interactive "P")
+;;   (let ((browse-url-browser-function #'eww-browse-url))
+;;     (elfeed-show-visit use-generic-p)))
+
+;; (defun elfeed-search-eww-open (&optional use-generic-p)
+;;   "open with eww"
+;;   (interactive "P")
+;;   (let ((browse-url-browser-function #'eww-browse-url))
+;;     (elfeed-search-browse-url use-generic-p)))
+
+;; (define-key 'elfeed-show-mode-map (kbd ";") 'efleed-show-eww-open)
+;; (define-key 'elfeed-search-mode-map (kbd ";") 'efleed-search-eww-open)
+
+
+;;(setq browse-url-browser-function
+;;      '(("https:\\/\\/www\\.youtu\\.*be." . browse-url-mpv)
+;;        ("." . browse-url-generic)))
+;;
+;;(defun browse-url-mpv (url &optional single)
+;;  (start-process "mpv" nil "mpv" (shell-quote-argument url)))

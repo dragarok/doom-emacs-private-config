@@ -1,5 +1,5 @@
-;;; init.el -*- lexical-binding: t; -*-
-
+;; init.el -*- lexical-binding: t; -*-
+;;
 ;; This file controls what Doom modules are enabled and what order they load in.
 ;; Remember to run 'doom sync' after modifying it!
 
@@ -38,13 +38,14 @@
        ;;indent-guides     ; highlighted indent columns
        modeline          ; snazzy, Atom-inspired modeline, plus API
        nav-flash         ; blink the current line after jumping
-       neotree           ; a project drawer, like NERDTree for vim
+       (neotree           ; a project drawer, like NERDTree for vim
+        +icons)
        ophints           ; highlight the region an operation acts on
        (popup            ; tame sudden yet inevitable temporary windows
         +all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
        (pretty-code
-        +iosevka
+        ;;+iosevka
        )      ; replace bits of code with pretty symbols
        ;;tabs              ; an tab bar for Emacs
        ;;treemacs          ; a project drawer, like neotree but cooler
@@ -115,7 +116,7 @@
 
        :lang
        ;;agda              ; types of types of types of types...
-       assembly          ; assembly for fun or debugging
+       ;;assembly          ; assembly for fun or debugging
        (cc
         +lsp)                                ; C/C++/Obj-C madness
        ;;clojure           ; java with a lisp
@@ -160,7 +161,7 @@
        (org              ; organize your plain life in plain text
         +attach
         +roam
-;;        +dragndrop       ; drag & drop files/images into org buffers
+        +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
         +gnuplot
         +jupyter        ; ipython/jupyter support for babel
@@ -202,7 +203,7 @@
        calendar
        ;;irc               ; how neckbeards socialize
        ;;(rss +org)        ; emacs as an RSS reader
-       ;;twitter           ; twitter client https://twitter.com/vnought
+       twitter           ; twitter client https://twitter.com/vnought
 
        :config
        ;;literate

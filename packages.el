@@ -1,5 +1,6 @@
 ;; Must Have packages
 (package! helm-org-rifle)
+(package! org-kanban)
 (package! org-ql)
 (package! org-super-agenda)
 (package! org-timeline)
@@ -20,7 +21,9 @@
 (package! org-analyzer)
 (package! org-autolist)
 (package! org-mru-clock)
-(package! org-time-budgets)
+;;(package! org-time-budgets)
+(package! org-clock-budget
+:recipe (:host github :repo "fuco1/org-clock-budget"))
 (package! grip-mode)
 (package! web-beautify)
 (package! ox-reveal)
@@ -64,3 +67,12 @@
   :recipe (:host github :repo "fuxialexander/emacs-webkit-katex-render"))
 (package! org-roam-bibtex
   :recipe (:host github :repo "zaeph/org-roam-bibtex"))
+(package! magit-delta
+  :recipe (:host github :repo "dandavison/magit-delta"))
+(package! transmission)
+(package! academic-phrases)
+(package! lorem-ipsum)
+(package! prism
+  :recipe (:host github :repo "alphapapa/prism.el"))
+(package! ace-link)
+(package! disable-mouse)
