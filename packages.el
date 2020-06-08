@@ -76,3 +76,5 @@
   :recipe (:host github :repo "alphapapa/prism.el"))
 (package! ace-link)
 (package! disable-mouse)
+(package! ov
+  :recipe (:host github :repo "emacsorphanage/ov.el"))

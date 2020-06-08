@@ -19,11 +19,11 @@
        (company
         +icons
         +tng)
-       ;;(helm
+       ;; (helm
        ;; +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        (ivy
-        ;;+fuzzy
+        +fuzzy
         +icons
         +prescient
         +childframe)               ; a search engine for love and life

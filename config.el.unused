@@ -134,3 +134,82 @@
 ;;
 ;;  (add-to-list 'org-export-filter-plain-text-functions 'my-html-mark-tag)
 ;;)
+
+
+;; (defun elfeed-display-buffer (buf &optional act)
+;;   (pop-to-buffer buf)
+;;   (set-window-text-height (get-buffer-window) (round (* 0.7 (frame-height)))))
+
+;; (setq elfeed-show-entry-switch #'elfeed-display-buffer)
+
+;; (defun elfeed-search-show-entry-pre (&optional lines)
+;; "Returns a function to scroll forward or back in the Elfeed
+;; search results, displaying entries without switching to them."
+;;     (lambda (times)
+;;       (interactive "p")
+;;       (forward-line (* times (or lines 0)))
+;;       (recenter)
+;;       (call-interactively #'elfeed-search-show-entry)
+;;       (select-window (previous-window))
+;;       (unless elfeed-search-remain-on-entry (forward-line -1))))
+
+;; (define-key 'elfeed-search-mode-map (kbd "P") (elfeed-search-show-entry-pre +1))
+;; (define-key 'elfeed-search-mode-map (kbd "p") (elfeed-search-show-entry-pre -1))
+;; (define-key 'elfeed-search-mode-map (kbd "M-RET") (elfeed-search-show-entry-pre))
+
+
+;; (defun elfeed-scroll-up-command (&optional arg)
+;;   "Scroll up or go to next feed item in Elfeed"
+;;   (interactive "^P")
+;;   (let ((scroll-error-top-bottom nil))
+;;     (condition-case-unless-debug nil
+;;         (scroll-up-command arg)
+;;       (error (elfeed-show-next)))))
+
+;; (defun elfeed-scroll-down-command (&optional arg)
+;;   "Scroll up or go to next feed item in Elfeed"
+;;   (interactive "^P")
+;;   (let ((scroll-error-top-bottom nil))
+;;     (condition-case-unless-debug nil
+;;         (scroll-down-command arg)
+;;       (error (elfeed-show-prev)))))
+
+;; (define-key 'elfeed-show-mode-map (kbd "SPC") 'elfeed-scroll-up-command)
+;; (define-key 'elfeed-show-mode-map (kbd "S-SPC") 'elfeed-scroll-down-command)
+
+;; (defun elfeed-tag-selection-as (mytag)
+;;     "Returns a function that tags an elfeed entry or selection as
+;; MYTAG"
+;;     (lambda ()
+;;       "Toggle a tag on an Elfeed search selection"
+;;       (interactive)
+;;       (elfeed-search-toggle-all mytag)))
+
+;; ;;Tag with a single letter keybind:
+
+;; (define-key 'elfeed-search-mode-map "D" (elfeed-tag-selection-as 'readlater))
+;; (define-key 'elfeed-search-mode-map "d" (elfeed-tag-selection-as 'junk))
+
+
+;; (defun elfeed-show-eww-open (&optional use-generic-p)
+;;   "open with eww"
+;;   (interactive "P")
+;;   (let ((browse-url-browser-function #'eww-browse-url))
+;;     (elfeed-show-visit use-generic-p)))
+
+;; (defun elfeed-search-eww-open (&optional use-generic-p)
+;;   "open with eww"
+;;   (interactive "P")
+;;   (let ((browse-url-browser-function #'eww-browse-url))
+;;     (elfeed-search-browse-url use-generic-p)))
+
+;; (define-key 'elfeed-show-mode-map (kbd ";") 'efleed-show-eww-open)
+;; (define-key 'elfeed-search-mode-map (kbd ";") 'efleed-search-eww-open)
+
+
+;;(setq browse-url-browser-function
+;;      '(("https:\\/\\/www\\.youtu\\.*be." . browse-url-mpv)
+;;        ("." . browse-url-generic)))
+;;
+;;(defun browse-url-mpv (url &optional single)
+;;  (start-process "mpv" nil "mpv" (shell-quote-argument url)))
