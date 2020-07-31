@@ -13,8 +13,22 @@
 
 ;; TODO https://github.com/leoc/org-time-budgets make my own thing
 
+
+;; exwm configurations
+;;
+;; (require 'exwm)
+;; (require 'exwm-config)
+;; (exwm-config-default)
+;; (require 'exwm-systemtray)
+;; (exwm-systemtray-enable)
+;; (helm-posframe-enable)
+;; (setq helm-posframe-parameters
+;;       '((left-fringe . 5)
+;;         (right-fringe . 5)))
 (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1)))
 (setq +pretty-code-enabled-modes nil)
+
+(load-theme 'doom-nord-light 'noconfirm)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Personal-info                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -86,9 +100,23 @@
 ;; replacement to buggy golden ratio mode
 (require 'zoom)
 (custom-set-variables
- '(zoom-mode t))
-(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(ansi-color-faces-vector
+   [default default default italic underline success warning error])
+ '(aw-keys '(106 107 108 105 111 104 121 117 112) t)
+ '(custom-safe-themes
+   '("dde8c620311ea241c0b490af8e6f570fdd3b941d7bc209e55cd87884eb733b0e" "632694fd8a835e85bcc8b7bb5c1df1a0164689bc6009864faed38a9142b97057" "e2acbf379aa541e07373395b977a99c878c30f20c3761aac23e9223345526bcc" "fe94e2e42ccaa9714dd0f83a5aa1efeef819e22c5774115a9984293af609fce7" "d71aabbbd692b54b6263bfe016607f93553ea214bc1435d17de98894a5c3a086" "3577ee091e1d318c49889574a31175970472f6f182a9789f1a3e9e4513641d86" "bc836bf29eab22d7e5b4c142d201bcce351806b7c1f94955ccafab8ce5b20208" "7b3d184d2955990e4df1162aeff6bfb4e1c3e822368f0359e15e2974235d9fa8" "54cf3f8314ce89c4d7e20ae52f7ff0739efb458f4326a2ca075bf34bc0b4f499" "71e5acf6053215f553036482f3340a5445aee364fb2e292c70d9175fb0cc8af7" "3d3807f1070bb91a68d6638a708ee09e63c0825ad21809c87138e676a60bda5d" "34b3219ae11acd81b2bb7f3f360505019f17d7a486deb8bb9c1b6d13c6616d2e" "9b272154fb77a926f52f2756ed5872877ad8d73d018a426d44c6083d1ed972b1" default))
+ '(dart-format-on-save t t)
+ '(dart-sdk-path "/opt/flutter/bin/cache/dart-sdk/" t)
+ '(hydra-posframe-parameters '((left-fringe . 5) (right-fringe . 5)))
+ '(scihub-homepage "https://sci-hub.st")
+ '(scihub-open-after-download nil)
+ '(zoom-mode t nil (zoom))
  '(zoom-size '(0.618 . 0.618)))
+
 
 
 ;;(after! dired
@@ -113,10 +141,10 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 16)
-      doom-variable-pitch-font (font-spec :family "Source Code Variable" :size 15)
-      doom-unicode-font (font-spec :family "Iosevka Nerd Font Mono" :size 14)
-      doom-big-font (font-spec :family "ShureTechMono Nerd Font Mono" :size 13))
+(setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :style "bold" :size 18)
+      doom-variable-pitch-font (font-spec :family "Source Code Variable" :size 17)
+      doom-unicode-font (font-spec :family "Iosevka Nerd Font Mono" :size 15)
+      doom-big-font (font-spec :family "ShureTechMono Nerd Font Mono" :size 16))
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
@@ -125,14 +153,36 @@
 (if (not window-system)
   (setq doom-theme 'doom-acario-dark))
 
-;;(setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
+(setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 
 ;;elfeed
-(after! org (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
-                  elfeed-db-directory "~/Dropbox/elfeed/"))
+(after! org
+  ;; (defadvice elfeed (before configure-elfeed activate)
+  ;;   "Load all feed settings before elfeed is started."
+  ;;   (rmh-elfeed-org-configure))
+)
 
 
 
+
+
+;; eldoc-fix for emacs 28
+(after! org
+  (defun org-eldoc-load ()
+    "Set up org-eldoc documentation function."
+    (interactive)
+    (cond
+     ((boundp 'eldoc-documentation-strategy)
+      (setq-local eldoc-documentation-strategy
+                  #'org-eldoc-documentation-function))
+     ((boundp 'eldoc-documentation-functions)
+      (add-hook 'eldoc-documentation-functions
+                #'org-eldoc-documentation-function nil t))
+     (t (setq-local eldoc-documentation-function
+                    #'org-eldoc-documentation-function))))
+ ;;;###autoload
+  (add-hook 'org-mode-hook #'org-eldoc-load)
+)
 
 
 
@@ -217,17 +267,21 @@
 ;;                                        Pdf tools                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+(defun bjm/save-buffer-no-args ()
+  "Save buffer ignoring arguments"
+  (save-buffer))
+
 (use-package pdf-tools
   :defer t
   :bind (:map pdf-view-mode-map
               ("C-s" . 'isearch-forward)
-              ("C-r" . 'isearch-backward)
               ("C-c h" . hydra-pdftools/body)
               ("M-w" . 'pdf-view-kill-ring-save)
-              ("C" . 'pdf-annot-add-highlight-markup-annotation)
-              ("d" . 'pdf-annot-add-text-annotation)
-              ("c" . 'pdf-view-goto-page)
-              ("D" . 'pdf-annot-delete)
+              ("s-g" . 'pdf-view-goto-page)
+              ("s-h" . 'pdf-annot-add-highlight-markup-annotation)
+              ("s-k" . 'org-noter-insert-note-no-questions)
+              ("s-j" . 'pdf-annot-delete)
               )
   :config
   ;; initialise
@@ -239,21 +293,20 @@
   ;; zoom set to 10% instead of 25
   (setq pdf-view-resize-factor 1.1)
   (with-eval-after-load "pdf-annot"
-    (define-key pdf-annot-edit-contents-minor-mode-map (kbd "<return>") 'pdf-annot-edit-contents-commit)
-    (define-key pdf-annot-edit-contents-minor-mode-map (kbd "<S-return>") 'newline)
     ;; save after adding comment
-    (advice-add 'pdf-annot-edit-contents-commit :after 'bjm/save-buffer-no-args))
+    (advice-add 'pdf-annot-edit-contents-commit :after 'bjm/save-buffer-no-args)
+    )
 
   (defhydra hydra-pdftools (:color blue :hint nil)
     "
                                                                       ╭───────────┐
        Move  History   Scale/Fit     Annotations  Search/Link    Do   │ PDF Tools │
    ╭──────────────────────────────────────────────────────────────────┴───────────╯
-         ^^_g_^^      _B_    ^↧^    _+_    ^ ^      [_al_] list    [_s_] search    [_u_] revert buffer
-         ^^^↑^^^      ^↑^    _H_    ^↑^  ↦ _W_ ↤     [_am_] markup  [_o_] outline   [_i_] info
-         ^^_p_^^      ^ ^    ^↥^    _0_    ^ ^      [_at_] text    [_F_] link      [_d_] dark mode
+         ^^_g_^^      _B_    ^↧^    _+_    ^ ^     [_al_] list    [_s_] search    [_u_] revert buffer
+         ^^^↑^^^      ^↑^    _H_    ^↑^  ↦ _W_ ↤   [_am_] markup  [_o_] outline   [_i_] info
+         ^^_p_^^      ^ ^    ^↥^    _0_    ^ ^     [_at_] text    [_F_] link      [_d_] dark mode
          ^^^↑^^^      ^↓^  ╭─^─^─┐  ^↓^  ╭─^ ^─┐   [_ad_] delete  [_f_] search link
-    _h_ ←pag_e_→ _l_  _N_  │ _P_ │  _-_    _b_     [_aa_] dired
+    _h_ ←pag_e_→ _l_  _N_  │ _P_ │  _-_    _b_     [_aa_] dired  
          ^^^↓^^^      ^ ^  ╰─^─^─╯  ^ ^  ╰─^ ^─╯   [_y_]  yank
          ^^_n_^^      ^ ^  _r_eset slice box
          ^^^↓^^^
@@ -295,22 +348,30 @@
 )
 
 
-(use-package org-pdftools
-  :defer t
-  :init (setq org-pdftools-search-string-separator "??")
-  :config
-  (define-key pdf-view-mode-map (kbd "i") 'pdf-annot-add-highlight-markup-annotation)
-  (define-key pdf-view-mode-map (kbd "p") 'pdf-annot-add-text-annotation)
-  (define-key pdf-view-mode-map (kbd "x") 'pdf-annot-delete)
-  (setq org-pdftools-root-dir "~/Dropbox/pdfs/")
-  (after! org
-    (org-link-set-parameters "pdftools"
-                             :follow #'org-pdftools-open
-                             :complete #'org-pdftools-complete-link
-                             :store #'org-pdftools-store-link
-                             :export #'org-pdftools-export)
-    (add-hook 'org-store-link-functions 'org-pdftools-store-link))
-)
+;; (use-package org-pdftools
+;;   :when (featurep! :tools pdf)
+;;   :commands org-pdftools-export
+;;   ;; :init
+;;   ;; (after! org
+;;   ;;   (org-link-set-parameters (or (bound-and-true-p org-pdftools-link-prefix) "pdf")
+;;   ;;                            :follow #'org-pdftools-open
+;;   ;;                            :complete #'org-pdftools-complete-link
+;;   ;;                            :store #'org-pdftools-store-link
+;;   ;;                            :export #'org-pdftools-export)
+;;   ;;   (add-hook! 'org-open-link-functions
+;;   ;;     (defun +org-open-legacy-pdf-links-fn (link)
+;;   ;;       "Open pdftools:* and pdfviews:* links as if they were pdf:* links."
+;;   ;;       (let ((regexp "^pdf\\(?:tools\\|view\\):"))
+;;   ;;         (when (string-match-p regexp link)
+;;   ;;           (org-pdftools-open (replace-regexp-in-string regexp "" link))
+;;   ;;           t)))))
+;;   :config
+;;   ;; (define-key pdf-view-mode-map (kbd "s-i") 'pdf-annot-add-highlight-markup-annotation)
+;;   ;; (define-key pdf-view-mode-map (kbd "s-p") 'pdf-annot-add-text-annotation)
+;;   ;; (define-key pdf-view-mode-map (kbd "s-x") 'pdf-annot-delete)
+
+;;   (setq org-pdftools-root-dir "~/Dropbox/pdfs/")
+;; )
 
 
 
@@ -359,22 +420,42 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (use-package org-noter
-  :defer 5
-  :commands
-  (org-noter org-noter-create-skeleton)
+  :defer t
+  :commands (org-noter org-noter-create-skeleton)
   :config
-  (require 'org-noter-pdftools)
-  (after! pdf-tools
-    (setq pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note))
-  (setq org-noter-notes-search-path '("~/Dropbox/org/interleave_notes/"))
-  (setq org-noter-always-create-frame nil)
-)
 
+  (defun who/org-noter-insert-highlighted-note ()
+    "Highlight the active region and add a precise note at its position."
+    (interactive)
+    ;; Adding an annotation will deactivate the region, so we reset it afterward
+    (let ((region (pdf-view-active-region)))
+      (call-interactively 'pdf-annot-add-highlight-markup-annotation)
+      (setq pdf-view-active-region region))
+    (call-interactively 'org-noter-insert-precise-note))
+
+  (setq org-noter-always-create-frame nil
+        org-noter-insert-selected-text-inside-note t
+        ;; ;; The WM can handle splits
+        ;; org-noter-notes-window-location 'other-frame
+        ;; I want to see the whole file
+        org-noter-hide-other nil
+        org-noter-insert-note-no-questions t
+        org-noter-notes-search-path '("~/Dropbox/org/interleave_notes/")
+        org-noter-separate-notes-from-heading t
+        ;; org-noter-auto-save-last-location t
+        )
+  ;; fuxialexander's code
+  (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
+)
 
 (use-package org-noter-pdftools
-  :after (org-noter)
-)
+  :after org-noter
+  :config
+  (with-eval-after-load 'pdf-annot
+    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 
+(use-package org-pdftools
+  :hook (org-load . org-pdftools-setup-link))
 
 
 
@@ -410,6 +491,30 @@
 #+hugo_categories:
 #+hugo_draft: false
 #+DATE: %t\n"
+           :unnarrowed t)
+
+
+          ("j" "paper-description" plain (function org-roam--capture-get-point)
+           "%?"
+           :file-name "${slug}"
+           :head "#+SETUPFILE:./hugo_setup.org
+#+TITLE: ${title}
+#+HUGO_SECTION: ${section}
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n
+
+* Main Contribution
+
+* Your description of significance
+
+* New algorithm or principles
+
+* Simulation Results and Comparisons
+
+* Solid Conclusion"
            :unnarrowed t)
 
           ("e" "ref" plain (function org-roam--capture-get-point)
@@ -472,8 +577,19 @@
         (org-hugo-auto-export-mode -1))))
   (add-hook 'org-mode-hook #'jethro/conditional-hugo-enable))
 
-
-
+;; org-roam server
+(use-package org-roam-server
+  :defer t
+  :config
+  (setq org-roam-server-host "0.0.0.0"
+        org-roam-server-port 1701
+        org-roam-server-export-inline-images t
+        org-roam-server-authenticate nil
+        org-roam-server-network-poll nil
+        org-roam-server-network-arrows 'from
+        org-roam-server-network-label-truncate t
+        org-roam-server-network-label-truncate-length 60
+        org-roam-server-network-label-wrap-length 20))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Blogging                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -571,8 +687,8 @@
   :after python
   :init
   (setq-default
-   conda-env-home-directory "/c/ProgramData/Miniconda3/"
-   conda-anaconda-home "/c/ProgramData/Miniconda3/")
+   conda-anaconda-home "/opt/anaconda3/"
+   conda-env-home-directory "/opt/anaconda3/")
   :config
   (setq flycheck-checker-error-threshold nil)
   ;; if you want interactive shell support, include:
@@ -735,7 +851,7 @@
 ;;  (setq org-bullets-bullet-list '("◉" "◎" "✸" "✿" "✤" "⚫")
 (after! org
   (setq org-hide-emphasis-markers t
-        org-superstar-headline-bullets-list '("✪" "◉" "⦾" "❥" "✤" "◎")
+        org-superstar-headline-bullets-list '("✪" "◉" "☢" "❥" "✤" "◎" "◇" "▸")
         org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+") ("a." . "1."))
         org-ellipsis "⤵"
         +pretty-code-enabled-modes '(org-mode)
@@ -749,54 +865,6 @@
     ("~" (:foreground "deep sky blue"))
     ("+" (:strike-through t :foreground "slate grey" ))))
 )
-  ;; emphasis beautiful
-(after! org
-  (if window-system
-      (let* ((variable-tuple
-              (cond ((x-list-fonts "Iosevka Nerd Font") '(:font "Iosevka Nerd Font"))
-                    ((x-list-fonts "Liberation Serif")   '(:font "Liberation Serif"))
-                    ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
-                    (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-             (headline           `(:inherit default :weight bold )))
-
-        (custom-theme-set-faces
-         'user
-         `(org-level-8 ((t (:foreground "DarkGoldenrod4" ,@headline ,@variable-tuple :height 1.0))))
-         `(org-level-7 ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.0))))
-         `(org-level-6 ((t (:foreground "DarkGoldenrod2",@headline ,@variable-tuple :height 1.0))))
-         `(org-level-5 ((t (:foreground "brown",@headline ,@variable-tuple :height 1.05))))
-         `(org-level-4 ((t (:foreground "#c397d8",@headline ,@variable-tuple :height 1.10))))
-         `(org-level-3 ((t (:foreground "DarkOliveGreen3",@headline ,@variable-tuple :height 1.15))))
-         `(org-level-2 ((t (:foreground "DarkGoldenrod4",@headline ,@variable-tuple :height 1.20))))
-         `(org-level-1 ((t (:foreground "#d54e53" ,@headline ,@variable-tuple :height 1.25))))
-         `(org-document-title ((t (:foreground "OrangeRed3",@headline ,@variable-tuple :height 1.3 :underline nil))))))
-    )
-
-  (custom-theme-set-faces
-   'user
-   '(variable-pitch ((t (:family "JetBrainsMono Nerd Font" :height 180 :weight medium))))
-   '(fixed-pitch ((t ( :family "JetBrainsMono Nerd Font" :slant normal :weight normal :height 1.0 :width normal)))))
-  (add-hook 'org-mode-hook 'variable-pitch-mode)
-  ;; so that texts are no longer bulky
-  (add-hook 'org-mode-hook 'auto-fill-mode)
-  (add-hook 'org-mode-hook 'visual-line-mode)
-  (custom-theme-set-faces
-   'user
-   '(org-block ((t (:inherit fixed-pitch))))
-   '(org-code ((t (:inherit (shadow fixed-pitch)))))
-   '(org-document-info ((t (:foreground "dark orange"))))
-   '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
-   '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
-   '(org-link ((t (:foreground "royal blue" :underline t))))
-   '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-   '(org-property-value ((t (:inherit fixed-pitch))) t)
-   '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-   '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
-   '(org-done ((t (:strike-through t :weight bold))))
-   '(org-headline-done ((t (:strike-through t))))
-   '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
-   '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
-)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Popup buffer rules                                                    ;;
@@ -807,11 +875,11 @@
 ;; Popup rules for certain buffers
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
-  (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
+  ;; (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
   (set-popup-rule! "^\\*Org Src" :side 'bottom :slot -2 :height 0.6 :width 0.5 :select t :autosave t :ttl nil :quit nil)
   (set-popup-rule! "\\*RefTeX Select\\*" :size 80)
   (set-popup-rule! "*Org Select" :side 'bottom :size .45 :select t :vslot 2 :ttl 3)
-  (set-popup-rule! "*Calendar*" :side 'right :size .30 :select t :vslot 2 :ttl 3)
+  (set-popup-rule! "*Calendar*" :side 'right :size .40 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "Dictionary" :side 'bottom :height .40 :width 20 :select t :vslot 3 :ttl 3)
   (set-popup-rule! "*eww*" :side 'right :size .40 :slect t :vslot 5 :ttl 3)
   (set-popup-rule! "*deadgrep" :side 'bottom :height .40 :select t :vslot 4 :ttl 3)
@@ -837,14 +905,12 @@
 
 
 (after! org
-
-
   (setq org-super-agenda-mode t)
+  (setq org-agenda-tags-column 144)
+  (setq org-tags-column 144)
   (setq org-agenda-files '("~/Dropbox/org/gtd/"))
-  ;;(setq org-agenda-start-with-log-mode t)
-
+  (setq org-agenda-start-with-log-mode t)
   (setq org-columns-default-format "%40ITEM(Task) %Effort(EE){:} %CLOCKSUM(Time Spent) %SCHEDULED(Scheduled) %DEADLINE(Deadline) %TAGS")
-
   (setq org-tags-exclude-from-inheritance '("project"))
   (setq org-agenda-sorting-strategy
       '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
@@ -860,25 +926,25 @@
 
   (setq org-agenda-skip-scheduled-if-done t
         org-agenda-skip-deadline-if-done t
-        ;;org-habit-show-habits t
+        ;; for showing only recurring task's next entry
+        org-agenda-show-future-repeats "next"
   )
 
   (setq org-super-agenda-groups
                   '((:auto-category t)))
 
-
-
   (setq org-todo-keyword-faces
                     '(("TODO" :foreground "tomato" :weight bold)
                       ("WAITING" :foreground "light sea green" :weight bold)
                       ("SOMEDAY" :foreground "firebrick" :weight bold)
+                      ("REVIEW" :foreground "firebrick" :weight bold)
                       ("STARTED" :foreground "DodgerBlue" :weight bold)
                       ("DELEGATED" :foreground "Gold" :weight bold)
                       ("NEXT" :foreground "violet red" :weight bold)
                       ("DONE" :foreground "slategrey" :weight bold)))
 
   (setq org-todo-keywords
-      '((sequence "TODO(t)" "STARTED(s!)" "WAITING(w@/!)" "NEXT(n)" "SOMEDAY(f@/!)" "PROJ(p)" "|" "DONE(d!)" "CANCELLED(c@/!)")))
+      '((sequence "TODO(t)" "STARTED(s!)" "WAITING(w@/!)" "NEXT(n)" "REVIEW(r@/!)" "SOMEDAY(f@/!)" "PROJ(p)" "|" "DONE(d!)" "CANCELLED(c@/!)")))
 ;;
 ;;  (setq org-todo-state-tags-triggers
 ;;        (quote (("CANCELLED" ("CANCELLED" . t))
@@ -909,22 +975,25 @@
   (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
 
   (setq org-tag-alist '((:startgroup . nil)
-                                  ("@personal" . ?p)
+                                  ("@mundane" . ?p)
                                   ("@work" . ?w)
                                   ("@growth" . ?g)
                                   (:endgroup . nil)
                                   (:startgroup . nil)
-                                  ("project". ?x)
-                                  ("music" . ?m)
-                                  ("catchingup" . ?c)
-                                  ("grocery" . ?y)
-                                  ("goingout". ?t)
                                   ("home" . ?h)
-                                  ("now" . ?n)
+                                  ("office" . ?o)
+                                  (:endgroup . nil)
                                   ("laptop" . ?l)
                                   ("phone" . ?e)
-                                  ("office" . ?o)
-                                  ("reads" . ?r)
+                                  (:startgroup . nil)
+                                  (:endgroup . nil)
+                                  (:startgroup . nil)
+                                  ("music" . ?m)
+                                  ("bday" . ?b)
+                                  ("ann" . ?a)
+                                  ("goingout". ?t)
+                                  ("now" . ?n)
+                                  ("read" . ?r)
                                   ("entertaintment" . ?z)
                                   (:endgroup . nil)
                                   (:startgroup . nil)
@@ -952,20 +1021,10 @@
       (call-interactively #'org-refile)))
   (provide 'zyrohex/org-notes-refile)
 
-
-
-;;
-;;
-
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
         org-clone-delete-id t)
 
 )
-
-
-
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Capture templates                                                    ;;
@@ -1007,8 +1066,8 @@
 "* TODO %(org-cliplink-capture)" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
-             '("ph" "New Project" entry (file+function my/generate-org-note-name org-back-to-heading-or-point-min)
-"* TODO %^{projectname} :project:
+             '("ph" "New Project" entry (file "~/Dropbox/org/gtd/projects.org")
+"* PROJ %^{projectname} :project:
 :PROPERTIES:
 :GOAL:    %^{goal}
 :END:
@@ -1072,15 +1131,15 @@
 :RECOMMENDER: %^{Recommender}
 :RATED: %^{RATING|5|4|3|2|1}
 :COMMENT:  %^{Comment}
-:END:")))
+:END:" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
              '("P" "Paper Log" entry(file "~/Dropbox/org/gtd/paper.org")
 "* SOMEDAY Read %^{Title}
 :PROPERTIES:
 :AUTHOR: %^{Author}
-:CATEGORY: %^{CATEGORY|VISION|NLP|RL|NEURO|MISC}
-:SUBCATEGORY: %^{Subcategory}
+:P_CATEGORY: %^{P_CATEGORY|VISION|NLP|RL|NEURO|MISC}
+:P_SUBCATEGORY: %^{P_Subcategory}
 :LINK: %^{Link}
 :SOTA: %^{SOTA|YES|NO}
 :COMMENT:  %^{Comment}
@@ -1225,12 +1284,24 @@
       (:prefix "a"
        :n "a" #'unpackaged/iedit-or-flyspell
        :n "s" #'create-new-ml-project
+       :n "w" #'change-env-and-restart-lsp
        :n "l" #'unpackaged/lorem-ipsum-overlay
        :n "h" #'unpackaged/org-outline-numbers
        :n "g" #'unpackaged/magit-status
        :n "u" #'unpackaged/flex-fill-paragraph
+       :n "i" #'org-mru-clock-in
+       :n "f" #'auto-fill-mode
+       :n "z" #'zoom-mode
+       :n "j" #'grab-x-link-firefox-insert-org-link
        :n "d" #'unpackaged/org-refile-to-datetree-using-ts-in-entry)
 )
+(defun change-env-and-restart-lsp()
+  "Changes the python environment and
+restart lsp based on that environment"
+  (interactive)
+  (conda-env-activate)
+  (lsp-restart-workspace))
+
 
 (map! :localleader
       :map markdown-mode-map
@@ -1264,10 +1335,11 @@
 
 
 (after! org-agenda (setq org-agenda-custom-commands
-                         '(("k" "Morning View"
+                         '(
+                           ("k" "Today\'s View"
                             ((agenda ""
                                      ((org-agenda-files
-                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org" "~/Dropbox/org/gtd/projects/"))
+                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org"))
                                       (org-agenda-overriding-header "What's on my calendar")
                                       (org-agenda-span 'day)
                                       (org-agenda-start-day
@@ -1275,130 +1347,148 @@
                                       (org-agenda-current-span 'day)
                                       (org-super-agenda-groups
                                        '((:name "Today's Schedule" :scheduled t :time-grid t :deadline t :order 13)))))
-                             (todo ""
-                                   ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
-                                    (org-agenda-prefix-format " %(my-agenda-prefix) ")
+                            (todo "NEXT"
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/projects.org"))
+                                    (org-agenda-overriding-header " Next Projects\n ===================================================================\n")
+                                    ))
+
+                            (todo ""
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/events.org"))
+                                    (org-agenda-overriding-header "Birthdays and Anniversaries\n ===================================================================\n")
+                                    ))
+                            (todo "TODO|NEXT"
+                                   ((org-agenda-overriding-header " Highest priority and next up\n ===================================================================\n")
+                                   ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
                                     (org-agenda-files
                                      '("~/Dropbox/org/gtd/tasks.org"))
                                     (org-super-agenda-groups
                                      '((:name "CRITICAL" :priority "A" :order 1)
                                        (:name "NEXT UP" :todo "NEXT" :order 2))))))
                             nil)
-                           ("a" "Agenda"
-                            ((agenda "" ((org-agenda-sorting-strategy '(habit-down time-up priority-down category-keep user-defined-up))))
-                             (org-time-budgets-for-agenda)))
-                           ("i" "Inbox"
-                            ((todo ""
+                           ("o" "Monthly Review"
+                           ((agenda "" ((org-agenda-span 7)
+                                        (org-agenda-overriding-header " Previous Month Deferred and not completed\n ===================================================================\n")
+                                        (org-agenda-start-day "-7d")
+                                        (org-agenda-entry-types '(:timestamp))
+                                        (org-agenda-show-log t)))
+                            (agenda "" ((org-agenda-span 30)
+                                        (org-agenda-overriding-header " Planned for next month\n ===================================================================\n")
+                                        (org-agenda-start-day "+1d")
+                                        (org-agenda-entry-types '(:timestamp))))
+                            )
+                           nil)
+                          ("W" "Weekly Review"
+                           ((agenda "" ((org-agenda-span 7)
+                                        (org-agenda-overriding-header " Previous Week Deferred and not completed\n ===================================================================\n")
+                                        (org-agenda-start-day "-7d")
+                                        (org-agenda-entry-types '(:timestamp))
+                                        (org-agenda-show-log t)))
+                            (agenda "" ((org-agenda-span 7)
+                                        (org-agenda-overriding-header " Planned for next week\n ===================================================================\n")
+                                        (org-agenda-start-day "-1d")
+                                        (org-agenda-entry-types '(:timestamp))
+                                        (org-agenda-show-log t)))
+                            (todo ""
                                    ((org-agenda-files
                                      '("~/Dropbox/org/gtd/inbox.org"))
-                                    (org-agenda-overriding-header "Items in my inbox")
-                                    (org-super-agenda-groups
-                                     '((:auto-ts t))))))
-                            nil)
-                           ("x" "Get to someday"
-                            ((todo ""
-                                   ((org-agenda-overriding-header "Projects marked Someday")
-                                    (org-agenda-files
-                                     '("~/Dropbox/org/gtd/someday.org"))
-                                    (org-super-agenda-groups
-                                     '((:auto-ts t))))))
-                            nil)
-                           ("p" "Projects"
-                            ((todo ""
+                                    (org-agenda-overriding-header " Process and refile inbox\n ===================================================================\n")
+                                    ))
+                            (todo "WAITING"
                                    ((org-agenda-files
-                                     '("~/Dropbox/org/gtd/projects/"))
-                                    (org-agenda-overriding-header "Project related items"))))
-                            nil)
-                           ("bl" "Before Lunch"
-                            ((todo ""
-                             ((org-agenda-overriding-header "Can you spare some time?\n ==============================================================\n")
-                             (org-agenda-tag-filter-preset
-                              '("+laptop" "+phone" "+office" "-home" "-Challenge")))))
-                             (todo ""
-                             ((org-agenda-overriding-header "Today's office work\n ===================================================================\n")
-                             (org-agenda-tag-filter-preset
-                              '("+@work"))))
-                            nil)
-                           ("bh" "Before going home"
-                            (( todo ""
+                                     '("~/Dropbox/org/gtd/tasks.org"))
+                                    (org-agenda-overriding-header " Waiting for something else\n ===================================================================\n")
+                                    ))
+                            (todo ""
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/projects.org"))
+                                    (org-agenda-overriding-header " Projects Work for Next Week\n ===================================================================\n")
+                                    ))
+                            (todo ""
+                                  ((org-agenda-overriding-header " Process Someday\n ===========================================================\n")
+                                   (org-agenda-files
+                                    '("~/Dropbox/org/gtd/someday.org"))
+                                   ))
+                            )
+                           nil)
+                           ("x" "On mobile"
+                            ((agenda ""
                              ((org-agenda-span '2)
-                             (org-agenda-overriding-header "Buy on the way today\n ===================================================================\n")
+                             ((org-agenda-overriding-header "Can you spare some time?\n ==============================================================\n")
                              (org-agenda-span '3)
                              (org-agenda-tag-filter-preset
-                              '("+grocery" "+goingout"))))
-                             ( agenda ""
-                             ((org-agenda-overriding-header "Checklist before you go\n ==================================================================\n")
-                             (org-deadline-warning-days 3)
-                             (org-agenda-tag-filter-preset
-                              '("+@work"))))))
-;;                           ("o" "Office View"
-;;                                        ; Priority A
-;;                            ((tags-todo "PRIORITY=\"A\"&-home"
-;;                                        ((org-agenda-overriding-header "Priority A")))
-;;                                        ; Due soon
-;;                             (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&-home"
-;;                                        ((org-agenda-overriding-header "Due soon")))
-;;                                        ; Project list
-;;                             (tags "LEVEL=2&-home"
-;;                                   ((org-agenda-files '("~/Dropbox/org/gtd/projects/"))
-;;                                    (org-agenda-overriding-header "Projects")))
-;;                             (tags-todo (concat "-home&-TODO=\"WAITING\"&-FILE=\""
-;;                                                (expand-file-name "~/Dropbox/org/gtd/projects/")
-;;                                                "\"")
-;;                                        ((org-agenda-overriding-header "All non-project tasks")))
-;;                             )
-;;                            ((org-agenda-compact-blocks t)))
-;;                           ("h" "Home agenda"
-;;                                        ; Priority A
-;;                             ((tags-todo "PRIORITY=\"A\"&-work"
-;;                                         ((org-agenda-overriding-header "Priority A")))
-;;                                        ; Due soon
-;;                              (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&-work"
-;;                                         ((org-agenda-overriding-header "Due soon")))
-;;                                        ; Project list
-;;                              (tags "LEVEL=2&-work"
-;;                                    ((org-agenda-files '("~/Dropbox/org/gtd/projects/"))
-;;                                     (org-agenda-overriding-header "Projects")))
-;;
-;;                              (tags-todo (concat "-work&-TODO=\"WAITING\"&-FILE=\""
-;;                                                 (expand-file-name "~/Dropbox/org/gtd/projects/")
-;;                                                 "\"")
-;;                                         ((org-agenda-overriding-header "All non-project tasks"))))
-;;                             ((org-agenda-compact-blocks t)))
+                              '("+phone" "-Challenge"))))
+                             ))
+                             nil)
+                          ("v" "I am bored"
+                                        ; Easy tasks
+                            ((tags-todo "+Easy"
+                                        ((org-agenda-overriding-header " Get over easier things now")
+                                         ))
+                                        ; Read when bored
+                             (tags-todo "+read"
+                                        ((org-agenda-files
+                                          '("~/Dropbox/org/gtd/paper.org" "~/Dropbox/org/gtd/book.org" ))
+                                         (org-agenda-overriding-header " Why not read something rather than waste time?"))
+                                        )
+                                        ; Get entertained
+                             (tags-todo "+entertaintment"
+                                        ((org-agenda-files
+                                          '("~/Dropbox/org/gtd/inbox.org"))
+                                         (org-agenda-overriding-header " Enjoy some time doing whatever"))
+                                        )
+                             ))
+                          ("w" "Office agenda"
+                                       ; Priority A
+                            ((tags-todo "PRIORITY=\"A\"&+office"
+                                        ((org-agenda-overriding-header "Priority A")))
+                                       ; Due soon
+                             (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&+office"
+                                        ((org-agenda-overriding-header "Due soon")))
+                             ))
+                          ("l" "Home agenda"
+                                       ; Priority A
+                            ((tags-todo "PRIORITY=\"A\"&+home"
+                                        ((org-agenda-overriding-header "Priority A")))
+                                       ; Due soon
+                             (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&+home"
+                                        ((org-agenda-overriding-header "Due soon")))
+                             ))
                            )))
 
 (require 'nepali-romanized)
 
-(after! pdf-tools
-    ;; workaround for pdf-tools not reopening to last-viewed page of the pdf:
-    ;; https://github.com/politza/pdf-tools/issues/18
-    (defun brds/pdf-set-last-viewed-bookmark ()
-      (interactive)
-      (when (eq major-mode 'pdf-view-mode)
-        (bookmark-set (brds/pdf-generate-bookmark-name))))
+;; (after! pdf-tools
+;;     ;; workaround for pdf-tools not reopening to last-viewed page of the pdf:
+;;     ;; https://github.com/politza/pdf-tools/issues/18
+;;     (defun brds/pdf-set-last-viewed-bookmark ()
+;;       (interactive)
+;;       (when (eq major-mode 'pdf-view-mode)
+;;         (bookmark-set (brds/pdf-generate-bookmark-name))))
 
-    (defun brds/pdf-jump-last-viewed-bookmark ()
-      (when
-          (brds/pdf-has-last-viewed-bookmark)
-        (bookmark-jump (brds/pdf-generate-bookmark-name))))
+;;     (defun brds/pdf-jump-last-viewed-bookmark ()
+;;       (when
+;;           (brds/pdf-has-last-viewed-bookmark)
+;;         (bookmark-jump (brds/pdf-generate-bookmark-name))))
 
-    (defun brds/pdf-has-last-viewed-bookmark ()
-      (assoc
-       (brds/pdf-generate-bookmark-name) bookmark-alist))
+;;     (defun brds/pdf-has-last-viewed-bookmark ()
+;;       (assoc
+;;        (brds/pdf-generate-bookmark-name) bookmark-alist))
 
-    (defun brds/pdf-generate-bookmark-name ()
-      (concat "PDF-LAST-VIEWED: " (buffer-file-name)))
+;;     (defun brds/pdf-generate-bookmark-name ()
+;;       (concat "PDF-LAST-VIEWED: " (buffer-file-name)))
 
-    (defun brds/pdf-set-all-last-viewed-bookmarks ()
-      (dolist (buf (buffer-list))
-        (with-current-buffer buf
-            (brds/pdf-set-last-viewed-bookmark))))
+;;     (defun brds/pdf-set-all-last-viewed-bookmarks ()
+;;       (dolist (buf (buffer-list))
+;;         (with-current-buffer buf
+;;             (brds/pdf-set-last-viewed-bookmark))))
 
-    (add-hook 'kill-buffer-hook 'brds/pdf-set-last-viewed-bookmark)
-    (add-hook 'pdf-view-mode-hook 'brds/pdf-jump-last-viewed-bookmark)
-    (unless noninteractive  ; as `save-place-mode' does
-      (add-hook 'kill-emacs-hook #'brds/pdf-set-all-last-viewed-bookmarks))
-)
+;;     (add-hook 'kill-buffer-hook 'brds/pdf-set-last-viewed-bookmark)
+;;     (add-hook 'pdf-view-mode-hook 'brds/pdf-jump-last-viewed-bookmark)
+;;     (unless noninteractive  ; as `save-place-mode' does
+;;       (add-hook 'kill-emacs-hook #'brds/pdf-set-all-last-viewed-bookmarks))
+;; )
 
 
 
@@ -1464,9 +1554,9 @@
          ("<s-left>" . winner-undo))
 
 
-
 (after! org
-;;  (load! "+dragndrop")
+  (require 'org-download)
+  (add-hook 'dired-mode-hook 'org-download-enable)
   (defun my-org-download-screenshot ()
     "Capture screenshot and insert the resulting file. The screenshot tool is determined by `org-download-screenshot-method'."
     (interactive)
@@ -1479,14 +1569,6 @@
       (org-download-image tmp-file)))
   (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 )
-
-(use-package! webkit-katex-render
-  :after latex
-  :when (featurep 'xwidget-internal)
-  :commands (webkit-katex-render-mode)
-  :config
-  (setq webkit-katex-render--background-color (doom-color 'bg)))
-
 
 (after! cdlatex
   (setq ;; cdlatex-math-symbol-prefix ?\; ;; doesn't work at the moment :(
@@ -2497,58 +2579,6 @@ appropriate.  In tables, insert a new row or end the table."
 
 (after! org
 
-;;;###autoload
-  (defun *org-eldoc-get-timestamp (str)
-    "Return timestamp if on a headline or nil."
-    (if str
-        (concat
-         (let ((deadline (org-entry-get
-                          (point)
-                          "DEADLINE"
-                          t))
-               (scheduled (org-entry-get
-                           (point)
-                           "SCHEDULED"
-                           t))
-               (closed (org-entry-get
-                        (point)
-                        "CLOSED"
-                        t))
-               timestamp)
-           (if deadline
-               (setq timestamp
-                     (concat
-                      timestamp
-                      (propertize
-                       (substring deadline 1 -1)
-                       'face
-                       'org-deadline-custom)
-                      " ")))
-           (if scheduled
-               (setq timestamp
-                     (concat
-                      timestamp
-                      (propertize
-                       (substring scheduled 1 -1)
-                       'face
-                       'org-scheduled-custom)
-                      " ")))
-           (if closed
-               (setq timestamp
-                     (concat
-                      timestamp
-                      (propertize
-                       (substring closed 1 -1)
-                       'face
-                       'org-closed-custom)
-                      " ")))
-           timestamp)
-         str)
-      nil))
-
-
-
-;;;###autoload (autoload '+org-private@org-babel-hydra/body "~/.doom.d/modules/lang/org-private/autoload/org-babel" nil t)
   (defhydra +org-private@org-babel-hydra (:color pink :hint nil)
     "
 Org-Babel: _j_/_k_ next/prev   _g_oto     _TAB_/_i_/_I_ show/hide
@@ -2578,7 +2608,6 @@ Org-Babel: _j_/_k_ next/prev   _g_oto     _TAB_/_i_/_I_ show/hide
                 :caller '+org-private/get-name-src-block
                 :action #'+org-private/get-name-src-block-action-insert)))
 
-;;;###autoload
   (defun +org-private/*org-ctrl-c-ctrl-c-counsel-org-tag ()
     "Hook for `org-ctrl-c-ctrl-c-hook' to use `counsel-org-tag'."
     (if (save-excursion
@@ -2981,6 +3010,12 @@ buffer, otherwise just change the current paragraph."
                else do (cl-incf fill-column)
                finally return fill-column))))
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        ace link
+;;                                        for link related files ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (use-package! ace-link
   :commands (ace-link))
 (after! avy
@@ -3015,7 +3050,9 @@ choice's name, and the rest of which is its body forms."
        (put ',name :unpackaged/define-chooser t))))
 
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        My ML setup                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun create-new-ml-project (proj-name proj-type)
   "Initial setup for any ML project"
@@ -3061,4 +3098,449 @@ models/\n
 
 ")
   (save-buffer)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Hydra posframe                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package hydra
+  :config
+  (use-package hydra-posframe
+    :custom
+    (hydra-posframe-parameters
+      '((left-fringe . 5)
+        (right-fringe . 5)))
+    :custom-face
+    (hydra-posframe-border-face ((t (:background "#6272a4"))))
+    :hook (after-init . hydra-posframe-enable)))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Multiple cursor edit                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package multiple-cursors
+  :functions hydra-multiple-cursors
+  :bind
+  ("M-u" . hydra-multiple-cursors/body)
+  :preface
+  ;; insert specific serial number
+  (defvar ladicle/mc/insert-numbers-hist nil)
+  (defvar ladicle/mc/insert-numbers-inc 1)
+  (defvar ladicle/mc/insert-numbers-pad "%01d")
+
+  (defun ladicle/mc/insert-numbers (start inc pad)
+    "Insert increasing numbers for each cursor specifically."
+    (interactive
+     (list (read-number "Start from: " 0)
+           (read-number "Increment by: " 1)
+           (read-string "Padding (%01d): " nil ladicle/mc/insert-numbers-hist "%01d")))
+    (setq mc--insert-numbers-number start)
+    (setq ladicle/mc/insert-numbers-inc inc)
+    (setq ladicle/mc/insert-numbers-pad pad)
+    (mc/for-each-cursor-ordered
+     (mc/execute-command-for-fake-cursor
+      'ladicle/mc--insert-number-and-increase
+      cursor)))
+
+  (defun ladicle/mc--insert-number-and-increase ()
+    (interactive)
+    (insert (format ladicle/mc/insert-numbers-pad mc--insert-numbers-number))
+    (setq mc--insert-numbers-number (+ mc--insert-numbers-number ladicle/mc/insert-numbers-inc)))
+
+  :config
+  (with-eval-after-load 'hydra
+    (defhydra hydra-multiple-cursors (:color pink :hint nil)
+"
+                                                                        ╔════════╗
+    Point^^^^^^             Misc^^            Insert                            ║ Cursor ║
+  ──────────────────────────────────────────────────────────────────────╨────────╜
+     _k_    _K_    _M-k_    [_l_] edit lines  [_i_] 0...
+     ^↑^    ^↑^     ^↑^     [_m_] mark all    [_a_] letters
+    mark^^ skip^^^ un-mk^   [_s_] sort        [_n_] numbers
+     ^↓^    ^↓^     ^↓^
+     _j_    _J_    _M-j_
+  ╭──────────────────────────────────────────────────────────────────────────────╯
+                           [_q_]: quit, [Click]: point
+"
+          ("l" mc/edit-lines :exit t)
+          ("m" mc/mark-all-like-this :exit t)
+          ("j" mc/mark-next-like-this)
+          ("J" mc/skip-to-next-like-this)
+          ("M-j" mc/unmark-next-like-this)
+          ("k" mc/mark-previous-like-this)
+          ("K" mc/skip-to-previous-like-this)
+          ("M-k" mc/unmark-previous-like-this)
+          ("s" mc/mark-all-in-region-regexp :exit t)
+          ("i" mc/insert-numbers :exit t)
+          ("a" mc/insert-letters :exit t)
+          ("n" ladicle/mc/insert-numbers :exit t)
+          ("<mouse-1>" mc/add-cursor-on-click)
+          ;; Help with click recognition in this hydra
+          ("<down-mouse-1>" ignore)
+          ("<drag-mouse-1>" ignore)
+          ("q" nil))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        windows hydra                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package ace-window
+    :functions hydra-frame-window/body
+    :bind
+    ("s-o" . hydra-frame-window/body)
+    :custom
+    (aw-keys '(?j ?k ?l ?i ?o ?h ?y ?u ?p))
+    :custom-face
+    (aw-leading-char-face ((t (:height 4.0 :foreground "#f1fa8c"))))
+    :preface
+    (defun hydra-title(title) (propertize title 'face `(:inherit font-lock-warning-face :weight bold)))
+    (defun command-name(title) (propertize title 'face `(:foreground "#f8f8f2")))
+    (defun spacer() (propertize "." 'face `(:foreground "#282a36")))
+    :config
+    (with-eval-after-load 'hydra
+        (defhydra hydra-frame-window (:color blue :hint nil)
+        (format
+         (format "%s" (propertize "                                                                       ╔════════╗
+    ((%s))^^^^^^^^   ((%s))^^^^  ((%s))^^  ((%s))^^  ((%s))^^^^^^  ((%s))^   ║ Window ║
+^^^^^^ ──────────────────────────────────────────────────────────────────────╨────────╜
+        ^_k_^          _+_         _-_       %s     _,_ ← %s → _._^  %s
+        ^^↑^^          ^↑^         ^↑^       %s
+    _h_ ←   → _l_   ^^^^%s^^^^^    ^%s   ^^^^%s^^^^     %s
+        ^^↓^^          ^↓^         ^↓^       %s^^       %s
+        ^_j_^          _=_         _/_       %s
+^^^^^^ ┌──────────────────────────────────────────────────────────────────────────────┘
+                           [_q_]: %s" 'face `(:inherit font-lock-doc-face)))
+                           (hydra-title "Size")
+                           (hydra-title "Zoom")
+                           (hydra-title "Split")
+                           (hydra-title "Window")
+                           (hydra-title "Buffer")
+                           (hydra-title "Misc")
+                           (command-name "_o_ther")
+                           (command-name "page")
+                           (command-name "_r_centf")
+                           (command-name "_s_wap")
+                           (command-name "_p_mode")
+                           (command-name "w_i_ndow")
+                           (command-name "_m_aximize")
+                           (command-name "_s_witch")
+                           (command-name "_d_elete")
+                           (command-name "_D_elete")
+                           (command-name "del_O_thers")
+                           (command-name "quit")
+                           )
+
+          ("K" kill-current-buffer :exit t)
+          ("D" kill-buffer-and-window :exit t)
+          ("O" delete-other-windows  :exit t)
+          ("F" toggle-frame-fullscreen)
+          ("i" ace-window)
+          ("s" ace-swap-window :exit t)
+          ("d" ace-delete-window)
+          ("m" ladicle/toggle-window-maximize :exit t)
+          ("=" text-scale-decrease)
+          ("+" text-scale-increase)
+          ("-" split-window-vertically)
+          ("/" split-window-horizontally)
+          ("h" shrink-window-horizontally)
+          ("k" shrink-window)
+          ("j" enlarge-window)
+          ("l" enlarge-window-horizontally)
+          ("," previous-buffer)
+          ("." next-buffer)
+          ("o" other-window)
+          ("p" presentation-mode)
+          ("r" counsel-recentf :exit t)
+          ("s" switch-to-buffer :exit t)
+          ("D" kill-buffer-and-window)
+          ("q" nil)))
+          )
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Icons in agenda                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(customize-set-value
+    'org-agenda-category-icon-alist
+    `(
+      ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
+      ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
+      ("habit" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
+      ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
+      ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
+      ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
+      ("reading" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
+      ("coding" ,(list (all-the-icons-material "code" :height 1.2)) nil nil :ascent center)
+      ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
+      ("project" ,(list (all-the-icons-octicon "beaker" :height 1.2)) nil nil :ascent center)
+      ("ideas" ,(list (all-the-icons-octicon "light-bulb" :height 1.2)) nil nil :ascent center)
+      ("paper" ,(list (all-the-icons-octicon "rocket" :height 1.2)) nil nil :ascent center)
+      ))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(aw-leading-char-face ((t (:height 4.0 :foreground "#f1fa8c"))))
+ '(fixed-pitch ((t (:family "JetBrainsMono NF" :slant normal :weight normal :height 1.0 :width normal))))
+ '(hydra-posframe-border-face ((t (:background "OrangeRed3"))))
+ '(org-block ((t (:inherit (fixed-pitch)))))
+ '(org-code ((t (:inherit (shadow fixed-pitch)))))
+ '(org-document-info ((t (:foreground "dark orange"))))
+ '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+ '(org-document-title ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.3 :underline nil))))
+ '(org-done ((t (:strike-through t :weight bold))))
+ '(org-headline-done ((t (:strike-through t))))
+ '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+ '(org-level-1 ((t (:foreground "#d54e53" :inherit default :weight bold :font "IBM Plex Serif" :height 1.3))))
+ '(org-level-2 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "IBM Plex Serif" :height 1.25))))
+ '(org-level-3 ((t (:foreground "DarkOliveGreen3" :inherit default :weight bold :font "PT Sans" :height 1.2))))
+ '(org-level-4 ((t (:foreground "#c397d8" :inherit default :weight bold :font "PT Sans" :height 1.1))))
+ '(org-level-5 ((t (:foreground "brown" :inherit default :weight bold :font "PT Sans" :height 1.05))))
+ '(org-level-6 ((t (:foreground "DarkGoldenrod2" :inherit default :weight bold :font "PT Sans" :height 1.0))))
+ '(org-level-7 ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "PT Sans" :height 1.0))))
+ '(org-level-8 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "PT Sans" :height 1.0))))
+ '(org-link ((t (:foreground "royal blue" :underline t))))
+ '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+ '(org-property-value ((t (:inherit fixed-pitch))) t)
+ '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+ '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+ '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
+ '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
+ '(variable-pitch ((t (:family "Open Sans")))))
+
+(after! org
+(autoload 'orch-toggle "orch" nil t))
+
+;;;###autoload
+(defun +ivy/project-search-with-hidden-files ()
+  (interactive)
+  (let ((counsel-rg-base-command "rg -zS --no-heading --line-number --color never --hidden %s . "))
+    (+ivy/project-search)))
+
+;;;###autoload
+(defun +ivy--counsel-file-jump-use-fd-rg-specific-files (args)
+  "Change `counsel-file-jump' to use fd or ripgrep, if they are available."
+  (cl-destructuring-bind (find-program . args)
+      (cond ((executable-find doom-projectile-fd-binary)
+             (cons doom-projectile-fd-binary (list "-t" "f" "-E" ".git" "-e" "py" "-e" "yaml" "-e" "md" "-e" "adoc")))
+            ((executable-find "rg")
+             (split-string (format counsel-rg-base-command "--files --no-messages") " " t))
+            ((cons find-program args)))
+    (unless (listp args)
+      (user-error "`counsel-file-jump-args' is a list now, please customize accordingly."))
+    (counsel--call
+     (cons find-program args)
+     (lambda ()
+       (goto-char (point-min))
+       (let ((offset (if (member find-program (list "rg" doom-projectile-fd-binary)) 0 2))
+             files)
+         (while (< (point) (point-max))
+           (push (buffer-substring
+                  (+ offset (line-beginning-position)) (line-end-position)) files)
+           (forward-line 1))
+         (nreverse files))))))
+
+;;;###autoload
+(defun +ivy/project-search-specific-files (&optional initial-input initial-directory)
+  "Similar to counsel-file-jump"
+  (interactive
+   (list nil
+         (when current-prefix-arg
+           (counsel-read-directory-name "From directory: "))))
+  (counsel-require-program find-program)
+  (let ((default-directory (doom-project-root)))
+    (ivy-read "Find file: "
+              (+ivy--counsel-file-jump-use-fd-rg-specific-files counsel-file-jump-args)
+              :matcher #'counsel--find-file-matcher
+              :initial-input initial-input
+              :action #'find-file
+              :preselect (counsel--preselect-file)
+              :require-match 'confirm-after-completion
+              :history 'file-name-history
+              :caller 'counsel-file-jump)))
+
+;; eshell aliases
+(after! eshell
+  (set-eshell-alias!
+   "f"   "find-file $1"
+   "l"   "ls -1"
+   "ll"   "ls -lh"
+   "la"   "ls -la"
+   "d"   "dired $1"
+   "gl"  "(call-interactively 'magit-log-current)"
+   "gs"  "magit-status"
+   "gc"  "magit-commit"
+   "d" "dired $1"
+   "gl" "(call-interactively 'magit-log-current)"
+   "gb" "(call-interactively #'magit-branch-checkout)"
+   "gbc" "(call-interactively #'magit-branch-create)"
+   "bat" "+eshell/bat $1"
+   "sudo" "eshell/sudo $*"
+   "nm" "nc/enwc"
+   "locate" "counsel-locate $1"
+   "man" "(+default/man-or-woman)"
+   "info" "+eshell/info-manual"
+   "tm" "transmission"
+   "cal" "calendar"
+   "pass" "(pass)"
+   "fd" "+eshell/fd $1"
+   "fo" "find-file-other-window $1"
+   "rgi" "+default/search-cwd"
+   "rg"  "rg --color=always $*"))
+
+
+
+;;; auto refiling
+
+(after! org
+  (defvar jethro/org-current-effort "1:00"
+    "Current effort for agenda items.")
+
+  (defun jethro/my-org-agenda-set-effort (effort)
+    "Set the effort property for the current headline."
+    (interactive
+     (list (read-string (format "Effort [%s]: " jethro/org-current-effort) nil nil jethro/org-current-effort)))
+    (setq jethro/org-current-effort effort)
+    (org-agenda-check-no-diary)
+    (let* ((hdmarker (or (org-get-at-bol 'org-hd-marker)
+                         (org-agenda-error)))
+           (buffer (marker-buffer hdmarker))
+           (pos (marker-position hdmarker))
+           (inhibit-read-only t)
+           newhead)
+      (org-with-remote-undo buffer
+        (with-current-buffer buffer
+          (widen)
+          (goto-char pos)
+          (org-show-context 'agenda)
+          (funcall-interactively 'org-set-effort nil jethro/org-current-effort)
+          (end-of-line 1)
+          (setq newhead (org-get-heading)))
+        (org-agenda-change-all-lines newhead hdmarker))))
+
+
+  (defun jethro/org-agenda-process-inbox-item ()
+    "Process a single item in the org-agenda."
+    (org-with-wide-buffer
+     (org-agenda-set-tags)
+     (org-agenda-set-property)
+     (org-agenda-priority)
+     (call-interactively 'org-agenda-schedule)
+     (call-interactively 'jethro/my-org-agenda-set-effort)
+     (org-agenda-refile nil nil t)))
+
+
+  (defun jethro/bulk-process-entries ()
+    (if (not (null org-agenda-bulk-marked-entries))
+        (let ((entries (reverse org-agenda-bulk-marked-entries))
+              (processed 0)
+              (skipped 0))
+          (dolist (e entries)
+            (let ((pos (text-property-any (point-min) (point-max) 'org-hd-marker e)))
+              (if (not pos)
+                  (progn (message "Skipping removed entry at %s" e)
+                         (cl-incf skipped))
+                (goto-char pos)
+                (let (org-loop-over-headlines-in-active-region) (funcall 'jethro/org-agenda-process-inbox-item))
+                ;; `post-command-hook' is not run yet.  We make sure any
+                ;; pending log note is processed.
+                (when (or (memq 'org-add-log-note (default-value 'post-command-hook))
+                          (memq 'org-add-log-note post-command-hook))
+                  (org-add-log-note))
+                (cl-incf processed))))
+          (org-agenda-redo)
+          (unless org-agenda-persistent-marks (org-agenda-bulk-unmark-all))
+          (message "Acted on %d entries%s%s"
+                   processed
+                   (if (= skipped 0)
+                       ""
+                     (format ", skipped %d (disappeared before their turn)"
+                             skipped))
+                   (if (not org-agenda-persistent-marks) "" " (kept marked)")))))
+
+  ;; capture inbox in agenda mode
+  (defun jethro/org-inbox-capture ()
+    (interactive)
+    "Capture a task in agenda mode."
+    (org-capture nil "c"))
+
+  (defun zyro/agenda-references ()
+    "Open next tasks in ORGMODE AGENDA"
+    (interactive)
+    (let ((org-agenda-files '("~/Dropbox/org/gtd/references.org"))
+          (org-super-agenda-groups
+           '((:auto-ts t))))
+      (org-agenda nil "s")))
+)
+
+(use-package elfeed
+  :defer 5
+  :config
+  (require 'elfeed-goodies)
+  (elfeed-org)
+
+  (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
+        elfeed-db-directory "~/.elfeed/")
+
+  ;; scoring elfeed entries for better visibility
+  (defun score-elfeed-entry (entry)
+    (let ((title (elfeed-entry-title entry))
+          (content (elfeed-deref (elfeed-entry-content entry)))
+          (score 0))
+      (loop for (pattern n) in '(("space" 1)
+                                 ("machine learning\\|neural" 1)
+                                 ("startups" 1)
+                                 ("breakthrough" 3)
+                                 ("state of the art" 3))
+            if (string-match pattern title)
+            do (incf score n)
+            if (string-match pattern content)
+            do (incf score n))
+      (message "%s - %s" title score)
+
+      ;; store score for later in case I ever integrate machine learning
+      (setf (elfeed-meta entry :my/score) score)
+
+      (cond
+       ((= score 1)
+        (elfeed-tag entry 'relevant))
+       ((> score 1)
+        (elfeed-tag entry 'important)))
+      entry))
+
+  (add-hook 'elfeed-new-entry-hook 'score-elfeed-entry)
+
+  ;; some key bindings
+  (define-key elfeed-search-mode-map (kbd "i")
+    (lambda () (interactive)
+      (elfeed-search-set-filter "@6-months-ago +unread +important")))
+
+  (define-key elfeed-search-mode-map (kbd "v")
+    (lambda () (interactive)
+      (elfeed-search-set-filter "@6-months-ago +unread +relevant")))
+
+  (define-key elfeed-search-mode-map (kbd "c")
+    (lambda () (interactive)
+      (elfeed-search-set-filter "@6-months-ago +unread")))
+
+  ;; help me alternate fingers in marking entries as read
+  (define-key elfeed-search-mode-map (kbd "f") 'elfeed-search-untag-all-unread)
+  (define-key elfeed-search-mode-map (kbd "j") 'elfeed-search-untag-all-unread)
+
+;; faces for relevant and important feeds
+  (defface relevant-elfeed-entry
+    `((t :background ,(color-lighten-name "orange1" 40)))
+    "Marks a relevant Elfeed entry.")
+
+  (defface important-elfeed-entry
+    `((t :background ,(color-lighten-name "OrangeRed2" 40)))
+    "Marks an important Elfeed entry.")
+
+  (push '(relevant relevant-elfeed-entry)
+        elfeed-search-face-alist)
+
+  (push '(important important-elfeed-entry)
+        elfeed-search-face-alist)
 )

@@ -1,4 +1,0 @@
-* Inbox
-** TODO Swiper-avy
-Make swiper avy available through keybindings to go up and down the file.
-[[file:~/.doom.d/config.el][file:~/.doom.d/config.el]]
