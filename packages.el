@@ -39,14 +39,14 @@
   :recipe (:host github :repo "jethrokuan/mathpix.el"))
 (package! org-ref-ex-hugo
   :recipe (:host github :repo "jethrokuan/org-ref-ox-hugo" :branch "custom/overrides"))
-(package! org-pdftools)
+;;(package! org-pdftools)
 ;;(package! org-noter-pdftools
 ;;  :recipe (:host github :repo "fuxialexander/org-pdftools"))
 (package! xkcd)
 (package! leetcode)
 (package! anki-editor)
 (package! org-ref)
-(package! julia-snail)
+;;(package! julia-snail)
 (package! nepali-romanized
   :recipe (:host github :repo "bishesh/emacs-nepali-romanized"))
 (package! all-the-icons-dired)

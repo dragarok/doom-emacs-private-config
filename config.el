@@ -126,15 +126,15 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 17)
-      doom-variable-pitch-font (font-spec :family "Iosevka Nerd Font" :size 18)
+(setq doom-font (font-spec :family "Iosevka Nerd Font" :size 14)
+      doom-variable-pitch-font (font-spec :family "Source Code Variable" :size 12)
       doom-unicode-font (font-spec :family "Iosevka Nerd Font")
-      doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 13))
+      doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 12))
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-dark+)
+(setq doom-theme 'doom-acario-dark)
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 
 ;;elfeed
@@ -547,7 +547,7 @@
 (use-package julia-snail
   :defer t
   :hook (julia-mode . julia-snail-mode))
-
+(setq lsp-julia-default-environment "~/.julia/environments/v1.4")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Competitive Programming                                                    ;;
@@ -570,8 +570,8 @@
   :after python
   :init
   (setq-default
-   conda-env-home-directory "/c/ProgramData/Miniconda3/"
-   conda-anaconda-home "/c/ProgramData/Miniconda3/")
+   conda-env-home-directory "/opt/anaconda3/"
+   conda-anaconda-home "/opt/anaconda3/bin/")
   :config
   (setq flycheck-checker-error-threshold nil)
   ;; if you want interactive shell support, include:
@@ -722,7 +722,7 @@
         +org-export-directory "~/Dropbox/publish/"
         org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
-        projectile-project-search-path '("/run/media/light/Project/work/"))
+        projectile-project-search-path '("~/workspace/projects/"))
 
 
 
@@ -769,8 +769,8 @@
 
   (custom-theme-set-faces
    'user
-   '(variable-pitch ((t (:family "JetBrainsMono Nerd Font" :height 180 :weight medium))))
-   '(fixed-pitch ((t ( :family "JetBrainsMono Nerd Font" :slant normal :weight normal :height 1.0 :width normal)))))
+   '(variable-pitch ((t (:family "Iosevka Nerd Font" :height 180 :weight medium))))
+   '(fixed-pitch ((t ( :family "Iosevka Nerd Font" :slant normal :weight normal :height 1.0 :width normal)))))
   (add-hook 'org-mode-hook 'variable-pitch-mode)
   (add-hook 'org-mode-hook 'visual-line-mode)
   (custom-theme-set-faces
@@ -1624,7 +1624,7 @@
 
 
 (after! org
-  (load! "+dragndrop")
+  ;;(load! "+dragndrop")
   (defun my-org-download-screenshot ()
     "Capture screenshot and insert the resulting file. The screenshot tool is determined by `org-download-screenshot-method'."
     (interactive)
@@ -1635,5 +1635,5 @@
       (while (not (file-exists-p tmp-file))
         (sleep-for 2))
       (org-download-image tmp-file)))
-  (global-set-key (kbd "<print>") 'my-org-download-screenshot)
+  (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 )

@@ -18,13 +18,13 @@
        :completion
        (company
         +tng)
-       ;;(helm
-       ;; +fuzzy)             ; the *other* search engine for love and life
+       (helm
+       +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
-       (ivy
-        +fuzzy
-        +prescient
-        +childframe)               ; a search engine for love and life
+       ;; (ivy
+       ;;  +fuzzy
+       ;;  +prescient
+       ;;  +childframe)               ; a search engine for love and life
 
        :ui
        deft              ; notational velocity for Emacs
@@ -36,7 +36,7 @@
        ;;indent-guides     ; highlighted indent columns
        modeline          ; snazzy, Atom-inspired modeline, plus API
        nav-flash         ; blink the current line after jumping
-       neotree           ; a project drawer, like NERDTree for vim
+       ;;neotree           ; a project drawer, like NERDTree for vim
        ophints           ; highlight the region an operation acts on
        (popup            ; tame sudden yet inevitable temporary windows
         +all             ; catch all popups that start with an asterix
@@ -45,7 +45,7 @@
        ;; +iosevka
        ;;)      ; replace bits of code with pretty symbols
        ;;tabs              ; an tab bar for Emacs
-       ;;treemacs          ; a project drawer, like neotree but cooler
+       treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
        vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        (window-select +numbers)    ; visually switch windows
@@ -113,7 +113,7 @@
 
        :lang
        ;;agda              ; types of types of types of types...
-       assembly          ; assembly for fun or debugging
+       ;;assembly          ; assembly for fun or debugging
        (cc
         +lsp)                                ; C/C++/Obj-C madness
        ;;clojure           ; java with a lisp
@@ -145,6 +145,7 @@
        (latex             ; writing papers in Emacs has never been so fun
         +cdlatex
         +fold
+        +lsp
         +latexmk)
        ;;lean
        ;;factor
@@ -158,7 +159,7 @@
        (org              ; organize your plain life in plain text
         +attach
         +roam
-;;        +dragndrop       ; drag & drop files/images into org buffers
+        +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
         +gnuplot
         +jupyter        ; ipython/jupyter support for babel
@@ -172,8 +173,8 @@
        plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
-		    +pyenv
 		    +conda
+        +poetry
 		    +lsp)
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
