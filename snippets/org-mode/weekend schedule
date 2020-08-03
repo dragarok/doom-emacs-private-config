@@ -1,0 +1,17 @@
+# -*- mode: snippet -*-
+# name: weekend schedule
+# key: weekend
+# --
+
+***** Weekend Routine
+| Task Name                 | Start Time | End Time | Time Reference | Hours Allocated | Hours Completed | Comments |
+|---------------------------+------------+----------+----------------+-----------------+-----------------+----------|
+| Lex's Podcast             |      10:00 |    11:00 | A.M.           |            1.00 | $1              | $2       |
+| Thoughtfulness Meditation |      11:00 |    11:00 | A.M.           |            0.00 | $3              | $4       |
+| Exploring new things      |      11:30 |    11:50 | P.M.           |            0.33 | $5              | $6       |
+| Guitar                    |      12:00 |    14:00 | P.M.           |            2.00 | $7              | $8       |
+| Pubg                      |      15:00 |    17:00 | P.M.           |            2.00 | $9              | $10      |
+| Utensils                  |      17:00 |    17:30 | P.M.           |            0.50 | $11             | $12      |
+| Dance                     |      17:30 |    18:00 | P.M.           |            0.50 | $13             | $14      |
+| Social Media Catching Up  |      18:00 |    20:00 | P.M.           |            2.00 | $15             | $16      |
+|---------------------------+------------+----------+----------------+-----------------+-----------------+----------|

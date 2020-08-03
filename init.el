@@ -1,5 +1,5 @@
-;;; init.el -*- lexical-binding: t; -*-
-
+;; init.el -*- lexical-binding: t; -*-
+;;
 ;; This file controls what Doom modules are enabled and what order they load in.
 ;; Remember to run 'doom sync' after modifying it!
 
@@ -17,14 +17,16 @@
 (doom! :input
        :completion
        (company
-        +tng)
-       (helm
-       +fuzzy)             ; the *other* search engine for love and life
+        +icons
+        +childframe)
+       ;; (helm
+       ;;  +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
-       ;; (ivy
-       ;;  +fuzzy
-       ;;  +prescient
-       ;;  +childframe)               ; a search engine for love and life
+       (ivy
+        +fuzzy
+        +icons
+        +prescient
+        +childframe)               ; a search engine for love and life
 
        :ui
        deft              ; notational velocity for Emacs
@@ -33,17 +35,18 @@
        ;;fill-column       ; a `fill-column' indicator
        hl-todo           ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
        hydra
-       ;;indent-guides     ; highlighted indent columns
+       indent-guides     ; highlighted indent columns
        modeline          ; snazzy, Atom-inspired modeline, plus API
        nav-flash         ; blink the current line after jumping
-       ;;neotree           ; a project drawer, like NERDTree for vim
+       ;; (neotree           ; a project drawer, like NERDTree for vim
+       ;;  +icons)
        ophints           ; highlight the region an operation acts on
        (popup            ; tame sudden yet inevitable temporary windows
         +all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
-       ;;(pretty-code
-       ;; +iosevka
-       ;;)      ; replace bits of code with pretty symbols
+       (pretty-code
+        ;;+iosevka
+       )      ; replace bits of code with pretty symbols
        ;;tabs              ; an tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
@@ -56,7 +59,7 @@
        (evil +commands +everywhere); come to the dark side, we have cookies
        file-templates    ; auto-snippets for empty files
        fold              ; (nigh) universal code folding
-       format  ; automated prettiness
+       format            ; automated prettiness
        ;;god               ; run Emacs commands without modifier keys
        ;;lispy             ; vim for lisp, for people who don't like vim
        multiple-cursors  ; editing in many places at once
@@ -103,7 +106,7 @@
        ;;macos             ; MacOS-specific commands
        magit             ; a git porcelain for Emacs
        make              ; run make tasks from Emacs
-       ;;pass              ; password manager for nerds
+       pass              ; password manager for nerds
        pdf               ; pdf enhancements
        prodigy           ; FIXME managing external services & code builders
        ;;rgb               ; creating color strings
@@ -159,13 +162,13 @@
        (org              ; organize your plain life in plain text
         +attach
         +roam
-        +dragndrop       ; drag & drop files/images into org buffers
+        ;; +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
         +gnuplot
         +jupyter        ; ipython/jupyter support for babel
-        +noter
         +pandoc          ; export-with-pandoc support
         +export
+        +dragndrop
         +pomodoro        ; be fruitful with the tomato technique
         +present)        ; using org-mode for presentations
        ;;perl              ; write code no one else can comprehend
@@ -194,15 +197,15 @@
        web               ; the tubes
 
        :email
-       ;;(mu4e +gmail)
+       (mu4e +gmail)
        ;;notmuch
        ;;(wanderlust +gmail)
 
        :app
        calendar
-       ;;irc               ; how neckbeards socialize
+       ;; irc               ; how neckbeards socialize
        ;;(rss +org)        ; emacs as an RSS reader
-       ;;twitter           ; twitter client https://twitter.com/vnought
+       twitter           ; twitter client https://twitter.com/vnought
 
        :config
        ;;literate
