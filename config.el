@@ -155,11 +155,8 @@
 
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 
-;;elfeed
 (after! org
-  ;; (defadvice elfeed (before configure-elfeed activate)
-  ;;   "Load all feed settings before elfeed is started."
-  ;;   (rmh-elfeed-org-configure))
+  (setq company-ispell-dictionary (file-truename "~/Dropbox/misc/english-words.txt"))
 )
 
 
@@ -1058,11 +1055,11 @@
 ;; added some capture template from jethrokuan's blog to capture webpage either from clipboard
 ;; or from browser directly.
 (after! org (add-to-list 'org-capture-templates
-             '("l" "Link Capture" entry (file "~/Dropbox/org/gtd/inbox.org")
+             '("l" "Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
 "* TODO [[%:link][%:description]]\n\n %i" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
-             '("h" "Clip Link Capture" entry (file "~/Dropbox/org/gtd/inbox.org")
+             '("h" "Clip Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
 "* TODO %(org-cliplink-capture)" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
@@ -3425,7 +3422,7 @@ models/\n
     "Process a single item in the org-agenda."
     (org-with-wide-buffer
      (org-agenda-set-tags)
-     (org-agenda-set-property)
+     ;; (org-agenda-set-property)
      (org-agenda-priority)
      (call-interactively 'org-agenda-schedule)
      (call-interactively 'jethro/my-org-agenda-set-effort)
@@ -3433,6 +3430,7 @@ models/\n
 
 
   (defun jethro/bulk-process-entries ()
+    (interactive)
     (if (not (null org-agenda-bulk-marked-entries))
         (let ((entries (reverse org-agenda-bulk-marked-entries))
               (processed 0)
