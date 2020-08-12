@@ -12,23 +12,104 @@
 ;; - `map!' for binding new keys
 
 ;; TODO https://github.com/leoc/org-time-budgets make my own thing
-
-
+;; (native-compile "~/.emacs.d")
+;; (setq comp-deferred-compilation t)
+;;(native-compile-async "~/.emacs.d/.local/straight/build/" t t)
 ;; exwm configurations
 ;;
-;; (require 'exwm)
-;; (require 'exwm-config)
-;; (exwm-config-default)
-;; (require 'exwm-systemtray)
-;; (exwm-systemtray-enable)
+;; (use-package exwm
+;;   :ensure t
+;;   :demand t
+;;   :config
+
+;;   (require 'exwm-config)
+;;   (require 'exwm-systemtray)
+;;   (exwm-config-default)
+;;   (exwm-systemtray-enable)
+
+;;   (window-divider-mode 1)
+;;   (display-battery-mode 1)
+;;   (display-time-mode 1)
+
+
+;;   (defun launch-terminal ()
+
+;;     (interactive)
+
+;;     (start-process-shell-command "alacritty" nil "alacritty"))
+
+
+;;   (defun launch-firefox ()
+
+;;     (interactive)
+
+;;     (start-process-shell-command "firefox" nil "firefox"))
+
+
+;;   (setq exwm-workspace-index-map
+
+;;         (lambda (index)
+
+;;           (let ((named-workspaces ["0-sys" "1-edit1" "2-edit2" "3-www" "4-email" "5-shell" "6-fm" "7-sys" "8-img" "9-IM"]))
+
+;;             (if (< index (length named-workspaces))
+
+;;                 (elt named-workspaces index)
+
+;;               (number-to-string index)))))
+
+;;   ;; easy window moving with buffer-move
+
+;;   (exwm-input-set-key (kbd "<C-s-k>") 'buf-move-up)
+
+;;   (exwm-input-set-key (kbd "<C-s-j>") 'buf-move-down)
+
+;;   (exwm-input-set-key (kbd "<C-s-l>") 'buf-move-right)
+
+;;   (exwm-input-set-key (kbd "<C-s-h>") 'buf-move-left)
+
+;;   ;; easy window switching with windmove
+
+;;   (exwm-input-set-key (kbd "<s-k>") 'windmove-up)
+
+;;   (exwm-input-set-key (kbd "<s-j>") 'windmove-down)
+
+;;   (exwm-input-set-key (kbd "<s-l>") 'windmove-right)
+
+;;   (exwm-input-set-key (kbd "<s-h>") 'windmove-left)
+
+;;   (exwm-input-set-key (kbd "s-# t") 'launch-terminal)
+
+;;   (exwm-input-set-key (kbd "s-# f") 'launch-firefox)
+
+;;   (exwm-input-set-key (kbd "s-# k") 'launch-keepassxc)
+
+
+
+;;   )
+;;
+
+
 ;; (helm-posframe-enable)
-;; (setq helm-posframe-parameters
-;;       '((left-fringe . 5)
+;; (setq helm-posframe-parameters ;;       '((left-fringe . 5)
 ;;         (right-fringe . 5)))
 (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1)))
-(setq +pretty-code-enabled-modes nil)
-
-(load-theme 'doom-nord-light 'noconfirm)
+;;(setq +pretty-code-enabled-modes nil)
+;; (require 'elfeed)
+;; (elfeed-db--empty)
+;; (setq elfeed-db nil)
+;; (setq elfeed-db-index nil)
+;; (setq elfeed-db-feeds nil)
+;; (setq elfeed-db-entries nil)
+;; (use-package eaf
+;;   :load-path "/usr/share/emacs/site-lisp/eaf" ; Set to "/usr/share/emacs/site-lisp/eaf" if installed from AUR
+;;   :custom
+;;   (eaf-find-alternate-file-in-dired t)
+;;   :config
+;;   (eaf-bind-key scroll_up "C-n" eaf-pdf-viewer-keybinding)
+;;   (eaf-bind-key scroll_down "C-p" eaf-pdf-viewer-keybinding)
+;;   (eaf-bind-key take_photo "p" eaf-camera-keybinding))
+(load-theme 'doom-oceanic-next 'noconfirm)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Personal-info                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,7 +117,7 @@
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
-(global-disable-mouse-mode)
+;;(global-disable-mouse-mode)
 
 (setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
@@ -45,11 +126,8 @@
 
 
 (load! "+functions")
-(after! neotree
-  ;;(setq neo-theme 'icons)
-  (setq neo-smart-open t))
 
-;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
+;;ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
 (defun doom-dashboard-widget-banner ()
   (let ((point (point)))
     (mapc (lambda (line)
@@ -93,6 +171,8 @@
                            ?\n)))))
 
 
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Basic-fns                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -131,55 +211,41 @@
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 
-;; Doom exposes five (optional) variables for controlling fonts in Doom. Here
-;; are the three important ones:
-;;
-;; + `doom-font'
-;; + `doom-variable-pitch-font'
-;; + `doom-big-font' -- used for `doom-big-font-mode'; use this for
-;;   presentations or streaming.
-;;
-;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
-;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :style "bold" :size 18)
-      doom-variable-pitch-font (font-spec :family "Source Code Variable" :size 17)
-      doom-unicode-font (font-spec :family "Iosevka Nerd Font Mono" :size 15)
-      doom-big-font (font-spec :family "ShureTechMono Nerd Font Mono" :size 16))
-
-;; There are two ways to load a theme. Both assume the theme is installed and
-;; available. You can either set `doom-theme' or manually load a theme with the
-;; `load-theme' function. This is the default:
-
+;; set theme
 (if (not window-system)
   (setq doom-theme 'doom-acario-dark))
-
+;; treemacs theme
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
+;; ispell dictionary for org mode completion
 
 (after! org
   (setq company-ispell-dictionary (file-truename "~/Dropbox/misc/english-words.txt"))
 )
 
-
-
+;; set fonts
+(setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :style "bold" :size 20)
+      doom-variable-pitch-font (font-spec :family "Quicksand" :size 18)
+      doom-unicode-font (font-spec :family "Iosevka Nerd Font Mono" :size 15)
+      doom-big-font (font-spec :family "ShureTechMono Nerd Font Mono" :size 16))
 
 
 ;; eldoc-fix for emacs 28
-(after! org
-  (defun org-eldoc-load ()
-    "Set up org-eldoc documentation function."
-    (interactive)
-    (cond
-     ((boundp 'eldoc-documentation-strategy)
-      (setq-local eldoc-documentation-strategy
-                  #'org-eldoc-documentation-function))
-     ((boundp 'eldoc-documentation-functions)
-      (add-hook 'eldoc-documentation-functions
-                #'org-eldoc-documentation-function nil t))
-     (t (setq-local eldoc-documentation-function
-                    #'org-eldoc-documentation-function))))
- ;;;###autoload
-  (add-hook 'org-mode-hook #'org-eldoc-load)
-)
+;; (after! org
+;;   (defun org-eldoc-load ()
+;;     "Set up org-eldoc documentation function."
+;;     (interactive)
+;;     (cond
+;;      ((boundp 'eldoc-documentation-strategy)
+;;       (setq-local eldoc-documentation-strategy
+;;                   #'org-eldoc-documentation-function))
+;;      ((boundp 'eldoc-documentation-functions)
+;;       (add-hook 'eldoc-documentation-functions
+;;                 #'org-eldoc-documentation-function nil t))
+;;      (t (setq-local eldoc-documentation-function
+;;                     #'org-eldoc-documentation-function))))
+;;  ;;;###autoload
+;;   (add-hook 'org-mode-hook #'org-eldoc-load)
+;; )
 
 
 
@@ -575,18 +641,18 @@
   (add-hook 'org-mode-hook #'jethro/conditional-hugo-enable))
 
 ;; org-roam server
-(use-package org-roam-server
-  :defer t
-  :config
-  (setq org-roam-server-host "0.0.0.0"
-        org-roam-server-port 1701
-        org-roam-server-export-inline-images t
-        org-roam-server-authenticate nil
-        org-roam-server-network-poll nil
-        org-roam-server-network-arrows 'from
-        org-roam-server-network-label-truncate t
-        org-roam-server-network-label-truncate-length 60
-        org-roam-server-network-label-wrap-length 20))
+;; (use-package org-roam-server
+;;   :defer t
+;;   :config
+;;   (setq org-roam-server-host "0.0.0.0"
+;;         org-roam-server-port 1701
+;;         org-roam-server-export-inline-images t
+;;         org-roam-server-authenticate nil
+;;         org-roam-server-network-poll nil
+;;         org-roam-server-network-arrows 'from
+;;         org-roam-server-network-label-truncate t
+;;         org-roam-server-network-label-truncate-length 60
+;;         org-roam-server-network-label-wrap-length 20))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Blogging                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -677,7 +743,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Python                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 ;;checkhere
 (use-package conda
@@ -837,6 +902,8 @@
         org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
         projectile-project-search-path '("/run/media/light/Project/work/"))
+
+  (add-hook 'org-mode-hook #'auto-fill-mode)
 )
 
 
@@ -867,20 +934,25 @@
 ;;                                        Popup buffer rules                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; zoom-mode interfering with org-capture scheduling
+;; (after! org
+;;   (advice-add #'org-capture-
+;;   ;; (advice-add #'org-capture-finalize :after #'zoom-mode)
+;; )
 
 
 ;; Popup rules for certain buffers
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
   ;; (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
-  (set-popup-rule! "^\\*Org Src" :side 'bottom :slot -2 :height 0.6 :width 0.5 :select t :autosave t :ttl nil :quit nil)
+  ;; (set-popup-rule! "^\\*Org Src" :side 'bottom :slot -2 :height 0.6 :width 0.5 :select t :autosave t :ttl nil :quit nil)
   (set-popup-rule! "\\*RefTeX Select\\*" :size 80)
-  (set-popup-rule! "*Org Select" :side 'bottom :size .45 :select t :vslot 2 :ttl 3)
-  (set-popup-rule! "*Calendar*" :side 'right :size .40 :select t :vslot 2 :ttl 3)
+  (set-popup-rule! "*Org Select" :side 'bottom :size .50 :select t :vslot 2 :ttl 3)
+  ;; (set-popup-rule! "*Calendar*" :side 'bottom :size .40 :select t :vslot 2 :ttl 3)
   (set-popup-rule! "Dictionary" :side 'bottom :height .40 :width 20 :select t :vslot 3 :ttl 3)
-  (set-popup-rule! "*eww*" :side 'right :size .40 :slect t :vslot 5 :ttl 3)
+  ;;(set-popup-rule! "*eww*" :side 'right :size .40 :slect t :vslot 5 :ttl 3)
   (set-popup-rule! "*deadgrep" :side 'bottom :height .40 :select t :vslot 4 :ttl 3)
-  (set-popup-rule! "*org-roam" :side 'right :size .35 :select t :vslot 4 :ttl 3)
+  (set-popup-rule! "*org-roam" :side 'right :size .25 :select t :vslot 4 :ttl 3)
   (set-popup-rule! "\\Swiper" :side 'bottom :size .30 :select t :vslot 4 :ttl 3)
   (set-popup-rule! "*xwidget" :side 'right :size .40 :select t :vslot 5 :ttl 3)
   (set-popup-rule! "*eshell*" :side 'bottom :size .30 :select t :hslot 2 :ttl 3)
@@ -963,7 +1035,7 @@
         org-outline-path-complete-in-steps nil
         org-refile-allow-creating-parent-nodes 'confirm)
 
-  (advice-add #'org-refile :after #'org-save-all-org-buffers)
+  ;; (advice-add #'org-refile :after #'org-save-all-org-buffers)
   (advice-add #'org-agenda-exit :around 'doom-shut-up-a)
   (advice-add #'org-agenda-exit :before #'org-save-all-org-buffers)
 
@@ -1275,9 +1347,6 @@
         :n "a" #'helm-org-rifle-current-buffer
         :n "w" #'helm-org-rifle-org-directory
         :n "h" #'helm-org-rifle-directories)
-      (:prefix "t"
-        :n "s" #'org-narrow-to-subtree
-        :n "w" #'widen)
       (:prefix "a"
        :n "a" #'unpackaged/iedit-or-flyspell
        :n "s" #'create-new-ml-project
@@ -1289,8 +1358,21 @@
        :n "i" #'org-mru-clock-in
        :n "f" #'auto-fill-mode
        :n "z" #'zoom-mode
+       :n "y" #'jethro/bulk-process-entries
        :n "j" #'grab-x-link-firefox-insert-org-link
+       :n "b" #'grab-x-link-brave-insert-org-link
        :n "d" #'unpackaged/org-refile-to-datetree-using-ts-in-entry)
+      (:prefix "d"
+       :n "b" #'helm-bibtex
+       :n "h" #'org-ref-bibtex-hydra/body
+       :n "w" #'+hydra/window-nav/body
+       :n "m" #'hydra-multiple-cursors/body
+       :n "s" #'+org-private@org-babel-hydra/body
+       :n "t" #'scimax-org-table/body
+       :n "h" #'scimax-org-headline/body
+       :n "w" #'org-toogle-narrow-to-subtree
+       :n "p" #'scimax-python-mode/body
+       :n "d" #'scimax-dired/body)
 )
 (defun change-env-and-restart-lsp()
   "Changes the python environment and
@@ -1517,7 +1599,7 @@ restart lsp based on that environment"
     (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
     (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
     (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx"))
-    (dired-rainbow-define markdown "#ffed4a" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
+    (dired-rainbow-define markdown "#c397d8" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
     (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
     (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
     (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
@@ -3263,7 +3345,7 @@ models/\n
     `(
       ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
       ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
-      ("habit" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
+      ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
       ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
       ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
       ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
@@ -3292,8 +3374,8 @@ models/\n
  '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
  '(org-level-1 ((t (:foreground "#d54e53" :inherit default :weight bold :font "IBM Plex Serif" :height 1.3))))
  '(org-level-2 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "IBM Plex Serif" :height 1.25))))
- '(org-level-3 ((t (:foreground "DarkOliveGreen3" :inherit default :weight bold :font "PT Sans" :height 1.2))))
- '(org-level-4 ((t (:foreground "#c397d8" :inherit default :weight bold :font "PT Sans" :height 1.1))))
+ '(org-level-3 ((t (:foreground "#c397d8" :inherit default :weight bold :font "PT Sans" :height 1.2))))
+ '(org-level-4 ((t (:foreground "DarkOliveGreen3" :inherit default :weight bold :font "PT Sans" :height 1.1))))
  '(org-level-5 ((t (:foreground "brown" :inherit default :weight bold :font "PT Sans" :height 1.05))))
  '(org-level-6 ((t (:foreground "DarkGoldenrod2" :inherit default :weight bold :font "PT Sans" :height 1.0))))
  '(org-level-7 ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "PT Sans" :height 1.0))))
@@ -3479,6 +3561,62 @@ models/\n
   (require 'elfeed-goodies)
   (elfeed-org)
 
+  (defun prot/elfeed-show-eww (&optional link)
+    "Browse current `elfeed' entry link in `eww'.
+Only show the readable part once the website loads.  This can
+fail on poorly-designed websites."
+    (interactive)
+    (let* ((entry (if (eq major-mode 'elfeed-show-mode)
+                      elfeed-show-entry
+                    (elfeed-search-selected :ignore-region)))
+           (link (if link link (elfeed-entry-link entry))))
+      (eww link)
+      (add-hook 'eww-after-render-hook 'eww-readable nil t)))
+  (defun prot/elfeed-search-other-window (&optional arg)
+    "Browse `elfeed' entry in the other window.
+With \\[universal-argument] browse the entry in `eww' using the
+`prot/elfeed-show-eww' wrapper."
+    (interactive "P")
+    (let* ((entry (if (eq major-mode 'elfeed-show-mode)
+                      elfeed-show-entry
+                    (elfeed-search-selected :ignore-region)))
+           (link (elfeed-entry-link entry))
+           (win (selected-window)))
+      (with-current-buffer (get-buffer "*elfeed-search*")
+        (unless (one-window-p)              ; experimental
+          (delete-other-windows win))
+        (split-window win (/ (frame-height) 5) 'below)
+        (other-window 1)
+        (if arg
+            (progn
+              (when (eq major-mode 'elfeed-search-mode)
+                (elfeed-search-untag-all-unread))
+              (prot/elfeed-show-eww link))
+          (elfeed-search-show-entry entry)))))
+
+
+  (defun prot/elfeed-kill-buffer-close-window-dwim ()
+    "Do-what-I-mean way to handle `elfeed' windows and buffers.
+
+When in an entry buffer, kill the buffer and return to the Elfeed
+Search view.  If the entry is in its own window, delete it as
+well.
+
+When in the search view, close all other windows.  Else just kill
+the buffer."
+    (interactive)
+    (let ((win (selected-window)))
+      (cond ((eq major-mode 'elfeed-show-mode)
+             (elfeed-kill-buffer)
+             (unless (one-window-p) (delete-window win))
+             (switch-to-buffer "*elfeed-search*"))
+            ((eq major-mode 'elfeed-search-mode)
+             (if (one-window-p)
+                 (elfeed-search-quit-window)
+               (delete-other-windows win))))))
+
+
+
   (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
         elfeed-db-directory "~/.elfeed/")
 
@@ -3541,4 +3679,88 @@ models/\n
 
   (push '(important important-elfeed-entry)
         elfeed-search-face-alist)
+  :bind (:map elfeed-show-mode-map
+         ("s-j" . prot/elfeed-show-eww)
+         ("s-h" . prot/elfeed-kill-buffer-close-window-dwim))
 )
+
+(use-package eww
+  :commands (eww
+             eww-browse-url
+             eww-search-words
+             eww-open-in-new-buffer
+             eww-open-file
+             prot/eww-visit-history)
+  :config
+  (setq eww-restore-desktop nil)
+  (setq eww-desktop-remove-duplicates t)
+  (setq eww-header-line-format "%u")
+  (setq eww-search-prefix "https://duckduckgo.com/html/?q=")
+  (setq eww-download-directory "~/Downloads/")
+  (setq eww-suggest-uris
+        '(eww-links-at-point
+          eww-prompt-history
+          thing-at-point-url-at-point))
+  (setq eww-bookmarks-directory "~/.emacs.d/eww-bookmarks/")
+  (setq eww-history-limit 150)
+  (setq eww-use-external-browser-for-content-type
+        "\\`\\(video/\\|audio/\\|application/pdf\\)")
+  (setq eww-browse-url-new-window-is-tab nil)
+  (setq eww-form-checkbox-selected-symbol "[X]")
+  (setq eww-form-checkbox-symbol "[ ]")
+
+  (defun prot/eww-visit-history (&optional arg)
+    "Revisit a URL from `eww-prompt-history' using completion.
+With \\[universal-argument] produce a new buffer."
+    (interactive "P")
+    (let ((history eww-prompt-history)  ; eww-bookmarks
+          (new (if arg t nil)))
+      (icomplete-vertical-do ()
+        (eww
+         (completing-read "Visit website from history: " history nil t)
+         new))))
+
+  ;; eww-view-source
+
+;;   (defvar prot/eww-mode-global-map
+;;     (let ((map (make-sparse-keymap)))
+;;       (define-key map "s" 'eww-search-words)
+;;       (define-key map "o" 'eww-open-in-new-buffer)
+;;       (define-key map "f" 'eww-open-file)
+;;       (define-key map "w" 'prot/eww-visit-history)
+;;       map)
+;;     "Key map to scope `eww' bindings for global usage.
+;; The idea is to bind this to a prefix sequence, so that its
+;; defined keys follow the pattern of <PREFIX> <KEY>.")
+;;   :bind-keymap ("C-c w" . prot/eww-mode-global-map)
+  :bind (:map eww-mode-map
+              ("j" . next-line)
+              ("k" . previous-line)
+              ("f" . forward-char)
+              ("b" . backward-char)
+              ("a" . prot/eww-org-archive-current-url)
+              ("B" . eww-back-url)
+              ("N" . eww-next-url)
+              ("P" . eww-previous-url)))
+
+(use-package browse-url
+  :after eww
+  :config
+  (setq browse-url-browser-function 'eww-browse-url))
+
+(global-set-key (kbd "<f6>") 'spray-mode)
+(use-package spray
+  ;; :commands (spray-faster spray-slower)
+  :defer t
+  :config
+  :bind (:map spray-mode-map
+         ("s-f" . spray-faster)
+         ("s-s" . spray-slower)
+         ("s-p" . spray-start/stop)
+         ("s-q" . spray-quit)
+         )
+  )
+;; plantuml to org mode
+(after! org
+  (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
+  (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t))))
