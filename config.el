@@ -529,6 +529,7 @@
 
 (after! org-roam
   (setq org-roam-directory "~/Dropbox/org/notes/")
+  (setq org-roam-db-location "~/.org/org-roam.db")
   (setq org-roam-capture-templates
         '(("x" "braindump" plain (function org-roam--capture-get-point)
            "%?"
@@ -545,8 +546,22 @@
 
           ("t" "ai" plain (function org-roam--capture-get-point)
            "%?"
-           :file-name "${slug}"
-           :head "#+SETUPFILE:./hugo_setup.org
+           :file-name "AI/${slug}"
+           :head "#+SETUPFILE:../hugo_setup.org
+#+TITLE: ${title}
+#+HUGO_SECTION: ai
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
+           :unnarrowed t)
+
+
+          ("e" "emacs" plain (function org-roam--capture-get-point)
+           "%?"
+           :file-name "emacs/${slug}"
+           :head "#+SETUPFILE:../hugo_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: ai
 #+HUGO_SLUG: ${slug}
@@ -1322,6 +1337,13 @@
 ;;                                        Keybindings                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Easier winum navigations using super key
+(bind-key "s-1" 'winum-select-window-1)
+(bind-key "s-2" 'winum-select-window-2)
+(bind-key "s-3" 'winum-select-window-3)
+(bind-key "s-4" 'winum-select-window-4)
+(bind-key "s-5" 'winum-select-window-5)
+
 (bind-key "<f5>" 'switch-dark-mode)
 (bind-key "C-c 2" 'vsplit-last-buffer)
 (bind-key "C-c 3" 'hsplit-last-buffer)
@@ -1370,7 +1392,8 @@
        :n "s" #'+org-private@org-babel-hydra/body
        :n "t" #'scimax-org-table/body
        :n "h" #'scimax-org-headline/body
-       :n "w" #'org-toogle-narrow-to-subtree
+       :n "n" #'org-toogle-narrow-to-subtree
+       :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
        :n "d" #'scimax-dired/body)
 )
@@ -3764,3 +3787,5 @@ With \\[universal-argument] produce a new buffer."
 (after! org
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
   (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t))))
+
+
