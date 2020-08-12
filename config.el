@@ -1344,6 +1344,11 @@
 (bind-key "s-4" 'winum-select-window-4)
 (bind-key "s-5" 'winum-select-window-5)
 
+
+;; scroll other window, useful when working with multiple files
+(bind-key "<s-up>" 'scroll-other-window-down)
+(bind-key "<s-down>" 'scroll-other-window)
+
 (bind-key "<f5>" 'switch-dark-mode)
 (bind-key "C-c 2" 'vsplit-last-buffer)
 (bind-key "C-c 3" 'hsplit-last-buffer)
