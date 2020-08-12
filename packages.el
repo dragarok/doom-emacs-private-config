@@ -1,6 +1,6 @@
 ;; Must Have packages
-(package! exwm)
-(package! helm-exwm)
+;;(package! exwm)
+;;(package! helm-exwm)
 (package! helm-org-rifle)
 (package! org-kanban)
 (package! org-ql)
@@ -46,8 +46,8 @@
 (package! org-ref-ex-hugo
   :recipe (:host github :repo "jethrokuan/org-ref-ox-hugo" :branch "custom/overrides"))
 ;;(package! org-pdftools)
-;;(package! org-noter-pdftools
-;;  :recipe (:host github :repo "fuxialexander/org-pdftools"))
+(package! org-noter-pdftools
+  :recipe (:host github :repo "fuxialexander/org-pdftools"))
 (package! xkcd)
 (package! leetcode)
 (package! anki-editor)
@@ -93,7 +93,6 @@
   :recipe (:local-repo "/home/lis19/.doom.d/orch/"))
 ;; (package! orch
 ;;   :recipe (:host github :repo "yati-sagade/orch"))
-(package! org-roam-server)
 (package! simple-httpd
   :recipe (:local-repo "/home/lis19/.doom.d/skeeto-web-server/"))
   ;; :recipe (:host github :repo "skeeto/emacs-web-server"))

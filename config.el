@@ -221,15 +221,15 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Iosevka Nerd Font" :size 14)
-      doom-variable-pitch-font (font-spec :family "Source Code Variable" :size 12)
+(setq doom-font (font-spec :family "Iosevka Nerd Font" :size 17)
+      doom-variable-pitch-font (font-spec :family "JetBrainsMono" :size 15)
       doom-unicode-font (font-spec :family "Iosevka Nerd Font")
-      doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 12))
+      doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 15))
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-acario-dark)
+(setq doom-theme 'doom-nord-light)
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 ;; ispell dictionary for org mode completion
 
@@ -909,7 +909,7 @@
         +org-export-directory "~/Dropbox/publish/"
         org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
-        projectile-project-search-path '("~/workspace/projects/"))
+        projectile-project-search-path '("~/workspace/projects/")))
 
 
 
