@@ -1,4 +1,4 @@
-;; init.el -*- lexical-binding: t; -*-
+;;; init.el -*- lexical-binding: t; -*-
 ;;
 ;; This file controls what Doom modules are enabled and what order they load in.
 ;; Remember to run 'doom sync' after modifying it!
@@ -102,7 +102,8 @@
         +dictionary
         +offline
         +docsets)        ; ...or in Dash docsets locally
-       lsp
+       (lsp
+        +peek)
        ;;macos             ; MacOS-specific commands
        magit             ; a git porcelain for Emacs
        make              ; run make tasks from Emacs
@@ -152,7 +153,7 @@
         +latexmk)
        ;;lean
        ;;factor
-       ;;ledger            ; an accounting system in Emacs
+       ledger            ; an accounting system in Emacs
        ;;lua               ; one-based indices? one-based indices
        (markdown
 	      +grip); writing docs for people to ignore
@@ -176,9 +177,10 @@
        plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
-		    +conda
         +poetry
-		    +lsp)
+	+pyenv
+	+conda
+	+lsp)
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
        ;;rest              ; Emacs as a REST client

@@ -100,3 +100,10 @@
 (package! web-server
   :recipe (:local-repo "/home/lis19/.doom.d/eschulte-web-server/"))
   ;; :recipe (:host github :repo "eschulte/emacs-web-server"))
+;; (package! eaf
+;;   :recipe (:host github :repo "manateelazycat/emacs-application-framework"))
+
+(package! spray
+  :recipe (:host gitlab :repo "iankelling/spray"))
+;; (package! elegant-emacs
+;;   :recipe (:host github :repo "rougier/elegant-emacs"))
