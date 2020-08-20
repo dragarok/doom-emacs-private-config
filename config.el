@@ -11,105 +11,9 @@
 ;;   `require' or `use-package'.
 ;; - `map!' for binding new keys
 
-;; TODO https://github.com/leoc/org-time-budgets make my own thing
-;; (native-compile "~/.emacs.d")
-;; (setq comp-deferred-compilation t)
-;;(native-compile-async "~/.emacs.d/.local/straight/build/" t t)
-;; exwm configurations
-;;
-;; (use-package exwm
-;;   :ensure t
-;;   :demand t
-;;   :config
 
-;;   (require 'exwm-config)
-;;   (require 'exwm-systemtray)
-;;   (exwm-config-default)
-;;   (exwm-systemtray-enable)
-
-;;   (window-divider-mode 1)
-;;   (display-battery-mode 1)
-;;   (display-time-mode 1)
-
-
-;;   (defun launch-terminal ()
-
-;;     (interactive)
-
-;;     (start-process-shell-command "alacritty" nil "alacritty"))
-
-
-;;   (defun launch-firefox ()
-
-;;     (interactive)
-
-;;     (start-process-shell-command "firefox" nil "firefox"))
-
-
-;;   (setq exwm-workspace-index-map
-
-;;         (lambda (index)
-
-;;           (let ((named-workspaces ["0-sys" "1-edit1" "2-edit2" "3-www" "4-email" "5-shell" "6-fm" "7-sys" "8-img" "9-IM"]))
-
-;;             (if (< index (length named-workspaces))
-
-;;                 (elt named-workspaces index)
-
-;;               (number-to-string index)))))
-
-;;   ;; easy window moving with buffer-move
-
-;;   (exwm-input-set-key (kbd "<C-s-k>") 'buf-move-up)
-
-;;   (exwm-input-set-key (kbd "<C-s-j>") 'buf-move-down)
-
-;;   (exwm-input-set-key (kbd "<C-s-l>") 'buf-move-right)
-
-;;   (exwm-input-set-key (kbd "<C-s-h>") 'buf-move-left)
-
-;;   ;; easy window switching with windmove
-
-;;   (exwm-input-set-key (kbd "<s-k>") 'windmove-up)
-
-;;   (exwm-input-set-key (kbd "<s-j>") 'windmove-down)
-
-;;   (exwm-input-set-key (kbd "<s-l>") 'windmove-right)
-
-;;   (exwm-input-set-key (kbd "<s-h>") 'windmove-left)
-
-;;   (exwm-input-set-key (kbd "s-# t") 'launch-terminal)
-
-;;   (exwm-input-set-key (kbd "s-# f") 'launch-firefox)
-
-;;   (exwm-input-set-key (kbd "s-# k") 'launch-keepassxc)
-
-
-
-;;   )
-;;
-
-
-;; (helm-posframe-enable)
-;; (setq helm-posframe-parameters ;;       '((left-fringe . 5)
-;;         (right-fringe . 5)))
 (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1)))
 ;;(setq +pretty-code-enabled-modes nil)
-;; (require 'elfeed)
-;; (elfeed-db--empty)
-;; (setq elfeed-db nil)
-;; (setq elfeed-db-index nil)
-;; (setq elfeed-db-feeds nil)
-;; (setq elfeed-db-entries nil)
-;; (use-package eaf
-;;   :load-path "/usr/share/emacs/site-lisp/eaf" ; Set to "/usr/share/emacs/site-lisp/eaf" if installed from AUR
-;;   :custom
-;;   (eaf-find-alternate-file-in-dired t)
-;;   :config
-;;   (eaf-bind-key scroll_up "C-n" eaf-pdf-viewer-keybinding)
-;;   (eaf-bind-key scroll_down "C-p" eaf-pdf-viewer-keybinding)
-;;   (eaf-bind-key take_photo "p" eaf-camera-keybinding))
-(load-theme 'doom-oceanic-next 'noconfirm)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Personal-info                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -122,9 +26,15 @@
 (setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
 
+(use-package! vlf-setup
+  :defer-incrementally vlf-tune vlf-base vlf-write vlf-search vlf-occur vlf-follow vlf-ediff vlf)
 
+(defun greedily-do-daemon-setup ()
+  (when (daemonp)
+    (require 'org)
+    (require 'mu4e)))
 
-
+(add-hook 'emacs-startup-hook #'greedily-do-daemon-setup)
 (load! "+functions")
 
 ;;ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
@@ -177,8 +87,6 @@
 ;;                                        Basic-fns                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; replacement to buggy golden ratio mode
-(require 'zoom)
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -193,11 +101,28 @@
  '(dart-sdk-path "/opt/flutter/bin/cache/dart-sdk/" t)
  '(hydra-posframe-parameters '((left-fringe . 5) (right-fringe . 5)))
  '(scihub-homepage "https://sci-hub.st")
- '(scihub-open-after-download nil)
- '(zoom-mode t nil (zoom))
- '(zoom-size '(0.618 . 0.618)))
+ ;; '(poetry-tracking-mode t)
+ '(scihub-open-after-download nil))
 
+;; go to right or bottom after splitting
+(setq evil-vsplit-window-right t
+      evil-split-window-below t)
 
+(defadvice! prompt-for-buffer (&rest _)
+  :after '(evil-window-split evil-window-vsplit)
+  (+ivy/switch-buffer))
+
+(setq +ivy-buffer-preview t)
+
+;; replacement to buggy golden ratio mode
+(use-package zoom
+  :hook (doom-first-input . zoom-mode)
+  :config
+  (setq zoom-size '(0.637 . 0.637)
+        zoom-ignored-major-modes '(dired-mode vterm-mode help-mode helpful-mode rxt-help-mode help-mode-menu org-mode)
+        zoom-ignored-buffer-names '("*doom:scratch*" "*info*" "*helpful variable: argv*"  "*Calendar*" "*Org Select" "*Capture*")
+        zoom-ignored-buffer-name-regexps '("^\\*calc" "\\*helpful variable: .*\\*" "*Calendar*" "*Org Select" "*Capture*")
+        zoom-ignore-predicates (list (lambda () (> (count-lines (point-min) (point-max)) 20)))))
 
 ;;(after! dired
 ;;  (add-hook 'dired-mode-hook 'all-the-icons-dired-mode))
@@ -213,7 +138,7 @@
 
 ;; set theme
 (if (not window-system)
-  (setq doom-theme 'doom-acario-dark))
+  (setq doom-theme 'doom-nord))
 ;; treemacs theme
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 ;; ispell dictionary for org mode completion
@@ -223,11 +148,12 @@
 )
 
 ;; set fonts
-(setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :style "bold" :size 20)
-      doom-variable-pitch-font (font-spec :family "Quicksand" :size 18)
-      doom-unicode-font (font-spec :family "Iosevka Nerd Font Mono" :size 15)
-      doom-big-font (font-spec :family "ShureTechMono Nerd Font Mono" :size 16))
+(setq doom-font (font-spec :family "Iosevka" :size 22)
+      doom-variable-pitch-font (font-spec :family "Overpass" :size 26)
+      doom-serif-font (font-spec :family "IBM Plex Mono" :weight 'light)
+      doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
 
+(load-theme 'doom-challenger-deep 'noconfirm)
 
 ;; eldoc-fix for emacs 28
 ;; (after! org
@@ -316,13 +242,13 @@
   :config
   (setq nov-text-width t
         visual-fill-column-center-text t)
-  (defun my-nov-font-setup ()
-    (face-remap-add-relative 'variable-pitch :family "Liberation Serif"
-                             :size 16
-                             :height 1.3))
+  ;; (defun my-nov-font-setup ()
+  ;;   (face-remap-add-relative 'variable-pitch :family "Li"
+  ;;                            :size 16
+  ;;                            :height 1.3))
   (add-hook 'nov-mode-hook 'visual-line-mode)
   (add-hook 'nov-mode-hook 'visual-fill-column-mode)
-  (add-hook 'nov-mode-hook 'my-nov-font-setup)
+  ;; (add-hook 'nov-mode-hook 'my-nov-font-setup)
 )
 
 
@@ -558,12 +484,25 @@
            :unnarrowed t)
 
 
+          ("l" "neuroscience" plain (function org-roam--capture-get-point)
+           "%?"
+           :file-name "neuroscience/${slug}"
+           :head "#+SETUPFILE:../hugo_setup.org
+#+TITLE: ${title}
+#+HUGO_SECTION: neuroscience
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
+           :unnarrowed t)
+
           ("e" "emacs" plain (function org-roam--capture-get-point)
            "%?"
            :file-name "emacs/${slug}"
            :head "#+SETUPFILE:../hugo_setup.org
 #+TITLE: ${title}
-#+HUGO_SECTION: ai
+#+HUGO_SECTION: emacs
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
@@ -759,6 +698,8 @@
 ;;                                        Python                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+
 ;;checkhere
 (use-package conda
   :after python
@@ -918,7 +859,8 @@
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
         projectile-project-search-path '("/run/media/light/Project/work/"))
 
-  (add-hook 'org-mode-hook #'auto-fill-mode)
+(remove-hook 'text-mode-hook #'visual-line-mode)
+(add-hook 'text-mode-hook #'auto-fill-mode)
 )
 
 
@@ -956,7 +898,7 @@
 ;; )
 
 
-;; Popup rules for certain buffers
+;;Popup rules for certain buffers
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
   ;; (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
@@ -1021,15 +963,21 @@
                     '(("TODO" :foreground "tomato" :weight bold)
                       ("WAITING" :foreground "light sea green" :weight bold)
                       ("SOMEDAY" :foreground "firebrick" :weight bold)
-                      ("REVIEW" :foreground "firebrick" :weight bold)
-                      ("STARTED" :foreground "DodgerBlue" :weight bold)
+                      ;;("REVIEW" :foreground "firebrick" :weight bold)
+                      ;;("STARTED" :foreground "DodgerBlue" :weight bold)
                       ("DELEGATED" :foreground "Gold" :weight bold)
                       ("NEXT" :foreground "violet red" :weight bold)
                       ("DONE" :foreground "slategrey" :weight bold)))
 
   (setq org-todo-keywords
-      '((sequence "TODO(t)" "STARTED(s!)" "WAITING(w@/!)" "NEXT(n)" "REVIEW(r@/!)" "SOMEDAY(f@/!)" "PROJ(p)" "|" "DONE(d!)" "CANCELLED(c@/!)")))
-;;
+        '((sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
+          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
+          (sequence "TODO(t)" "NEXT(n)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
+          (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
+
+;; REVIEW cleanup if working
+;;(sequence "TODO(t)" "STARTED(s!)" "WAITING(w@/!)" "NEXT(n)" "REVIEW(r@/!)" "SOMEDAY(f@/!)" "PROJ(p)" "|" "DONE(d!)" "CANCELLED(c@/!)")
+
 ;;  (setq org-todo-state-tags-triggers
 ;;        (quote (("CANCELLED" ("CANCELLED" . t))
 ;;                ("WAITING" ("WAITING" . t))
@@ -1166,7 +1114,7 @@
 (after! org (add-to-list 'org-capture-templates
                          '("v" "Create a new habit" entry (file "~/Dropbox/org/gtd/recurring.org")
                            "* TODO %^{description} %?
-:SCHEDULED: %^{schedule}t
+:SCHEDULED: %^{Start Time:}t
 :PROPERTIES:
 :STYLE: habit
 :CREATED:    %U
@@ -1174,7 +1122,7 @@
 ")))
 
 (after! org (add-to-list 'org-capture-templates
-          '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/ideas.org")
+          '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/links.org")
            "* %^{Logging for...} :idea:
 :PROPERTIES:
 :Created: %U
@@ -1183,17 +1131,6 @@
 %i
 %?")
 ))
-
-(after! org (add-to-list 'org-capture-templates
-             '("I" "Coding notes" entry(file+headline"~/Dropbox/org/examples.org" "INBOX")
-"* %^{example}
-:PROPERTIES: :SOURCE:  %^{source|Command|Script|Code|Usage} :SUBJECT: %^{subject}
-:END:
-
-\#+BEGIN_SRC %^{lang}
-%x
-\#+END_SRC
-%?")))
 
 (after! org (add-to-list 'org-capture-templates
              '("m" "Mood Log" entry(file+olp+datetree"~/Dropbox/org/journal/mood.org")
@@ -1234,11 +1171,14 @@
                "** <%<%I:%M:%S>> %^{diary entry}
 %?")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Routine tracking                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(after! org (add-to-list 'org-capture-templates
-             '("r" "Routine Log" entry(file+olp+datetree"~/Dropbox/org/journal/routine.org")
-               "** Routine
-%?")))
+;; (after! org (add-to-list 'org-capture-templates
+;;              '("r" "Routine Log" entry(file+olp+datetree"~/Dropbox/org/journal/routine.org")
+;;                "** Routine
+;; %?")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1246,53 +1186,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defun my/generate-org-note-name ()
-  (setq my-org-note--name (read-string "Name: "))
-  (expand-file-name (format "%s.org"my-org-note--name) "~/Dropbox/org/gtd/projects/"))
-
-(defun org-gtd/find-project-task ()
-  "Move point to the parent (project) task if any"
-  (interactive)
-  (save-restriction
-    (widen)
-    (let ((parent-task (save-excursion (org-back-to-heading 'invisible-ok) (point))))
-      (while (org-up-heading-safe)
-        (when (string-match-p "project" (org-get-tags-string))
-          (setq parent-task (point))))
-      (goto-char parent-task)
-      parent-task)))
-
-(defun org-gtd/is-project-subtree-p ()
-  "Any task that is a project subtree"
-  (let ((task (save-excursion (org-back-to-heading 'invisible-ok)
-                              (point))))
-    (save-excursion
-      (org-gtd/find-project-task)
-      (if (equal (point) task)
-          nil
-        t))))
-
-(defun org-gtd/skip-project-tasks ()
-  "Skip tasks belonging to projects"
-  (save-restriction
-    (widen)
-    (let* ((subtree-end (save-excursion (org-end-of-subtree t))))
-      (cond
-       ((org-gtd/is-project-subtree-p)
-        subtree-end)
-       (t
-        nil)))))
-
-(defun org-gtd/remove-started-tag-when-done ()
-  "Remove started tag from task when marked as DONE"
-  (interactive)
-  (when (org-entry-is-done-p)
-    (save-excursion
-      (org-back-to-heading)
-      (org-set-tags-to (if (string= (org-get-tags-string) ":started:")
-                           ""
-                         (mapconcat 'identity
-                                    (delete "started" (split-string (org-get-tags-string) ":")) ":"))))))
 
 (defun org-gtd/archive-all-done-entries ()
   "Archive all entries marked DONE"
@@ -1302,11 +1195,6 @@
     (while (outline-previous-heading)
       (when (org-entry-is-done-p)
         (org-archive-subtree)))))
-
-(defun my/last-captured-org-note ()
-  "Move to the last line of the last org capture note."
-  (interactive)
-  (goto-char (point-max)))
 
 ;;;###autoload
 (defun bh/make-org-scratch ()
@@ -1353,7 +1241,7 @@
 (bind-key "C-c 2" 'vsplit-last-buffer)
 (bind-key "C-c 3" 'hsplit-last-buffer)
 (bind-key "s-<return>" 'newline-and-indent)
-(bind-key "s-e" #'+ivy/project-search-specific-files)
+(bind-key "s-e" #'+ivy/project-search-with-hidden-files)
 (bind-key "s-/" #'doom/toggle-comment-region-or-line)
 (map! :leader
       (:prefix "e"
@@ -1400,6 +1288,11 @@
        :n "n" #'org-toogle-narrow-to-subtree
        :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
+       :n "o" #'org-noter
+       :n "c" #'org-noter-pdftools-create-skeleton
+       :n "j" #'org-hugo-auto-export-mode
+       :n "p" #'poetry
+       :n "r" #'poetry-run
        :n "d" #'scimax-dired/body)
 )
 (defun change-env-and-restart-lsp()
@@ -3384,38 +3277,6 @@ models/\n
       ("ideas" ,(list (all-the-icons-octicon "light-bulb" :height 1.2)) nil nil :ascent center)
       ("paper" ,(list (all-the-icons-octicon "rocket" :height 1.2)) nil nil :ascent center)
       ))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(aw-leading-char-face ((t (:height 4.0 :foreground "#f1fa8c"))))
- '(fixed-pitch ((t (:family "JetBrainsMono NF" :slant normal :weight normal :height 1.0 :width normal))))
- '(hydra-posframe-border-face ((t (:background "OrangeRed3"))))
- '(org-block ((t (:inherit (fixed-pitch)))))
- '(org-code ((t (:inherit (shadow fixed-pitch)))))
- '(org-document-info ((t (:foreground "dark orange"))))
- '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
- '(org-document-title ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.3 :underline nil))))
- '(org-done ((t (:strike-through t :weight bold))))
- '(org-headline-done ((t (:strike-through t))))
- '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
- '(org-level-1 ((t (:foreground "#d54e53" :inherit default :weight bold :font "IBM Plex Serif" :height 1.3))))
- '(org-level-2 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "IBM Plex Serif" :height 1.25))))
- '(org-level-3 ((t (:foreground "#c397d8" :inherit default :weight bold :font "PT Sans" :height 1.2))))
- '(org-level-4 ((t (:foreground "DarkOliveGreen3" :inherit default :weight bold :font "PT Sans" :height 1.1))))
- '(org-level-5 ((t (:foreground "brown" :inherit default :weight bold :font "PT Sans" :height 1.05))))
- '(org-level-6 ((t (:foreground "DarkGoldenrod2" :inherit default :weight bold :font "PT Sans" :height 1.0))))
- '(org-level-7 ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "PT Sans" :height 1.0))))
- '(org-level-8 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "PT Sans" :height 1.0))))
- '(org-link ((t (:foreground "royal blue" :underline t))))
- '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
- '(org-property-value ((t (:inherit fixed-pitch))) t)
- '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
- '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
- '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
- '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
- '(variable-pitch ((t (:family "Open Sans")))))
 
 (after! org
 (autoload 'orch-toggle "orch" nil t))
@@ -3448,25 +3309,6 @@ models/\n
                   (+ offset (line-beginning-position)) (line-end-position)) files)
            (forward-line 1))
          (nreverse files))))))
-
-;;;###autoload
-(defun +ivy/project-search-specific-files (&optional initial-input initial-directory)
-  "Similar to counsel-file-jump"
-  (interactive
-   (list nil
-         (when current-prefix-arg
-           (counsel-read-directory-name "From directory: "))))
-  (counsel-require-program find-program)
-  (let ((default-directory (doom-project-root)))
-    (ivy-read "Find file: "
-              (+ivy--counsel-file-jump-use-fd-rg-specific-files counsel-file-jump-args)
-              :matcher #'counsel--find-file-matcher
-              :initial-input initial-input
-              :action #'find-file
-              :preselect (counsel--preselect-file)
-              :require-match 'confirm-after-completion
-              :history 'file-name-history
-              :caller 'counsel-file-jump)))
 
 ;; eshell aliases
 (after! eshell
@@ -3793,4 +3635,92 @@ With \\[universal-argument] produce a new buffer."
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
   (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t))))
 
+
+(after! org-roam
+  (setq org-roam-graph-node-extra-config '(("shape"      . "underline")
+                                           ("style"      . "rounded,filled")
+                                           ("fillcolor"  . "#EEEEEE")
+                                           ("color"      . "#C9C9C9")
+                                           ("fontcolor"  . "#111111")
+                                           ("fontname"   . "Overpass")))
+
+  (setq +org-roam-graph--html-template
+        (replace-regexp-in-string "%\\([^s]\\)" "%%\\1"
+                                  (f-read-text (concat doom-private-dir "misc/org-roam-template.html"))))
+
+  (defadvice! +org-roam-graph--build-html (&optional node-query callback)
+    "Generate a graph showing the relations between nodes in NODE-QUERY. HTML style."
+    :override #'org-roam-graph--build
+    (unless (stringp org-roam-graph-executable)
+      (user-error "`org-roam-graph-executable' is not a string"))
+    (unless (executable-find org-roam-graph-executable)
+      (user-error (concat "Cannot find executable %s to generate the graph.  "
+                          "Please adjust `org-roam-graph-executable'")
+                  org-roam-graph-executable))
+    (let* ((node-query (or node-query
+                           `[:select [file titles] :from titles
+                             ,@(org-roam-graph--expand-matcher 'file t)]))
+           (graph      (org-roam-graph--dot node-query))
+           (temp-dot   (make-temp-file "graph." nil ".dot" graph))
+           (temp-graph (make-temp-file "graph." nil ".svg"))
+           (temp-html  (make-temp-file "graph." nil ".html")))
+      (org-roam-message "building graph")
+      (make-process
+       :name "*org-roam-graph--build-process*"
+       :buffer "*org-roam-graph--build-process*"
+       :command `(,org-roam-graph-executable ,temp-dot "-Tsvg" "-o" ,temp-graph)
+       :sentinel (progn
+                   (lambda (process _event)
+                     (when (= 0 (process-exit-status process))
+                       (write-region (format +org-roam-graph--html-template (f-read-text temp-graph)) nil temp-html)
+                       (when callback
+                         (funcall callback temp-html)))))))))
+
+(defadvice! doom-modeline--reformat-roam (orig-fun)
+  :around #'doom-modeline-buffer-file-name
+  (message "Reformat?")
+  (message (buffer-file-name))
+  (if (s-contains-p org-roam-directory (or buffer-file-name ""))
+      (replace-regexp-in-string
+       "\\(?:^\\|.*/\\)\\([0-9]\\{4\\}\\)\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)[0-9]*-"
+       "🢔(\\1-\\2-\\3) "
+       (funcall orig-fun))
+    (funcall orig-fun)))
+
+(add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
+;;(setq global-org-pretty-table-mode t)
+(custom-set-faces!
+  '(outline-1 :weight extra-bold :height 1.25)
+  '(outline-2 :weight bold :height 1.15)
+  '(outline-3 :weight bold :height 1.12)
+  '(outline-4 :weight semi-bold :height 1.09)
+  '(outline-5 :weight semi-bold :height 1.06)
+  '(outline-6 :weight semi-bold :height 1.03)
+  '(outline-8 :weight semi-bold)
+  '(outline-9 :weight semi-bold)
+  '(org-link :foreground "royal blue" :underline t)
+  '(org-document-info :foreground "dark orange")
+  ;; '(fixed-pitch ((t (:family "JetBrainsMono NF" :slant normal :weight normal :height 1.0 :width normal))))
+  '(hydra-posframe-border-face :background "OrangeRed3")
+  '(org-done :strike-through t :weight bold)
+  '(org-headline-done :strike-through t)
+  '(aw-leading-char-face :height 4.0 :foreground "#f1fa8c")
+  '(org-document-title :foreground "OrangeRed3" :weight bold :font "Iosevka Nerd Font" :height 1.3 :underline nil)
+  '(org-code :inherit shadow )
+  '(org-verbatim :inherit shadow)
+  '(org-document-info-keyword :inherit shadow)
+  ;; '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+  ;; '(org-property-value ((t (:inherit fixed-pitch))) t)
+  ;; '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+  ;; '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+  ;; '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
+  ;; '(org-block ((t (:inherit (fixed-pitch)))))
+)
+;; (after! org
+;;   (setq org-highlight-latex-and-related '(native script entities)))
+
+
+
+(when EMACS28+
+  (add-hook 'latex-mode-hook #'TeX-latex-mode))
 
