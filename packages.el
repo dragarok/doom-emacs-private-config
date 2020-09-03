@@ -107,7 +107,5 @@
 
 (package! spray
   :recipe (:host gitlab :repo "iankelling/spray"))
-;; (package! elegant-emacs
-;;   :recipe (:host github :repo "rougier/elegant-emacs"))
 (package! wttrin :recipe (:local-repo "/home/light/.doom.d/wttrin" :no-byte-compile t))
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
