@@ -917,8 +917,8 @@
 
 (after! org
   (setq org-super-agenda-mode t)
-  (setq org-agenda-tags-column 144)
-  (setq org-tags-column 144)
+  (setq org-agenda-tags-column 120)
+  (setq org-tags-column 120)
   (setq org-agenda-files '("~/Dropbox/org/gtd/"))
   (setq org-agenda-start-with-log-mode t)
   (setq org-columns-default-format "%40ITEM(Task) %Effort(EE){:} %CLOCKSUM(Time Spent) %SCHEDULED(Scheduled) %DEADLINE(Deadline) %TAGS")
