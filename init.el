@@ -20,6 +20,7 @@
         +icons
         +childframe)
        ;; (helm
+       ;;  +childframe
        ;;  +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        (ivy
@@ -42,11 +43,9 @@
        ;;  +icons)
        ophints           ; highlight the region an operation acts on
        (popup            ; tame sudden yet inevitable temporary windows
-        +all             ; catch all popups that start with an asterix
+        ;;+all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
-       (pretty-code
-        ;;+iosevka
-       )      ; replace bits of code with pretty symbols
+       ligatures
        ;;tabs              ; an tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
@@ -70,11 +69,15 @@
        word-wrap         ; soft wrapping with language-aware indent
 
        :emacs
-       dired             ; making dired pretty [functional]
+       (dired             ; making dired pretty [functional]
+        +ranger
+        +icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer
         +icons
         )                                ; interactive buffer management
+       (undo
+        +tree)
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
@@ -84,8 +87,10 @@
        vterm             ; another terminals in Emacs
 
        :checkers
-       syntax              ; tasing you for every semicolon you forget
-       spell             ; tasing you for misspelling mispelling
+       (syntax              ; tasing you for every semicolon you forget
+        +childframe)
+       (spell             ; tasing you for misspelling mispelling
+        +aspell)
        grammar           ; tasing grammar mistake every you make
 
        :tools
@@ -111,6 +116,7 @@
        pdf               ; pdf enhancements
        prodigy           ; FIXME managing external services & code builders
        ;;rgb               ; creating color strings
+       taskrunner
        ;;terraform         ; infrastructure as code
        tmux              ; an API for interacting with tmux
        ;;upload            ; map local to remote projects via ssh/ftp
@@ -166,8 +172,10 @@
         +roam
         ;; +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
+        +pretty
         +gnuplot
         +jupyter        ; ipython/jupyter support for babel
+        +ipython
         +pandoc          ; export-with-pandoc support
         +export
         +dragndrop

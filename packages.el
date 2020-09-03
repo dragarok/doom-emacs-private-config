@@ -2,7 +2,7 @@
 ;;(package! exwm)
 ;;(package! helm-exwm)
 (package! helm-org-rifle)
-(package! org-kanban)
+;;(package! org-kanban)
 (package! org-ql)
 (package! org-super-agenda)
 (package! org-timeline)
@@ -64,7 +64,6 @@
 (package! evil-tutor)
 ;;(package! memrise)
 (package! org-clock-convenience)
-(package! lsp-julia :recipe (:host github :repo "non-jedi/lsp-julia"))
 (package! org-download)
 ;; (package! webkit-katex-render
 ;;   :recipe (:host github :repo "fuxialexander/emacs-webkit-katex-render" ) :pin "ecf8f8a")
@@ -75,13 +74,13 @@
 (package! transmission)
 (package! academic-phrases)
 (package! lorem-ipsum)
-(package! prism
-  :recipe (:host github :repo "alphapapa/prism.el"))
+;; (package! prism
+;;   :recipe (:host github :repo "alphapapa/prism.el"))
 (package! ace-link)
-(package! disable-mouse)
+;;(package! disable-mouse)
 (package! ov
   :recipe (:host github :repo "emacsorphanage/ov.el"))
-(package! helm-posframe)
+;;(package! helm-posframe)
 (package! hydra-posframe
   :recipe (:host github :repo "Ladicle/hydra-posframe"))
 
@@ -104,5 +103,5 @@
 
 (package! spray
   :recipe (:host gitlab :repo "iankelling/spray"))
-;; (package! elegant-emacs
-;;   :recipe (:host github :repo "rougier/elegant-emacs"))
+(package! wttrin :recipe (:local-repo "/home/light/.doom.d/wttrin" :no-byte-compile t))
+(package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))

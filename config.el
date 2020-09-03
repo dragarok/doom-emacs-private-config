@@ -11,105 +11,16 @@
 ;;   `require' or `use-package'.
 ;; - `map!' for binding new keys
 
-;; TODO https://github.com/leoc/org-time-budgets make my own thing
-;; (native-compile "~/.emacs.d")
-;; (setq comp-deferred-compilation t)
-;;(native-compile-async "~/.emacs.d/.local/straight/build/" t t)
-;; exwm configurations
-;;
-;; (use-package exwm
-;;   :ensure t
-;;   :demand t
-;;   :config
+;; NOTE Removed mouse highlight bothering me in org agenda and save
+;; all org files when I rebuild my agenda buffer.
+(after! org
+  (add-hook 'org-agenda-finalize-hook
+            (lambda () (remove-text-properties
+                   (point-min) (point-max) '(mouse-face t))))
+  (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
+  ;; (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1))))
+)
 
-;;   (require 'exwm-config)
-;;   (require 'exwm-systemtray)
-;;   (exwm-config-default)
-;;   (exwm-systemtray-enable)
-
-;;   (window-divider-mode 1)
-;;   (display-battery-mode 1)
-;;   (display-time-mode 1)
-
-
-;;   (defun launch-terminal ()
-
-;;     (interactive)
-
-;;     (start-process-shell-command "alacritty" nil "alacritty"))
-
-
-;;   (defun launch-firefox ()
-
-;;     (interactive)
-
-;;     (start-process-shell-command "firefox" nil "firefox"))
-
-
-;;   (setq exwm-workspace-index-map
-
-;;         (lambda (index)
-
-;;           (let ((named-workspaces ["0-sys" "1-edit1" "2-edit2" "3-www" "4-email" "5-shell" "6-fm" "7-sys" "8-img" "9-IM"]))
-
-;;             (if (< index (length named-workspaces))
-
-;;                 (elt named-workspaces index)
-
-;;               (number-to-string index)))))
-
-;;   ;; easy window moving with buffer-move
-
-;;   (exwm-input-set-key (kbd "<C-s-k>") 'buf-move-up)
-
-;;   (exwm-input-set-key (kbd "<C-s-j>") 'buf-move-down)
-
-;;   (exwm-input-set-key (kbd "<C-s-l>") 'buf-move-right)
-
-;;   (exwm-input-set-key (kbd "<C-s-h>") 'buf-move-left)
-
-;;   ;; easy window switching with windmove
-
-;;   (exwm-input-set-key (kbd "<s-k>") 'windmove-up)
-
-;;   (exwm-input-set-key (kbd "<s-j>") 'windmove-down)
-
-;;   (exwm-input-set-key (kbd "<s-l>") 'windmove-right)
-
-;;   (exwm-input-set-key (kbd "<s-h>") 'windmove-left)
-
-;;   (exwm-input-set-key (kbd "s-# t") 'launch-terminal)
-
-;;   (exwm-input-set-key (kbd "s-# f") 'launch-firefox)
-
-;;   (exwm-input-set-key (kbd "s-# k") 'launch-keepassxc)
-
-
-
-;;   )
-;;
-
-
-;; (helm-posframe-enable)
-;; (setq helm-posframe-parameters ;;       '((left-fringe . 5)
-;;         (right-fringe . 5)))
-(add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1)))
-;;(setq +pretty-code-enabled-modes nil)
-;; (require 'elfeed)
-;; (elfeed-db--empty)
-;; (setq elfeed-db nil)
-;; (setq elfeed-db-index nil)
-;; (setq elfeed-db-feeds nil)
-;; (setq elfeed-db-entries nil)
-;; (use-package eaf
-;;   :load-path "/usr/share/emacs/site-lisp/eaf" ; Set to "/usr/share/emacs/site-lisp/eaf" if installed from AUR
-;;   :custom
-;;   (eaf-find-alternate-file-in-dired t)
-;;   :config
-;;   (eaf-bind-key scroll_up "C-n" eaf-pdf-viewer-keybinding)
-;;   (eaf-bind-key scroll_down "C-p" eaf-pdf-viewer-keybinding)
-;;   (eaf-bind-key take_photo "p" eaf-camera-keybinding))
-(load-theme 'doom-oceanic-next 'noconfirm)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Personal-info                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -122,12 +33,10 @@
 (setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
 
+(use-package! vlf-setup
+  :defer-incrementally vlf-tune vlf-base vlf-write vlf-search vlf-occur vlf-follow vlf-ediff vlf)
 
-
-
-(load! "+functions")
-
-;;ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
+;; ;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
 (defun doom-dashboard-widget-banner ()
   (let ((point (point)))
     (mapc (lambda (line)
@@ -177,8 +86,6 @@
 ;;                                        Basic-fns                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; replacement to buggy golden ratio mode
-(require 'zoom)
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -193,11 +100,28 @@
  '(dart-sdk-path "/opt/flutter/bin/cache/dart-sdk/" t)
  '(hydra-posframe-parameters '((left-fringe . 5) (right-fringe . 5)))
  '(scihub-homepage "https://sci-hub.st")
- '(scihub-open-after-download nil)
- '(zoom-mode t nil (zoom))
- '(zoom-size '(0.618 . 0.618)))
+ ;; '(poetry-tracking-mode t)
+ '(scihub-open-after-download nil))
 
+;; go to right or bottom after splitting
+(setq evil-vsplit-window-right t
+      evil-split-window-below t)
 
+;; ivy when splitting buffer
+(defadvice! prompt-for-buffer (&rest _)
+  :after '(evil-window-split evil-window-vsplit)
+  (+ivy/switch-buffer))
+(setq +ivy-buffer-preview t)
+
+;; replacement to buggy golden ratio mode
+(use-package zoom
+  :hook (doom-first-input . zoom-mode)
+  :config
+  (setq zoom-size '(0.637 . 0.637)
+        zoom-ignored-major-modes '(dired-mode vterm-mode help-mode helpful-mode rxt-help-mode help-mode-menu org-mode)
+        zoom-ignored-buffer-names '("*doom:scratch*" "*info*" "*helpful variable: argv*"  "*Calendar*" "*Org Select" "*Capture*")
+        zoom-ignored-buffer-name-regexps '("^\\*calc" "\\*helpful variable: .*\\*" "*Calendar*" "*Org Select" "*Capture*")
+        zoom-ignore-predicates (list (lambda () (> (count-lines (point-min) (point-max)) 20)))))
 
 ;;(after! dired
 ;;  (add-hook 'dired-mode-hook 'all-the-icons-dired-mode))
@@ -211,31 +135,24 @@
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 
-;; Doom exposes five (optional) variables for controlling fonts in Doom. Here
-;; are the three important ones:
-;;
-;; + `doom-font'
-;; + `doom-variable-pitch-font'
-;; + `doom-big-font' -- used for `doom-big-font-mode'; use this for
-;;   presentations or streaming.
-;;
-;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
-;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Iosevka Nerd Font" :size 17)
-      doom-variable-pitch-font (font-spec :family "JetBrainsMono" :size 15)
-      doom-unicode-font (font-spec :family "Iosevka Nerd Font")
-      doom-big-font (font-spec :family "Iosevka Nerd Font Complete Mono" :size 15))
-
-;; There are two ways to load a theme. Both assume the theme is installed and
-;; available. You can either set `doom-theme' or manually load a theme with the
-;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-nord-light)
+;; set theme
+(if (not window-system)
+  (setq doom-theme 'doom-nord))
+;; treemacs theme
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 ;; ispell dictionary for org mode completion
 
 (after! org
   (setq company-ispell-dictionary (file-truename "~/Dropbox/misc/english-words.txt"))
 )
+
+;; set fonts
+(setq doom-font (font-spec :family "Iosevka Nerd Font" :size 17)
+      doom-variable-pitch-font (font-spec :family "Overpass" :size 20)
+      doom-serif-font (font-spec :family "IBM Plex Mono" :weight 'light)
+      doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
+
+(load-theme 'doom-challenger-deep 'noconfirm)
 
 ;; eldoc-fix for emacs 28
 ;; (after! org
@@ -311,9 +228,6 @@
   (require 'my-deft-title)
   (advice-add 'deft-parse-title :around #'my-deft/parse-title-with-directory-prepended))
 
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Novel mode                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -324,13 +238,8 @@
   :config
   (setq nov-text-width t
         visual-fill-column-center-text t)
-  (defun my-nov-font-setup ()
-    (face-remap-add-relative 'variable-pitch :family "Liberation Serif"
-                             :size 16
-                             :height 1.3))
   (add-hook 'nov-mode-hook 'visual-line-mode)
   (add-hook 'nov-mode-hook 'visual-fill-column-mode)
-  (add-hook 'nov-mode-hook 'my-nov-font-setup)
 )
 
 
@@ -351,8 +260,8 @@
               ("M-w" . 'pdf-view-kill-ring-save)
               ("s-g" . 'pdf-view-goto-page)
               ("s-h" . 'pdf-annot-add-highlight-markup-annotation)
-              ("s-k" . 'org-noter-insert-note-no-questions)
-              ("s-j" . 'pdf-annot-delete)
+              ("s-n" . 'org-noter-insert-note-no-questions)
+              ("s-d" . 'pdf-annot-delete)
               )
   :config
   ;; initialise
@@ -529,8 +438,6 @@
   :hook (org-load . org-pdftools-setup-link))
 
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Org-roam config                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -555,7 +462,7 @@
           ("t" "ai" plain (function org-roam--capture-get-point)
            "%?"
            :file-name "AI/${slug}"
-           :head "#+SETUPFILE:../hugo_setup.org
+           :head "#+SETUPFILE:../hugo_in_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: ai
 #+HUGO_SLUG: ${slug}
@@ -566,12 +473,25 @@
            :unnarrowed t)
 
 
+          ("l" "neuroscience" plain (function org-roam--capture-get-point)
+           "%?"
+           :file-name "neuroscience/${slug}"
+           :head "#+SETUPFILE:../hugo_in_setup.org
+#+TITLE: ${title}
+#+HUGO_SECTION: neuroscience
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
+           :unnarrowed t)
+
           ("e" "emacs" plain (function org-roam--capture-get-point)
            "%?"
            :file-name "emacs/${slug}"
-           :head "#+SETUPFILE:../hugo_setup.org
+           :head "#+SETUPFILE:../hugo_in_setup.org
 #+TITLE: ${title}
-#+HUGO_SECTION: ai
+#+HUGO_SECTION: emacs
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
@@ -606,7 +526,7 @@
           ("e" "ref" plain (function org-roam--capture-get-point)
            "%?"
            :file-name "websites/${slug}"
-           :head "#+SETUPFILE:./hugo_setup.org
+           :head "#+SETUPFILE:./hugo_in_setup.org
 #+ROAM_KEY: ${ref}
 #+HUGO_SLUG: ${slug}
 #+TITLE: ${title}
@@ -767,6 +687,8 @@
 ;;                                        Python                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+
 ;;checkhere
 (use-package conda
   :after python
@@ -924,24 +846,21 @@
         +org-export-directory "~/Dropbox/publish/"
         org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
-        projectile-project-search-path '("~/workspace/projects/")))
+        projectile-project-search-path '("~/workspace/projects/"))
+)
 
-
-
-
+(remove-hook 'text-mode-hook #'visual-line-mode)
+(add-hook 'text-mode-hook #'auto-fill-mode)
 
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;                                        Org mode UI                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;  ;; beautiful bullets
-;;  (setq org-bullets-bullet-list '("◉" "◎" "✸" "✿" "✤" "⚫")
 (after! org
   (setq org-hide-emphasis-markers t
         org-superstar-headline-bullets-list '("✪" "◉" "☢" "❥" "✤" "◎" "◇" "▸")
         org-list-demote-modify-bullet '(("+" . "-") ("1." . "a.") ("-" . "+") ("a." . "1."))
         org-ellipsis "⤵"
-        +pretty-code-enabled-modes '(org-mode)
         )
   (setq org-emphasis-alist
   '(("*" (bold :foreground "Orange" ))
@@ -964,7 +883,7 @@
 ;; )
 
 
-;; Popup rules for certain buffers
+;;Popup rules for certain buffers
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
   ;; (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
@@ -1029,15 +948,21 @@
                     '(("TODO" :foreground "tomato" :weight bold)
                       ("WAITING" :foreground "light sea green" :weight bold)
                       ("SOMEDAY" :foreground "firebrick" :weight bold)
-                      ("REVIEW" :foreground "firebrick" :weight bold)
-                      ("STARTED" :foreground "DodgerBlue" :weight bold)
+                      ;;("REVIEW" :foreground "firebrick" :weight bold)
+                      ;;("STARTED" :foreground "DodgerBlue" :weight bold)
                       ("DELEGATED" :foreground "Gold" :weight bold)
                       ("NEXT" :foreground "violet red" :weight bold)
                       ("DONE" :foreground "slategrey" :weight bold)))
 
   (setq org-todo-keywords
-      '((sequence "TODO(t)" "STARTED(s!)" "WAITING(w@/!)" "NEXT(n)" "REVIEW(r@/!)" "SOMEDAY(f@/!)" "PROJ(p)" "|" "DONE(d!)" "CANCELLED(c@/!)")))
-;;
+        '((sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
+          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
+          (sequence "TODO(t)" "NEXT(n)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
+          (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
+
+;; REVIEW cleanup if working
+;;(sequence "TODO(t)" "STARTED(s!)" "WAITING(w@/!)" "NEXT(n)" "REVIEW(r@/!)" "SOMEDAY(f@/!)" "PROJ(p)" "|" "DONE(d!)" "CANCELLED(c@/!)")
+
 ;;  (setq org-todo-state-tags-triggers
 ;;        (quote (("CANCELLED" ("CANCELLED" . t))
 ;;                ("WAITING" ("WAITING" . t))
@@ -1142,7 +1067,6 @@
              '("c" "Capture [GTD]" entry (file "~/Dropbox/org/gtd/inbox.org")
 "* TODO %^{taskname}%?
 :PROPERTIES:
-:Effort_ALL: %^{effort}%?
 :CREATED:    %U
 :END:
 " :immediate-finish t)))
@@ -1161,20 +1085,20 @@
              '("ph" "New Project" entry (file "~/Dropbox/org/gtd/projects.org")
 "* PROJ %^{projectname} :project:
 :PROPERTIES:
-:GOAL:    %^{goal}
+:GOAL:    %^{Main Goal}
 :END:
 :RESOURCES:
 :END:
 
 + REQUIREMENTS:
-  %^{requirements}
+%^{Requirements}
 
-\** TODO %^{task1}\n\** TODO %^{task2}")))
+\** TODO %^{Subtask1}\n\** TODO %^{Subtask2}")))
 
 (after! org (add-to-list 'org-capture-templates
                          '("v" "Create a new habit" entry (file "~/Dropbox/org/gtd/recurring.org")
                            "* TODO %^{description} %?
-:SCHEDULED: %^{schedule}t
+:SCHEDULED: %^{Start Time:}t
 :PROPERTIES:
 :STYLE: habit
 :CREATED:    %U
@@ -1182,7 +1106,7 @@
 ")))
 
 (after! org (add-to-list 'org-capture-templates
-          '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/ideas.org")
+          '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/links.org")
            "* %^{Logging for...} :idea:
 :PROPERTIES:
 :Created: %U
@@ -1191,17 +1115,6 @@
 %i
 %?")
 ))
-
-(after! org (add-to-list 'org-capture-templates
-             '("I" "Coding notes" entry(file+headline"~/Dropbox/org/examples.org" "INBOX")
-"* %^{example}
-:PROPERTIES: :SOURCE:  %^{source|Command|Script|Code|Usage} :SUBJECT: %^{subject}
-:END:
-
-\#+BEGIN_SRC %^{lang}
-%x
-\#+END_SRC
-%?")))
 
 (after! org (add-to-list 'org-capture-templates
              '("m" "Mood Log" entry(file+olp+datetree"~/Dropbox/org/journal/mood.org")
@@ -1242,11 +1155,14 @@
                "** <%<%I:%M:%S>> %^{diary entry}
 %?")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Routine tracking                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(after! org (add-to-list 'org-capture-templates
-             '("r" "Routine Log" entry(file+olp+datetree"~/Dropbox/org/journal/routine.org")
-               "** Routine
-%?")))
+;; (after! org (add-to-list 'org-capture-templates
+;;              '("r" "Routine Log" entry(file+olp+datetree"~/Dropbox/org/journal/routine.org")
+;;                "** Routine
+;; %?")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1254,54 +1170,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defun my/generate-org-note-name ()
-  (setq my-org-note--name (read-string "Name: "))
-  (expand-file-name (format "%s.org"my-org-note--name) "~/Dropbox/org/gtd/projects/"))
 
-(defun org-gtd/find-project-task ()
-  "Move point to the parent (project) task if any"
+;;;###autoload
+(defun doom/toggle-comment-region-or-line ()
+  "Comments or uncomments the whole region or if no region is
+selected, then the current line."
   (interactive)
-  (save-restriction
-    (widen)
-    (let ((parent-task (save-excursion (org-back-to-heading 'invisible-ok) (point))))
-      (while (org-up-heading-safe)
-        (when (string-match-p "project" (org-get-tags-string))
-          (setq parent-task (point))))
-      (goto-char parent-task)
-      parent-task)))
+  (let (beg end)
+    (if (region-active-p)
+        (setq beg (region-beginning) end (region-end))
+      (setq beg (line-beginning-position) end (line-end-position)))
+    (comment-or-uncomment-region beg end)))
 
-(defun org-gtd/is-project-subtree-p ()
-  "Any task that is a project subtree"
-  (let ((task (save-excursion (org-back-to-heading 'invisible-ok)
-                              (point))))
-    (save-excursion
-      (org-gtd/find-project-task)
-      (if (equal (point) task)
-          nil
-        t))))
 
-(defun org-gtd/skip-project-tasks ()
-  "Skip tasks belonging to projects"
-  (save-restriction
-    (widen)
-    (let* ((subtree-end (save-excursion (org-end-of-subtree t))))
-      (cond
-       ((org-gtd/is-project-subtree-p)
-        subtree-end)
-       (t
-        nil)))))
-
-(defun org-gtd/remove-started-tag-when-done ()
-  "Remove started tag from task when marked as DONE"
-  (interactive)
-  (when (org-entry-is-done-p)
-    (save-excursion
-      (org-back-to-heading)
-      (org-set-tags-to (if (string= (org-get-tags-string) ":started:")
-                           ""
-                         (mapconcat 'identity
-                                    (delete "started" (split-string (org-get-tags-string) ":")) ":"))))))
-
+;;;###autoload
 (defun org-gtd/archive-all-done-entries ()
   "Archive all entries marked DONE"
   (interactive)
@@ -1310,11 +1192,6 @@
     (while (outline-previous-heading)
       (when (org-entry-is-done-p)
         (org-archive-subtree)))))
-
-(defun my/last-captured-org-note ()
-  "Move to the last line of the last org capture note."
-  (interactive)
-  (goto-char (point-max)))
 
 ;;;###autoload
 (defun bh/make-org-scratch ()
@@ -1351,17 +1228,12 @@
 (bind-key "s-3" 'winum-select-window-3)
 (bind-key "s-4" 'winum-select-window-4)
 (bind-key "s-5" 'winum-select-window-5)
-
-
 ;; scroll other window, useful when working with multiple files
-(bind-key "<s-up>" 'scroll-other-window-down)
-(bind-key "<s-down>" 'scroll-other-window)
-
+(bind-key "s-k" 'scroll-other-window-down)
+(bind-key "s-j" 'scroll-other-window)
 (bind-key "<f5>" 'switch-dark-mode)
-(bind-key "C-c 2" 'vsplit-last-buffer)
-(bind-key "C-c 3" 'hsplit-last-buffer)
 (bind-key "s-<return>" 'newline-and-indent)
-(bind-key "s-e" #'+ivy/project-search-specific-files)
+(bind-key "s-s" #'+ivy/project-search-with-hidden-files)
 (bind-key "s-/" #'doom/toggle-comment-region-or-line)
 (map! :leader
       (:prefix "e"
@@ -1370,8 +1242,6 @@
         :n "s" #'deadgrep
         :n "r" #'helm-org-rifle-directories
         :n "l" #'my/last-captured-org-note)
-      (:prefix-map ("=" . "Refile todos")
-        :n "t" #'my/org-tasks-refile)
       (:prefix "o"
         :n "e" #'elfeed
         :n "s" #'org-open-at-point
@@ -1408,6 +1278,11 @@
        :n "n" #'org-toogle-narrow-to-subtree
        :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
+       :n "o" #'org-noter
+       :n "c" #'org-noter-pdftools-create-skeleton
+       :n "j" #'org-hugo-auto-export-mode
+       :n "p" #'poetry
+       :n "r" #'poetry-run
        :n "d" #'scimax-dired/body)
 )
 (defun change-env-and-restart-lsp()
@@ -1624,9 +1499,6 @@ restart lsp based on that environment"
           ("<S-right>" . org-clock-convenience-fill-gap)
           ("<S-left>" . org-clock-convenience-fill-gap-both)))
 
-
-
-
 (use-package dired-rainbow
   :after dired
   :config
@@ -1668,7 +1540,7 @@ restart lsp based on that environment"
   :bind ("<s-right>" . winner-redo)
          ("<s-left>" . winner-undo))
 
-
+;; HACK fix flameshot screenshot to org file
 (after! org
   (require 'org-download)
   (add-hook 'dired-mode-hook 'org-download-enable)
@@ -1711,62 +1583,68 @@ restart lsp based on that environment"
 
 
 
-(defvar chrome-bookmarks-file
-  (cl-find-if
-   #'file-exists-p
-   ;; Base on `helm-chrome-file'
-   (list
-    "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
-    "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
-    "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
-   ;; "~/.config/google-chrome/Default/Bookmarks"
-   ;; "~/bookmarks_edge_beta.json"
-   ;; "~/bookmarks_edge_dev.json"
-   ;; "~/bookmarks_edge.json"
-    "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
-   ;; "~/.config/google-chrome/Default/Bookmarks"
-   ;; "~/.config/chromium/Default/Bookmarks"
-    (substitute-in-file-name
-     "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
-    (substitute-in-file-name
-     "$USERPROFILE/Local Settings/Application Data/Google/Chrome/User Data/Default/Bookmarks")))
-  "Path to Google Chrome Bookmarks file (it's JSON).")
+
+
+;; HACK Unnecessary to always load this function
+
+;; (defvar chrome-bookmarks-file
+;;   (cl-find-if
+;;    #'file-exists-p
+;;    ;; Base on `helm-chrome-file'
+;;    (list
+;;     "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
+;;     "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
+;;     "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
+;;    ;; "~/.config/google-chrome/Default/Bookmarks"
+;;    ;; "~/bookmarks_edge_beta.json"
+;;    ;; "~/bookmarks_edge_dev.json"
+;;    ;; "~/bookmarks_edge.json"
+;;     "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
+;;    ;; "~/.config/google-chrome/Default/Bookmarks"
+;;    ;; "~/.config/chromium/Default/Bookmarks"
+;;     (substitute-in-file-name
+;;      "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
+;;     (substitute-in-file-name
+;;      "$USERPROFILE/Local Settings/Application Data/Google/Chrome/User Data/Default/Bookmarks")))
+;;   "Path to Google Chrome Bookmarks file (it's JSON).")
+
+
 
 ;;;###autoload
-(defun chrome-bookmarks-insert-as-org ()
-  "Insert Chrome Bookmarks as org-mode headings."
-  (interactive)
-  (require 'json)
-  (require 'org)
-  (let ((data (let ((json-object-type 'alist)
-                    (json-array-type  'list)
-                    (json-key-type    'symbol)
-                    (json-false       nil)
-                    (json-null        nil))
-                (json-read-file chrome-bookmarks-file)))
-        level)
-    (cl-labels ((fn
-                 (al)
-                 (pcase (alist-get 'type al)
-                   ("folder"
-                    (insert
-                     (format "%s %s\n"
-                             (make-string level ?*)
-                             (alist-get 'name al)))
-                    (cl-incf level)
-                    (mapc #'fn (alist-get 'children al))
-                    (cl-decf level))
-                   ("url"
-                    (insert
-                     (format "%s %s\n"
-                             (make-string level ?*)
-                             (org-make-link-string
-                              (alist-get 'url al)
-                              (alist-get 'name al))))))))
-      (setq level 1)
-      (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
-      (setq level 1)
-      (fn (alist-get 'other (alist-get 'roots data))))))
+;; (defun chrome-bookmarks-insert-as-org ()
+;;   "Insert Chrome Bookmarks as org-mode headings."
+;;   (interactive)
+;;   (require 'json)
+;;   (require 'org)
+;;   (let ((data (let ((json-object-type 'alist)
+;;                     (json-array-type  'list)
+;;                     (json-key-type    'symbol)
+;;                     (json-false       nil)
+;;                     (json-null        nil))
+;;                 (json-read-file chrome-bookmarks-file)))
+;;         level)
+;;     (cl-labels ((fn
+;;                  (al)
+;;                  (pcase (alist-get 'type al)
+;;                    ("folder"
+;;                     (insert
+;;                      (format "%s %s\n"
+;;                              (make-string level ?*)
+;;                              (alist-get 'name al)))
+;;                     (cl-incf level)
+;;                     (mapc #'fn (alist-get 'children al))
+;;                     (cl-decf level))
+;;                    ("url"
+;;                     (insert
+;;                      (format "%s %s\n"
+;;                              (make-string level ?*)
+;;                              (org-make-link-string
+;;                               (alist-get 'url al)
+;;                               (alist-get 'name al))))))))
+;;       (setq level 1)
+;;       (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
+;;       (setq level 1)
+;;       (fn (alist-get 'other (alist-get 'roots data))))))
 
 
 
@@ -1775,7 +1653,7 @@ restart lsp based on that environment"
 ;; New here
 ;;
 ;; * Markup commands for org-mode
-
+;; REVIEW scimax related functionalities
 (after! org
   (defun org-markup-region-or-point (type beginning-marker end-marker)
     "Apply the markup TYPE with BEGINNING-MARKER and END-MARKER to region, word or point.
@@ -1912,7 +1790,6 @@ This function tries to do what you mean:
     (interactive)
     (org-markup-region-or-point 'subscript "_{" "}"))
 
-
   (defun org-superscript-region-or-point ()
     "Mark the region, word or character at point as superscript.
 This function tries to do what you mean:
@@ -1921,7 +1798,6 @@ This function tries to do what you mean:
 3. Otherwise wrap the character at point in the markup."
     (interactive)
     (org-markup-region-or-point 'superscript "^{" "}"))
-
 
   (defun org-latex-math-region-or-point (&optional arg)
     "Wrap the selected region in latex math markup.
@@ -2057,7 +1933,6 @@ Use a prefix arg to get regular RET. "
        (t
         (org-return)))))
 
-
   ;;* org-numbered headings
   (defun scimax-overlay-numbered-headings ()
     "Put numbered overlays on the headings."
@@ -2097,7 +1972,6 @@ Use a prefix arg to get regular RET. "
             (overlay-put ov 'before-string (concat (mapconcat 'number-to-string lv ".") ". "))
             (overlay-put ov 'numbered-heading t))))
 
-
   (define-minor-mode scimax-numbered-org-mode
     "Minor mode to number org headings."
     :init-value nil
@@ -2118,18 +1992,22 @@ Use a prefix arg to get regular RET. "
          `((fl-noh 0 nil))))))
 )
 
-
+;; highlights using super key
 (after! org
-(bind-key "s--" 'org-subscript-region-or-point)
-(bind-key "s-=" 'org-superscript-region-or-point)
-(bind-key "s-i" 'org-italics-region-or-point)
-(bind-key "s-b" 'org-bold-region-or-point)
-(bind-key "s-v" 'org-verbatim-region-or-point)
-(bind-key "s-c" 'org-code-region-or-point)
-(bind-key "s-u" 'org-underline-region-or-point)
-(bind-key "s-+" 'org-strikethrough-region-or-point)
-(bind-key "s-4" 'org-latex-math-region-or-point)
+  (bind-key "s--" 'org-subscript-region-or-point)
+  (bind-key "s-=" 'org-superscript-region-or-point)
+  (bind-key "s-i" 'org-italics-region-or-point)
+  (bind-key "s-b" 'org-bold-region-or-point)
+  (bind-key "s-v" 'org-verbatim-region-or-point)
+  (bind-key "s-c" 'org-code-region-or-point)
+  (bind-key "s-u" 'org-underline-region-or-point)
+  (bind-key "s-+" 'org-strikethrough-region-or-point)
+  (bind-key "s-p" 'org-latex-math-region-or-point)
 )
+
+(bind-key "s-|" '+evil-window-split-a)
+(bind-key "s-;" '+evil-window-vsplit-a)
+(bind-key "s-t" '+my/vterm-run-project)
 
 ;; dired hydra from scimax
 (after! dired
@@ -2879,10 +2757,8 @@ Org-Babel: _j_/_k_ next/prev   _g_oto     _TAB_/_i_/_I_ show/hide
           ("crefname" "{")))
 )
 
-
-
-
 (use-package! reftex
+  :after latex
   :hook (LaTeX-mode . reftex-mode)
   :config
   ;; set up completion for citations and references
@@ -2923,9 +2799,8 @@ Org-Babel: _j_/_k_ next/prev   _g_oto     _TAB_/_i_/_I_ show/hide
         bibtex-text-indentation 20)
   (define-key bibtex-mode-map (kbd "C-c \\") #'bibtex-fill-entry))
 
-
-
 ;; set different line spacing on org-agenda view
+(after! org
 ;;;###autoload
 (defun my:org-agenda-time-grid-spacing ()
   "Set different line spacing w.r.t. time duration."
@@ -2952,6 +2827,7 @@ Org-Babel: _j_/_k_ next/prev   _g_oto     _TAB_/_i_/_I_ show/hide
             (overlay-put ov 'line-height line-height)
             (overlay-put ov 'line-spacing (1- line-height))))))))
 (add-hook 'org-agenda-finalize-hook #'my:org-agenda-time-grid-spacing)
+)
 
 (use-package smerge-mode
   :after hydra
@@ -3060,70 +2936,76 @@ to choose a different correction."
         (call-interactively 'flyspell-correct-previous-word-generic)))))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        REVIEW this part                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar unpackaged/flex-fill-paragraph-column nil
-  "Last fill column used in command `unpackaged/flex-fill-paragraph'.")
 
-;;;###autoload
-(defun unpackaged/flex-fill-paragraph (&optional fewer-lines unfill)
-  "Fill paragraph, incrementing fill column to cause a change when repeated.
-The global value of `fill-column' is not modified; it is only
-bound around calls to `fill-paragraph'.
+;; HACK NEVER USED PART OF THE CODE
 
-When called for the first time in a sequence, unfill to the
-default `fill-column'.
+;; (defvar unpackaged/flex-fill-paragraph-column nil
+;;   "Last fill column used in command `unpackaged/flex-fill-paragraph'.")
 
-When called repeatedly, increase `fill-column' until filling
-changes.
+;; ;;;###autoload
+;; (defun unpackaged/flex-fill-paragraph (&optional fewer-lines unfill)
+;;   "Fill paragraph, incrementing fill column to cause a change when repeated.
+;; The global value of `fill-column' is not modified; it is only
+;; bound around calls to `fill-paragraph'.
 
-With one universal prefix, increase `fill-column' until the
-number of lines is reduced.  With two, unfill completely."
-  (interactive "P")
-  (let* ((fewer-lines (or fewer-lines (equal current-prefix-arg '(4))))
-         (unfill (or unfill (equal current-prefix-arg '(16))))
-         (fill-column
-          (cond (unfill (setf unpackaged/flex-fill-paragraph-column nil)
-                        most-positive-fixnum)
-                (t (setf unpackaged/flex-fill-paragraph-column
-                         (if (equal last-command this-command)
-                             (or (unpackaged/flex-fill-paragraph--next-fill-column fewer-lines)
-                                 fill-column)
-                           fill-column))))))
-    (fill-paragraph)
-    (message "Fill column: %s" fill-column)))
+;; When called for the first time in a sequence, unfill to the
+;; default `fill-column'.
 
-;;;###autoload
-(defun unpackaged/flex-fill-paragraph--next-fill-column (&optional fewer-lines)
-  "Return next `fill-column' value.
-If FEWER-LINES is non-nil, reduce the number of lines in the
-buffer, otherwise just change the current paragraph."
-  ;; This works well, but because of all the temp buffers, sometimes when called
-  ;; in rapid succession, it can cause GC, which can be noticeable.  It would be
-  ;; nice to avoid that.  Note that this has primarily been tested on
-  ;; `emacs-lisp-mode'; hopefully it works well in other modes.
-  (let* ((point (point))
-         (source-buffer (current-buffer))
-         (mode major-mode)
-         (fill-column (or unpackaged/flex-fill-paragraph-column fill-column))
-         (old-fill-column fill-column)
-         (hash (unless fewer-lines
-                 (buffer-hash)))
-         (original-num-lines (when fewer-lines
-                               (line-number-at-pos (point-max)))))
-    (with-temp-buffer
-      (delay-mode-hooks
-        (funcall mode))
-      (insert-buffer-substring source-buffer)
-      (goto-char point)
-      (cl-loop while (and (fill-paragraph)
-                          (if fewer-lines
-                              (= original-num-lines (line-number-at-pos (point-max)))
-                            (string= hash (buffer-hash))))
-               ;; If filling doesn't change after 100 iterations, abort by returning nil.
-               if (> (- fill-column old-fill-column) 100)
-               return nil
-               else do (cl-incf fill-column)
-               finally return fill-column))))
+;; When called repeatedly, increase `fill-column' until filling
+;; changes.
+
+;; With one universal prefix, increase `fill-column' until the
+;; number of lines is reduced.  With two, unfill completely."
+;;   (interactive "P")
+;;   (let* ((fewer-lines (or fewer-lines (equal current-prefix-arg '(4))))
+;;          (unfill (or unfill (equal current-prefix-arg '(16))))
+;;          (fill-column
+;;           (cond (unfill (setf unpackaged/flex-fill-paragraph-column nil)
+;;                         most-positive-fixnum)
+;;                 (t (setf unpackaged/flex-fill-paragraph-column
+;;                          (if (equal last-command this-command)
+;;                              (or (unpackaged/flex-fill-paragraph--next-fill-column fewer-lines)
+;;                                  fill-column)
+;;                            fill-column))))))
+;;     (fill-paragraph)
+;;     (message "Fill column: %s" fill-column)))
+
+;; ;;;###autoload
+;; (defun unpackaged/flex-fill-paragraph--next-fill-column (&optional fewer-lines)
+;;   "Return next `fill-column' value.
+;; If FEWER-LINES is non-nil, reduce the number of lines in the
+;; buffer, otherwise just change the current paragraph."
+;;   ;; This works well, but because of all the temp buffers, sometimes when called
+;;   ;; in rapid succession, it can cause GC, which can be noticeable.  It would be
+;;   ;; nice to avoid that.  Note that this has primarily been tested on
+;;   ;; `emacs-lisp-mode'; hopefully it works well in other modes.
+;;   (let* ((point (point))
+;;          (source-buffer (current-buffer))
+;;          (mode major-mode)
+;;          (fill-column (or unpackaged/flex-fill-paragraph-column fill-column))
+;;          (old-fill-column fill-column)
+;;          (hash (unless fewer-lines
+;;                  (buffer-hash)))
+;;          (original-num-lines (when fewer-lines
+;;                                (line-number-at-pos (point-max)))))
+;;     (with-temp-buffer
+;;       (delay-mode-hooks
+;;         (funcall mode))
+;;       (insert-buffer-substring source-buffer)
+;;       (goto-char point)
+;;       (cl-loop while (and (fill-paragraph)
+;;                           (if fewer-lines
+;;                               (= original-num-lines (line-number-at-pos (point-max)))
+;;                             (string= hash (buffer-hash))))
+;;                ;; If filling doesn't change after 100 iterations, abort by returning nil.
+;;                if (> (- fill-column old-fill-column) 100)
+;;                return nil
+;;                else do (cl-incf fill-column)
+;;                finally return fill-column))))
 
 
 
@@ -3229,8 +3111,6 @@ models/\n
     (hydra-posframe-border-face ((t (:background "#6272a4"))))
     :hook (after-init . hydra-posframe-enable)))
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Multiple cursor edit                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3295,7 +3175,6 @@ models/\n
           ("<down-mouse-1>" ignore)
           ("<drag-mouse-1>" ignore)
           ("q" nil))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        windows hydra                                                    ;;
@@ -3372,58 +3251,28 @@ models/\n
           ("q" nil)))
           )
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Icons in agenda                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(customize-set-value
-    'org-agenda-category-icon-alist
-    `(
-      ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
-      ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
-      ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
-      ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
-      ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
-      ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
-      ("reading" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
-      ("coding" ,(list (all-the-icons-material "code" :height 1.2)) nil nil :ascent center)
-      ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
-      ("project" ,(list (all-the-icons-octicon "beaker" :height 1.2)) nil nil :ascent center)
-      ("ideas" ,(list (all-the-icons-octicon "light-bulb" :height 1.2)) nil nil :ascent center)
-      ("paper" ,(list (all-the-icons-octicon "rocket" :height 1.2)) nil nil :ascent center)
-      ))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(aw-leading-char-face ((t (:height 4.0 :foreground "#f1fa8c"))))
- '(fixed-pitch ((t (:family "JetBrainsMono NF" :slant normal :weight normal :height 1.0 :width normal))))
- '(hydra-posframe-border-face ((t (:background "OrangeRed3"))))
- '(org-block ((t (:inherit (fixed-pitch)))))
- '(org-code ((t (:inherit (shadow fixed-pitch)))))
- '(org-document-info ((t (:foreground "dark orange"))))
- '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
- '(org-document-title ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.3 :underline nil))))
- '(org-done ((t (:strike-through t :weight bold))))
- '(org-headline-done ((t (:strike-through t))))
- '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
- '(org-level-1 ((t (:foreground "#d54e53" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.3))))
- '(org-level-2 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.25))))
- '(org-level-3 ((t (:foreground "#c397d8" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.2))))
- '(org-level-4 ((t (:foreground "DarkOliveGreen3" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.1))))
- '(org-level-5 ((t (:foreground "brown" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.05))))
- '(org-level-6 ((t (:foreground "DarkGoldenrod2" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.0))))
- '(org-level-7 ((t (:foreground "OrangeRed3" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.0))))
- '(org-level-8 ((t (:foreground "DarkGoldenrod4" :inherit default :weight bold :font "Iosevka Nerd Font" :height 1.0))))
- '(org-link ((t (:foreground "royal blue" :underline t))))
- '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
- '(org-property-value ((t (:inherit fixed-pitch))) t)
- '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
- '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
- '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
- '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
- '(variable-pitch ((t (:family "Open Sans")))))
+(after! org
+  (customize-set-value
+   'org-agenda-category-icon-alist
+   `(
+     ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
+     ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
+     ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
+     ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
+     ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
+     ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
+     ("reading" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
+     ("coding" ,(list (all-the-icons-material "code" :height 1.2)) nil nil :ascent center)
+     ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
+     ("project" ,(list (all-the-icons-octicon "beaker" :height 1.2)) nil nil :ascent center)
+     ("finance" ,(list (all-the-icons-material "attach_money" :height 1.2)) nil nil :ascent center)
+     ("ideas" ,(list (all-the-icons-octicon "light-bulb" :height 1.2)) nil nil :ascent center)
+     ("paper" ,(list (all-the-icons-octicon "rocket" :height 1.2)) nil nil :ascent center)
+     ))
+)
 
 (after! org
 (autoload 'orch-toggle "orch" nil t))
@@ -3434,47 +3283,30 @@ models/\n
   (let ((counsel-rg-base-command "rg -zS --no-heading --line-number --color never --hidden %s . "))
     (+ivy/project-search)))
 
-;;;###autoload
-(defun +ivy--counsel-file-jump-use-fd-rg-specific-files (args)
-  "Change `counsel-file-jump' to use fd or ripgrep, if they are available."
-  (cl-destructuring-bind (find-program . args)
-      (cond ((executable-find doom-projectile-fd-binary)
-             (cons doom-projectile-fd-binary (list "-t" "f" "-E" ".git" "-e" "py" "-e" "yaml" "-e" "md" "-e" "adoc")))
-            ((executable-find "rg")
-             (split-string (format counsel-rg-base-command "--files --no-messages") " " t))
-            ((cons find-program args)))
-    (unless (listp args)
-      (user-error "`counsel-file-jump-args' is a list now, please customize accordingly."))
-    (counsel--call
-     (cons find-program args)
-     (lambda ()
-       (goto-char (point-min))
-       (let ((offset (if (member find-program (list "rg" doom-projectile-fd-binary)) 0 2))
-             files)
-         (while (< (point) (point-max))
-           (push (buffer-substring
-                  (+ offset (line-beginning-position)) (line-end-position)) files)
-           (forward-line 1))
-         (nreverse files))))))
 
-;;;###autoload
-(defun +ivy/project-search-specific-files (&optional initial-input initial-directory)
-  "Similar to counsel-file-jump"
-  (interactive
-   (list nil
-         (when current-prefix-arg
-           (counsel-read-directory-name "From directory: "))))
-  (counsel-require-program find-program)
-  (let ((default-directory (doom-project-root)))
-    (ivy-read "Find file: "
-              (+ivy--counsel-file-jump-use-fd-rg-specific-files counsel-file-jump-args)
-              :matcher #'counsel--find-file-matcher
-              :initial-input initial-input
-              :action #'find-file
-              :preselect (counsel--preselect-file)
-              :require-match 'confirm-after-completion
-              :history 'file-name-history
-              :caller 'counsel-file-jump)))
+;; HACK Check for file use fd or rg
+;; ;;;###autoload
+;; (defun +ivy--counsel-file-jump-use-fd-rg-specific-files (args)
+;;   "Change `counsel-file-jump' to use fd or ripgrep, if they are available."
+;;   (cl-destructuring-bind (find-program . args)
+;;       (cond ((executable-find doom-projectile-fd-binary)
+;;              (cons doom-projectile-fd-binary (list "-t" "f" "-E" ".git" "-e" "py" "-e" "yaml" "-e" "md" "-e" "adoc")))
+;;             ((executable-find "rg")
+;;              (split-string (format counsel-rg-base-command "--files --no-messages") " " t))
+;;             ((cons find-program args)))
+;;     (unless (listp args)
+;;       (user-error "`counsel-file-jump-args' is a list now, please customize accordingly."))
+;;     (counsel--call
+;;      (cons find-program args)
+;;      (lambda ()
+;;        (goto-char (point-min))
+;;        (let ((offset (if (member find-program (list "rg" doom-projectile-fd-binary)) 0 2))
+;;              files)
+;;          (while (< (point) (point-max))
+;;            (push (buffer-substring
+;;                   (+ offset (line-beginning-position)) (line-end-position)) files)
+;;            (forward-line 1))
+;;          (nreverse files))))))
 
 ;; eshell aliases
 (after! eshell
@@ -3592,7 +3424,7 @@ models/\n
 )
 
 (use-package elfeed
-  :defer 5
+  :defer t
   :config
   (require 'elfeed-goodies)
   (elfeed-org)
@@ -3716,11 +3548,12 @@ the buffer."
   (push '(important important-elfeed-entry)
         elfeed-search-face-alist)
   :bind (:map elfeed-show-mode-map
-         ("s-j" . prot/elfeed-show-eww)
-         ("s-h" . prot/elfeed-kill-buffer-close-window-dwim))
+         ("s-z" . prot/elfeed-show-eww)
+         ("s-x" . prot/elfeed-kill-buffer-close-window-dwim))
 )
 
 (use-package eww
+  :defer t
   :commands (eww
              eww-browse-url
              eww-search-words
@@ -3785,15 +3618,16 @@ With \\[universal-argument] produce a new buffer."
   (setq browse-url-browser-function 'eww-browse-url))
 
 (global-set-key (kbd "<f6>") 'spray-mode)
+
 (use-package spray
   ;; :commands (spray-faster spray-slower)
   :defer t
   :config
   :bind (:map spray-mode-map
-         ("s-f" . spray-faster)
-         ("s-s" . spray-slower)
-         ("s-p" . spray-start/stop)
-         ("s-q" . spray-quit)
+         ("s-7" . spray-faster)
+         ("s-8" . spray-slower)
+         ("s-9" . spray-start/stop)
+         ("s-0" . spray-quit)
          )
   )
 ;; plantuml to org mode
@@ -3801,4 +3635,251 @@ With \\[universal-argument] produce a new buffer."
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
   (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t))))
 
+;; Org-roam server tweaks
+(after! org-roam
 
+  (defadvice! doom-modeline--reformat-roam (orig-fun)
+    :around #'doom-modeline-buffer-file-name
+    (message "Reformat?")
+    (message (buffer-file-name))
+    (if (s-contains-p org-roam-directory (or buffer-file-name ""))
+        (replace-regexp-in-string
+         "\\(?:^\\|.*/\\)\\([0-9]\\{4\\}\\)\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)[0-9]*-"
+         "🢔(\\1-\\2-\\3) "
+         (funcall orig-fun))
+      (funcall orig-fun)))
+
+  (setq org-roam-graph-node-extra-config '(("shape"      . "underline")
+                                           ("style"      . "rounded,filled")
+                                           ("fillcolor"  . "#EEEEEE")
+                                           ("color"      . "#C9C9C9")
+                                           ("fontcolor"  . "#111111")
+                                           ("fontname"   . "Overpass")))
+
+  (setq +org-roam-graph--html-template
+        (replace-regexp-in-string "%\\([^s]\\)" "%%\\1"
+                                  (f-read-text (concat doom-private-dir "misc/org-roam-template.html"))))
+
+  (defadvice! +org-roam-graph--build-html (&optional node-query callback)
+    "Generate a graph showing the relations between nodes in NODE-QUERY. HTML style."
+    :override #'org-roam-graph--build
+    (unless (stringp org-roam-graph-executable)
+      (user-error "`org-roam-graph-executable' is not a string"))
+    (unless (executable-find org-roam-graph-executable)
+      (user-error (concat "Cannot find executable %s to generate the graph.  "
+                          "Please adjust `org-roam-graph-executable'")
+                  org-roam-graph-executable))
+    (let* ((node-query (or node-query
+                           `[:select [file titles] :from titles
+                             ,@(org-roam-graph--expand-matcher 'file t)]))
+           (graph      (org-roam-graph--dot node-query))
+           (temp-dot   (make-temp-file "graph." nil ".dot" graph))
+           (temp-graph (make-temp-file "graph." nil ".svg"))
+           (temp-html  (make-temp-file "graph." nil ".html")))
+      (org-roam-message "building graph")
+      (make-process
+       :name "*org-roam-graph--build-process*"
+       :buffer "*org-roam-graph--build-process*"
+       :command `(,org-roam-graph-executable ,temp-dot "-Tsvg" "-o" ,temp-graph)
+       :sentinel (progn
+                   (lambda (process _event)
+                     (when (= 0 (process-exit-status process))
+                       (write-region (format +org-roam-graph--html-template (f-read-text temp-graph)) nil temp-html)
+                       (when callback
+                         (funcall callback temp-html)))))))))
+
+(after! org
+  (add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
+  ;;(setq global-org-pretty-table-mode t)
+  (custom-set-faces!
+    '(outline-1 :weight extra-bold :height 1.3)
+    '(outline-2 :weight bold :height 1.25)
+    '(outline-3 :weight bold :height 1.18)
+    '(outline-4 :weight semi-bold :height 1.13)
+    '(outline-5 :weight semi-bold :height 1.08)
+    '(outline-6 :weight semi-bold :height 1.03)
+    '(outline-8 :weight semi-bold)
+    '(outline-9 :weight semi-bold)
+    '(org-link :foreground "royal blue" :underline t)
+    '(org-document-info :foreground "dark orange")
+    ;; '(fixed-pitch ((t (:family "JetBrainsMono NF" :slant normal :weight normal :height 1.0 :width normal))))
+    '(hydra-posframe-border-face :background "OrangeRed3")
+    '(org-done :strike-through t :weight bold)
+    '(org-headline-done :strike-through t)
+    '(aw-leading-char-face :height 4.0 :foreground "#f1fa8c")
+    '(org-document-title :foreground "OrangeRed3" :weight bold :font "Iosevka Nerd Font" :height 1.3 :underline nil)
+    '(org-code :inherit shadow )
+    '(org-verbatim :inherit shadow)
+    '(org-document-info-keyword :inherit shadow)
+    ;; '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+    ;; '(org-property-value ((t (:inherit fixed-pitch))) t)
+    ;; '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+    ;; '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+    ;; '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
+    ;; '(org-block ((t (:inherit (fixed-pitch)))))
+    )
+)
+
+(after! org
+  (setq org-highlight-latex-and-related '(native script entities)))
+
+(when EMACS28+
+  (add-hook 'latex-mode-hook #'TeX-latex-mode))
+
+(after! org
+
+;;;###autoload
+  (defun unpackaged/org-timestamps-in-entry (&optional subtree-p)
+    "Return timestamp objects for all Org timestamps in entry.
+ If SUBTREE-P is non-nil (interactively, with prefix), search
+ whole subtree."
+    (interactive (list current-prefix-arg))
+    (save-excursion
+      (let* ((beg (org-entry-beginning-position))
+             (end (if subtree-p
+                      (org-end-of-subtree)
+                    (org-entry-end-position))))
+        (goto-char beg)
+        (cl-loop while (re-search-forward org-tsr-regexp-both end t)
+                 collect (ts-parse-org (match-string 0))))))
+
+
+;;;###autoload
+  (cl-defun unpackaged/org-refile-to-datetree (file &key (date (calendar-current-date)) entry)
+    "Refile ENTRY or current node to entry for DATE in datetree in FILE."
+    (interactive (list (read-file-name "File: " (concat org-directory "/") nil 'mustmatch nil
+                                       (lambda (filename)
+                                         (string-suffix-p ".org" filename)))))
+    ;; If org-datetree isn't loaded, it will cut the tree but not file
+    ;; it anywhere, losing data. I don't know why
+    ;; org-datetree-file-entry-under is in a separate package, not
+    ;; loaded with the rest of org-mode.
+    (require 'org-datetree)
+    (unless entry
+      (org-cut-subtree))
+    ;; Using a condition-case to be extra careful. In case the refile
+    ;; fails in any way, put cut subtree back.
+    (condition-case err
+        (with-current-buffer (or (org-find-base-buffer-visiting file)
+                                 (find-file-noselect file))
+          (org-datetree-file-entry-under (or entry (car kill-ring)) date)
+          (save-buffer))
+      (error (unless entry
+               (org-paste-subtree))
+             (message "Unable to refile! %s" err))))
+
+
+;;;###autoload
+  (defun unpackaged/org-refile-to-datetree-using-ts-in-entry (which-ts file &optional subtree-p)
+    "Refile current entry to datetree in FILE using timestamp found in entry.
+WHICH should be `earliest' or `latest'. If SUBTREE-P is non-nil,
+search whole subtree."
+    (interactive (list (intern (completing-read "Which timestamp? " '(earliest latest)))
+                       (read-file-name "File: " (concat org-directory "/") nil 'mustmatch nil
+                                       (lambda (filename)
+                                         (string-suffix-p ".org" filename)))
+                       current-prefix-arg))
+    (require 'ts)
+    (let* ((sorter (pcase which-ts
+                     ('earliest #'ts<)
+                     ('latest #'ts>)))
+           (tss (unpackaged/org-timestamps-in-entry subtree-p))
+           (ts (car (sort tss sorter)))
+           (date (list (ts-month ts) (ts-day ts) (ts-year ts))))
+      (unpackaged/org-refile-to-datetree file :date date)))
+
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                       Lorem Ipsum Overlay                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar lorem-ipsum-text)
+
+(defcustom unpackaged/lorem-ipsum-overlay-exclude nil
+  "List of regexps to exclude from `unpackaged/lorem-ipsum-overlay'."
+  :type '(repeat regexp))
+
+;;;###autoload
+(defun unpackaged/lorem-ipsum-overlay ()
+  "Overlay all text in current buffer with \"lorem ipsum\" text.
+When called again, remove overlays.  Useful for taking
+screenshots without revealing buffer contents.
+
+Each piece of non-whitespace text in the buffer is compared with
+regexps in `unpackaged/lorem-ipsum-overlay-exclude', and ones
+that match are not overlaid.  Note that the regexps are compared
+against the entire non-whitespace token, up-to and including the
+preceding whitespace, but only the alphabetic part of the token
+is overlaid.  For example, in an Org buffer, a line that starts
+with:
+
+  #+TITLE: unpackaged.el
+
+could be matched against the exclude regexp (in `rx' syntax):
+
+  (rx (or bol bos blank) \"#+\" (1+ alnum) \":\" (or eol eos blank))
+
+And the line would be overlaid like:
+
+  #+TITLE: parturient.et"
+  (interactive)
+  (require 'lorem-ipsum)
+  (let ((ovs (overlays-in (point-min) (point-max))))
+    (if (cl-loop for ov in ovs
+                 thereis (overlay-get ov :lorem-ipsum-overlay))
+        ;; Remove overlays.
+        (dolist (ov ovs)
+          (when (overlay-get ov :lorem-ipsum-overlay)
+            (delete-overlay ov)))
+      ;; Add overlays.
+      (let ((lorem-ipsum-words (--> lorem-ipsum-text
+                                    (-flatten it) (apply #'concat it)
+                                    (split-string it (rx (or space punct)) 'omit-nulls)))
+            (case-fold-search nil))
+        (cl-labels ((overlay-match (group)
+                                   (let* ((beg (match-beginning group))
+                                          (end (match-end group))
+                                          (replacement-word (lorem-word (match-string group)))
+                                          (ov (make-overlay beg end)))
+                                     (when replacement-word
+                                       (overlay-put ov :lorem-ipsum-overlay t)
+                                       (overlay-put ov 'display replacement-word))))
+                    (lorem-word (word)
+                                (if-let* ((matches (lorem-matches (length word))))
+                                    (apply-case word (downcase (seq-random-elt matches)))
+                                  ;; Word too long: compose one.
+                                  (apply-case word (downcase (compose-word (length word))))))
+                    (lorem-matches (length &optional (comparator #'=))
+                                   (cl-loop for liw in lorem-ipsum-words
+                                            when (funcall comparator (length liw) length)
+                                            collect liw))
+                    (apply-case (source target)
+                                (cl-loop for sc across-ref source
+                                         for tc across-ref target
+                                         when (not (string-match-p (rx lower) (char-to-string sc)))
+                                         do (setf tc (string-to-char (upcase (char-to-string tc)))))
+                                target)
+                    (compose-word (length)
+                                  (cl-loop while (> length 0)
+                                           for word = (seq-random-elt (lorem-matches length #'<=))
+                                           concat word
+                                           do (cl-decf length (length word)))))
+          (save-excursion
+            (goto-char (point-min))
+            (while (re-search-forward (rx (group (1+ (or bol bos blank (not alpha)))
+                                                 (0+ (not (any alpha blank)))
+                                                 (group (1+ alpha))
+                                                 (0+ (not (any alpha blank)))))
+                                      nil t)
+              (unless (cl-member (match-string 0) unpackaged/lorem-ipsum-overlay-exclude
+                                 :test (lambda (string regexp)
+                                         (string-match-p regexp string)))
+                (overlay-match 2))
+              (goto-char (match-end 2)))))))))
+
+(defun +my/vterm-run-project ()
+  (interactive)
+  (+evil-window-vsplit-a)
+  (+evil-window-split-a)
+  (call-interactively '+vterm/here))
