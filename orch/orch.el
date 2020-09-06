@@ -58,7 +58,33 @@
                 ;; process is the Emacs process object, that also encapsulates network I/O.
                 (ws-response-header process 200 '("Content-type" . "text/plain"))
                 (process-send-string process "pong"))))
-           
+
+
+           ((:POST . "/insertjpg") .
+            (lambda (request)
+              ;; An "assoc list" is just a list of (key value) pairs. Calling
+              ;; (assoc "key" assoclist) will returns the *pair* (key value),
+              ;; if it exists in the assoclist, nil otherwise.  headers is
+              ;; such an assoclist, constructed by parsing the request headers
+              ;; and the request body. We are expecting the contents of the
+              ;; incoming file to be in the assoc list with key "file".
+              (with-slots (process headers) request
+                (let ((file (cdr (assoc "file" headers))))
+                  (if (null file)
+                      (orch-respond-text/plain process 400 "Missing file")
+                    ;; write-to-sha1-file generates a filename for our SVG
+                    ;; content by taking a SHA1 sum of it and then adding any
+                    ;; extension string that we give it, and writes our
+                    ;; content to that filename under the directory returned
+                    ;; by (image-dir), returning us the absolute path of the
+                    ;; file.
+                    (let ((image-path (orch-write-to-sha1-file (cdr (assoc 'content file)) "jpg")))
+                      (print (concat "Wrote " image-path))
+                      (orch-respond-text/plain process 200 "OK")
+                      (orch-insert-image-link image-path)
+                      image-path))))))
+
+
            ((:POST . "/insert") .
             (lambda (request)
               ;; An "assoc list" is just a list of (key value) pairs. Calling
@@ -78,6 +104,31 @@
                     ;; by (image-dir), returning us the absolute path of the
                     ;; file.
                     (let ((image-path (orch-write-to-sha1-file (cdr (assoc 'content file)) "svg")))
+                      (print (concat "Wrote " image-path))
+                      (orch-respond-text/plain process 200 "OK")
+                      (orch-insert-image-link image-path)
+                      image-path))))))
+
+           
+           ((:POST . "/insertpng") .
+            (lambda (request)
+              ;; An "assoc list" is just a list of (key value) pairs. Calling
+              ;; (assoc "key" assoclist) will returns the *pair* (key value),
+              ;; if it exists in the assoclist, nil otherwise.  headers is
+              ;; such an assoclist, constructed by parsing the request headers
+              ;; and the request body. We are expecting the contents of the
+              ;; incoming file to be in the assoc list with key "file".
+              (with-slots (process headers) request
+                (let ((file (cdr (assoc "file" headers))))
+                  (if (null file)
+                      (orch-respond-text/plain process 400 "Missing file")
+                    ;; write-to-sha1-file generates a filename for our SVG
+                    ;; content by taking a SHA1 sum of it and then adding any
+                    ;; extension string that we give it, and writes our
+                    ;; content to that filename under the directory returned
+                    ;; by (image-dir), returning us the absolute path of the
+                    ;; file.
+                    (let ((image-path (orch-write-to-sha1-file (cdr (assoc 'content file)) "png")))
                       (print (concat "Wrote " image-path))
                       (orch-respond-text/plain process 200 "OK")
                       (orch-insert-image-link image-path)
