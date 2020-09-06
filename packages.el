@@ -103,5 +103,6 @@
 
 (package! spray
   :recipe (:host gitlab :repo "iankelling/spray"))
-(package! wttrin :recipe (:local-repo "/home/light/.doom.d/wttrin" :no-byte-compile t))
+(package! wttrin
+          :recipe (:local-repo "/home/light/.doom.d/wttrin"))
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
