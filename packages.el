@@ -45,17 +45,14 @@
   :recipe (:host github :repo "jethrokuan/mathpix.el"))
 (package! org-ref-ex-hugo
   :recipe (:host github :repo "jethrokuan/org-ref-ox-hugo" :branch "custom/overrides"))
-(package! org-pdftools
-  :recipe (:local-repo "/home/light/.doom.d/org-pdftools/"))
-  ;; :recipe (:host github :fork "fbanados/org-pdftools" ))
+;;(package! org-pdftools)
 (package! org-noter-pdftools
-  :recipe (:local-repo "/home/light/.doom.d/org-pdftools/"))
-  ;; :recipe (:host github :fork "fbanados/org-pdftools"))
+  :recipe (:host github :repo "fuxialexander/org-pdftools"))
 (package! xkcd)
 (package! leetcode)
 (package! anki-editor)
 (package! org-ref)
-(package! julia-snail)
+;;(package! julia-snail)
 (package! nepali-romanized
   :recipe (:host github :repo "bishesh/emacs-nepali-romanized"))
 (package! all-the-icons-dired)
@@ -92,20 +89,20 @@
 (package! zotxt)
 
 (package! orch
-  :recipe (:local-repo "/home/light/.doom.d/orch/"))
+  :recipe (:local-repo "/home/lis19/.doom.d/orch/"))
 ;; (package! orch
 ;;   :recipe (:host github :repo "yati-sagade/orch"))
-(package! org-roam-server)
 (package! simple-httpd
-  :recipe (:local-repo "/home/light/.doom.d/skeeto-web-server/"))
+  :recipe (:local-repo "/home/lis19/.doom.d/skeeto-web-server/"))
   ;; :recipe (:host github :repo "skeeto/emacs-web-server"))
 (package! web-server
-  :recipe (:local-repo "/home/light/.doom.d/eschulte-web-server/"))
+  :recipe (:local-repo "/home/lis19/.doom.d/eschulte-web-server/"))
   ;; :recipe (:host github :repo "eschulte/emacs-web-server"))
 ;; (package! eaf
 ;;   :recipe (:host github :repo "manateelazycat/emacs-application-framework"))
 
 (package! spray
   :recipe (:host gitlab :repo "iankelling/spray"))
-(package! wttrin :recipe (:local-repo "/home/light/.doom.d/wttrin" :no-byte-compile t))
+(package! wttrin
+          :recipe (:local-repo "/home/light/.doom.d/wttrin"))
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
