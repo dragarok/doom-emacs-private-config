@@ -89,14 +89,14 @@
 (package! zotxt)
 
 (package! orch
-  :recipe (:local-repo "/home/lis19/.doom.d/orch/"))
+  :recipe (:local-repo "~/.doom.d/orch/"))
 ;; (package! orch
 ;;   :recipe (:host github :repo "yati-sagade/orch"))
 (package! simple-httpd
-  :recipe (:local-repo "/home/lis19/.doom.d/skeeto-web-server/"))
+  :recipe (:local-repo "~/.doom.d/skeeto-web-server/"))
   ;; :recipe (:host github :repo "skeeto/emacs-web-server"))
 (package! web-server
-  :recipe (:local-repo "/home/lis19/.doom.d/eschulte-web-server/"))
+  :recipe (:local-repo "~/.doom.d/eschulte-web-server/"))
   ;; :recipe (:host github :repo "eschulte/emacs-web-server"))
 ;; (package! eaf
 ;;   :recipe (:host github :repo "manateelazycat/emacs-application-framework"))
@@ -104,5 +104,5 @@
 (package! spray
   :recipe (:host gitlab :repo "iankelling/spray"))
 (package! wttrin
-          :recipe (:local-repo "/home/light/.doom.d/wttrin"))
+          :recipe (:local-repo "~/.doom.d/wttrin"))
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))

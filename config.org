@@ -1032,14 +1032,14 @@ All file definitions and defaults go here.
 
 (after! org (add-to-list 'org-capture-templates
              '("m" "Mood Log" entry(file+olp+datetree"~/Dropbox/org/journal/mood.org")
-               "** <%<%I:%M:%S>> %\\1 (%\\2 x mood swing) :: %\\3
+               "** <%<%I:%M:%S>> %\\1 (%\\2 mood swing) Spiritual :: %\\3
 :PROPERTIES:
 :OVERALL MOOD: %^{MOOD|Excellent|Good|Okay|Worse}
-:MOOD SWINGS: %^{SWING|None|Normal|Extreme}
+:MOOD SWINGS: %^{SWING|No|Normal|Extreme}
 :SPIRITUAL: %^{SPIRITUAL|YES|NO}
-:DESCRIPTION: %^{DESCRIPTION}
-:COMMENT:  %^{COMMENT}
-")))
+:WORK LIKENESS: %^{WORK|BORING|TOLERABLE|INTERESTING}
+:END:
+%?")))
 
 (after! org (add-to-list 'org-capture-templates
              '("b" "Book Log" entry(file "~/Dropbox/org/gtd/book.org")
