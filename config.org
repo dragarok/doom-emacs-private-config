@@ -23,7 +23,7 @@
       doom-serif-font (font-spec :family "IBM Plex Mono" :weight 'light)
       doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
 
-(load-theme 'doom-challenger-deep 'noconfirm)
+(load-theme 'doom-flatwhite 'noconfirm)
 
 (if (not window-system)
   (setq doom-theme 'doom-nord))
@@ -684,7 +684,7 @@ I use ivy when splitting buffer to choose buffer to go to.
   :init
   (setq-default
    conda-env-home-directory "/opt/anaconda3/"
-   conda-anaconda-home "/opt/anaconda3/bin/")
+   conda-anaconda-home "/opt/anaconda3/")
   :config
   (setq flycheck-checker-error-threshold nil)
   ;; if you want interactive shell support, include:
@@ -1052,6 +1052,14 @@ All file definitions and defaults go here.
 :COMMENT:  %^{Comment}
 :END:" :immediate-finish t)))
 
+
+(after! org (add-to-list 'org-capture-templates
+             '("e" "Add an event" entry(file "~/Dropbox/org/gtd/events.org")
+"* TODO Wish %^{Person} on their %^{Event}
+:PROPERTIES:
+:END:" :immediate-finish t)))
+
+
 (after! org (add-to-list 'org-capture-templates
              '("P" "Paper Log" entry(file "~/Dropbox/org/gtd/paper.org")
 "* SOMEDAY Read %^{Title}
@@ -1068,6 +1076,29 @@ All file definitions and defaults go here.
              '("d" "Diary Log" entry(file+olp+datetree"~/Dropbox/org/journal/diary.org")
                "** <%<%I:%M:%S>> %^{diary entry}
 %?")))
+
+(after! org
+    (add-to-list 'org-capture-templates
+                 '("C"  "Contact" entry (file "~/Dropbox/org/contacts.org")
+                   "* %(org-contacts-template-name)
+    :PROPERTIES:
+    :EMAIL: %(org-contacts-template-email)
+    :PHONE: %^{Phone}
+    :ADDRESS: %^{Home Address}
+    :BIRTHDAY: %^{yyyy-mm-dd}
+    :ORG:  %^{Company}
+    :NOTE: %^{NOTE}
+    :END:"
+                   :empty-lines 1)))
+
+(after! org (add-to-list 'org-capture-templates
+             '("c" "Capture [GTD]" entry (file "~/Dropbox/org/gtd/inbox.org")
+"* TODO %^{taskname}%?
+:PROPERTIES:
+:CREATED:    %U
+:END:
+" :immediate-finish t)))
+
 
 
 #+END_SRC
@@ -1090,7 +1121,7 @@ All file definitions and defaults go here.
                            ("k" "Today\'s View"
                             ((agenda ""
                                      ((org-agenda-files
-                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org"))
+                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org" "~/Dropbox/org/gtd/events.org"))
                                       (org-agenda-overriding-header "What's on my calendar")
                                       (org-agenda-span 'day)
                                       (org-agenda-start-day
@@ -1104,11 +1135,11 @@ All file definitions and defaults go here.
                                     (org-agenda-overriding-header " Next Projects\n ===================================================================\n")
                                     ))
 
-                            (todo ""
-                                   ((org-agenda-files
-                                     '("~/Dropbox/org/gtd/events.org"))
-                                    (org-agenda-overriding-header "Birthdays and Anniversaries\n ===================================================================\n")
-                                    ))
+                            ;; (todo ""
+                            ;;        ((org-agenda-files
+                            ;;          '("~/Dropbox/org/gtd/events.org"))
+                            ;;         (org-agenda-overriding-header "Birthdays and Anniversaries\n ===================================================================\n")
+                            ;;         ))
                             (todo "TODO|NEXT"
                                    ((org-agenda-overriding-header " Highest priority and next up\n ===================================================================\n")
                                    ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
@@ -1732,6 +1763,10 @@ All file definitions and defaults go here.
 (after! org
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
   (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t))))
+#+END_SRC
+** Org Books
+#+BEGIN_SRC elisp
+(setq org-books-file "~/Dropbox/org/gtd/books.org")
 #+END_SRC
 ** Org Regions Markup [Scimax]
 #+BEGIN_SRC elisp
@@ -2610,21 +2645,21 @@ ease of use.
 TODO Use them only inside org mode
 #+BEGIN_SRC elisp
 (after! org
-  (bind-key "s--" 'org-subscript-region-or-point)
-  (bind-key "s-=" 'org-superscript-region-or-point)
-  (bind-key "s-i" 'org-italics-region-or-point)
-  (bind-key "s-b" 'org-bold-region-or-point)
-  (bind-key "s-v" 'org-verbatim-region-or-point)
-  (bind-key "s-c" 'org-code-region-or-point)
-  (bind-key "s-u" 'org-underline-region-or-point)
-  (bind-key "s-+" 'org-strikethrough-region-or-point)
-  (bind-key "s-p" 'org-latex-math-region-or-point)
+  (define-key org-mode-map (kbd "s--") 'other-window)
+  (define-key org-mode-map (kbd "s-=") 'org-superscript-region-or-point)
+  (define-key org-mode-map (kbd "s-i") 'org-italics-region-or-point)
+  (define-key org-mode-map (kbd "s-b") 'org-bold-region-or-point)
+  (define-key org-mode-map (kbd "s-v") 'org-verbatim-region-or-point)
+  (define-key org-mode-map (kbd "s-c") 'org-code-region-or-point)
+  (define-key org-mode-map (kbd "s-u") 'org-underline-region-or-point)
+  (define-key org-mode-map (kbd "s-+") 'org-strikethrough-region-or-point)
+  (define-key org-mode-map (kbd "s-p") 'org-latex-math-region-or-point)
 )
 #+END_SRC
 ** Ease in projects
 #+BEGIN_SRC elisp
-(bind-key "s-|" '+evil-window-split-a)
-(bind-key "s-;" '+evil-window-vsplit-a)
+(bind-key "s-;" '+evil-window-split-a)
+(bind-key "s-\\" '+evil-window-vsplit-a)
 (bind-key "s-t" '+my/vterm-run-project)
 #+END_SRC
 ** Markdown
@@ -2900,6 +2935,15 @@ restart lsp based on that environment"
 #+BEGIN_SRC elisp
 (require 'nepali-romanized)
 #+END_SRC
+** Fix Modeline
+#+BEGIN_SRC elisp
+
+(after! doom-modeline
+  (doom-modeline-def-modeline 'main
+    '(bar matches buffer-info remote-host buffer-position parrot selection-info)
+    '(misc-info minor-modes checker input-method buffer-encoding major-mode process vcs  "    "))) ; <-- added padding here
+#+END_SRC
+** Jupyter Org Blocks No native compile
 
 * Deprecated
 ** Dired Colors
