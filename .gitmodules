@@ -1,0 +1,3 @@
+[submodule "org-books"]
+	path = org-books
+	url = https://github.com/lepisma/org-books.git
