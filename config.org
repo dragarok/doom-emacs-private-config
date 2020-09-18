@@ -6,6 +6,10 @@
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 #+end_src
+** Make localleader
+#+BEGIN_SRC elisp
+(setq doom-localleader-key ",")
+#+END_SRC
 ** User Info
 #+BEGIN_SRC elisp
 (setq user-full-name "Alok Regmi"
@@ -108,6 +112,127 @@ I need it similar to Vim.
 #+BEGIN_SRC elisp
 (after! org
   (autoload 'orch-toggle "orch" nil t))
+#+END_SRC
+** EIN [ Emacs Ipython Notebook ]
+#+BEGIN_SRC elisp
+
+(after! ein-notebook
+  (defun +ein-buffer-p (buf)
+    (or (memq buf (ein:notebook-opened-buffers))
+        (memq buf (mapcar #'ein:notebooklist-get-buffer (ein:notebooklist-keys)))))
+  (add-to-list 'doom-real-buffer-functions #'+ein-buffer-p nil #'eq)
+
+  (defun spacemacs/ein:worksheet-merge-cell-next ()
+    (interactive)
+    (ein:worksheet-merge-cell (ein:worksheet--get-ws-or-error) (ein:worksheet-get-current-cell) t t))
+
+  (set-popup-rule! "^\\*ein" :ignore t)
+  ;; keybindings mirror ipython web interface behavior
+  (evil-define-key 'normal ein:notebook-mode-map
+    ;; keybindings mirror ipython web interface behavior
+    "gj" 'ein:worksheet-goto-next-input-km
+    "gk" 'ein:worksheet-goto-prev-input-km)
+
+  ;; (add-hook 'ein:notebook-mode-hook
+  ;;           (lambda ()
+  ;;             (toggle-truncate-lines)
+  ;;             (visual-line-mode t)
+  ;;             ))
+
+  (add-hook 'ein:notebook-mode-hook #'virtual-auto-fill-mode)
+  ;; ein show images in there
+  (setq ein:output-area-inlined-images t)
+
+  (map! :map ein:notebook-mode-map
+        ;; Insert new cell, Execute cells
+        ;; Merge, Split, Remove or Move cells
+        "<C-return>" 'ein:worksheet-execute-cell-km
+        "<S-return>" 'ein:worksheet-execute-cell-and-goto-next-km
+        "s-o" 'ein:worksheet-insert-cell-below-km
+        "s-O" 'ein:worksheet-insert-cell-above-km
+        "s-c" 'ein:worksheet-change-cell-type-km
+        "s-b" 'ein:worksheet-split-cell-at-point-km
+        "s-k" 'ein:worksheet-move-cell-up-km
+        "s-j" 'ein:worksheet-move-cell-down-km
+        "C-s-k" 'ein:worksheet-merge-cell-km
+        "C-s-j" 'spacemacs/ein:worksheet-merge-cell-next
+        "s-y" 'ein:worksheet-copy-cell-km
+        "s-t" 'ein:worksheet-toggle-output-km
+        "s-p" 'ein:worksheet-yank-cell-km
+        "s-d" 'ein:worksheet-kill-cell-km
+        "s-;" 'ein:notebook-scratchsheet-open-km
+        ;; Output
+        "C-s-o" 'ein:worksheet-toggle-output-km
+        "C-l" 'ein:worksheet-clear-output-km
+        "C-s-l" 'ein:worksheet-clear-all-output-km
+        ;; Notebook Opening and closing
+        "C-s-s" 'ein:notebook-save-notebook-command-km
+        "C-s-r" 'ein:notebook-rename-command-km
+        "C-s-x" 'ein:notebook-close-km
+        :map ein:notebooklist-mode-map
+        "O" 'ein:notebook-open-km
+        "o" 'ace-link-custom
+
+       :localleader
+       :desc "Show Hydra" :n "?" #'+ein/hydra/body
+       :desc "Execute and step" :n "RET" #'ein:worksheet-execute-cell-and-goto-next
+       :desc "Yank cell" :n "y" #'ein:worksheet-copy-cell
+       :desc "Paste cell" :n "p" #'ein:worksheet-yank-cell
+       :desc "Delete cell" :n "d" #'ein:worksheet-kill-cell
+       :desc "Insert cell below" :n "o" #'ein:worksheet-insert-cell-below
+       :desc "Insert cell above" :n "O" #'ein:worksheet-insert-cell-above
+       :desc "Next cell" :n "j" #'ein:worksheet-goto-next-input
+       :desc "Previous cell" :n "k" #'ein:worksheet-goto-prev-input
+       :desc "Save notebook" :n "fs" #'ein:notebook-save-notebook-command))
+
+(defun my-preview-latex ()
+  "Preview LaTeX from the current cell in a separate buffer.
+
+Handles only markdown and code cells, but both in a bit different
+ways: on the former, its input is being rendered, while on the
+latter - its output."
+  (interactive)
+  (let* ((cell (ein:worksheet-get-current-cell))
+	 (text-to-render
+	  (cond ((ein:markdowncell-p cell) (slot-value cell :input))
+		((ein:codecell-p cell)
+		 (plist-get (car (cl-remove-if-not
+				  (lambda (e) (string= (plist-get e :name) "stdout"))
+				  (slot-value cell :outputs)))
+			    :text))
+		(t (error "Unsupported cell type"))))
+	 (buffer (get-buffer-create " *ein: LaTeX preview*")))
+    (with-current-buffer buffer
+      (when buffer-read-only
+	(toggle-read-only))
+      (unless (= (point-min) (point-max))
+	(delete-region (point-min) (point-max)))
+      (insert text-to-render)
+      (goto-char (point-min))
+      (org-mode)
+      (org-toggle-latex-fragment 16)
+      (special-mode)
+      (unless buffer-read-only
+	(toggle-read-only))
+      (display-buffer
+       buffer
+       '((display-buffer-below-selected display-buffer-at-bottom)
+         (inhibit-same-window . t)))
+      (fit-window-to-buffer (window-in-direction 'below)))))
+
+
+#+END_SRC
+** Dash Docsets
+#+BEGIN_SRC elisp
+(after! dash-docs
+  (setq counsel-dash-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas"))
+  (setq dash-docs-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas")))
+#+END_SRC
+** ESS Statistics
+#+BEGIN_SRC elisp
+(after! ess
+  (set-popup-rule! "^\\*R:" :ignore t))
+
 #+END_SRC
 ** Spray
 For faster reading when bored. It helps me focus on one hand and if I am already focused to sprint through the text faster.
@@ -846,6 +971,7 @@ And the line would be overlaid like:
 All file definitions and defaults go here.
 #+BEGIN_SRC elisp
 (after! org
+  (add-hook 'org-mode-hook #'virtual-auto-fill-mode)
   (setq org-directory "~/Dropbox/org/"
         org-attach-id-dir "~/Dropbox/org/.attach/"
         ;; show images instead of links to images
@@ -885,18 +1011,20 @@ All file definitions and defaults go here.
 
   (setq org-todo-keyword-faces
                     '(("TODO" :foreground "tomato" :weight bold)
+                      ("TOREAD" :foreground "tomato" :weight bold)
                       ("WAITING" :foreground "light sea green" :weight bold)
+                      ("READING" :foreground "light sea green" :weight bold)
                       ("SOMEDAY" :foreground "firebrick" :weight bold)
                       ;;("REVIEW" :foreground "firebrick" :weight bold)
-                      ;;("STARTED" :foreground "DodgerBlue" :weight bold)
                       ("DELEGATED" :foreground "Gold" :weight bold)
                       ("NEXT" :foreground "violet red" :weight bold)
                       ("DONE" :foreground "slategrey" :weight bold)))
 
   (setq org-todo-keywords
-        '((sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
+        '((sequence "TODO(t)" "NEXT(n)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
+          (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
+          (sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
           (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
-          (sequence "TODO(t)" "NEXT(n)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
           (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
 
   (setq org-log-state-notes-insert-after-drawers nil
@@ -1129,17 +1257,24 @@ All file definitions and defaults go here.
                                       (org-agenda-current-span 'day)
                                       (org-super-agenda-groups
                                        '((:name "Today's Schedule" :scheduled t :time-grid t :deadline t :order 13)))))
+                            (todo "WAITING|NEXT"
+                                     ((org-agenda-files
+                                       '("~/Dropbox/org/gtd/tasks.org"))
+                                      (org-agenda-overriding-header "Waiting or In Progress")
+                                      (org-agenda-use-time-grid nil)
+                                      (org-agenda-show-all-dates nil)
+                                      (org-agenda-current-span 'day)
+                                      (org-agenda-span 7)))
                             (todo "NEXT"
                                    ((org-agenda-files
                                      '("~/Dropbox/org/gtd/projects.org"))
                                     (org-agenda-overriding-header " Next Projects\n ===================================================================\n")
                                     ))
-
-                            ;; (todo ""
-                            ;;        ((org-agenda-files
-                            ;;          '("~/Dropbox/org/gtd/events.org"))
-                            ;;         (org-agenda-overriding-header "Birthdays and Anniversaries\n ===================================================================\n")
-                            ;;         ))
+                            (todo "READING"
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/books.org"))
+                                    (org-agenda-overriding-header "Books I am currently reading\n ======================================================\n")
+                                    ))
                             (todo "TODO|NEXT"
                                    ((org-agenda-overriding-header " Highest priority and next up\n ===================================================================\n")
                                    ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
@@ -1150,7 +1285,7 @@ All file definitions and defaults go here.
                                        (:name "NEXT UP" :todo "NEXT" :order 2))))))
                             nil)
                            ("o" "Monthly Review"
-                           ((agenda "" ((org-agenda-span 7)
+                           ((agenda "" ((org-agenda-span 30)
                                         (org-agenda-overriding-header " Previous Month Deferred and not completed\n ===================================================================\n")
                                         (org-agenda-start-day "-7d")
                                         (org-agenda-entry-types '(:timestamp))
@@ -1176,6 +1311,11 @@ All file definitions and defaults go here.
                                    ((org-agenda-files
                                      '("~/Dropbox/org/gtd/inbox.org"))
                                     (org-agenda-overriding-header " Process and refile inbox\n ===================================================================\n")
+                                    ))
+                            (todo "TOREAD"
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/books.org"))
+                                    (org-agenda-overriding-header " Do you want to read some new book\n ===========================================================\n")
                                     ))
                             (todo "WAITING"
                                    ((org-agenda-files
@@ -1767,7 +1907,17 @@ All file definitions and defaults go here.
 ** Org Books
 #+BEGIN_SRC elisp
 (setq org-books-file "~/Dropbox/org/gtd/books.org")
+
+(after! org
+  (require 'org-books)
+    (add-to-list 'org-capture-templates
+      '("f" "Book" entry (file "~/Dropbox/org/gtd/books.org")
+         "%(let* ((url (substring-no-properties (current-kill 0)))
+                  (details (org-books-get-details url)))
+             (when details
+               (apply #'org-books-format 3 details))))")))
 #+END_SRC
+
 ** Org Regions Markup [Scimax]
 #+BEGIN_SRC elisp
 (after! org
@@ -2564,6 +2714,66 @@ structure changes."
                 while (outline-next-heading))))))
 )
 #+END_SRC
+** Ob Jupyter
+*** Doom Configuration for jupyter source blocks
+#+BEGIN_SRC elisp
+
+(use-package! ob-jupyter
+  :defer t
+  :init
+  (after! ob-async
+    (pushnew! ob-async-no-async-languages-alist
+              "jupyter-python"
+              "jupyter-julia"
+              "jupyter-R"))
+
+  (after! org-src
+    (dolist (lang '(python julia R))
+      (cl-pushnew (cons (format "jupyter-%s" lang) lang)
+                  org-src-lang-modes :key #'car)))
+
+  (add-hook! '+org-babel-load-functions
+    (defun +org-babel-load-jupyter-h (lang)
+      (when (string-prefix-p "jupyter-" (symbol-name lang))
+        (require 'jupyter)
+        (let* ((lang-name (symbol-name lang))
+               (lang-tail (string-remove-prefix "jupyter-" lang-name)))
+          (and (not (assoc lang-tail org-src-lang-modes))
+               (require (intern (format "ob-%s" lang-tail))
+                        nil t)
+               (add-to-list 'org-src-lang-modes (cons lang-name (intern lang-tail)))))
+        (with-demoted-errors "Jupyter: %s"
+          (require lang nil t)
+          (require 'ob-jupyter nil t)))))
+  :config
+  (defadvice! +org--ob-jupyter-initiate-session-a (&rest _)
+    :after #'org-babel-jupyter-initiate-session
+    (unless (bound-and-true-p jupyter-org-interaction-mode)
+      (jupyter-org-interaction-mode)))
+
+  ;; Remove text/html since it's not human readable
+  (delq! :text/html jupyter-org-mime-types)
+
+  (require 'tramp))
+
+#+END_SRC
+*** Popup rules
+#+BEGIN_SRC elisp
+(set-popup-rule! "*jupyter-pager*" :side 'right :size .40 :select t :vslot 2 :ttl 3)
+(set-popup-rule! "^\\*Org Src*" :side 'right :size .60 :select t :vslot 2 :ttl 3 :quit nil)
+(set-popup-rule! "*jupyter-repl*" :side 'bottom :size .30 :vslot 2 :ttl 3)
+#+END_SRC
+*** Eval region jupyter
+#+BEGIN_SRC elisp
+(after! jupyter
+  (set-eval-handler! 'jupyter-repl-interaction-mode #'jupyter-eval-line-or-region))
+#+END_SRC
+*** Eval on python mode as well
+#+BEGIN_SRC elisp
+;; on scratch buffer first run jupyter-associate-buffer
+(add-hook! python-mode
+  (set-repl-handler! 'python-mode #'jupyter-repl-pop-to-buffer))
+#+END_SRC
 * Note Taking Setup
 ** Scihub
 #+BEGIN_SRC elisp
@@ -2608,6 +2818,20 @@ ease of use.
         :n "a" #'helm-org-rifle-current-buffer
         :n "w" #'helm-org-rifle-org-directory
         :n "h" #'helm-org-rifle-directories)
+      (:prefix "m"
+       :n "d" #'dash-docs-activate-docset
+       :n "e" #'ein:run
+       :n "r" #'+python/open-jupyter-repl
+       :n "i" #'+python/optimize-imports
+       :n "f" #'sp-forward-sexp
+       :n "n" #'ein:notebooklist-open
+       :n "o" #'ein:notebooklist-new-notebook-with-name
+       (:prefix "j"
+        :n "r" #'jupyter-org-interrupt-kernel
+        :n "c" #'jupyter-org-clone-blcok
+        :n "s" #'org-babel-jupyter-scratch-buffer
+        :n "S" #'jupyter-repl-scratch-buffer
+        :n "e" #'jupyter-org-restart-and-execute-to-point))
       (:prefix "a"
        :n "a" #'unpackaged/iedit-or-flyspell
        :n "s" #'create-new-ml-project
@@ -2641,19 +2865,65 @@ ease of use.
        :n "d" #'scimax-dired/body)
 )
 #+END_SRC
+** Jupyter Ob Keybindings
+#+BEGIN_SRC elisp
+(after! org
+
+  (evil-define-key 'normal org-mode-map
+    ;; keybindings mirror ipython web interface behavior
+    "go" 'org-babel-previous-src-block
+    "gO" 'org-babel-next-src-block)
+
+  ;; keys used:  o, b, p, y,e  and P,Y,B,O,E,J,K
+  (map! :map org-mode-map
+        "<C-return>" 'org-ctrl-c-ctrl-c
+        "<S-return>" 'jupyter-org-execute-and-next-block
+        ;; "gI" 'org-babel-previous-src-block
+        ;; "H-s" 'org-babel-next-src-block
+        "s-e" 'jupyter-org-execute-to-point
+        "s-E" 'jupyter-org-execute-subtree
+
+        "s-K" 'jupyter-org-move-src-block
+        "s-J" '(lambda ()
+                        (interactive)
+                        (jupyter-org-move-src-block t))
+
+        "s-O" 'jupyter-org-insert-src-block
+        "s-o" '(lambda ()
+                        (interactive)
+                        (jupyter-org-insert-src-block t))
+
+        "s-B" 'jupyter-org-split-src-block
+        "s-b" '(lambda ()
+                        (interactive)
+                        (jupyter-org-split-src-block t))
+        "C-s-k" 'jupyter-org-merge-blocks
+        "s-p" 'jupyter-org-jump-to-block
+        "s-P" 'jupyter-org-jump-to-visible-block
+        "s-y" 'jupyter-org-kill-block-and-results
+        "s-Y" 'jupyter-org-copy-block-and-results
+        "C-s-l" 'jupyter-org-clear-all-results
+        "s-n" 'jupyter-org-next-busy-src-block
+        "s-N" 'jupyter-org-previous-busy-src-block
+        "<s-return>" '(lambda ()
+                        (interactive)
+                        (jupyter-org-execute-and-next-block t)))
+)
+#+END_SRC
+
 ** Org Markup
 TODO Use them only inside org mode
 #+BEGIN_SRC elisp
 (after! org
   (define-key org-mode-map (kbd "s--") 'other-window)
-  (define-key org-mode-map (kbd "s-=") 'org-superscript-region-or-point)
-  (define-key org-mode-map (kbd "s-i") 'org-italics-region-or-point)
-  (define-key org-mode-map (kbd "s-b") 'org-bold-region-or-point)
-  (define-key org-mode-map (kbd "s-v") 'org-verbatim-region-or-point)
-  (define-key org-mode-map (kbd "s-c") 'org-code-region-or-point)
-  (define-key org-mode-map (kbd "s-u") 'org-underline-region-or-point)
   (define-key org-mode-map (kbd "s-+") 'org-strikethrough-region-or-point)
-  (define-key org-mode-map (kbd "s-p") 'org-latex-math-region-or-point)
+  (define-key org-mode-map (kbd "s-i") 'org-italics-region-or-point)
+  (define-key org-mode-map (kbd "s-I") 'org-bold-region-or-point)
+  (define-key org-mode-map (kbd "s-v") 'org-verbatim-region-or-point)
+  (define-key org-mode-map (kbd "s-V") 'org-code-region-or-point)
+  (define-key org-mode-map (kbd "s-U") 'org-superscript-region-or-point)
+  (define-key org-mode-map (kbd "s-u") 'org-underline-region-or-point)
+  (define-key org-mode-map (kbd "s-l") 'org-latex-math-region-or-point)
 )
 #+END_SRC
 ** Ease in projects
@@ -2662,28 +2932,28 @@ TODO Use them only inside org mode
 (bind-key "s-\\" '+evil-window-vsplit-a)
 (bind-key "s-t" '+my/vterm-run-project)
 #+END_SRC
-** Markdown
+** Markdown LocalLeader Mapping
 #+BEGIN_SRC elisp
 (map! :localleader
       :map markdown-mode-map
       :prefix ("i" . "Insert")
       :desc "Blockquote"    "q" 'markdown-insert-blockquote
+      :desc "Horiz rule"    "r" 'markdown-insert-hr
       :desc "Bold"          "b" 'markdown-insert-bold
+      :desc "Table"         "T" 'markdown-insert-table
       :desc "Code"          "c" 'markdown-insert-code
       :desc "Emphasis"      "e" 'markdown-insert-italic
       :desc "Footnote"      "f" 'markdown-insert-footnote
       :desc "Code Block"    "s" 'markdown-insert-gfm-code-block
-      :desc "Image"         "i" 'markdown-insert-image
-      :desc "Link"          "l" 'markdown-insert-link
       :desc "List Item"     "n" 'markdown-insert-list-item
       :desc "Pre"           "p" 'markdown-insert-pre
-      (:prefix ("h" . "Headings")
-        :desc "One"   "1" 'markdown-insert-atx-1
-        :desc "Two"   "2" 'markdown-insert-atx-2
-        :desc "Three" "3" 'markdown-insert-atx-3
-        :desc "Four"  "4" 'markdown-insert-atx-4
-        :desc "Five"  "5" 'markdown-insert-atx-5
-        :desc "Six"   "6" 'markdown-insert-atx-6))
+      :prefix ("h" . "Headings")
+        :desc "One"   "1" 'markdown-insert-header-atx-1
+        :desc "Two"   "2" 'markdown-insert-header-atx-2
+        :desc "Three" "3" 'markdown-insert-header-atx-3
+        :desc "Four"  "4" 'markdown-insert-header-atx-4
+        :desc "Five"  "5" 'markdown-insert-header-atx-5
+        :desc "Six"   "6" 'markdown-insert-header-atx-6)
 #+END_SRC
 * Various tweaks
 ** Comments region or line
@@ -2943,7 +3213,6 @@ restart lsp based on that environment"
     '(bar matches buffer-info remote-host buffer-position parrot selection-info)
     '(misc-info minor-modes checker input-method buffer-encoding major-mode process vcs  "    "))) ; <-- added padding here
 #+END_SRC
-** Jupyter Org Blocks No native compile
 
 * Deprecated
 ** Dired Colors
@@ -3100,63 +3369,14 @@ Since, I am using ranger now: it's no longer in use.
 
 #+RESULTS:
 
-** Deft
+* Random
 #+BEGIN_SRC elisp
-
-;; (use-package deft
-;;   :bind (("<f8>" . deft))
-;;   :commands (deft deft-open-file deft-new-file-named)
-;;   :config
-;;   (setq deft-directory "~/Dropbox/org/notes/"
-;;         deft-auto-save-interval 0
-;;         deft-use-filename-as-title nil
-;;         deft-current-sort-method 'title
-;;         deft-recursive t
-;;         deft-extensions '("md" "txt" "org")
-;;         deft-markdown-mode-title-level 1
-;;         deft-file-naming-rules '((noslash . "-")
-;;                                  (nospace . "-")
-;;                                  (case-fn . downcase)))
-
-;;   (defun my-deft/strip-quotes (str)
-;;     (cond ((string-match "\"\\(.+\\)\"" str) (match-string 1 str))
-;;           ((string-match "'\\(.+\\)'" str) (match-string 1 str))
-;;           (t str)))
-
-;;   (defun my-deft/parse-title-from-front-matter-data (str)
-;;     (if (string-match "^title: \\(.+\\)" str)
-;;         (let* ((title-text (my-deft/strip-quotes (match-string 1 str)))
-;;                (is-draft (string-match "^draft: true" str)))
-;;           (concat (if is-draft "[DRAFT] " "") title-text))))
-
-;;   (defun my-deft/deft-file-relative-directory (filename)
-;;     (file-name-directory (file-relative-name filename deft-directory)))
-
-;;   (defun my-deft/title-prefix-from-file-name (filename)
-;;     (let ((reldir (my-deft/deft-file-relative-directory filename)))
-;;       (if reldir
-;;           (concat (directory-file-name reldir) " > "))))
-
-;;   (defun my-deft/parse-title-with-directory-prepended (orig &rest args)
-;;     (let ((str (nth 1 args))
-;;           (filename (car args)))
-;;       (concat
-;;        (my-deft/title-prefix-from-file-name filename)
-;;        (let ((nondir (file-name-nondirectory filename)))
-;;          (if (or (string-prefix-p "README" nondir)
-;;                  (string-suffix-p ".txt" filename))
-;;              nondir
-;;            ;; for files whose title can't be properly parsed due to hugo flags.
-;;            (org-roam--get-title-or-slug filename)
-;;        )))))
-
-;;   (provide 'my-deft-title)
-;;   (require 'my-deft-title)
-;;   (advice-add 'deft-parse-title :around #'my-deft/parse-title-with-directory-prepended))
-
+(defun random-function()
+(interactive)
+(let* ((url (substring-no-properties (current-kill 0)))
+                  (details (org-books-get-details url)))
+             (when details
+               (setq tag "TOREAD")
+               (setq details (cons tag details))
+               (apply #'org-books-format-custom 1 details))))
 #+END_SRC
-
-
-
-| Play this | Kurzesagt |
-|           |           |

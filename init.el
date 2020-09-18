@@ -24,7 +24,7 @@
        ;;  +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        (ivy
-        +fuzzy
+        ;;+fuzzy
         +icons
         +prescient
         +childframe)               ; a search engine for love and life
@@ -70,12 +70,11 @@
 
        :emacs
        (dired             ; making dired pretty [functional]
-        +ranger
-        +icons)
+        +ranger)
+        ;;+icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer
-        +icons
-        )                                ; interactive buffer management
+        +icons)                                ; interactive buffer management
        (undo
         +tree)
        vc                ; version-control and Emacs, sitting in a tree
@@ -100,7 +99,7 @@
        direnv
        docker
        ;;editorconfig      ; let someone else argue about tabs vs spaces
-       ein               ; tame Jupyter notebooks with emacs
+       ;;ein               ; tame Jupyter notebooks with emacs
        (eval +overlay)     ; run code, run (also, repls)
        ;;gist              ; interacting with github gists
        (lookup           ; helps you navigate your code and documentation
@@ -114,9 +113,9 @@
        make              ; run make tasks from Emacs
        pass              ; password manager for nerds
        pdf               ; pdf enhancements
-       prodigy           ; FIXME managing external services & code builders
+       ;;prodigy           ; FIXME managing external services & code builders
        ;;rgb               ; creating color strings
-       taskrunner
+       ;;taskrunner
        ;;terraform         ; infrastructure as code
        tmux              ; an API for interacting with tmux
        ;;upload            ; map local to remote projects via ssh/ftp
@@ -133,8 +132,8 @@
        ;;csharp            ; unity, .NET, and mono shenanigans
        data              ; config/data formats
        (dart 
-		+flutter
-		+lsp)
+	 +flutter
+	 +lsp)
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
@@ -174,8 +173,7 @@
         +hugo            ; use Emacs for hugo blogging
         +pretty
         +gnuplot
-        +jupyter        ; ipython/jupyter support for babel
-        +ipython
+        ;;+jupyter        ; ipython/jupyter support for babel
         +pandoc          ; export-with-pandoc support
         +export
         +dragndrop
@@ -187,7 +185,6 @@
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
         +poetry
-	+pyenv
 	+conda
 	+lsp)
        ;;qt                ; the 'cutest' gui framework ever
@@ -208,7 +205,7 @@
        web               ; the tubes
 
        :email
-       (mu4e +gmail)
+       ;;(mu4e +gmail)
        ;;notmuch
        ;;(wanderlust +gmail)
 
@@ -216,7 +213,7 @@
        calendar
        ;; irc               ; how neckbeards socialize
        ;;(rss +org)        ; emacs as an RSS reader
-       twitter           ; twitter client https://twitter.com/vnought
+       ;; twitter           ; twitter client https://twitter.com/vnought
 
        :config
        literate
