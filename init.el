@@ -17,20 +17,22 @@
 (doom! :input
        :completion
        (company
-        +icons
-        +childframe)
+        +childframe
+        +icons)
+        ;;+icons
+        ;;+childframe)
        ;; (helm
        ;;  +childframe
        ;;  +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        (ivy
-        ;;+fuzzy
+        +fuzzy
         +icons
         +prescient
         +childframe)               ; a search engine for love and life
 
        :ui
-       deft              ; notational velocity for Emacs
+       ;;deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
        doom-dashboard    ; a nifty splash screen for Emacs
        ;;fill-column       ; a `fill-column' indicator
@@ -45,17 +47,18 @@
        (popup            ; tame sudden yet inevitable temporary windows
         ;;+all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
-       ligatures
+       (ligatures
+        +iosevka)
        ;;tabs              ; an tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
-       vi-tilde-fringe   ; fringe tildes to mark beyond EOB
+       ;;vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        (window-select +numbers)    ; visually switch windows
        workspaces        ; tab emulation, persistence & separate workspaces
        zen               ; distraction-free coding or writing
 
        :editor
-       (evil +commands +everywhere); come to the dark side, we have cookies
+       (evil +everywhere); come to the dark side, we have cookies
        file-templates    ; auto-snippets for empty files
        fold              ; (nigh) universal code folding
        format            ; automated prettiness
@@ -138,7 +141,8 @@
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
        ;;erlang            ; an elegant language for a more civilized age
-       ess               ; emacs speaks statistics
+       (ess
+        +lsp) ;;emacs speaks statistics
        ;;faust             ; dsp, but you get to keep your soul
        ;;fsharp           ; ML stands for Microsoft's Language
        (go                ; the hipster dialect
@@ -205,7 +209,7 @@
        web               ; the tubes
 
        :email
-       ;;(mu4e +gmail)
+       (mu4e +gmail)
        ;;notmuch
        ;;(wanderlust +gmail)
 

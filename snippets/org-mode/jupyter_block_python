@@ -1,7 +1,7 @@
 # -*- mode: snippet -*-
-# name: Jpy cell
-# key: jpn
+# name: Jpy
+# key: jpn                                                    
 # --
-#+BEGIN_SRC jupyter-python async:t session:py kernel:dl
+#+BEGIN_SRC jupyter-python :async yes :session py :kernel drlnd
 $1
 #+END_SRC

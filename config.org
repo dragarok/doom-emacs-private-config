@@ -126,20 +126,19 @@ I need it similar to Vim.
     (interactive)
     (ein:worksheet-merge-cell (ein:worksheet--get-ws-or-error) (ein:worksheet-get-current-cell) t t))
 
-  (set-popup-rule! "^\\*ein" :ignore t)
+  ;; (set-popup-rule! "^\\*ein" :ignore t)
   ;; keybindings mirror ipython web interface behavior
-  (evil-define-key 'normal ein:notebook-mode-map
+  (evil-define-key 'normal  ein:markdown-mode-map
     ;; keybindings mirror ipython web interface behavior
-    "gj" 'ein:worksheet-goto-next-input-km
-    "gk" 'ein:worksheet-goto-prev-input-km)
+    "go" 'ein:worksheet-goto-next-input-km
+    "gO" 'ein:worksheet-goto-prev-input-km)
 
-  ;; (add-hook 'ein:notebook-mode-hook
-  ;;           (lambda ()
-  ;;             (toggle-truncate-lines)
-  ;;             (visual-line-mode t)
-  ;;             ))
+  (evil-define-key 'insert ein:notebook-mode-map
+    ;; keybindings mirror ipython web interface behavior
+        "<C-return>" 'ein:worksheet-execute-cell-km
+        "<C-s-return>" 'ein:worksheet-execute-cell-and-goto-next-km)
 
-  (add-hook 'ein:notebook-mode-hook #'virtual-auto-fill-mode)
+
   ;; ein show images in there
   (setq ein:output-area-inlined-images t)
 
@@ -170,20 +169,28 @@ I need it similar to Vim.
         "C-s-r" 'ein:notebook-rename-command-km
         "C-s-x" 'ein:notebook-close-km
         :map ein:notebooklist-mode-map
-        "O" 'ein:notebook-open-km
-        "o" 'ace-link-custom
+        :nv "O" 'ein:notebook-open-km
+        :nv "o" 'ace-link-custom)
 
-       :localleader
-       :desc "Show Hydra" :n "?" #'+ein/hydra/body
-       :desc "Execute and step" :n "RET" #'ein:worksheet-execute-cell-and-goto-next
-       :desc "Yank cell" :n "y" #'ein:worksheet-copy-cell
-       :desc "Paste cell" :n "p" #'ein:worksheet-yank-cell
-       :desc "Delete cell" :n "d" #'ein:worksheet-kill-cell
-       :desc "Insert cell below" :n "o" #'ein:worksheet-insert-cell-below
-       :desc "Insert cell above" :n "O" #'ein:worksheet-insert-cell-above
-       :desc "Next cell" :n "j" #'ein:worksheet-goto-next-input
-       :desc "Previous cell" :n "k" #'ein:worksheet-goto-prev-input
-       :desc "Save notebook" :n "fs" #'ein:notebook-save-notebook-command))
+  (map!  :localleader
+         :map ein:notebook-mode-map
+         :desc "Show Hydra" :n "?" #'+ein/hydra/body
+         :desc "Change cell type" :n "c" #'ein:worksheet-change-cell-type-km
+         :desc "Execute and step" :n "RET" #'ein:worksheet-execute-cell-and-goto-next
+         :desc "Yank cell" :n "y" #'ein:worksheet-copy-cell
+         :desc "Paste cell" :n "p" #'ein:worksheet-yank-cell
+         :desc "Delete cell" :n "d" #'ein:worksheet-kill-cell
+         :desc "Insert cell below" :n "o" #'ein:worksheet-insert-cell-below
+         :desc "Insert cell above" :n "O" #'ein:worksheet-insert-cell-above
+         :desc "Next cell" :n "j" #'ein:worksheet-goto-next-input
+         :desc "Previous cell" :n "k" #'ein:worksheet-goto-prev-input
+         :desc "Save notebook" :n "fs" #'ein:notebook-save-notebook-command)
+
+  (add-hook 'ein:notebook-mode-hook #'virtual-auto-fill-mode)
+  (add-hook 'ein:markdown-mode-hook #'virtual-auto-fill-mode)
+  ;; (add-hook 'ein:ipdb-mode-hook #'virtual-auto-fill-mode)
+  ;; (add-hook 'ein:shared-output-mode-hook #'virtual-auto-fill-mode)
+)
 
 (defun my-preview-latex ()
   "Preview LaTeX from the current cell in a separate buffer.
@@ -755,7 +762,7 @@ I use ivy when splitting buffer to choose buffer to go to.
 #+begin_src elisp
 (defadvice! prompt-for-buffer (&rest _)
   :after '(evil-window-split evil-window-vsplit)
-  (+ivy/switch-buffer))
+  (+ivy/projectile-find-file))
 (setq +ivy-buffer-preview t)
 #+end_src
 *** Ivy search into hidden files too
@@ -869,10 +876,7 @@ I use ivy when splitting buffer to choose buffer to go to.
 #+END_SRC
 ** Julia
 #+BEGIN_SRC elisp
-(use-package julia-snail
-  :defer t
-  :hook (julia-mode . julia-snail-mode))
-(setq lsp-julia-default-environment "~/.julia/environments/v1.4")
+(setq lsp-julia-default-environment "~/.julia/environments/v1.5")
 #+END_SRC
 ** Latex
 #+BEGIN_SRC elisp
@@ -971,7 +975,8 @@ And the line would be overlaid like:
 All file definitions and defaults go here.
 #+BEGIN_SRC elisp
 (after! org
-  (add-hook 'org-mode-hook #'virtual-auto-fill-mode)
+  (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
+  ;; (add-hook 'org-mode-hook #'auto-fill-mode)
   (setq org-directory "~/Dropbox/org/"
         org-attach-id-dir "~/Dropbox/org/.attach/"
         ;; show images instead of links to images
@@ -988,7 +993,6 @@ All file definitions and defaults go here.
 ** Org TODO Configs
 #+BEGIN_SRC elisp
 (after! org
-  (setq org-super-agenda-mode t)
   (setq org-agenda-tags-column 120)
   (setq org-tags-column 120)
   (setq org-agenda-files '("~/Dropbox/org/gtd/"))
@@ -1006,8 +1010,6 @@ All file definitions and defaults go here.
         org-agenda-show-future-repeats "next"
   )
 
-  (setq org-super-agenda-groups
-                  '((:auto-category t)))
 
   (setq org-todo-keyword-faces
                     '(("TODO" :foreground "tomato" :weight bold)
@@ -1044,7 +1046,7 @@ All file definitions and defaults go here.
 
   (setq org-startup-indented t
         org-src-tab-acts-natively t)
-  (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
+  ;; (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
 
   (setq org-tag-alist '((:startgroup . nil)
                                   ("@mundane" . ?p)
@@ -1241,7 +1243,7 @@ All file definitions and defaults go here.
   ;; (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1))))
 )
 #+END_SRC
-*** Super Agenda
+*** Agenda View
 #+BEGIN_SRC elisp
 
 (after! org-agenda (setq org-agenda-custom-commands
@@ -1254,9 +1256,7 @@ All file definitions and defaults go here.
                                       (org-agenda-span 'day)
                                       (org-agenda-start-day
                                        (org-today))
-                                      (org-agenda-current-span 'day)
-                                      (org-super-agenda-groups
-                                       '((:name "Today's Schedule" :scheduled t :time-grid t :deadline t :order 13)))))
+                                      (org-agenda-current-span 'day)))
                             (todo "WAITING|NEXT"
                                      ((org-agenda-files
                                        '("~/Dropbox/org/gtd/tasks.org"))
@@ -1279,10 +1279,7 @@ All file definitions and defaults go here.
                                    ((org-agenda-overriding-header " Highest priority and next up\n ===================================================================\n")
                                    ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
                                     (org-agenda-files
-                                     '("~/Dropbox/org/gtd/tasks.org"))
-                                    (org-super-agenda-groups
-                                     '((:name "CRITICAL" :priority "A" :order 1)
-                                       (:name "NEXT UP" :todo "NEXT" :order 2))))))
+                                     '("~/Dropbox/org/gtd/tasks.org")))))
                             nil)
                            ("o" "Monthly Review"
                            ((agenda "" ((org-agenda-span 30)
@@ -1826,23 +1823,6 @@ All file definitions and defaults go here.
 #+BEGIN_SRC elisp
 (use-package org-ref
   :after org)
-(use-package org-ref-ox-hugo
-  :after org org-ref ox-hugo
-  :config
-  (add-to-list 'org-ref-formatted-citation-formats
-               '("md"
-                 ("article" . "${author}, *${title}*, ${journal}, *${volume}(${number})*, ${pages} (${year}). ${doi}")
-                 ("inproceedings" . "${author}, *${title}*, In ${editor}, ${booktitle} (pp. ${pages}) (${year}). ${address}: ${publisher}.")
-                 ("book" . "${author}, *${title}* (${year}), ${address}: ${publisher}.")
-                 ("phdthesis" . "${author}, *${title}* (Doctoral dissertation) (${year}). ${school}, ${address}.")
-                 ("inbook" . "${author}, *${title}*, In ${editor} (Eds.), ${booktitle} (pp. ${pages}) (${year}). ${address}: ${publisher}.")
-                 ("incollection" . "${author}, *${title}*, In ${editor} (Eds.), ${booktitle} (pp. ${pages}) (${year}). ${address}: ${publisher}.")
-                 ("proceedings" . "${editor} (Eds.), _${booktitle}_ (${year}). ${address}: ${publisher}.")
-                 ("unpublished" . "${author}, *${title}* (${year}). Unpublished manuscript.")
-                 ("misc" . "${author} (${year}). *${title}*. Retrieved from [${howpublished}](${howpublished}). ${note}.")
-                 (nil . "${author}, *${title}* (${year}).")))
-)
-
 ;; Comehere
 (after! org
   (setq bibtex-completion-library-path "~/Dropbox/pdfs/"
@@ -3092,14 +3072,6 @@ choice's name, and the rest of which is its body forms."
     (interactive)
     "Capture a task in agenda mode."
     (org-capture nil "c"))
-
-  (defun zyro/agenda-references ()
-    "Open next tasks in ORGMODE AGENDA"
-    (interactive)
-    (let ((org-agenda-files '("~/Dropbox/org/gtd/references.org"))
-          (org-super-agenda-groups
-           '((:auto-ts t))))
-      (org-agenda nil "s")))
 )
 #+END_SRC
 * My own configurations
@@ -3205,9 +3177,8 @@ restart lsp based on that environment"
 #+BEGIN_SRC elisp
 (require 'nepali-romanized)
 #+END_SRC
-** Fix Modeline
+** Fix Modeline Overflow
 #+BEGIN_SRC elisp
-
 (after! doom-modeline
   (doom-modeline-def-modeline 'main
     '(bar matches buffer-info remote-host buffer-position parrot selection-info)
@@ -3215,94 +3186,6 @@ restart lsp based on that environment"
 #+END_SRC
 
 * Deprecated
-** Dired Colors
-#+BEGIN_SRC
-(use-package dired-rainbow
-  :after dired
-  :config
-  (progn
-    (dired-rainbow-define-chmod directory "#6cb2eb" "d.*")
-    (dired-rainbow-define html "#eb5286" ("css" "less" "sass" "scss" "htm" "html" "jhtm" "mht" "eml" "mustache" "xhtml"))
-    (dired-rainbow-define xml "#f2d024" ("xml" "xsd" "xsl" "xslt" "wsdl" "bib" "json" "msg" "pgn" "rss" "yaml" "yml" "rdata"))
-    (dired-rainbow-define document "#9561e2" ("docm" "doc" "docx" "odb" "odt" "pdb" "pdf" "ps" "rtf" "djvu" "epub" "odp" "ppt" "pptx"))
-    (dired-rainbow-define markdown "#c397d8" ("org" "etx" "info" "markdown" "md" "mkd" "nfo" "pod" "rst" "tex" "textfile" "txt"))
-    (dired-rainbow-define database "#6574cd" ("xlsx" "xls" "csv" "accdb" "db" "mdb" "sqlite" "nc"))
-    (dired-rainbow-define media "#de751f" ("mp3" "mp4" "MP3" "MP4" "avi" "mpeg" "mpg" "flv" "ogg" "mov" "mid" "midi" "wav" "aiff" "flac"))
-    (dired-rainbow-define image "#f66d9b" ("tiff" "tif" "cdr" "gif" "ico" "jpeg" "jpg" "png" "psd" "eps" "svg"))
-    (dired-rainbow-define log "#c17d11" ("log"))
-    (dired-rainbow-define shell "#f6993f" ("awk" "bash" "bat" "sed" "sh" "zsh" "vim"))
-    (dired-rainbow-define interpreted "#38c172" ("py" "ipynb" "rb" "pl" "t" "msql" "mysql" "pgsql" "sql" "r" "clj" "cljs" "scala" "js"))
-    (dired-rainbow-define compiled "#4dc0b5" ("asm" "cl" "lisp" "el" "c" "h" "c++" "h++" "hpp" "hxx" "m" "cc" "cs" "cp" "cpp" "go" "f" "for" "ftn" "f90" "f95" "f03" "f08" "s" "rs" "hi" "hs" "pyc" ".java"))
-    (dired-rainbow-define executable "#8cc4ff" ("exe" "msi"))
-    (dired-rainbow-define compressed "#51d88a" ("7z" "zip" "bz2" "tgz" "txz" "gz" "xz" "z" "Z" "jar" "war" "ear" "rar" "sar" "xpi" "apk" "xz" "tar"))
-    (dired-rainbow-define packaged "#faad63" ("deb" "rpm" "apk" "jad" "jar" "cab" "pak" "pk3" "vdf" "vpk" "bsp"))
-    (dired-rainbow-define encrypted "#ffed4a" ("gpg" "pgp" "asc" "bfe" "enc" "signature" "sig" "p12" "pem"))
-    (dired-rainbow-define fonts "#6cb2eb" ("afm" "fon" "fnt" "pfb" "pfm" "ttf" "otf"))
-    (dired-rainbow-define partition "#e3342f" ("dmg" "iso" "bin" "nrg" "qcow" "toast" "vcd" "vmdk" "bak"))
-    (dired-rainbow-define vc "#0074d9" ("git" "gitignore" "gitattributes" "gitmodules"))
-    (dired-rainbow-define-chmod executable-unix "#38c172" "-.*x.*")
-))
-#+END_SRC
-** Dired Hydra
-Since, I am using ranger now: it's no longer in use.
-#+BEGIN_SRC elisp
-
-;; dired hydra from scimax
-;; (after! dired
-;;   (defhydra scimax-dired (:color blue :hint nil )
-;;     "
-;; Mark              Operate         Misc              Navigate
-;; ----              -------         ----              --------
-;; _fd_: flag del    _C_: copy       _+_: mkdir        _<up>_: up directory
-;; _f#_: autosave    _R_: rename     _o_: open other
-;; _f~_: backups     _D_: delete
-;; _f&_: garbage     _F_: open marks
-;; _fe_: extension
-;; ----
-;; _m_: mark         _T_: touch
-;; _/_: directories  _M_: chmod
-;; _@_: symlinks     _G_: chgrp
-;; _O_: omitted      _O_: chown
-;; ----
-;; _U_: unmark all   _A_: find regx
-;; _t_: toggle marks _Q_: find/rep
-;; "
-;;     ;; marking
-;;     ("t" dired-toggle-marks "Toggle marks")
-;;     ("m" dired-mark "mark")
-;;     ("u" dired-unmark "unmark")
-;;     ("fd" dired-flag-file-deletion "Flag for deletion")
-;;     ("f#" dired-flag-auto-save-files "Flag autosave")
-;;     ("f~" dired-flag-backup-files "Flag backup files")
-;;     ("f&" dired-flag-garbage-files "Flag garbage files")
-;;     ("fe" dired-flag-extension "Flag extension")
-;;     ("/" dired-mark-directories "Mark directories")
-;;     ("@" dired-mark-symlinks "Mark symlinks")
-;;     ("." dired-mark-extension  "Mark extension")
-;;     ("O" dired-mark-omitted "Mark omitted")
-;;     ("U" dired-unmark-all-marks "Unmark all marks")
-
-;;     ("C" dired-do-copy)
-;;     ("R" dired-do-rename)
-;;     ("D" dired-do-delete)
-;;     ("F" dired-do-find-marked-files)
-;;     ("!" dired-do-shell-command)
-;;     ("&" dired-do-async-shell-command)
-
-;;     ("T" dired-do-touch)
-;;     ("M" dired-do-chmod)
-;;     ("G" dired-do-chgrp)
-;;     ("O" dired-do-chown)
-
-;;     ("A" dired-do-find-regexp)
-;;     ("Q" dired-do-find-regexp-and-replace)
-
-;;     ("+" dired-create-directory)
-;;     ("o" dired-find-file-other-window)
-
-;;     ("<up>" dired-up-directory)))
-
-#+END_SRC
 ** Chrome Bookmarks Processing
 #+BEGIN_SRC elisp
 
@@ -3369,14 +3252,13 @@ Since, I am using ranger now: it's no longer in use.
 
 #+RESULTS:
 
-* Random
+
+* Temporary Fixes
+** Company org roam
 #+BEGIN_SRC elisp
-(defun random-function()
-(interactive)
-(let* ((url (substring-no-properties (current-kill 0)))
-                  (details (org-books-get-details url)))
-             (when details
-               (setq tag "TOREAD")
-               (setq details (cons tag details))
-               (apply #'org-books-format-custom 1 details))))
+(use-package! company-org-roam
+  :when (featurep! :completion company)
+  :after org-roam
+  :config
+  (set-company-backend! 'org-mode '(company-org-roam company-yasnippet company-dabbrev)))
 #+END_SRC
