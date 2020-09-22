@@ -975,7 +975,6 @@ And the line would be overlaid like:
 All file definitions and defaults go here.
 #+BEGIN_SRC elisp
 (after! org
-  (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
   ;; (add-hook 'org-mode-hook #'auto-fill-mode)
   (setq org-directory "~/Dropbox/org/"
         org-attach-id-dir "~/Dropbox/org/.attach/"
@@ -3252,7 +3251,6 @@ restart lsp based on that environment"
 
 #+RESULTS:
 
-
 * Temporary Fixes
 ** Company org roam
 #+BEGIN_SRC elisp
@@ -3262,3 +3260,8 @@ restart lsp based on that environment"
   :config
   (set-company-backend! 'org-mode '(company-org-roam company-yasnippet company-dabbrev)))
 #+END_SRC
+** Org Autolist use at the end
+#+begin_src elisp
+(after! org
+  (add-hook 'org-mode-hook (lambda () (org-autolist-mode))))
+#+end_src
