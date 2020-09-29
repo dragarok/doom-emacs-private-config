@@ -50,7 +50,7 @@
        (ligatures
         +iosevka)
        ;;tabs              ; an tab bar for Emacs
-       treemacs          ; a project drawer, like neotree but cooler
+       ;;treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
        ;;vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        (window-select +numbers)    ; visually switch windows
@@ -72,8 +72,8 @@
        word-wrap         ; soft wrapping with language-aware indent
 
        :emacs
-       (dired             ; making dired pretty [functional]
-        +ranger)
+       (dired)             ; making dired pretty [functional]
+        ;;+ranger)
         ;;+icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer

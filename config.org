@@ -749,7 +749,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
         (right-fringe . 5)))
     :custom-face
     (hydra-posframe-border-face ((t (:background "#6272a4"))))
-    :hook (after-init . hydra-posframe-enable)))
+    :hook (after-init . hydra-posframe-mode)))
 #+END_SRC
 ** Evil
 #+begin_src elisp
@@ -1894,7 +1894,14 @@ All file definitions and defaults go here.
          "%(let* ((url (substring-no-properties (current-kill 0)))
                   (details (org-books-get-details url)))
              (when details
-               (apply #'org-books-format 3 details))))")))
+               (apply #'org-books-format 3 details))))"))
+    (add-to-list 'org-capture-templates
+      '("g" "Auto Book Entry" entry (file "~/Dropbox/org/gtd/books.org")
+         "%(let* ((url (substring-no-properties (current-kill 0)))
+                  (details (org-books-get-details %u)))
+             (when details
+               (apply #'org-books-format 3 details))))"))
+)
 #+END_SRC
 
 ** Org Regions Markup [Scimax]
@@ -2791,6 +2798,8 @@ ease of use.
         :n "e" #'elfeed
         :n "s" #'org-open-at-point
         :n "u" #'elfeed-update
+        ;; EXPERIMENTAL HACK
+        :n "p" #'dired-sidebar-toggle-sidebar
         :n "o" #'dired-jump)
       (:prefix "s"
         :n "q" #'org-ql-search
@@ -3265,3 +3274,77 @@ restart lsp based on that environment"
 (after! org
   (add-hook 'org-mode-hook (lambda () (org-autolist-mode))))
 #+end_src
+** Test for dired subtree instead of treemacs
+#+BEGIN_SRC elisp
+(use-package! dired-sidebar
+  :unless (featurep! :emacs dired +ranger)
+  :defer
+  :config
+  (setq dired-sidebar-width 25
+        dired-sidebar-theme 'ascii
+        dired-sidebar-tui-update-delay 5
+        dired-sidebar-recenter-cursor-on-tui-update t
+        dired-sidebar-no-delete-other-windows t
+        dired-sidebar-use-custom-modeline t)
+  (pushnew! dired-sidebar-toggle-hidden-commands
+            'evil-window-rotate-upwards 'evil-window-rotate-downwards)
+  (map! :map dired-sidebar-mode-map
+        :n "q" #'dired-sidebar-toggle-sidebar))
+
+(use-package! dired-subtree
+  :unless (featurep! :emacs dired +ranger)
+  :config
+  (setq dired-subtree-cycle-depth 4
+        dired-subtree-line-prefix ">")
+  (map! :map dired-mode-map
+        [backtab] #'dired-subtree-cycle
+        [tab] #'dired-subtree-toggle
+        :n "g^" #'dired-subtree-beginning
+        :n "g$" #'dired-subtree-end
+        :n "gm" #'dired-subtree-mark-subtree
+        :n "gu" #'dired-subtree-unmark-subtree))
+#+END_SRC
+** Org Protocol I3
+#+BEGIN_SRC elisp
+(after! org
+(require 'org-capture)
+(require 'org-protocol)
+
+;;; Org Capture
+;;;; Thank you random guy from StackOverflow
+;;;; http://stackoverflow.com/questions/23517372/hook-or-advice-when-aborting-org-capture-before-template-selection
+
+(defadvice org-capture
+    (after make-full-window-frame activate)
+  "Advise capture to be the only window when used as a popup"
+  (if (equal "emacs-capture" (frame-parameter nil 'name))
+      (delete-other-windows)))
+
+(defadvice org-capture-finalize
+    (after delete-capture-frame activate)
+  "Advise capture-finalize to close the frame"
+  (if (equal "emacs-capture" (frame-parameter nil 'name))
+      (delete-frame)))
+)
+
+#+END_SRC
+** Gkroam
+#+BEGIN_SRC elisp
+(use-package gkroam
+  :ensure t
+  :init
+  (setq gkroam-root-dir "~/org/notes/"
+        gkroam-pub-dir "~/org/site/")
+  :bind
+  (("C-c r G" . gkroam-update-all)
+   ("C-c r g" . gkroam-update)
+   ("C-c r d" . gkroam-daily)
+   ("C-c r f" . gkroam-find)
+   ("C-c r e" . gkroam-edit)
+   ("C-c r n" . gkroam-smart-new)
+   ("C-c r i" . gkroam-insert)
+   ("C-c r I" . gkroam-index)
+   ("C-c r p" . gkroam-preview)
+   ("C-c r v" . gkroam-preview-current)
+   ("C-c r t" . gkroam-toggle-brackets)))
+#+END_SRC

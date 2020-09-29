@@ -104,3 +104,6 @@
 ;; (package! mathpix.el
 ;;   :recipe (:host github :repo "jethrokuan/mathpix.el"))
 (package! org-autolist)
+(package! dired-sidebar)
+(package! dired-subtree)
+(package! gkroam)
