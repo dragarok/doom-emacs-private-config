@@ -107,3 +107,8 @@
 (package! dired-sidebar)
 (package! dired-subtree)
 (package! gkroam)
+;; (package! org-pretty-table
+;;   :recipe (:host github :repo "Fuco1/org-pretty-table"))
+(package! libmpdel)
+(package! mpdel)
+(package! ivy-mpdel)
