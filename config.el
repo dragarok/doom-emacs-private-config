@@ -1,28 +1,17 @@
-* Doom Basics
-** Make everything unicode
-#+begin_src elisp
 (prefer-coding-system       'utf-8)
 (set-default-coding-systems 'utf-8)
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
-#+end_src
-** Make localleader
-#+BEGIN_SRC elisp
+
 (setq doom-localleader-key ",")
-#+END_SRC
-** User Info
-#+BEGIN_SRC elisp
+
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
-#+END_SRC
-** Buffers
-#+BEGIN_SRC elisp
+
 (setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
-#+END_SRC
-** Fonts and Themes
-#+BEGIN_SRC elisp
-(setq doom-font (font-spec :family "Iosevka Nerd Font" :size 17)
+
+(setq doom-font (font-spec :family "VictorMono Nerd Font" :size 20)
       doom-variable-pitch-font (font-spec :family "ETbb" :size 20)
       doom-serif-font (font-spec :family "IBM Plex Mono" :weight 'light)
       doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
@@ -31,10 +20,7 @@
 
 (if (not window-system)
   (setq doom-theme 'doom-flatwhite))
-#+END_SRC
-** Doom Banner
-I wanted some inspiring banner and didn't know how to do just the ascii image. So, I copied the whole function and made the edit.
-#+BEGIN_SRC elisp
+
 ;; ;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
 (defun doom-dashboard-widget-banner ()
   (let ((point (point)))
@@ -78,18 +64,10 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
       (insert (make-string (or (cdr +doom-dashboard-banner-padding) 0)
                            ?\n)))))
 
-#+END_SRC
-** Line Numbers
-I need it similar to Vim.
-#+begin_src elisp
 (setq display-line-numbers-type 'relative)
-#+end_src
-** Defaults
-#+BEGIN_SRC elisp
+
 (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
-#+END_SRC
-** Buffer Popups
-#+BEGIN_SRC elisp
+
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
   ;; (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
@@ -106,15 +84,9 @@ I need it similar to Vim.
   (set-popup-rule! "*eshell*" :side 'bottom :size .30 :select t :hslot 2 :ttl 3)
   (set-popup-rule! "*Org clock budget report*" :side 'bottom :size .40 :select t :hslot 2 :ttl 3)
 )
-#+END_SRC
-* Tools
-** Orch Toggle
-#+BEGIN_SRC elisp
+
 (after! org
   (autoload 'orch-toggle "orch" nil t))
-#+END_SRC
-** EIN [ Emacs Ipython Notebook ]
-#+BEGIN_SRC elisp
 
 (after! ein-notebook
   (defun +ein-buffer-p (buf)
@@ -227,29 +199,21 @@ latter - its output."
          (inhibit-same-window . t)))
       (fit-window-to-buffer (window-in-direction 'below)))))
 
-
-#+END_SRC
-** Dash Docsets
-#+BEGIN_SRC elisp
 (after! dash-docs
   (setq counsel-dash-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas"))
   (setq dash-docs-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas")))
-#+END_SRC
-** ESS Statistics
-#+BEGIN_SRC elisp
+
 (after! ess
   (set-popup-rule! "^\\*R:" :ignore t))
 
-#+END_SRC
-** Spray
-For faster reading when bored. It helps me focus on one hand and if I am already focused to sprint through the text faster.
-#+BEGIN_SRC elisp
 (global-set-key (kbd "<f6>") 'spray-mode)
 
 (use-package spray
   ;; :commands (spray-faster spray-slower)
   :defer t
   :config
+  (setq spray-wpm 500
+        spray-height 700)
   :bind (:map spray-mode-map
          ("s-7" . spray-faster)
          ("s-8" . spray-slower)
@@ -257,15 +221,60 @@ For faster reading when bored. It helps me focus on one hand and if I am already
          ("s-0" . spray-quit)
          )
   )
-#+END_SRC
-** Elfeed
-#+BEGIN_SRC elisp
-(use-package elfeed
-  :defer t
-  :config
-  (require 'elfeed-goodies)
-  (elfeed-org)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Elfeed Setup                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(map! :map elfeed-search-mode-map
+      :after elfeed-search
+      [remap kill-this-buffer] "q"
+      [remap kill-buffer] "q"
+      :n doom-leader-key nil
+      :n "q" #'+rss/quit
+      :n "e" #'elfeed-update
+      :n "r" #'elfeed-search-untag-all-unread
+      :n "u" #'elfeed-search-tag-all-unread
+      :n "s" #'elfeed-search-live-filter
+      :n "RET" #'elfeed-search-show-entry
+      :n "p" #'elfeed-show-pdf
+      :n "+" #'elfeed-search-tag-all
+      :n "-" #'elfeed-search-untag-all
+      :n "S" #'elfeed-search-set-filter
+      :n "b" #'elfeed-search-browse-url
+      :n "y" #'elfeed-search-yank)
+(map! :map elfeed-show-mode-map
+      :after elfeed-show
+      [remap kill-this-buffer] "q"
+      [remap kill-buffer] "q"
+      :n doom-leader-key nil
+      :nm "z" #'prot/elfeed-show-eww
+      :nm "x" #'prot/elfeed-kill-buffer-close-window-dwim
+      :nm "q" #'+rss/delete-pane
+      :nm "o" #'ace-link-elfeed
+      :nm "RET" #'org-ref-elfeed-add
+      :nm "n" #'elfeed-show-next
+      :nm "N" #'elfeed-show-prev
+      :nm "p" #'elfeed-show-pdf
+      :nm "+" #'elfeed-show-tag
+      :nm "-" #'elfeed-show-untag
+      :nm "s" #'elfeed-show-new-live-search
+      :nm "y" #'elfeed-show-yank)
+;; Evil elfeed
+;;
+(after! elfeed-search
+  (set-evil-initial-state! 'elfeed-search-mode 'normal))
+(after! elfeed-show-mode
+  (set-evil-initial-state! 'elfeed-show-mode   'normal))
+(after! evil-snipe
+  (push 'elfeed-show-mode   evil-snipe-disabled-modes)
+  (push 'elfeed-search-mode evil-snipe-disabled-modes))
+;; Protesilas setup mostly
+
+(after! elfeed
+  (require 'elfeed-goodies)
+  (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
+      elfeed-db-directory "~/.elfeed/")
   (defun prot/elfeed-show-eww (&optional link)
     "Browse current `elfeed' entry link in `eww'.
 Only show the readable part once the website loads.  This can
@@ -298,8 +307,6 @@ With \\[universal-argument] browse the entry in `eww' using the
                 (elfeed-search-untag-all-unread))
               (prot/elfeed-show-eww link))
           (elfeed-search-show-entry entry)))))
-
-
   (defun prot/elfeed-kill-buffer-close-window-dwim ()
     "Do-what-I-mean way to handle `elfeed' windows and buffers.
 
@@ -319,12 +326,6 @@ the buffer."
              (if (one-window-p)
                  (elfeed-search-quit-window)
                (delete-other-windows win))))))
-
-
-
-  (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
-        elfeed-db-directory "~/.elfeed/")
-
   ;; scoring elfeed entries for better visibility
   (defun score-elfeed-entry (entry)
     (let ((title (elfeed-entry-title entry))
@@ -332,6 +333,7 @@ the buffer."
           (score 0))
       (loop for (pattern n) in '(("space" 1)
                                  ("machine learning\\|neural" 1)
+                                 ("entrepreneurship 2")
                                  ("startups" 1)
                                  ("breakthrough" 3)
                                  ("state of the art" 3))
@@ -350,47 +352,19 @@ the buffer."
        ((> score 1)
         (elfeed-tag entry 'important)))
       entry))
-
   (add-hook 'elfeed-new-entry-hook 'score-elfeed-entry)
-
-  ;; some key bindings
-  (define-key elfeed-search-mode-map (kbd "i")
-    (lambda () (interactive)
-      (elfeed-search-set-filter "@6-months-ago +unread +important")))
-
-  (define-key elfeed-search-mode-map (kbd "v")
-    (lambda () (interactive)
-      (elfeed-search-set-filter "@6-months-ago +unread +relevant")))
-
-  (define-key elfeed-search-mode-map (kbd "c")
-    (lambda () (interactive)
-      (elfeed-search-set-filter "@6-months-ago +unread")))
-
-  ;; help me alternate fingers in marking entries as read
-  (define-key elfeed-search-mode-map (kbd "f") 'elfeed-search-untag-all-unread)
-  (define-key elfeed-search-mode-map (kbd "j") 'elfeed-search-untag-all-unread)
-
-;; faces for relevant and important feeds
+  ;; faces for relevant and important feeds
   (defface relevant-elfeed-entry
     `((t :background ,(color-lighten-name "orange1" 40)))
     "Marks a relevant Elfeed entry.")
-
   (defface important-elfeed-entry
     `((t :background ,(color-lighten-name "OrangeRed2" 40)))
     "Marks an important Elfeed entry.")
-
   (push '(relevant relevant-elfeed-entry)
         elfeed-search-face-alist)
-
   (push '(important important-elfeed-entry)
         elfeed-search-face-alist)
-  :bind (:map elfeed-show-mode-map
-         ("s-z" . prot/elfeed-show-eww)
-         ("s-x" . prot/elfeed-kill-buffer-close-window-dwim))
-)
-#+END_SRC
-** Eww
-#+BEGIN_SRC elisp
+  )
 (use-package eww
   :defer t
   :commands (eww
@@ -436,16 +410,11 @@ With \\[universal-argument] produce a new buffer."
               ("B" . eww-back-url)
               ("N" . eww-next-url)
               ("P" . eww-previous-url)))
-
-
 (use-package browse-url
   :after eww
   :config
   (setq browse-url-browser-function 'eww-browse-url))
-#+END_SRC
-** Elisp
-Eshell have some aliases for ease of use.
-#+BEGIN_SRC elisp
+
 (after! eshell
   (set-eshell-alias!
    "f"   "find-file $1"
@@ -473,9 +442,7 @@ Eshell have some aliases for ease of use.
    "fo" "find-file-other-window $1"
    "rgi" "+default/search-cwd"
    "rg"  "rg --color=always $*"))
-#+END_SRC
-** Ace Link
-#+BEGIN_SRC elisp
+
 (use-package! ace-link
   :commands (ace-link))
 (after! avy
@@ -485,9 +452,7 @@ Eshell have some aliases for ease of use.
         aw-scope 'frame
         aw-ignore-current t
         aw-background nil))
-#+END_SRC
-** Multiple Cursors
-#+BEGIN_SRC elisp
+
 (use-package multiple-cursors
   :functions hydra-multiple-cursors
   :bind
@@ -549,9 +514,7 @@ Eshell have some aliases for ease of use.
           ("<down-mouse-1>" ignore)
           ("<drag-mouse-1>" ignore)
           ("q" nil))))
-#+END_SRC
-** Iedit or Flyspell whichever needed
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defun unpackaged/iedit-or-flyspell ()
   "Toggle `iedit-mode' or correct previous misspelling with `flyspell', depending on context.
@@ -584,9 +547,6 @@ to choose a different correction."
         (flyspell-region (line-beginning-position) (line-end-position))
         (call-interactively 'flyspell-correct-previous-word-generic)))))
 
-#+END_SRC
-** Magit
-#+BEGIN_SRC elisp
 ;;;###autoload
 (defun unpackaged/magit-status ()
   "Open a `magit-status' buffer and close the other window so only Magit is visible.
@@ -609,10 +569,6 @@ command was called, go to its unstaged changes section."
                       (magit-section-forward)
                     (error (cl-return (magit-status-goto-initial-section-1))))))))
 
-#+END_SRC
-** Plantuml Mode
-#+BEGIN_SRC elisp
-
 (use-package plantuml-mode
   :defer t
   :mode ("\\.plantuml\\'" . plantuml-mode)
@@ -621,9 +577,6 @@ command was called, go to its unstaged changes section."
   (setq plantuml-default-exec-mode 'executable)
 )
 
-#+END_SRC
-** Smerge on each magit diff
-#+BEGIN_SRC elisp
 (use-package smerge-mode
   :after hydra
   :config
@@ -663,9 +616,6 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :hook (magit-diff-visit-file . (lambda ()
                                    (when smerge-mode
                                      (unpackaged/smerge-hydra/body)))))
-#+END_SRC
-** Dired Subtree Folds
-#+BEGIN_SRC elisp
 
 (use-package dired-subtree
   :after dired
@@ -675,18 +625,14 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
               ("<tab>" . dired-subtree-toggle)
               ("<C-tab>" . dired-subtree-cycle)
               ("<S-iso-lefttab>" . dired-subtree-remove)))
-#+END_SRC
-** Gif Screencast
-#+BEGIN_SRC elisp
+
 (use-package gif-screencast
   :defer t
   :bind
   ("<C-print>" . gif-screencast-start-or-stop)
   :config
   (setq gif-screencast-output-directory (expand-file-name "images/gif-screencast" org-directory)))
-#+END_SRC
-** Search
-#+BEGIN_SRC elisp
+
 (after! org (setq org-link-abbrev-alist
                   '(("doom-repo" . "https://github.com/hlissner/doom-emacs/%s")
                     ("wolfram" . "https://wolframalpha.com/input/?i=%s")
@@ -698,19 +644,13 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
                     ("youtu" . "https://youtube.com/results?search_query=%s")
                     ("github" . "https://github.com/%s")
                     ("attachments" . "~/Dropbox/org/.attachments/"))))
-#+END_SRC
-** Leetcode
-#+BEGIN_SRC elisp
+
 (use-package leetcode
   :defer t
   :config
   (setq leetcode-prefer-language "python3"
         leetcode-prefer-sql "mysql"))
 
-#+END_SRC
-
-** Nov. el mode
-#+BEGIN_SRC elisp
 (use-package nov
   :defer t
   :config
@@ -719,27 +659,17 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (add-hook 'nov-mode-hook 'visual-line-mode)
   (add-hook 'nov-mode-hook 'visual-fill-column-mode)
 )
-#+END_SRC
-** Treemacs
-*** Treemacs Theme
-#+begin_src elisp
+
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
-#+end_src
-*** Treemacs Gitignore
-#+BEGIN_SRC elisp
+
 (with-eval-after-load 'treemacs
   (defun treemacs-ignore-gitignore (file _)
     (string= file ".gitignore"))
   (push #'treemacs-ignore-gitignore treemacs-ignored-file-predicates))
-#+END_SRC
-** VLF (Very Large Files) Setup
-#+BEGIN_SRC elisp
+
 (use-package! vlf-setup
   :defer-incrementally vlf-tune vlf-base vlf-write vlf-search vlf-occur vlf-follow vlf-ediff vlf)
-#+END_SRC
-** Hydra
-*** Hydra Posframe
-#+BEGIN_SRC elisp
+
 (use-package hydra
   :config
   (use-package hydra-posframe
@@ -750,31 +680,21 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
     :custom-face
     (hydra-posframe-border-face ((t (:background "#6272a4"))))
     :hook (after-init . hydra-posframe-mode)))
-#+END_SRC
-** Evil
-#+begin_src elisp
+
 (setq evil-vsplit-window-right t
       evil-split-window-below t)
-#+end_src
-** Ivy
-*** Ivy choosing buffer
-I use ivy when splitting buffer to choose buffer to go to.
-#+begin_src elisp
+
 (defadvice! prompt-for-buffer (&rest _)
   :after '(evil-window-split evil-window-vsplit)
   (+ivy/projectile-find-file))
 (setq +ivy-buffer-preview t)
-#+end_src
-*** Ivy search into hidden files too
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defun +ivy/project-search-with-hidden-files ()
   (interactive)
   (let ((counsel-rg-base-command "rg -zS --no-heading --line-number --color never --hidden %s . "))
     (+ivy/project-search)))
-#+END_SRC
-** Prodigy
-#+BEGIN_SRC elisp
+
 (after! prodigy
   (prodigy-define-tag
     :name 'webpack
@@ -806,11 +726,6 @@ I use ivy when splitting buffer to choose buffer to go to.
     :tags '(hugook)
     :kill-process-buffer-on-stop t))
 
-#+END_SRC
-* Languages
-** Python
-*** Anaconda
-#+BEGIN_SRC elisp
 (use-package conda
   :after python
   :init
@@ -824,10 +739,7 @@ I use ivy when splitting buffer to choose buffer to go to.
   ;; if you want eshell support, include:
   (conda-env-initialize-eshell)
 )
-#+END_SRC
-*** Flutter
-**** Dart Setup
-#+BEGIN_SRC elisp
+
 (use-package dart-mode
   :defer t
   :init
@@ -838,16 +750,12 @@ I use ivy when splitting buffer to choose buffer to go to.
   :custom
   (dart-format-on-save t)
   (dart-sdk-path "/opt/flutter/bin/cache/dart-sdk/"))
-#+END_SRC
-**** Flutter
-#+BEGIN_SRC elisp
+
 (use-package flutter
   :after dart-mode
   :custom
   (flutter-sdk-path "/opt/flutter/"))
-#+END_SRC
-**** Anki Editor
-#+BEGIN_SRC elisp
+
 (use-package anki-editor
   :after org
  ;; :hook (org-capture-after-finalize . anki-editor-reset-cloze-number) ; Reset cloze-number after each capture.
@@ -873,19 +781,11 @@ I use ivy when splitting buffer to choose buffer to go to.
            entry
            (file+headline org-my-anki-file "Dispatch")
            "* %<%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: Mega\n:END:\n** Text\n** Extra\n")))
-#+END_SRC
-** Julia
-#+BEGIN_SRC elisp
+
 (setq lsp-julia-default-environment "~/.julia/environments/v1.5")
-#+END_SRC
-** Latex
-#+BEGIN_SRC elisp
-#+END_SRC
-* Extra Functionalities
-** Lorem Ipsum Overlay
-Sometimes, you don't want to show what's on your screen. You can just make a
-overlay and enjoy.
-#+begin_src elisp
+
+
+
 (defvar lorem-ipsum-text)
 
 (defcustom unpackaged/lorem-ipsum-overlay-exclude nil
@@ -969,11 +869,7 @@ And the line would be overlaid like:
                                          (string-match-p regexp string)))
                 (overlay-match 2))
               (goto-char (match-end 2)))))))))
-#+end_src
-* Org Mode
-** Org Defaults
-All file definitions and defaults go here.
-#+BEGIN_SRC elisp
+
 (after! org
   ;; (add-hook 'org-mode-hook #'auto-fill-mode)
   (setq org-directory "~/Dropbox/org/"
@@ -988,9 +884,7 @@ All file definitions and defaults go here.
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
         projectile-project-search-path '("~/workspace/projects/"))
 )
-#+END_SRC
-** Org TODO Configs
-#+BEGIN_SRC elisp
+
 (after! org
   (setq org-agenda-tags-column 120)
   (setq org-tags-column 120)
@@ -1080,9 +974,6 @@ All file definitions and defaults go here.
         org-clone-delete-id t)
 )
 
-#+END_SRC
-** Org Clocking
-#+BEGIN_SRC elisp
 (use-package org-clock-convenience
   :after org
   :bind (:map org-agenda-mode-map
@@ -1090,9 +981,7 @@ All file definitions and defaults go here.
           ("<S-down>" . org-clock-convenience-timestamp-down)
           ("<S-right>" . org-clock-convenience-fill-gap)
           ("<S-left>" . org-clock-convenience-fill-gap-both)))
-#+END_SRC
-** Org Clock Budget
-#+BEGIN_SRC elisp
+
 (use-package! org-clock-budget
   :commands (org-clock-budget-report)
   :init
@@ -1113,9 +1002,7 @@ All file definitions and defaults go here.
   (add-hook! 'org-clock-budget-report-mode-hook
     (toggle-truncate-lines 1)
     (my-buffer-face-mode-org-clock-budget)))
-#+END_SRC
-** Org Capture Templates
-#+BEGIN_SRC elisp
+
 (after! org (add-to-list 'org-capture-templates
              '("l" "Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
 "* TODO [[%:link][%:description]]\n\n %i" :immediate-finish t)))
@@ -1228,12 +1115,6 @@ All file definitions and defaults go here.
 :END:
 " :immediate-finish t)))
 
-
-
-#+END_SRC
-** Org Agenda
-*** Agenda Tweaks
-#+BEGIN_SRC elisp
 (after! org
   (add-hook 'org-agenda-finalize-hook
             (lambda () (remove-text-properties
@@ -1241,9 +1122,6 @@ All file definitions and defaults go here.
   (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
   ;; (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1))))
 )
-#+END_SRC
-*** Agenda View
-#+BEGIN_SRC elisp
 
 (after! org-agenda (setq org-agenda-custom-commands
                          '(
@@ -1375,9 +1253,6 @@ All file definitions and defaults go here.
                              ))
                            )))
 
-#+END_SRC
-*** Color Time Grid based on clocking time
-#+BEGIN_SRC elisp
 (after! org
 (defun my:org-agenda-time-grid-spacing ()
   "Set different line spacing w.r.t. time duration."
@@ -1405,9 +1280,7 @@ All file definitions and defaults go here.
             (overlay-put ov 'line-spacing (1- line-height))))))))
 (add-hook 'org-agenda-finalize-hook #'my:org-agenda-time-grid-spacing)
 )
-#+END_SRC
-*** Icons
-#+BEGIN_SRC elisp
+
 (after! org
   (customize-set-value
    'org-agenda-category-icon-alist
@@ -1427,16 +1300,12 @@ All file definitions and defaults go here.
      ("paper" ,(list (all-the-icons-octicon "rocket" :height 1.2)) nil nil :ascent center)
      ))
 )
-#+END_SRC
-** Org Latex
-#+begin_src elisp
+
 (after! org
   (setq org-highlight-latex-and-related '(native script entities))
 
 )
-#+end_src
-** Org Pretty Mode
-#+BEGIN_SRC elisp
+
 (after! org
   (setq org-hide-emphasis-markers t
         org-superstar-headline-bullets-list '(" ")
@@ -1452,12 +1321,9 @@ All file definitions and defaults go here.
     ("~" (:foreground "deep sky blue"))
     ("+" (:strike-through t :foreground "slate grey" ))))
 )
-#+END_SRC
-** Org Mode Text Format
-#+BEGIN_SRC elisp
-#+END_SRC
-** Org Export
-#+BEGIN_SRC elisp
+
+
+
 (after! org (setq org-html-head-include-scripts t
                   org-export-with-toc t
                   org-export-with-author t
@@ -1470,9 +1336,7 @@ All file definitions and defaults go here.
                   org-export-with-properties t
                   org-export-with-smart-quotes t
                   org-export-backends '(pdf ascii html latex odt pandoc)))
-#+END_SRC
-** Org Screenshots
-#+BEGIN_SRC elisp
+
 (after! org
   (require 'org-download)
   (add-hook 'dired-mode-hook 'org-download-enable)
@@ -1488,16 +1352,11 @@ All file definitions and defaults go here.
       (org-download-image tmp-file)))
   (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 )
-#+END_SRC
-** Org Roam
-*** Defaults
-#+BEGIN_SRC elisp
+
 (after! org-roam
   (setq org-roam-directory "~/Dropbox/org/notes/")
   (setq org-roam-db-location "~/.org/org-roam.db"))
-#+END_SRC
-*** Capture Templates
-#+BEGIN_SRC elisp
+
 (after! org-roam
   (setq org-roam-capture-templates
         '(("x" "braindump" plain
@@ -1505,13 +1364,13 @@ All file definitions and defaults go here.
            "%?"
            :file-name "${slug}"
            :head "#+SETUPFILE:./hugo_setup.org
-,#+TITLE: ${title}
-,#+HUGO_SECTION: braindump
-,#+HUGO_SLUG: ${slug}
-,#+hugo_tags:
-,#+hugo_categories:
-,#+hugo_draft: false
-,#+DATE: %t\n"
+#+TITLE: ${title}
+#+HUGO_SECTION: braindump
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
            :unnarrowed t)
 
           ("t" "ai" plain
@@ -1519,13 +1378,13 @@ All file definitions and defaults go here.
            "%?"
            :file-name "AI/${slug}"
            :head "#+SETUPFILE:../hugo_in_setup.org
-,#+TITLE: ${title}
-,#+HUGO_SECTION: ai
-,#+HUGO_SLUG: ${slug}
-,#+hugo_tags:
-,#+hugo_categories:
-,#+hugo_draft: false
-,#+DATE: %t\n"
+#+TITLE: ${title}
+#+HUGO_SECTION: ai
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
            :unnarrowed t)
 
 
@@ -1534,13 +1393,13 @@ All file definitions and defaults go here.
            "%?"
            :file-name "neuroscience/${slug}"
            :head "#+SETUPFILE:../hugo_in_setup.org
-,#+TITLE: ${title}
-,#+HUGO_SECTION: neuroscience
-,#+HUGO_SLUG: ${slug}
-,#+hugo_tags:
-,#+hugo_categories:
-,#+hugo_draft: false
-,#+DATE: %t\n"
+#+TITLE: ${title}
+#+HUGO_SECTION: neuroscience
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
           :unnarrowed t)
 
          ("e" "emacs" plain
@@ -1548,13 +1407,13 @@ All file definitions and defaults go here.
           "%?"
           :file-name "emacs/${slug}"
           :head "#+SETUPFILE:../hugo_in_setup.org
-,#+TITLE: ${title}
-,#+HUGO_SECTION: emacs
-,#+HUGO_SLUG: ${slug}
-,#+hugo_tags:
-,#+hugo_categories:
-,#+hugo_draft: false
-,#+DATE: %t\n"
+#+TITLE: ${title}
+#+HUGO_SECTION: emacs
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n"
           :unnarrowed t)
 
          ("j" "paper-description" plain
@@ -1562,13 +1421,13 @@ All file definitions and defaults go here.
           "%?"
           :file-name "${slug}"
           :head "#+SETUPFILE:./hugo_setup.org
-,#+TITLE: ${title}
-,#+HUGO_SECTION: ${section}
-,#+HUGO_SLUG: ${slug}
-,#+hugo_tags:
-,#+hugo_categories:
-,#+hugo_draft: false
-,#+DATE: %t\n * Main Contribution \n* Your description of significance \n* New algorithm or principles\n* Simulation Results and Comparisons\n* Solid Conclusion"
+#+TITLE: ${title}
+#+HUGO_SECTION: ${section}
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false
+#+DATE: %t\n * Main Contribution \n* Your description of significance \n* New algorithm or principles\n* Simulation Results and Comparisons\n* Solid Conclusion"
            :unnarrowed t)
 
 
@@ -1577,9 +1436,9 @@ All file definitions and defaults go here.
            "%?"
            :file-name "websites/${slug}"
            :head "#+SETUPFILE:./hugo_in_setup.org
-,#+ROAM_KEY: ${ref}
-,#+HUGO_SLUG: ${slug}
-,#+TITLE: ${title}\n- source :: ${ref}"
+#+ROAM_KEY: ${ref}
+#+HUGO_SLUG: ${slug}
+#+TITLE: ${title}\n- source :: ${ref}"
            :unnarrowed t)
 
           ("k" "private" plain
@@ -1594,19 +1453,16 @@ All file definitions and defaults go here.
            "%?"
            :file-name "%<%Y%m%d%H%M%S>-${slug}"
            :head "#+SETUPFILE:./hugo_setup.org
-,#+HUGO_SECTION: posts
-,#+HUGO_TAGS: %^{Tags}
-,#+EXPORT_FILE_NAME: %^{export name}
-,#+TITLE: ${title}
-,#+AUTHOR: Alok Regmi
-,#+DATE: %t"
+#+HUGO_SECTION: posts
+#+HUGO_TAGS: %^{Tags}
+#+EXPORT_FILE_NAME: %^{export name}
+#+TITLE: ${title}
+#+AUTHOR: Alok Regmi
+#+DATE: %t"
            :unnarrowed t)
           ))
 )
-#+END_SRC
 
-*** Org Roam Server
-#+BEGIN_SRC elisp
 (use-package org-roam-server
   :defer t
   :config
@@ -1619,9 +1475,7 @@ All file definitions and defaults go here.
         org-roam-server-network-label-truncate t
         org-roam-server-network-label-truncate-length 60
         org-roam-server-network-label-wrap-length 20))
-#+END_SRC
-*** Graph
-#+BEGIN_SRC elisp
+
 (after! org-roam
 
   (defadvice! doom-modeline--reformat-roam (orig-fun)
@@ -1674,10 +1528,6 @@ All file definitions and defaults go here.
                        (when callback
                          (funcall callback temp-html)))))))))
 
-#+END_SRC
-*** Hugo and Roam
-#+BEGIN_SRC elisp
-
 (after! (org org-roam)
     (defun my/org-roam--backlinks-list (file)
       (if (org-roam--org-roam-file-p file)
@@ -1705,9 +1555,7 @@ All file definitions and defaults go here.
           (org-hugo-auto-export-mode +1)
         (org-hugo-auto-export-mode -1))))
   (add-hook 'org-mode-hook #'jethro/conditional-hugo-enable))
-#+END_SRC
-** Pdf Tools
-#+BEGIN_SRC elisp
+
 ;; (defun bjm/save-buffer-no-args ()
 ;; "Save buffer ignoring arguments"
 ;; (save-buffer))
@@ -1786,9 +1634,7 @@ All file definitions and defaults go here.
     ;; ("l" image-forward-hscroll :color red)
     ;; ("h" image-backward-hscroll :color red))
 ;; )
-   #+END_SRC
-** References Management
-#+BEGIN_SRC elisp
+
 (use-package org-ref
   :after org)
 ;; Comehere
@@ -1804,9 +1650,7 @@ All file definitions and defaults go here.
       org-ref-default-bibliography '("~/Dropbox/org/references/articles.bib")
       org-ref-pdf-directory "~/Dropbox/pdfs")
 )
-#+END_SRC
-** Org Noter and Pdftools
-#+BEGIN_SRC elisp
+
 (use-package org-noter
   :defer t
   :commands (org-noter org-noter-create-skeleton)
@@ -1844,16 +1688,11 @@ All file definitions and defaults go here.
 
 (use-package org-pdftools
   :hook (org-load . org-pdftools-setup-link))
-#+END_SRC
-** Plantuml
-#+BEGIN_SRC elisp
 
 (after! org
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
   (org-babel-do-load-languages 'org-babel-load-languages '((plantuml . t))))
-#+END_SRC
-** Org Books
-#+BEGIN_SRC elisp
+
 (setq org-books-file "~/Dropbox/org/gtd/books.org")
 
 (after! org
@@ -1871,10 +1710,7 @@ All file definitions and defaults go here.
              (when details
                (apply #'org-books-format 3 details))))"))
 )
-#+END_SRC
 
-** Org Regions Markup [Scimax]
-#+BEGIN_SRC elisp
 (after! org
   (defun org-markup-region-or-point (type beginning-marker end-marker)
     "Apply the markup TYPE with BEGINNING-MARKER and END-MARKER to region, word or point.
@@ -2057,110 +1893,7 @@ then exit them."
            (t
             (insert (concat  (car chars) (cdr chars)))
             (backward-char (length (cdr chars))))))))))
-#+END_SRC
-** A more general <Enter> key
-#+BEGIN_SRC elisp
-(after! org
-  (defun unpackaged/org-element-descendant-of (type element)
-    "Return non-nil if ELEMENT is a descendant of TYPE.
-TYPE should be an element type, like `item' or `paragraph'.
-ELEMENT should be a list like that returned by `org-element-context'."
-    ;; MAYBE: Use `org-element-lineage'.
-    (when-let* ((parent (org-element-property :parent element)))
-      (or (eq type (car parent))
-          (unpackaged/org-element-descendant-of type parent))))
 
-;;;###autoload
-  (defun unpackaged/org-return-dwim (&optional default)
-    "A helpful replacement for `org-return-indent'.  With prefix, call `org-return-indent'.
-
-On headings, move point to position after entry content.  In
-lists, insert a new item or end the list, with checkbox if
-appropriate.  In tables, insert a new row or end the table."
-    ;; Inspired by John Kitchin: http://kitchingroup.cheme.cmu.edu/blog/2017/04/09/A-better-return-in-org-mode/
-    (interactive "P")
-    (if default
-        (org-return t)
-      (cond
-       ;; Act depending on context around point.
-
-       ;; NOTE: I prefer RET to not follow links, but by uncommenting this block, links will be
-       ;; followed.
-
-       ;; ((eq 'link (car (org-element-context)))
-       ;;  ;; Link: Open it.
-       ;;  (org-open-at-point-global))
-
-       ((org-at-heading-p)
-        ;; Heading: Move to position after entry content.
-        ;; NOTE: This is probably the most interesting feature of this function.
-        (let ((heading-start (org-entry-beginning-position)))
-          (goto-char (org-entry-end-position))
-          (cond ((and (org-at-heading-p)
-                      (= heading-start (org-entry-beginning-position)))
-                 ;; Entry ends on its heading; add newline after
-                 (end-of-line)
-                 (insert "\n\n"))
-                (t
-                 ;; Entry ends after its heading; back up
-                 (forward-line -1)
-                 (end-of-line)
-                 (when (org-at-heading-p)
-                   ;; At the same heading
-                   (forward-line)
-                   (insert "\n")
-                   (forward-line -1))
-                 ;; FIXME: looking-back is supposed to be called with more arguments.
-                 (while (not (looking-back (rx (repeat 3 (seq (optional blank) "\n")))))
-                   (insert "\n"))
-                 (forward-line -1)))))
-
-       ((org-at-item-checkbox-p)
-        ;; Checkbox: Insert new item with checkbox.
-        (org-insert-todo-heading nil))
-
-       ((org-in-item-p)
-        ;; Plain list.  Yes, this gets a little complicated...
-        (let ((context (org-element-context)))
-          (if (or (eq 'plain-list (car context))  ; First item in list
-                  (and (eq 'item (car context))
-                       (not (eq (org-element-property :contents-begin context)
-                                (org-element-property :contents-end context))))
-                  (unpackaged/org-element-descendant-of 'item context))  ; Element in list item, e.g. a link
-              ;; Non-empty item: Add new item.
-              (org-insert-item)
-            ;; Empty item: Close the list.
-            ;; TODO: Do this with org functions rather than operating on the text. Can't seem to find the right function.
-            (delete-region (line-beginning-position) (line-end-position))
-            (insert "\n"))))
-
-       ((when (fboundp 'org-inlinetask-in-task-p)
-          (org-inlinetask-in-task-p))
-        ;; Inline task: Don't insert a new heading.
-        (org-return t))
-
-       ((org-at-table-p)
-        (cond ((save-excursion
-                 (beginning-of-line)
-                 ;; See `org-table-next-field'.
-                 (cl-loop with end = (line-end-position)
-                          for cell = (org-element-table-cell-parser)
-                          always (equal (org-element-property :contents-begin cell)
-                                        (org-element-property :contents-end cell))
-                          while (re-search-forward "|" end t)))
-               ;; Empty row: end the table.
-               (delete-region (line-beginning-position) (line-end-position))
-               (org-return t))
-              (t
-               ;; Non-empty row: call `org-return-indent'.
-               (org-return t))))
-       (t
-        ;; All other cases: call `org-return-indent'.
-        (org-return t)))))
-  (advice-add #'org-return-indent :override #'unpackaged/org-return-dwim))
-#+END_SRC
-** Numbered Overlay for Headings [Scimax]
-#+BEGIN_SRC elisp
 (after! org
   ;;* org-numbered headings
   (defun scimax-overlay-numbered-headings ()
@@ -2220,9 +1953,6 @@ appropriate.  In tables, insert a new row or end the table."
          nil
          `((fl-noh 0 nil))))))
 )
-#+END_SRC
-** Hydras for Org Mode
-#+BEGIN_SRC elisp
 
 (after! org
 
@@ -2346,10 +2076,6 @@ _B_: previous block      _S_: sort        _v_: agenda           _/_: sparse tree
     ;; misc
     ("v" org-agenda)
     ("/" org-sparse-tree)))
-
-#+END_SRC
-** Python Org Source Blocks
-#+BEGIN_SRC elisp
 
 (after! org
 
@@ -2540,9 +2266,7 @@ Opens a buffer with links to what is found. This function installs pylint if nee
         ;; final cleanup and delete file
         (delete-file tempfile))))
 )
-#+END_SRC
-** Source Blocks
-#+BEGIN_SRC elisp
+
 (after! org
   (defun +org-private/get-name-src-block ()
     (interactive)
@@ -2625,9 +2349,7 @@ Opens a buffer with links to what is found. This function installs pylint if nee
            t)))))
 
 )
-#+END_SRC
-** Outline Numbers in Source Blocks
-#+BEGIN_SRC elisp
+
 (after! org
   (defun unpackaged/org-outline-numbers (&optional remove-p)
   "Add outline number overlays to the current buffer.
@@ -2668,10 +2390,6 @@ structure changes."
        (cl-loop do (add-overlay)
                 while (outline-next-heading))))))
 )
-#+END_SRC
-** Ob Jupyter
-*** Doom Configuration for jupyter source blocks
-#+BEGIN_SRC elisp
 
 (use-package! ob-jupyter
   :defer t
@@ -2711,36 +2429,20 @@ structure changes."
 
   (require 'tramp))
 
-#+END_SRC
-*** Popup rules
-#+BEGIN_SRC elisp
 (set-popup-rule! "*jupyter-pager*" :side 'right :size .40 :select t :vslot 2 :ttl 3)
 (set-popup-rule! "^\\*Org Src*" :side 'right :size .60 :select t :vslot 2 :ttl 3 :quit nil)
 (set-popup-rule! "*jupyter-repl*" :side 'bottom :size .30 :vslot 2 :ttl 3)
-#+END_SRC
-*** Eval region jupyter
-#+BEGIN_SRC elisp
+
 (after! jupyter
   (set-eval-handler! 'jupyter-repl-interaction-mode #'jupyter-eval-line-or-region))
-#+END_SRC
-*** Eval on python mode as well
-#+BEGIN_SRC elisp
+
 ;; on scratch buffer first run jupyter-associate-buffer
 (add-hook! python-mode
   (set-repl-handler! 'python-mode #'jupyter-repl-pop-to-buffer))
-#+END_SRC
-* Note Taking Setup
-** Scihub
-#+BEGIN_SRC elisp
+
 (setq scihub-homepage "https://sci-hub.st"
       scihub-open-after-download nil)
-#+END_SRC
-* Keybindings
-I use Super key to operate any operation that I use more frequently. Also, some
-keybindings are used such that they were previously not used by doom emacs for
-ease of use.
-** General
-#+BEGIN_SRC elisp
+
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 
@@ -2821,9 +2523,7 @@ ease of use.
        :n "r" #'poetry-run
        :n "d" #'scimax-dired/body)
 )
-#+END_SRC
-** Jupyter Ob Keybindings
-#+BEGIN_SRC elisp
+
 (after! org
 
   (evil-define-key 'normal org-mode-map
@@ -2866,11 +2566,7 @@ ease of use.
                         (interactive)
                         (jupyter-org-execute-and-next-block t)))
 )
-#+END_SRC
 
-** Org Markup
-TODO Use them only inside org mode
-#+BEGIN_SRC elisp
 (after! org
   (define-key org-mode-map (kbd "s--") 'other-window)
   (define-key org-mode-map (kbd "s-+") 'org-strikethrough-region-or-point)
@@ -2882,15 +2578,11 @@ TODO Use them only inside org mode
   (define-key org-mode-map (kbd "s-u") 'org-underline-region-or-point)
   (define-key org-mode-map (kbd "s-l") 'org-latex-math-region-or-point)
 )
-#+END_SRC
-** Ease in projects
-#+BEGIN_SRC elisp
+
 (bind-key "s-;" '+evil-window-split-a)
 (bind-key "s-\\" '+evil-window-vsplit-a)
 (bind-key "s-t" '+my/vterm-run-project)
-#+END_SRC
-** Markdown LocalLeader Mapping
-#+BEGIN_SRC elisp
+
 (map! :localleader
       :map markdown-mode-map
       :prefix ("i" . "Insert")
@@ -2911,10 +2603,7 @@ TODO Use them only inside org mode
         :desc "Four"  "4" 'markdown-insert-header-atx-4
         :desc "Five"  "5" 'markdown-insert-header-atx-5
         :desc "Six"   "6" 'markdown-insert-header-atx-6)
-#+END_SRC
-* Various tweaks
-** Comments region or line
-#+BEGIN_SRC elisp
+
 (defun doom/toggle-comment-region-or-line ()
   "Comments or uncomments the whole region or if no region is
 selected, then the current line."
@@ -2924,9 +2613,7 @@ selected, then the current line."
         (setq beg (region-beginning) end (region-end))
       (setq beg (line-beginning-position) end (line-end-position)))
     (comment-or-uncomment-region beg end)))
-#+END_SRC
-** Archive all done entries
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defun org-gtd/archive-all-done-entries ()
   "Archive all entries marked DONE"
@@ -2935,9 +2622,7 @@ selected, then the current line."
     (goto-char (point-max))
     (while (outline-previous-heading)
       (when (org-entry-is-done-p)))))
-#+END_SRC
-** Make org scratch buffer
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defun bh/make-org-scratch ()
   (interactive)
@@ -2948,9 +2633,7 @@ selected, then the current line."
 (defun bh/switch-to-scratch ()
   (interactive)
   (switch-to-buffer "*scratch*"))
-#+END_SRC
-** Choose from multiple values
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defmacro unpackaged/define-chooser (name &rest choices)
   "Define a chooser command NAME offering CHOICES.
@@ -2974,9 +2657,6 @@ choice's name, and the rest of which is its body forms."
            (funcall (alist-get choice-name ',choice-list nil nil #'equal))))
        (put ',name :unpackaged/define-chooser t))))
 
-#+END_SRC
-** Jethro Kuan's Multi Agenda Refiling
-#+BEGIN_SRC elisp
 (after! org
   (defvar jethro/org-current-effort "1:00"
     "Current effort for agenda items.")
@@ -3050,22 +2730,15 @@ choice's name, and the rest of which is its body forms."
     "Capture a task in agenda mode."
     (org-capture nil "c"))
 )
-#+END_SRC
-* My own configurations
-** Aw keys
-#+begin_src elisp
+
 ;; (setq aw-keys '(106 107 108 105 111 104 121 117 112) t)
-#+end_src
-** Vterm for projects
-#+begin_src elisp
+
 (defun +my/vterm-run-project ()
   (interactive)
   (+evil-window-vsplit-a)
   (+evil-window-split-a)
   (call-interactively '+vterm/here))
-#+end_src
-** Create ML Projects
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defun create-new-ml-project (proj-name proj-type)
   "Initial setup for any ML project"
@@ -3112,21 +2785,14 @@ models/\n
 ")
   (save-buffer)
 )
-#+END_SRC
-** Own dictionary
-DEPRECATED Part of code
-#+begin_src elisp
+
 (after! org
   (setq company-ispell-dictionary (file-truename "~/Dropbox/misc/english-words.txt"))
 )
-#+end_src
-** Emacs 28
-#+begin_src elisp
+
 (when EMACS28+
   (add-hook 'latex-mode-hook #'TeX-latex-mode))
-#+end_src
-** Dark Mode Switcher
-#+BEGIN_SRC elisp
+
 ;;;###autoload
 (defun switch-dark-mode()
   "Switch to dark mode with a key"
@@ -3140,31 +2806,20 @@ DEPRECATED Part of code
       (message "Light theme enabled")
       (load-theme 'doom-solarized-light 'noconfirm)
       (doom/reload-theme))))
-#+END_SRC
-** Lsp restart after changing env
-#+BEGIN_SRC elisp
+
 (defun change-env-and-restart-lsp()
   "Changes the python environment and
 restart lsp based on that environment"
   (interactive)
   (conda-env-activate)
   (lsp-restart-workspace))
-#+END_SRC
-** Nepali Romanized Layout
-#+BEGIN_SRC elisp
+
 (require 'nepali-romanized)
-#+END_SRC
-** Fix Modeline Overflow
-#+BEGIN_SRC elisp
+
 (after! doom-modeline
   (doom-modeline-def-modeline 'main
     '(bar matches buffer-info remote-host buffer-position parrot selection-info)
     '(misc-info minor-modes checker input-method buffer-encoding major-mode process vcs  "    "))) ; <-- added padding here
-#+END_SRC
-
-* Deprecated
-** Chrome Bookmarks Processing
-#+BEGIN_SRC elisp
 
 ;; (defvar chrome-bookmarks-file
 ;;   (cl-find-if
@@ -3225,26 +2880,9 @@ restart lsp based on that environment"
 ;;       (setq level 1)
 ;;       (fn (alist-get 'other (alist-get 'roots data))))))
 
-#+END_SRC
+;; (after! org
+;;   (add-hook 'org-mode-hook (lambda () (org-autolist-mode))))
 
-#+RESULTS:
-
-* Temporary Fixes
-** Company org roam
-#+BEGIN_SRC elisp
-(use-package! company-org-roam
-  :when (featurep! :completion company)
-  :after org-roam
-  :config
-  (set-company-backend! 'org-mode '(company-org-roam company-yasnippet company-dabbrev)))
-#+END_SRC
-** Org Autolist use at the end
-#+begin_src elisp
-(after! org
-  (add-hook 'org-mode-hook (lambda () (org-autolist-mode))))
-#+end_src
-** Test for dired subtree instead of treemacs
-#+BEGIN_SRC elisp
 (use-package! dired-sidebar
   :unless (featurep! :emacs dired +ranger)
   :defer
@@ -3272,9 +2910,7 @@ restart lsp based on that environment"
         :n "g$" #'dired-subtree-end
         :n "gm" #'dired-subtree-mark-subtree
         :n "gu" #'dired-subtree-unmark-subtree))
-#+END_SRC
-** Org Protocol I3
-#+BEGIN_SRC elisp
+
 (after! org
 (require 'org-capture)
 (require 'org-protocol)
@@ -3296,9 +2932,6 @@ restart lsp based on that environment"
       (delete-frame)))
 )
 
-#+END_SRC
-** Gkroam
-#+BEGIN_SRC elisp
 (use-package gkroam
   :ensure t
   :init
@@ -3316,9 +2949,7 @@ restart lsp based on that environment"
    ("C-c r p" . gkroam-preview)
    ("C-c r v" . gkroam-preview-current)
    ("C-c r t" . gkroam-toggle-brackets)))
-#+END_SRC
-** Some org mode configs
-#+BEGIN_SRC elisp
+
 (after! org
 
   (lambda () (progn
@@ -3381,9 +3012,7 @@ restart lsp based on that environment"
     '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet")
     )
   )
-#+END_SRC
-** Dired Sorting Ivy Menu
-#+BEGIN_SRC elisp
+
 ;; Modified from https://wilkesley.org/~ian/xah/emacs/dired_sort.html
 (defun light-dired-sort ()
   "Sort dired dir listing in different ways.
@@ -3428,13 +3057,175 @@ Version 2015-07-30"
 (map! (:after dired
       :map dired-mode-map
       :n "gb" #'light-dired-sort))
-#+END_SRC
-*** Writeroom width
-#+BEGIN_SRC elisp
+
 (setq writeroom-width 100)
-#+END_SRC
-*** Vterm not showing my completions
-#+BEGIN_SRC elisp
+
 (custom-set-faces!
- '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
-#+END_SRC
+ '(vterm-color-black :foreground "SandyBrown" :background "SandyBrown"))
+
+
+;; Taken from tecosaur's config
+;;
+(setq which-key-idle-delay 0.5) ;; I need the help, I really do
+(setq which-key-allow-multiple-replacements t)
+(after! which-key
+  (pushnew!
+   which-key-replacement-alist
+   '(("" . "\\`+?evil[-:]?\\(?:a-\\)?\\(.*\\)") . (nil . "◂\\1"))
+   '(("\\`g s" . "\\`evilem--?motion-\\(.*\\)") . (nil . "◃\\1"))
+   ))
+
+
+;; So you want your return to be intelligent: Kitchin to the rescue
+(after! org
+  (defun unpackaged/org-element-descendant-of (type element)
+    "Return non-nil if ELEMENT is a descendant of TYPE.
+TYPE should be an element type, like `item' or `paragraph'.
+ELEMENT should be a list like that returned by `org-element-context'."
+    ;; MAYBE: Use `org-element-lineage'.
+    (when-let* ((parent (org-element-property :parent element)))
+      (or (eq type (car parent))
+          (unpackaged/org-element-descendant-of type parent))))
+
+;;;###autoload
+  (defun unpackaged/org-return-dwim (&optional default)
+    "A helpful replacement for `org-return-indent'.  With prefix, call `org-return-indent'.
+
+On headings, move point to position after entry content.  In
+lists, insert a new item or end the list, with checkbox if
+appropriate.  In tables, insert a new row or end the table."
+    ;; Inspired by John Kitchin: http://kitchingroup.cheme.cmu.edu/blog/2017/04/09/A-better-return-in-org-mode/
+    (interactive "P")
+    (if default
+        (org-return t)
+      (cond
+       ;; Act depending on context around point.
+
+       ;; NOTE: I prefer RET to not follow links, but by uncommenting this block, links will be
+       ;; followed.
+
+       ;; ((eq 'link (car (org-element-context)))
+       ;;  ;; Link: Open it.
+       ;;  (org-open-at-point-global))
+
+       ((org-at-heading-p)
+        ;; Heading: Move to position after entry content.
+        ;; NOTE: This is probably the most interesting feature of this function.
+        (let ((heading-start (org-entry-beginning-position)))
+          (goto-char (org-entry-end-position))
+          (cond ((and (org-at-heading-p)
+                      (= heading-start (org-entry-beginning-position)))
+                 ;; Entry ends on its heading; add newline after
+                 (end-of-line)
+                 (insert "\n\n"))
+                (t
+                 ;; Entry ends after its heading; back up
+                 (forward-line -1)
+                 (end-of-line)
+                 (when (org-at-heading-p)
+                   ;; At the same heading
+                   (forward-line)
+                   (insert "\n")
+                   (forward-line -1))
+                 ;; FIXME: looking-back is supposed to be called with more arguments.
+                 (while (not (looking-back (rx (repeat 3 (seq (optional blank) "\n")))))
+                   (insert "\n"))
+                 (forward-line -1)))))
+
+       ((org-at-item-checkbox-p)
+        ;; Checkbox: Insert new item with checkbox.
+        (org-insert-todo-heading nil))
+
+       ((org-in-item-p)
+        ;; Plain list.  Yes, this gets a little complicated...
+        (let ((context (org-element-context)))
+          (if (or (eq 'plain-list (car context))  ; First item in list
+                  (and (eq 'item (car context))
+                       (not (eq (org-element-property :contents-begin context)
+                                (org-element-property :contents-end context))))
+                  (unpackaged/org-element-descendant-of 'item context))  ; Element in list item, e.g. a link
+              ;; Non-empty item: Add new item.
+              (org-insert-item)
+            ;; Empty item: Close the list.
+            ;; TODO: Do this with org functions rather than operating on the text. Can't seem to find the right function.
+            (delete-region (line-beginning-position) (line-end-position))
+            (insert "\n"))))
+
+       ((when (fboundp 'org-inlinetask-in-task-p)
+          (org-inlinetask-in-task-p))
+        ;; Inline task: Don't insert a new heading.
+        (org-return t))
+
+       ((org-at-table-p)
+        (cond ((save-excursion
+                 (beginning-of-line)
+                 ;; See `org-table-next-field'.
+                 (cl-loop with end = (line-end-position)
+                          for cell = (org-element-table-cell-parser)
+                          always (equal (org-element-property :contents-begin cell)
+                                        (org-element-property :contents-end cell))
+                          while (re-search-forward "|" end t)))
+               ;; Empty row: end the table.
+               (delete-region (line-beginning-position) (line-end-position))
+               (org-return t))
+              (t
+               ;; Non-empty row: call `org-return-indent'.
+               (org-return t))))
+       (t
+        ;; All other cases: call `org-return-indent'.
+        (org-return t))))))
+
+(map!
+ :after evil-org
+ :map evil-org-mode-map
+ :i [return] #'unpackaged/org-return-dwim)
+
+
+;; ess config from tecosaur
+(set-company-backend! 'ess-r-mode '(company-R-args company-R-objects company-dabbrev-code :separate))
+(setq ess-eval-visibly 'nowait)
+(setq ess-R-font-lock-keywords
+      '((ess-R-fl-keyword:keywords . t)
+        (ess-R-fl-keyword:constants . t)
+        (ess-R-fl-keyword:modifiers . t)
+        (ess-R-fl-keyword:fun-defs . t)
+        (ess-R-fl-keyword:assign-ops . t)
+        (ess-R-fl-keyword:%op% . t)
+        (ess-fl-keyword:fun-calls . t)
+        (ess-fl-keyword:numbers . t)
+        (ess-fl-keyword:operators . t)
+        (ess-fl-keyword:delimiters . t)
+        (ess-fl-keyword:= . t)
+        (ess-R-fl-keyword:F&T . t)))
+(after! ess-r-mode
+  (appendq! +ligatures-extra-symbols
+            '(:assign "⟵"
+              :multiply "×"))
+  (set-ligatures! 'ess-r-mode
+    ;; Functional
+    :def "function"
+    ;; Types
+    :null "NULL"
+    :true "TRUE"
+    :false "FALSE"
+    :int "int"
+    :floar "float"
+    :bool "bool"
+    ;; Flow
+    :not "!"
+    :and "&&" :or "||"
+    :for "for"
+    :in "%in%"
+    :return "return"
+    ;; Other
+    :assign "<-"
+    :multiply "%*%"))
+
+(add-hook 'org-mode-hook 'org-fragtog-mode)
+(setq global-org-pretty-table-mode t)
+
+;; irritates you every time so let it go [tecosaur's code]
+(setq projectile-ignored-projects '("~/" "/tmp" "~/.emacs.d/.local/straight/repos/"))
+(defun projectile-ignored-project-function (filepath)
+  "Return t if FILEPATH is within any of `projectile-ignored-projects'"
+  (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))

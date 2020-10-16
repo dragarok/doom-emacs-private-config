@@ -28,8 +28,8 @@
        (ivy
         +fuzzy
         +icons
-        +prescient
-        +childframe)               ; a search engine for love and life
+        +prescient)
+        ;; +childframe)               ; a search engine for love and life
 
        :ui
        ;;deft              ; notational velocity for Emacs
@@ -47,8 +47,8 @@
        (popup            ; tame sudden yet inevitable temporary windows
         ;;+all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
-       (ligatures
-        +iosevka)
+       (ligatures)
+        ;;+iosevka)
        ;;tabs              ; an tab bar for Emacs
        ;;treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
@@ -72,7 +72,8 @@
        word-wrap         ; soft wrapping with language-aware indent
 
        :emacs
-       (dired)             ; making dired pretty [functional]
+       (dired             ; making dired pretty [functional]
+        +icons)
         ;;+ranger)
         ;;+icons)
        electric          ; smarter, keyword-based electric-indent
@@ -190,6 +191,7 @@
        (python            ; beautiful is better than ugly
         +poetry
 	+conda
+        +pyright
 	+lsp)
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
@@ -216,9 +218,11 @@
        :app
        calendar
        ;; irc               ; how neckbeards socialize
-       ;;(rss +org)        ; emacs as an RSS reader
+       (rss +org)        ; emacs as an RSS reader
        ;; twitter           ; twitter client https://twitter.com/vnought
+       :os
+       tty
 
        :config
-       literate
+       ;;literate
        (default +bindings +smartparens))

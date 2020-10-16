@@ -1,9 +1,7 @@
 ;; Must Have packages
 ;; (package! helm-org-rifle)
 (package! org-ql)
-(package! elfeed)
 (package! elfeed-goodies)
-(package! elfeed-org)
 ;; ox twitter bootstrap
 (package! ox-twbs)
 ;; useful for parsing web pages
@@ -103,7 +101,7 @@
 ;; don't have the api key so let it be for now
 ;; (package! mathpix.el
 ;;   :recipe (:host github :repo "jethrokuan/mathpix.el"))
-(package! org-autolist)
+;; (package! org-autolist) ;; For now , org-return-dwim from kitchin works
 (package! dired-sidebar)
 (package! dired-subtree)
 (package! gkroam)
@@ -112,3 +110,6 @@
 (package! libmpdel)
 (package! mpdel)
 (package! ivy-mpdel)
+(package! org-fragtog)
+(package! org-pretty-table-mode
+  :recipe (:host github :repo "Fuco1/org-pretty-table") :pin "88380f865a...")
