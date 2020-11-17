@@ -50,8 +50,9 @@
        (ligatures)
         ;;+iosevka)
        ;;tabs              ; an tab bar for Emacs
-       ;;treemacs          ; a project drawer, like neotree but cooler
-       unicode           ; extended unicode support for various languages vc-gutter         ; vcs diff in the fringe
+       treemacs          ; a project drawer, like neotree but cooler
+       unicode           ; extended unicode support for various languages
+       ;; vc-gutter         ; vcs diff in the fringe
        ;;vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        (window-select +numbers)    ; visually switch windows
        workspaces        ; tab emulation, persistence & separate workspaces
@@ -98,7 +99,7 @@
 
        :tools
        ;;ansible
-       ;;debugger          ; FIXME stepping through code, to help you add bugs
+       debugger          ; FIXME stepping through code, to help you add bugs
        biblio
        direnv
        docker

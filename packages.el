@@ -12,7 +12,8 @@
 ;; analyze when you have entered data and filter activity based on your clocking
 (package! org-analyzer)
 (package! org-mru-clock) ;; clocking in and out easier
-(package! org-time-budgets) ;; budgeting on tasks
+(package! org-time-budgets
+  :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
 (package! grab-x-link) ;; grabbing links from firefox, chrome and so on.
 (package! org-noter) ;; notes for pdfs and on
 
@@ -80,8 +81,8 @@
 (unpin! doom-themes)
 
 ;; for managing book reading
-(package! org-books
-  :recipe (:local-repo "~/.doom.d/org-books/"))
+(package! org-books)
+;;  :recipe (:local-repo "~/.doom.d/org-books/"))
 ;; since doom emacs doesn't add it by default for it's setup
 (package! lsp-julia :recipe (:host github :repo "non-jedi/lsp-julia"))
 ;; had issues with native emacs so let's not byte compile them
@@ -104,7 +105,7 @@
 ;; (package! org-autolist) ;; For now , org-return-dwim from kitchin works
 (package! dired-sidebar)
 (package! dired-subtree)
-(package! gkroam)
+;; (package! gkroam)
 ;; (package! org-pretty-table
 ;;   :recipe (:host github :repo "Fuco1/org-pretty-table"))
 (package! libmpdel)
@@ -113,3 +114,9 @@
 (package! org-fragtog)
 (package! org-pretty-table-mode
   :recipe (:host github :repo "Fuco1/org-pretty-table") :pin "88380f865a...")
+(package! tab-jump-out)
+(package! declutter
+  :recipe (:host github :repo "sanel/declutter"))
+(package! tree-sitter)
+(package! tree-sitter-langs)
+(package! focus)

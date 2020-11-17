@@ -933,9 +933,9 @@ And the line would be overlaid like:
         org-outline-path-complete-in-steps nil
         org-refile-allow-creating-parent-nodes 'confirm)
 
-  (advice-add #'org-refile :after 'org-save-all-org-buffers)
+  ;;(advice-add #'org-refile :after 'org-save-all-org-buffers)
   (advice-add #'org-agenda-exit :around 'doom-shut-up-a)
-  (advice-add #'org-agenda-exit :before 'org-save-all-org-buffers)
+  ;;(advice-add #'org-agenda-exit :before 'org-save-all-org-buffers)
 
   (setq org-startup-indented t
         org-src-tab-acts-natively t)
@@ -1119,7 +1119,7 @@ And the line would be overlaid like:
   (add-hook 'org-agenda-finalize-hook
             (lambda () (remove-text-properties
                    (point-min) (point-max) '(mouse-face t))))
-  (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
+  ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
   ;; (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1))))
 )
 
@@ -1133,7 +1133,9 @@ And the line would be overlaid like:
                                       (org-agenda-span 'day)
                                       (org-agenda-start-day
                                        (org-today))
-                                      (org-agenda-current-span 'day)))
+                                      (org-agenda-current-span 'day))
+                                      (org-time-budgets-in-agenda-maybe)
+                                     )
                             (todo "WAITING|NEXT"
                                      ((org-agenda-files
                                        '("~/Dropbox/org/gtd/tasks.org"))
@@ -2445,6 +2447,8 @@ structure changes."
 
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
+(bind-key "s-h" '+ivy/switch-workspace-buffer-other-window)
+(bind-key "s-a" '+ivy/switch-workspace-buffer)
 
 (bind-key "s-1" 'winum-select-window-1)
 (bind-key "s-2" 'winum-select-window-2)
@@ -2470,7 +2474,7 @@ structure changes."
         :n "s" #'org-open-at-point
         :n "u" #'elfeed-update
         ;; EXPERIMENTAL HACK
-        :n "p" #'dired-sidebar-toggle-sidebar
+        ;; :n "p" #'dired-sidebar-toggle-sidebar
         :n "o" #'dired-jump)
       (:prefix "s"
         :n "q" #'org-ql-search
@@ -3229,3 +3233,72 @@ appropriate.  In tables, insert a new row or end the table."
 (defun projectile-ignored-project-function (filepath)
   "Return t if FILEPATH is within any of `projectile-ignored-projects'"
   (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
+
+(setq org-time-budgets '((:title "Spanish Lessons" :match "+spanish" :budget "10:00" :blocks (day week))
+                         (:title "Growing Personally" :match "+@growth+home" :budget "30:00" :blocks (day week))
+                         (:title "Entertaintment" :match "+entertaintment" :budget "5:00" :blocks (day week))
+                         (:title "All Mundane" :match "+@mundane" :budget "8:00" :blocks (day week))
+                         (:title "Freelancing Projects" :match "+@work+home" :budget "20:00" :blocks (day week))
+                         (:title "Guitar practice" :match "+music" :budget "5:00" :blocks (nil week))
+                         (:title "Sanskrit" :match "+sanskrit" :budget "5:15" :blocks (day week))))
+
+(setq yas-fallback-behavior '(apply tab-jump-out 1))
+(setq tab-jump-out-mode t)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Tree Sitter Highlighting                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(require 'tree-sitter)
+(require 'tree-sitter-langs)
+(global-tree-sitter-mode)
+(add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
+
+
+;; For converting org download links to normal file links for ease of use
+(defun cpb/convert-attachment-to-file ()
+  "Convert [[attachment:..]] to [[file:..][file:..]]"
+  (interactive)
+  (let ((elem (org-element-context)))
+    (if (eq (car elem) 'link)
+        (let ((type (org-element-property :type elem)))
+          ;; only translate attachment type links
+          (when (string= type "attachment")
+            ;; translate attachment path to relative filename using org-attach API
+            ;; 2020-11-15: org-attach-export-link was removed, so had to rewrite
+            (let* ((link-end (org-element-property :end elem))
+                   (link-begin (org-element-property :begin elem))
+                   ;; :path is everything after attachment:
+                   (file (org-element-property :path elem))
+                   ;; expand that to the full filename
+                   (fullpath (org-attach-expand file))
+                   ;; then make it relative to the directory of this org file
+                   (current-dir (file-name-directory (or default-directory
+                                                         buffer-file-name)))
+                   (relpath (file-relative-name fullpath current-dir)))
+              ;; delete the existing link
+              (delete-region link-begin link-end)
+              ;; replace with file: link and file: description
+              (insert (format "[[file:%s][file:%s]]" relpath relpath))))))))
+
+
+;; yanking the org links at point
+;;
+
+(defun my-yank-org-link (text)
+  (if (derived-mode-p 'org-mode)
+      (insert text)
+    (string-match org-bracket-link-regexp text)
+    (insert (substring text (match-beginning 1) (match-end 1)))))
+
+(defun my-org-retrieve-url-from-point ()
+  (interactive)
+  (let* ((link-info (assoc :link (org-context)))
+         (text (when link-info
+                 ;; org-context seems to return nil if the current element
+                 ;; starts at buffer-start or ends at buffer-end
+                 (buffer-substring-no-properties (or (cadr link-info) (point-min))
+                                                 (or (caddr link-info) (point-max))))))
+    (if (not text)
+        (error "Not in org link")
+      (add-text-properties 0 (length text) '(yank-handler (my-yank-org-link)) text)
+      (kill-new text))))
