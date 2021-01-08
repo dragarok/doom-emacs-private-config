@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
 # name: rbl
-# key: rblock
+# key: <r
 # --
 #+BEGIN_SRC jupyter-R :async yes :session r :kernel R
 $1

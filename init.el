@@ -19,8 +19,8 @@
        (company
         +childframe
         +icons)
-        ;;+icons
-        ;;+childframe)
+       ;;+icons
+       ;;+childframe)
        ;; (helm
        ;;  +childframe
        ;;  +fuzzy)             ; the *other* search engine for love and life
@@ -29,7 +29,7 @@
         +fuzzy
         +icons
         +prescient)
-        ;; +childframe)               ; a search engine for love and life
+       ;; +childframe)               ; a search engine for love and life
 
        :ui
        ;;deft              ; notational velocity for Emacs
@@ -48,7 +48,7 @@
         ;;+all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
        (ligatures)
-        ;;+iosevka)
+       ;;+iosevka)
        ;;tabs              ; an tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages
@@ -75,13 +75,12 @@
        :emacs
        (dired             ; making dired pretty [functional]
         +icons)
-        ;;+ranger)
-        ;;+icons)
+       ;;+ranger)
+       ;;+icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer
         +icons)                                ; interactive buffer management
-       (undo
-        +tree)
+       undo
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
@@ -137,8 +136,8 @@
        ;;csharp            ; unity, .NET, and mono shenanigans
        data              ; config/data formats
        (dart 
-	 +flutter
-	 +lsp)
+	+flutter
+	+lsp)
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
@@ -168,7 +167,7 @@
        ledger            ; an accounting system in Emacs
        ;;lua               ; one-based indices? one-based indices
        (markdown
-	      +grip); writing docs for people to ignore
+	+grip); writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        ;;nix               ; I hereby declare "nix geht mehr!"
        ;;ocaml             ; an objective camel
@@ -177,7 +176,7 @@
         +roam
         ;; +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
-        +pretty
+        ;;+pretty
         +gnuplot
         ;;+jupyter        ; ipython/jupyter support for babel
         +pandoc          ; export-with-pandoc support
