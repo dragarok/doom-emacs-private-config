@@ -12,8 +12,8 @@
 ;; analyze when you have entered data and filter activity based on your clocking
 (package! org-analyzer)
 (package! org-mru-clock) ;; clocking in and out easier
-(package! org-time-budgets
-  :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
+;; (package! org-time-budgets
+;;   :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
 (package! grab-x-link) ;; grabbing links from firefox, chrome and so on.
 (package! org-noter) ;; notes for pdfs and on
 
@@ -30,10 +30,16 @@
 
 ;; Download images directly into org mode
 (package! org-download)
-(package! org-roam-bibtex
-  :recipe (:host github :repo "zaeph/org-roam-bibtex"))
 
-;; Easy to see changes in magit
+(package! org-roam-bibtex
+  :recipe (:host github :repo "org-roam/org-roam-bibtex"))
+
+;; When using org-roam via the `+roam` flag
+(unpin! org-roam)
+
+;; When using bibtex-completion via the `biblio` module
+(unpin! bibtex-completion helm-bibtex ivy-bibtex)
+
 (package! magit-delta
   :recipe (:host github :repo "dandavison/magit-delta"))
 (package! academic-phrases)
@@ -68,7 +74,7 @@
 
 ;; fast reading with ease. I love spray when I am bored to read through the page
 (package! spray
-  :recipe (:host gitlab :repo "iankelling/spray"))
+  :recipe (:local-repo "~/.doom.d/spray"))
 
 ;; see weather with ease
 (package! wttrin
@@ -78,7 +84,7 @@
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
 
 ;; get new themes also ;)
-(unpin! doom-themes)
+;; (unpin! doom-themes)
 
 ;; for managing book reading
 (package! org-books)
@@ -86,37 +92,64 @@
 ;; since doom emacs doesn't add it by default for it's setup
 (package! lsp-julia :recipe (:host github :repo "non-jedi/lsp-julia"))
 ;; had issues with native emacs so let's not byte compile them
-(package! jupyter :recipe (:no-byte-compile t))
-(package! ein :recipe (:no-byte-compile t))
+;; (package! ein :recipe (:no-byte-compile t))
+(package! ein)
 ;; export org mode notebooks to ipynb
 (package! ox-ipynb
-  :recipe (:host github :repo "jkitchin/ox-ipynb" :no-byte-compile t))
+  :recipe (:host github :repo "zaeph/ox-ipynb"))
 ;; org roam server to see my notes in graphs
-(package! org-roam-server :recipe(:no-byte-compile t))
+;; (package! org-roam-server :recipe(:no-byte-compile t))
+(package! org-roam-server)
 ;; easy to read auto fill without doing anything
 (package! virtual-auto-fill)
 ;; (package! helm-bibtex)
 ;; (package! nov)
 ;; (package! ob-mermaid)
-
-;; don't have the api key so let it be for now
-;; (package! mathpix.el
-;;   :recipe (:host github :repo "jethrokuan/mathpix.el"))
 ;; (package! org-autolist) ;; For now , org-return-dwim from kitchin works
-(package! dired-sidebar)
+;; (package! dired-sidebar)
 (package! dired-subtree)
 ;; (package! gkroam)
-;; (package! org-pretty-table
-;;   :recipe (:host github :repo "Fuco1/org-pretty-table"))
+(package! org-pretty-table
+  :recipe (:host github :repo "Fuco1/org-pretty-table"))
 (package! libmpdel)
 (package! mpdel)
 (package! ivy-mpdel)
 (package! org-fragtog)
-(package! org-pretty-table-mode
-  :recipe (:host github :repo "Fuco1/org-pretty-table") :pin "88380f865a...")
+;; (package! org-pretty-table-mode
+;;   :recipe (:host github :repo "Fuco1/org-pretty-table") :pin "88380f865a...")
 (package! tab-jump-out)
-(package! declutter
-  :recipe (:host github :repo "sanel/declutter"))
+;; (package! declutter
+;;   :recipe (:host github :repo "sanel/declutter"))
 (package! tree-sitter)
 (package! tree-sitter-langs)
 (package! focus)
+(package! aggressive-indent)
+(package! visual-regexp-steroids)
+(package! org-edna)
+(package! emacs-monkeytype
+  :recipe (:host github :repo "jpablobr/emacs-monkeytype"))
+(package! jupyter)
+;; (package! org-super-agenda :recipe (:no-byte-compile t))
+(package! org-super-agenda)
+(package! nov)
+;; Taken from org +pretty as I am modifying it right now.
+(package! org-superstar)
+(package! org-fancy-priorities)
+(package! citeproc-org)
+(package! evil-escape)
+(package! quick-peek
+  :recipe (:host github :repo "cpitclaudel/quick-peek"))
+
+;; EXWM RELATED PACKAGES
+(package! exwm)
+;; (package! exwm-firefox-evil)
+(package! desktop-environment)
+(package! edwina)
+(package! org-xournalpp
+  :recipe (:host gitlab :repo "vherrmann/org-xournalpp" :files ("resources" "*.el")))
+
+(package! elfeed :pin "362bbe5b38353d033c5299f621fea39e2c75a5e0")
+(package! elfeed-org :pin "77b6bbf222487809813de260447d31c4c59902c9")
+(package! org-transclusion :recipe (:host github :repo "nobiot/org-transclusion" :files ("*")))
+(package! lister :recipe (:host github :repo "publicimageltd/lister"))
+(package! delve :recipe (:host github :repo "publicimageltd/delve"))

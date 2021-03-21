@@ -19,17 +19,16 @@
        (company
         +childframe
         +icons)
-        ;;+icons
-        ;;+childframe)
+       ;;+icons
+       ;;+childframe)
        ;; (helm
-       ;;  +childframe
        ;;  +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        (ivy
         +fuzzy
         +icons
-        +prescient)
-        ;; +childframe)               ; a search engine for love and life
+        +prescient
+        +childframe)               ; a search engine for love and life
 
        :ui
        ;;deft              ; notational velocity for Emacs
@@ -48,7 +47,7 @@
         ;;+all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
        (ligatures)
-        ;;+iosevka)
+       ;;+iosevka)
        ;;tabs              ; an tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages
@@ -75,13 +74,12 @@
        :emacs
        (dired             ; making dired pretty [functional]
         +icons)
-        ;;+ranger)
-        ;;+icons)
+       ;;+ranger)
+       ;;+icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer
         +icons)                                ; interactive buffer management
-       (undo
-        +tree)
+       undo
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
@@ -93,7 +91,7 @@
        :checkers
        (syntax              ; tasing you for every semicolon you forget
         +childframe)
-       (spell             ; tasing you for misspelling mispelling
+       (spell
         +aspell)
        grammar           ; tasing grammar mistake every you make
 
@@ -122,7 +120,7 @@
        ;;rgb               ; creating color strings
        ;;taskrunner
        ;;terraform         ; infrastructure as code
-       tmux              ; an API for interacting with tmux
+       ;;tmux              ; an API for interacting with tmux
        ;;upload            ; map local to remote projects via ssh/ftp
 
        :lang
@@ -136,9 +134,9 @@
        ;;crystal           ; ruby at the speed of c
        ;;csharp            ; unity, .NET, and mono shenanigans
        data              ; config/data formats
-       (dart 
-	 +flutter
-	 +lsp)
+       ;;        (dart
+       ;; 	+flutter
+       ;; 	+lsp)
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
@@ -147,8 +145,8 @@
         +lsp) ;;emacs speaks statistics
        ;;faust             ; dsp, but you get to keep your soul
        ;;fsharp           ; ML stands for Microsoft's Language
-       (go                ; the hipster dialect
-        +lsp)
+       ;;(go                ; the hipster dialect
+       ;; +lsp)
        ;;(haskell +dante)  ; a language that's lazier than I am
        ;;hy                ; readability of scheme w/ speed of python
        ;;idris             ;
@@ -168,7 +166,7 @@
        ledger            ; an accounting system in Emacs
        ;;lua               ; one-based indices? one-based indices
        (markdown
-	      +grip); writing docs for people to ignore
+	+grip); writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        ;;nix               ; I hereby declare "nix geht mehr!"
        ;;ocaml             ; an objective camel
@@ -177,7 +175,7 @@
         +roam
         ;; +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
-        +pretty
+        ;;+pretty
         +gnuplot
         ;;+jupyter        ; ipython/jupyter support for babel
         +pandoc          ; export-with-pandoc support
@@ -199,8 +197,8 @@
        ;;rest              ; Emacs as a REST client
        ;;rst               ; ReST in peace
        ;;ruby              ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
-       (rust              ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
-        +lsp)
+       ;;(rust              ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
+       ;; +lsp)
        ;;scala             ; java, but good
        ;;scheme            ; a fully conniving family of lisps
        (sh
@@ -219,8 +217,10 @@
        :app
        calendar
        ;; irc               ; how neckbeards socialize
-       (rss +org)        ; emacs as an RSS reader
+       everywhere
+       ;; (rss +org)        ; emacs as an RSS reader
        ;; twitter           ; twitter client https://twitter.com/vnought
+
        :os
        tty
 

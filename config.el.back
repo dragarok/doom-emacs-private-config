@@ -8,16 +8,17 @@
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
+(setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
 
-(setq doom-font (font-spec :family "Iosevka" :size 20)
-      ;;       doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 22)
-      doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
-      doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
+
+(setq doom-font (font-spec :family "VictorMono Nerd Font" :size 20)
+      doom-variable-pitch-font (font-spec :family "Overpass" :size 22)
+      doom-serif-font (font-spec :family "IBM Plex Mono" :weight 'light)
       doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
 
 
-(load-theme 'doom-flatwhite 'noconfirm)
+(load-theme 'doom-gruvbox-light 'noconfirm)
 
 (if (not window-system)
     (setq doom-theme 'doom-flatwhite))
@@ -77,7 +78,7 @@
   (setq nov-text-width t)
   (setq visual-fill-column-center-text t)
   (defun my-nov-font-setup ()
-    (face-remap-add-relative 'variable-pitch :family "Overpass Nerd Font"
+    (face-remap-add-relative 'variable-pitch :family "Overpass"
                              :height 1.2))
   (setq nov-text-width 80)
   (add-hook 'nov-mode-hook 'virtual-auto-fill-mode)
@@ -86,8 +87,6 @@
 
 
 
-(setq org-roam-directory "~/Dropbox/org/notes/")
-(setq org-roam-db-location "~/.org/org-roam.db")
 
 (after! org
   (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
@@ -139,7 +138,7 @@
         ;; Insert new cell, Execute cells
         ;; Merge, Split, Remove or Move cells
         "<C-return>" 'ein:worksheet-execute-cell-km
-        "<s-return>" 'ein:worksheet-execute-cell-and-goto-next-km
+        "<S-return>" 'ein:worksheet-execute-cell-and-goto-next-km
         "s-o" 'ein:worksheet-insert-cell-below-km
         "s-O" 'ein:worksheet-insert-cell-above-km
         "s-c" 'ein:worksheet-change-cell-type-km
@@ -220,9 +219,9 @@ latter - its output."
          (inhibit-same-window . t)))
       (fit-window-to-buffer (window-in-direction 'below)))))
 
-;; (after! dash-docs
-;;   (setq counsel-dash-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas"))
-;;   (setq dash-docs-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas")))
+(after! dash-docs
+  (setq counsel-dash-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas"))
+  (setq dash-docs-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas")))
 
 (after! ess
   (set-popup-rule! "^\\*R:" :ignore t))
@@ -247,500 +246,58 @@ latter - its output."
 ;;                                        Elfeed Setup                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(map! :map elfeed-search-mode-map
+      :after elfeed-search
+      [remap kill-this-buffer] "q"
+      [remap kill-buffer] "q"
+      :n doom-leader-key nil
+      :n "q" #'+rss/quit
+      :n "e" #'elfeed-update
+      :n "r" #'elfeed-search-untag-all-unread
+      :n "u" #'elfeed-search-tag-all-unread
+      :n "s" #'elfeed-search-live-filter
+      :n "RET" #'elfeed-search-show-entry
+      :n "p" #'elfeed-show-pdf
+      :n "+" #'elfeed-search-tag-all
+      :n "-" #'elfeed-search-untag-all
+      :n "S" #'elfeed-search-set-filter
+      :n "b" #'elfeed-search-browse-url
+      :n "," #'copy-link-for-kindle
+      :n "y" #'elfeed-search-yank)
+(map! :map elfeed-show-mode-map
+      :after elfeed-show
+      [remap kill-this-buffer] "q"
+      [remap kill-buffer] "q"
+      :n doom-leader-key nil
+      :nm "z" #'prot/elfeed-show-eww
+      :nm "x" #'prot/elfeed-kill-buffer-close-window-dwim
+      :nm "q" #'+rss/delete-pane
+      :nm "o" #'ace-link-elfeed
+      :nm "RET" #'org-ref-elfeed-add
+      :nm "n" #'elfeed-show-next
+      :nm "N" #'elfeed-show-prev
+      :nm "p" #'elfeed-show-pdf
+      :nm "+" #'elfeed-show-tag
+      :nm "-" #'elfeed-show-untag
+      :nm "s" #'elfeed-show-new-live-search
+      :nm "," #'copy-link-for-kindle
+      :nm "y" #'elfeed-show-yank)
+;; Evil elfeed
+;;
+(after! elfeed-search
+  (set-evil-initial-state! 'elfeed-search-mode 'normal))
+(after! elfeed-show-mode
+  (set-evil-initial-state! 'elfeed-show-mode   'normal))
+(after! evil-snipe
+  (push 'elfeed-show-mode   evil-snipe-disabled-modes)
+  (push 'elfeed-search-mode evil-snipe-disabled-modes))
+;; Protesilas setup mostly
 
-(require 'avy)
-(require 'elfeed-goodies)
-;; (require 'xwidget)
-
-;; * workflow and layout
-;;;###autoload
-(defun =rss ()
-  "Activate (or switch to) `elfeed' in its workspace."
-  (interactive)
-  (unless (featurep! :ui workspaces)
-    (user-error ":feature workspaces is required, but disabled"))
-  (+workspace-switch "rss" t)
-  (if-let* ((buf (cl-find-if (lambda (it) (string-match-p "^\\*elfeed" (buffer-name (window-buffer it))))
-                             (doom-visible-windows))))
-      (select-window (get-buffer-window buf)) (call-interactively 'elfeed))
-  (+workspace/display))
-
-;;;###autoload
-(defun +rss/quit ()
-  (interactive)
-  (doom-kill-matching-buffers "^\\*elfeed")
-  (dolist (file rmh-elfeed-org-files) (when-let* ((buf (get-file-buffer file))) (kill-buffer buf)))
-  (+workspace/delete "rss"))
-
-
-;;;###autoload
-(defun +rss|elfeed-wrap ()
-  "Enhances an elfeed entry's readability by wrapping it to a width of
-`fill-column' and centering it with `visual-fill-column-mode'."
-  (let ((inhibit-read-only t)
-        (inhibit-modification-hooks t))
-    (setq-local truncate-lines nil)
-    (setq-local shr-width 120)
-    (setq-local line-spacing 0.3)
-    (setq-local shr-current-font '(:family "Charter" :height 1.2))
-    (set-buffer-modified-p nil)))
-
-;;;###autoload
-(defun +rss/delete-pane ()
-  "Delete the *elfeed-entry* split pane."
-  (interactive)
-  (let* ((buff (get-buffer "*elfeed-entry*"))
-         (window (get-buffer-window buff)))
-    (kill-buffer buff)
-    (delete-window window)))
-
-;;;###autoload
-(defun +rss-popup-pane (buf)
-  "Display BUF in a popup."
-  (select-window (display-buffer-in-direction buf '((direction . right) (window-width . 0.6)))))
-
-;;;###autoload
-(defun +rss/open (entry)
-  "Display the currently selected item in a buffer."
-  (interactive (list (elfeed-search-selected :ignore-region)))
-  (when (elfeed-entry-p entry)
-    (elfeed-untag entry 'unread)
-    (elfeed-search-update-entry entry)
-    (elfeed-show-entry entry)))
-
-;;;###autoload
-(defun +rss/next ()
-  "Show the next item in the elfeed-search buffer."
-  (interactive)
-  (funcall elfeed-show-entry-delete)
-  (with-current-buffer (elfeed-search-buffer)
-    (forward-line)
-    (call-interactively '+rss/open)))
-
-;;;###autoload
-(defun +rss/previous ()
-  "Show the previous item in the elfeed-search buffer."
-  (interactive)
-  (funcall elfeed-show-entry-delete)
-  (with-current-buffer (elfeed-search-buffer)
-    (forward-line -1)
-    (call-interactively '+rss/open)))
-
-;;;###autoload
-(defun +rss-dead-feeds (&optional years)
-  "Return a list of feeds that haven't posted anything in YEARS."
-  (let* ((years (or years 1.0))
-         (living-feeds (make-hash-table :test 'equal))
-         (seconds (* years 365.0 24 60 60))
-         (threshold (- (float-time) seconds)))
-    (with-elfeed-db-visit (entry feed)
-      (let ((date (elfeed-entry-date entry)))
-        (when (> date threshold)
-          (setf (gethash (elfeed-feed-url feed) living-feeds) t))))
-    (cl-loop for url in (elfeed-feed-list)
-             unless (gethash url living-feeds)
-             collect url)))
-
-;;;###autoload
-(defun +rss/elfeed-search-print-entry (entry)
-  "Print ENTRY to the buffer."
-  (let* ((elfeed-goodies/tag-column-width 40)
-         (elfeed-goodies/feed-source-column-width 30)
-         (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
-         (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
-         (feed (elfeed-entry-feed entry))
-         (feed-title
-          (when feed
-            (or (elfeed-meta feed :title) (elfeed-feed-title feed))))
-         (tags (mapcar #'symbol-name (elfeed-entry-tags entry)))
-         (tags-str (concat (mapconcat 'identity tags ",")))
-         (title-width (- (window-width) elfeed-goodies/feed-source-column-width
-                         elfeed-goodies/tag-column-width 4))
-
-         ;; (tag-column (elfeed-format-column
-         ;;              tags-str (elfeed-clamp (length tags-str)
-         ;;                                     elfeed-goodies/tag-column-width
-         ;;                                     elfeed-goodies/tag-column-width)
-         ;;              :left))
-         (feed-column (elfeed-format-column
-                       feed-title (elfeed-clamp elfeed-goodies/feed-source-column-width
-                                                elfeed-goodies/feed-source-column-width
-                                                elfeed-goodies/feed-source-column-width)
-                       :left)))
-
-    (insert (propertize feed-column 'face 'elfeed-search-feed-face) " ")
-    ;; (insert (propertize tag-column 'face 'elfeed-search-tag-face) " ")
-    (insert (propertize title 'face title-faces 'kbd-help title))
-    (setq-local line-spacing 0.5)))
-
-;;;###autoload
-(defun +rss/elfeed-search--header-1 ()
-  "Computes the string to be used as the Elfeed header."
-  (cond
-   ((zerop (elfeed-db-last-update))
-    (elfeed-search--intro-header))
-   ((> (elfeed-queue-count-total) 0)
-    (let ((total (elfeed-queue-count-total))
-          (in-process (elfeed-queue-count-active)))
-      (format "%d feeds pending, %d in process"
-              (- total in-process) in-process)))
-   ((let* ((db-time (seconds-to-time (elfeed-db-last-update)))
-           (update (format-time-string "%Y-%m-%d %H:%M" db-time))
-           (unread (elfeed-search--count-unread)))
-      (format "Updated %s, %s%s"
-              (propertize update 'face 'elfeed-search-last-update-face)
-              (propertize unread 'face 'elfeed-search-unread-count-face)
-              (cond
-               (elfeed-search-filter-active "")
-               ((string-match-p "[^ ]" elfeed-search-filter)
-                (concat ", " (propertize elfeed-search-filter
-                                         'face 'elfeed-search-filter-face)))
-               ("")))))))
-
-;;;###autoload
-(defun +rss/elfeed-search-adjust-show-entry (entry)
-  "Display the currently selected item in a buffer."
-  (interactive (list (elfeed-search-selected :ignore-region)))
-  (require 'elfeed-show)
-  (when (elfeed-entry-p entry)
-    (elfeed-untag entry 'unread)
-    (elfeed-search-update-entry entry)
-    (+rss/elfeed-adjust-show-entry entry)))
-
-;;;###autoload
-(defun +rss/elfeed-show-next ()
-  "Show the next item in the elfeed-search buffer."
-  (interactive)
-  (quit-window)
-  (with-current-buffer (elfeed-search-buffer)
-    (forward-line)
-    (call-interactively #'+rss/elfeed-search-adjust-show-entry)))
-
-;;;###autoload
-(defun +rss/elfeed-show-prev ()
-  "Show the previous item in the elfeed-search buffer."
-  (interactive)
-  (quit-window)
-  (with-current-buffer (elfeed-search-buffer)
-    (forward-line -1)
-    (call-interactively #'+rss/elfeed-search-adjust-show-entry)))
-
-
-;;;###autoload
-(defun +rss/elfeed-show-entry (entry)
-  "Display ENTRY in the current buffer."
-  (let ((buff (get-buffer-create "*elfeed-entry*")))
-    (+rss-popup-pane buff)
-    (with-current-buffer buff
-      (elfeed-show-mode)
-      (setq elfeed-show-entry entry)
-      (elfeed-show-refresh))))
-
-;;;###autoload
-(defun +rss/elfeed-adjust-show-entry (entry)
-  "Display ENTRY in the current buffer."
-  (let ((buff (get-buffer-create "*elfeed-entry*")))
-    (+rss-popup-pane buff)
-    (with-current-buffer buff
-      (elfeed-show-mode)
-      (setq elfeed-show-entry entry)
-      (elfeed-show-refresh))))
-
-;; * elfeed-show UI
-;;;###autoload
-(defun +rss/elfeed-show-refresh--better-style ()
-  "Update the buffer to match the selected entry, using a mail-style."
-  (interactive)
-  (let* ((inhibit-read-only t)
-         (title (elfeed-entry-title elfeed-show-entry))
-         (date (seconds-to-time (elfeed-entry-date elfeed-show-entry)))
-         (author (elfeed-meta elfeed-show-entry :author))
-         (link (elfeed-entry-link elfeed-show-entry))
-         (tags (elfeed-entry-tags elfeed-show-entry))
-         (tagsstr (mapconcat #'symbol-name tags ", "))
-         (nicedate (format-time-string "%a, %e %b %Y %T %Z" date))
-         (content (elfeed-deref (elfeed-entry-content elfeed-show-entry)))
-         (type (elfeed-entry-content-type elfeed-show-entry))
-         (feed (elfeed-entry-feed elfeed-show-entry))
-         (feed-title (elfeed-feed-title feed))
-         (base (and feed (elfeed-compute-base (elfeed-feed-url feed)))))
-    (erase-buffer)
-    (insert "\n")
-    (insert (format "%s\n\n" (propertize title 'face 'elfeed-show-title-face)))
-    (insert (format "%s\t" (propertize feed-title 'face 'elfeed-show-feed-face)))
-    (when (and author elfeed-show-entry-author)
-      (insert (format "%s\n" (propertize author 'face 'elfeed-show-author-face))))
-    (insert (format "%s\n\n" (propertize nicedate 'face 'elfeed-show-misc-face)))
-    (when tags
-      (insert (format "%s\n"
-                      (propertize tagsstr 'face 'elfeed-show-tag-face))))
-    ;; (insert (propertize "Link: " 'face 'message-header-name))
-    ;; (elfeed-insert-link link link)
-    ;; (insert "\n")
-    (cl-loop for enclosure in (elfeed-entry-enclosures elfeed-show-entry)
-             do (insert (propertize "Enclosure: " 'face 'message-header-name))
-             do (elfeed-insert-link (car enclosure))
-             do (insert "\n"))
-    (insert "\n")
-    (if content
-        (if (eq type 'html)
-            (elfeed-insert-html content base)
-          (insert (propertize content 'face 'variable-pitch)))
-      (insert (propertize "(empty)\n" 'face 'italic)))
-    (goto-char (point-min))))
-
-;; * ace-link and xwidget
-;;;###autoload
-(defun ace-link--elfeed-collect ()
-  "Collect the positions of visible links in `elfeed' buffer."
-  (let (candidates pt)
-    (save-excursion
-      (save-restriction
-        (narrow-to-region
-         (window-start)
-         (window-end))
-        (goto-char (point-min))
-        (setq pt (point))
-        (while (progn (shr-next-link)
-                      (> (point) pt))
-          (setq pt (point))
-          (when (plist-get (text-properties-at (point)) 'shr-url)
-            (push (point) candidates)))
-        (nreverse candidates)))))
-
-;;;###autoload
-(defun ace-link--elfeed-action  (pt)
-  (goto-char pt)
-  (let ((url (get-text-property (point) 'shr-url)))
-    (browse-url url))
-  ;; (xwidget-webkit-browse-url-elfeed)
-  )
-
-;;;###autoload
-(defun xwidget-webkit-browse-url-elfeed ()
-  (let ((url (get-text-property (point) 'shr-url)))
-    (cond
-     ((not url)
-      (message "No link under point"))
-     ((string-match "^mailto:" url)
-      (browse-url-mail url))
-     (t (let*
-            ((bufname "*elfeed-xwidget-webkit*")
-             xw)
-          (select-window (display-buffer (get-buffer-create bufname)))
-          ;; The xwidget id is stored in a text property, so we need to have
-          ;; at least character in this buffer.
-          ;; Insert invisible url, good default for next `g' to browse url.
-          (insert url)
-          (put-text-property 1 (+ 1 (length url)) 'invisible t)
-          (setq xw (xwidget-insert 1 'webkit bufname
-                                   (xwidget-window-inside-pixel-width (selected-window))
-                                   (xwidget-window-inside-pixel-height (selected-window))))
-          (xwidget-put xw 'callback 'xwidget-webkit-elfeed-callback)
-          (xwidget-webkit-mode)
-          (xwidget-webkit-goto-uri xw url))))))
-
-;;;###autoload
-(defun xwidget-webkit-elfeed-callback (xwidget xwidget-event-type)
-  "Callback for xwidgets.
-XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
-  (if (not (buffer-live-p (xwidget-buffer xwidget)))
-      (xwidget-log
-       "error: callback called for xwidget with dead buffer")
-    (with-current-buffer (xwidget-buffer xwidget)
-      (cond ((eq xwidget-event-type 'load-changed)
-;;; We do not change selected window for the finish of loading a page.
-;;; And do not adjust webkit size to window here, the selected window
-;;; can be the mini-buffer window unwantedly.
-             (let ((title (xwidget-webkit-title xwidget)))
-               (xwidget-log "webkit finished loading: %s" title)))
-            ((eq xwidget-event-type 'decide-policy)
-             (let ((strarg  (nth 3 last-input-event)))
-               (if (string-match ".*#\\(.*\\)" strarg)
-                   (xwidget-webkit-show-id-or-named-element
-                    xwidget
-                    (match-string 1 strarg)))))
-;;; TODO: Response handling other than download.
-            ((eq xwidget-event-type 'response-callback)
-             (let ((url  (nth 3 last-input-event))
-                   (mime-type (nth 4 last-input-event))
-                   (file-name (nth 5 last-input-event)))
-               (xwidget-webkit-save-as-file xwidget url mime-type file-name)))
-            ((eq xwidget-event-type 'javascript-callback)
-             (let ((proc (nth 3 last-input-event))
-                   (arg  (nth 4 last-input-event)))
-               ;; Some javascript return vector as result
-               (if (vectorp arg)
-                   (funcall proc (seq-into arg 'list))
-                 (funcall proc arg))))
-            (t (xwidget-log "unhandled event:%s" xwidget-event-type))))))
-
-;;;###autoload
-(defun ace-link-elfeed ()
-  "Open a visible link in `elfeed' buffer."
-  (interactive)
-  (let ((pt (avy-with ace-link-elfeed
-              (avy--process
-               (ace-link--elfeed-collect)
-               #'avy--overlay-pre))))
-    (ace-link--elfeed-action pt)))
-
-
-
-(defvar +rss-split-direction 'below
-  "What direction to pop up the entry buffer in elfeed.")
-
-(use-package! elfeed
-  :commands elfeed
-  :init
-  (defface elfeed-show-title-face '((t (:weight ultrabold :slant italic :height 1.5)))
-    "title face in elfeed show buffer"
-    :group 'elfeed)
-  (defface elfeed-show-author-face `((t (:weight light :height 1.2)))
-    "title face in elfeed show buffer"
-    :group 'elfeed)
-  (defface elfeed-show-content-face `((t (:inherit 'variable-pitch)))
-    "title face in elfeed show buffer"
-    :group 'elfeed)
-  (defface elfeed-show-feed-face `((t (:weight bold)))
-    "title face in elfeed show buffer"
-    :group 'elfeed)
-  (defface elfeed-show-tag-face `((t (:weight extralight)))
-    "tag face in elfeed show buffer"
-    :group 'elfeed)
-  (defface elfeed-show-misc-face `((t (:weight extralight)))
-    "tag face in elfeed show buffer"
-    :group 'elfeed)
-  :config
-  (setq elfeed-search-filter "@3-week-ago +unread "
-        elfeed-db-directory "~/.elfeed/"
-        elfeed-enclosure-default-dir "~/.elfeed/enclosures/"
-        elfeed-search-print-entry-function '+rss/elfeed-search-print-entry
-        elfeed-search-title-min-width 80
-        elfeed-show-entry-switch #'pop-to-buffer
-        elfeed-show-entry-delete #'+rss/delete-pane
-        elfeed-show-refresh-function #'+rss/elfeed-show-refresh--better-style
-        shr-max-image-proportion 0.6)
-
-  ;; Ensure elfeed buffers are treated as real
-  (push (lambda (buf) (string-match-p "^\\*elfeed" (buffer-name buf)))
-        doom-real-buffer-functions)
-  ;; Enhance readability of a post
-  (add-hook! 'elfeed-show-mode-hook
-    (writeroom-mode 1)
-    (solaire-mode 1)
-    ;; (awesome-tab-mode -1)
-    (hide-mode-line-mode 1))
-  (add-hook! 'elfeed-search-update-hook #'(solaire-mode
-                                           hide-mode-line-mode))
-
-  (after! elfeed-search
-    (map! :map elfeed-search-mode-map
-          :after elfeed-search
-          [remap kill-this-buffer] "q"
-          [remap kill-buffer] "q"
-          :n doom-leader-key nil
-          :n "e" #'elfeed-update
-          :n "r" #'elfeed-search-untag-all-unread
-          :n "u" #'elfeed-search-tag-all-unread
-          :n "s" #'elfeed-search-live-filter
-          :n "RET" #'elfeed-search-show-entry
-          :n "p" #'elfeed-show-pdf
-          :n "+" #'elfeed-search-tag-all
-          :n "-" #'elfeed-search-untag-all
-          :n "S" #'elfeed-search-set-filter
-          :n "b" #'elfeed-search-browse-url
-          :n "," #'copy-link-for-kindle
-          :n "y" #'elfeed-search-yank)
-    (after! evil-snipe
-      (push 'elfeed-search-mode evil-snipe-disabled-modes))
-    (set-evil-initial-state! 'elfeed-search-mode 'normal)
-    ;; avoid ligature hang
-    (advice-add #'elfeed-search--header-1 :override #'+rss/elfeed-search--header-1)
-    (advice-add #'elfeed-show-next :override #'+rss/elfeed-show-next)
-    (advice-add #'elfeed-show-prev :override #'+rss/elfeed-show-prev)
-    )
-
-  (after! elfeed-show
-    (map! :map elfeed-show-mode-map
-          :after elfeed-show
-          [remap kill-this-buffer] "q"
-          [remap kill-buffer] "q"
-          :n doom-leader-key nil
-          :nm "z" #'prot/elfeed-show-eww
-          :nm "x" #'prot/elfeed-kill-buffer-close-window-dwim
-          :nm "q" #'+rss/delete-pane
-          :nm "o" #'ace-link-elfeed
-          :nm "RET" #'org-ref-elfeed-add
-          :nm "n" #'elfeed-show-next
-          :nm "N" #'elfeed-show-prev
-          :nm "p" #'elfeed-show-pdf
-          :nm "+" #'elfeed-show-tag
-          :nm "-" #'elfeed-show-untag
-          :nm "s" #'elfeed-show-new-live-search
-          :nm "," #'copy-link-for-kindle
-          :nm "y" #'elfeed-show-yank)
-    (after! evil-snipe
-      (push 'elfeed-show-mode evil-snipe-disabled-modes))
-    (set-evil-initial-state! 'elfeed-show-mode 'normal)
-    (advice-add #'elfeed-show-entry :override #'+rss/elfeed-show-entry)
-
-
-    ;; elfeed get pdf and show them
-    ;; taken from tecosaur's config
-    (require 'url)
-
-    (defvar elfeed-pdf-dir
-      (expand-file-name "pdfs/"
-                        (file-name-directory (directory-file-name elfeed-enclosure-default-dir))))
-
-    (defvar elfeed-link-pdfs
-      '(("https://www.jstatsoft.org/index.php/jss/article/view/v0\\([^/]+\\)" . "https://www.jstatsoft.org/index.php/jss/article/view/v0\\1/v\\1.pdf")
-        ("http://arxiv.org/abs/\\([^/]+\\)" . "https://arxiv.org/pdf/\\1.pdf"))
-      "List of alists of the form (REGEX-FOR-LINK . FORM-FOR-PDF)")
-
-    (defun elfeed-show-pdf (entry)
-      (interactive
-       (list (or elfeed-show-entry (elfeed-search-selected :ignore-region))))
-      (let ((link (elfeed-entry-link entry))
-            (feed-name (plist-get (elfeed-feed-meta (elfeed-entry-feed entry)) :title))
-            (title (elfeed-entry-title entry))
-            (file-view-function
-             (lambda (f)
-               (when elfeed-show-entry
-                 (elfeed-kill-buffer))
-               (pop-to-buffer (find-file-noselect f))))
-            pdf)
-
-        (let ((file (expand-file-name
-                     (concat (subst-char-in-string ?/ ?, title) ".pdf")
-                     (expand-file-name (subst-char-in-string ?/ ?, feed-name)
-                                       elfeed-pdf-dir))))
-          (if (file-exists-p file)
-              (funcall file-view-function file)
-            (dolist (link-pdf elfeed-link-pdfs)
-              (when (and (string-match-p (car link-pdf) link)
-                         (not pdf))
-                (setq pdf (replace-regexp-in-string (car link-pdf) (cdr link-pdf) link))))
-            (if (not pdf)
-                (message "No associated PDF for entry")
-              (message "Fetching %s" pdf)
-              (unless (file-exists-p (file-name-directory file))
-                (make-directory (file-name-directory file) t))
-              (url-copy-file pdf file)
-              (funcall file-view-function file))))))
-
-
-
-
-    )
-
-
-  (elfeed-org)
-  (use-package! elfeed-link)
-
-
-  ;; From protesilas's config
+(after! elfeed
+  (require 'elfeed-goodies)
+  (elfeed-goodies/setup)
+  (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")
+        elfeed-db-directory "~/.elfeed/")
   (defun prot/elfeed-show-eww (&optional link)
     "Browse current `elfeed' entry link in `eww'.
 Only show the readable part once the website loads.  This can
@@ -792,23 +349,21 @@ the buffer."
              (if (one-window-p)
                  (elfeed-search-quit-window)
                (delete-other-windows win))))))
-
   ;; scoring elfeed entries for better visibility
-  ;; Jkitchin's config
   (defun score-elfeed-entry (entry)
     (let ((title (elfeed-entry-title entry))
           (content (elfeed-deref (elfeed-entry-content entry)))
           (score 0))
-      (cl-loop for (pattern n) in '(("space" 1)
-                                    ("machine learning\\|neural" 1)
-                                    ("entrepreneurship 2")
-                                    ("startups" 1)
-                                    ("breakthrough" 3)
-                                    ("state of the art" 3))
-               if (string-match pattern title)
-               do (cl-incf score n)
-               if (string-match pattern content)
-               do (cl-incf score n))
+      (loop for (pattern n) in '(("space" 1)
+                                 ("machine learning\\|neural" 1)
+                                 ("entrepreneurship 2")
+                                 ("startups" 1)
+                                 ("breakthrough" 3)
+                                 ("state of the art" 3))
+            if (string-match pattern title)
+            do (incf score n)
+            if (string-match pattern content)
+            do (incf score n))
       (message "%s - %s" title score)
 
       ;; store score for later in case I ever integrate machine learning
@@ -832,18 +387,7 @@ the buffer."
         elfeed-search-face-alist)
   (push '(important important-elfeed-entry)
         elfeed-search-face-alist)
-
   )
-(use-package! elfeed-org
-  :commands (elfeed-org)
-  :config
-  (setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org")))
-(use-package! org-ref-elfeed
-  :when (featurep! :tools reference)
-  :commands (org-ref-elfeed-add))
-
-
-
 (use-package eww
   :defer t
   :commands (eww
@@ -877,18 +421,18 @@ With \\[universal-argument] produce a new buffer."
     (let ((history eww-prompt-history)  ; eww-bookmarks
           (new (if arg t nil)))
       (icomplete-vertical-do ()
-                             (eww
-                              (completing-read "Visit website from history: " history nil t)
-                              new))))
+        (eww
+         (completing-read "Visit website from history: " history nil t)
+         new))))
   :bind (:map eww-mode-map
-         ("j" . next-line)
-         ("k" . previous-line)
-         ("f" . forward-char)
-         ("b" . backward-char)
-         ("a" . prot/eww-org-archive-current-url)
-         ("B" . eww-back-url)
-         ("N" . eww-next-url)
-         ("P" . eww-previous-url)))
+              ("j" . next-line)
+              ("k" . previous-line)
+              ("f" . forward-char)
+              ("b" . backward-char)
+              ("a" . prot/eww-org-archive-current-url)
+              ("B" . eww-back-url)
+              ("N" . eww-next-url)
+              ("P" . eww-previous-url)))
 (use-package browse-url
   :after eww
   :config
@@ -964,7 +508,7 @@ With \\[universal-argument] produce a new buffer."
   :config
   (with-eval-after-load 'hydra
     (defhydra hydra-multiple-cursors (:color pink :hint nil)
-      "
+"
                                                                         ╔════════╗
     Point^^^^^^             Misc^^            Insert                            ║ Cursor ║
   ──────────────────────────────────────────────────────────────────────╨────────╜
@@ -976,23 +520,23 @@ With \\[universal-argument] produce a new buffer."
   ╭──────────────────────────────────────────────────────────────────────────────╯
                            [_q_]: quit, [Click]: point
 "
-      ("l" mc/edit-lines :exit t)
-      ("m" mc/mark-all-like-this :exit t)
-      ("j" mc/mark-next-like-this)
-      ("J" mc/skip-to-next-like-this)
-      ("M-j" mc/unmark-next-like-this)
-      ("k" mc/mark-previous-like-this)
-      ("K" mc/skip-to-previous-like-this)
-      ("M-k" mc/unmark-previous-like-this)
-      ("s" mc/mark-all-in-region-regexp :exit t)
-      ("i" mc/insert-numbers :exit t)
-      ("a" mc/insert-letters :exit t)
-      ("n" ladicle/mc/insert-numbers :exit t)
-      ("<mouse-1>" mc/add-cursor-on-click)
-      ;; Help with click recognition in this hydra
-      ("<down-mouse-1>" ignore)
-      ("<drag-mouse-1>" ignore)
-      ("q" nil))))
+          ("l" mc/edit-lines :exit t)
+          ("m" mc/mark-all-like-this :exit t)
+          ("j" mc/mark-next-like-this)
+          ("J" mc/skip-to-next-like-this)
+          ("M-j" mc/unmark-next-like-this)
+          ("k" mc/mark-previous-like-this)
+          ("K" mc/skip-to-previous-like-this)
+          ("M-k" mc/unmark-previous-like-this)
+          ("s" mc/mark-all-in-region-regexp :exit t)
+          ("i" mc/insert-numbers :exit t)
+          ("a" mc/insert-letters :exit t)
+          ("n" ladicle/mc/insert-numbers :exit t)
+          ("<mouse-1>" mc/add-cursor-on-click)
+          ;; Help with click recognition in this hydra
+          ("<down-mouse-1>" ignore)
+          ("<drag-mouse-1>" ignore)
+          ("q" nil))))
 
 ;;;###autoload
 (defun unpackaged/iedit-or-flyspell ()
@@ -1103,7 +647,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :bind (:map dired-mode-map
               ("<tab>" . dired-subtree-toggle)
               ("<C-tab>" . dired-subtree-cycle)
-              ("<s-iso-lefttab>" . dired-subtree-remove)))
+              ("<S-iso-lefttab>" . dired-subtree-remove)))
 
 (use-package gif-screencast
   :defer t
@@ -1128,7 +672,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :defer t
   :config
   (setq leetcode-prefer-language "python3"
-        leetcode-save-solutions t
+        leetcode-
         leetcode-prefer-sql "mysql"))
 
 (use-package nov
@@ -1210,7 +754,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :after python
   :init
   (setq-default
-   conda-env-home-directory "/home/kai/.conda/"
+   conda-env-home-directory "/opt/anaconda3/"
    conda-anaconda-home "/opt/anaconda3/")
   :config
   (setq flycheck-checker-error-threshold nil)
@@ -1236,48 +780,35 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :custom
   (flutter-sdk-path "/opt/flutter/"))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                       ANKI AND TEMPLATES                                                     ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
 (use-package anki-editor
   :after org
-  ;; :hook (org-capture-after-finalize . anki-editor-reset-cloze-number) ; Reset cloze-number after each capture.
+ ;; :hook (org-capture-after-finalize . anki-editor-reset-cloze-number) ; Reset cloze-number after each capture.
   :config
   (setq anki-editor-create-decks t
         anki-editor-org-tags-as-anki-tags t
         org-my-anki-file "~/Dropbox/org/anki.org")
   ;; Initialize
-  ;;  (anki-editor-reset-cloze-number)
-  )
+;;  (anki-editor-reset-cloze-number)
+)
 
 (after! org
-  (add-to-list 'org-capture-templates
-               '("A" "Create Anki Cards")))
+    (add-to-list 'org-capture-templates
+          '("a" "Anki basic"
+           entry
+           (file+headline org-my-anki-file "Dispatch")
+           "* %<%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: Mega\n:END:\n** Front\n%?\n** Back\n")))
+
 
 (after! org
-  (add-to-list 'org-capture-templates
-               '("Ab" "Anki basic"
-                 entry
-                 (file+headline org-my-anki-file "Dispatch")
-                 "* %<%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Basic\n:ANKI_DECK: Mega\n:END:\n** Front\n%?\n** Back\n")))
-
-(after! org
-  (add-to-list 'org-capture-templates
-               '("Ac" "Anki cloze"
-                 entry
-                 (file+headline org-my-anki-file "Dispatch")
-                 "* %<%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: Mega\n:END:\n** Text\n** Extra\n")))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                        ANKI CLOSED                                                    ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-
+    (add-to-list 'org-capture-templates
+          '("A" "Anki cloze"
+           entry
+           (file+headline org-my-anki-file "Dispatch")
+           "* %<%H:%M>\n:PROPERTIES:\n:ANKI_NOTE_TYPE: Cloze\n:ANKI_DECK: Mega\n:END:\n** Text\n** Extra\n")))
 
 (setq lsp-julia-default-environment "~/.julia/environments/v1.5")
+
+
 
 (defvar lorem-ipsum-text)
 
@@ -1319,8 +850,8 @@ And the line would be overlaid like:
             (delete-overlay ov)))
       ;; Add overlays.
       (let ((lorem-ipsum-words (--> lorem-ipsum-text
-                                 (-flatten it) (apply #'concat it)
-                                 (split-string it (rx (or space punct)) 'omit-nulls)))
+                                    (-flatten it) (apply #'concat it)
+                                    (split-string it (rx (or space punct)) 'omit-nulls)))
             (case-fold-search nil))
         (cl-labels ((overlay-match (group)
                                    (let* ((beg (match-beginning group))
@@ -1372,10 +903,11 @@ And the line would be overlaid like:
         org-archive-mark-done t
         org-archive-tag "DONE"
         org-image-actual-width nil
+        +org-export-directory "~/Dropbox/publish/"
         org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
         projectile-project-search-path '("~/workspace/projects/"))
-  )
+)
 
 (after! org
   (setq org-agenda-tags-column 120)
@@ -1397,21 +929,19 @@ And the line would be overlaid like:
 
 
   (setq org-todo-keyword-faces
-        '(("TODO" :foreground "DeepSkyBlue4" :weight bold)
-          ("TOREAD" :foreground "DeepSkyBlue4" :weight bold)
+        '(("TODO" :foreground "tomato" :weight bold)
+          ("TOREAD" :foreground "tomato" :weight bold)
           ("WAITING" :foreground "light sea green" :weight bold)
           ("READING" :foreground "light sea green" :weight bold)
-          ("SOMEDAY" :foreground "chocolate3" :weight bold)
-          ("REVISE" :foreground "firebrick" :weight bold)
-          ("SUMMARISE" :foreground "firebrick" :weight bold)
+          ("SOMEDAY" :foreground "firebrick" :weight bold)
+          ;;("REVIEW" :foreground "firebrick" :weight bold)
           ("DELEGATED" :foreground "Gold" :weight bold)
-          ("NEXT" :foreground "red1" :weight bold)
-          ("ACTIVE" :background "DimGray" :foreground "gold1" :weight bold)
+          ("NEXT" :foreground "violet red" :weight bold)
           ("DONE" :foreground "slategrey" :weight bold)))
 
   (setq org-todo-keywords
-        '((sequence "TODO(t)" "NEXT(n)" "ACTIVE(a)" "REVISE(y)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
-          (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "SUMMARISE(s)" "|" "DONE(d!/!)")
+        '((sequence "TODO(t)" "NEXT(n)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
+          (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
           (sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
           (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
           (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
@@ -1469,10 +999,10 @@ And the line would be overlaid like:
 (use-package org-clock-convenience
   :after org
   :bind (:map org-agenda-mode-map
-          ("<s-up>" . org-clock-convenience-timestamp-up)
-          ("<s-down>" . org-clock-convenience-timestamp-down)
-          ("<s-right>" . org-clock-convenience-fill-gap)
-          ("<s-left>" . org-clock-convenience-fill-gap-both)))
+          ("<S-up>" . org-clock-convenience-timestamp-up)
+          ("<S-down>" . org-clock-convenience-timestamp-down)
+          ("<S-right>" . org-clock-convenience-fill-gap)
+          ("<S-left>" . org-clock-convenience-fill-gap-both)))
 
 (use-package! org-clock-budget
   :commands (org-clock-budget-report)
@@ -1500,43 +1030,35 @@ And the line would be overlaid like:
 "* TODO [[%:link][%:description]]\n\n %i" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("h" "Clip Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
-                           "* TODO %(org-cliplink-capture)" :immediate-finish t)))
+             '("h" "Clip Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
+"* TODO %(org-cliplink-capture)" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("ph" "New Project" entry (file "~/Dropbox/org/gtd/projects.org")
-                           (file "~/Dropbox/org/templates/newprojtemplate.org"))))
+                           "* PROJ %^{projectname} :project:
+:PROPERTIES:
+:COOKIE_DATA: todo recursive
+:ORDERED: t
+:TRIGGER: next-sibling todo!(NEXT)
+:GOAL:    %^{Main Goal}
+:END:
+:RESOURCES:
+:END:
 
-
-
-
-
-;; (after! org (add-to-list 'org-capture-templates
-;;                          '("ph" "New Project" entry (file "~/Dropbox/org/gtd/projects.org")
-;;                            "* PROJ %^{projectname} :project:
-;; :PROPERTIES:
-;; :COOKIE_DATA: todo recursive
-;; :ORDERED: t
-;; :TRIGGER: next-sibling todo!(NEXT)
-;; :GOAL:    %^{Main Goal}
-;; :END:
-;; :RESOURCES:
-;; :END:
-
-;; \** NEXT %^{Subtask1}
-;; SCHEDULED: %t
-;; :PROPERTIES:
-;; :TRIGGER: next-sibling scheduled!(\"++%^{SECOND_TASK_AFTER}\") todo!(NEXT)
-;; :BLOCKER:  previous-sibling
-;; :Effort: %^{Effort}
-;; :END:
-;; \n\** TODO %^{Subtask2}
-;; :PROPERTIES:
-;; :TRIGGER: next-sibling scheduled!(\"++%^{THIRD_TASK_AFTER}\") todo!(NEXT)
-;; :BLOCKER:  previous-sibling
-;; :Effort: %^{Effort_2}
-;; :END:
-;; ")))
+\** NEXT %^{Subtask1}
+SCHEDULED: %t
+:PROPERTIES:
+:TRIGGER: next-sibling scheduled!(\"++%^{SECOND_TASK_AFTER}\") todo!(NEXT)
+:BLOCKER:  previous-sibling
+:Effort: %^{Effort}
+:END:
+\n\** TODO %^{Subtask2}
+:PROPERTIES:
+:TRIGGER: next-sibling scheduled!(\"++%^{THIRD_TASK_AFTER}\") todo!(NEXT)
+:BLOCKER:  previous-sibling
+:Effort: %^{Effort_2}
+:END:
+")))
 
 (after! org (add-to-list 'org-capture-templates
                          '("ps" "Create Project Subtask" entry (file "~/Dropbox/org/gtd/inbox.org")
@@ -1560,30 +1082,30 @@ And the line would be overlaid like:
 ")))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/links.org")
-                           "* %^{Logging for...} :idea:
+          '("i" "Idea from Firefox" entry (file "~/Dropbox/org/gtd/links.org")
+           "* %^{Logging for...} :idea:
 :PROPERTIES:
 :Created: %U
 :Linked: %(grab-x-link-firefox-insert-org-link)
 :END:
 %i
 %?")
-                         ))
-
-;; (after! org (add-to-list 'org-capture-templates
-;;              '("m" "Mood Log" entry(file+olp+datetree"~/Dropbox/org/journal/mood.org")
-;;                "** <%<%I:%M:%S>> %\\1 (%\\2 mood swing) Spiritual :: %\\3
-;; :PROPERTIES:
-;; :OVERALL MOOD: %^{MOOD|Excellent|Good|Okay|Worse}
-;; :MOOD SWINGS: %^{SWING|No|Normal|Extreme}
-;; :SPIRITUAL: %^{SPIRITUAL|YES|NO}
-;; :WORK LIKENESS: %^{WORK|BORING|TOLERABLE|INTERESTING}
-;; :END:
-;; %?")))
+))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("b" "Book Log" entry(file "~/Dropbox/org/gtd/book.org")
-                           "* SOMEDAY Read %^{Title}
+             '("m" "Mood Log" entry(file+olp+datetree"~/Dropbox/org/journal/mood.org")
+               "** <%<%I:%M:%S>> %\\1 (%\\2 mood swing) Spiritual :: %\\3
+:PROPERTIES:
+:OVERALL MOOD: %^{MOOD|Excellent|Good|Okay|Worse}
+:MOOD SWINGS: %^{SWING|No|Normal|Extreme}
+:SPIRITUAL: %^{SPIRITUAL|YES|NO}
+:WORK LIKENESS: %^{WORK|BORING|TOLERABLE|INTERESTING}
+:END:
+%?")))
+
+(after! org (add-to-list 'org-capture-templates
+             '("b" "Book Log" entry(file "~/Dropbox/org/gtd/book.org")
+"* SOMEDAY Read %^{Title}
 :PROPERTIES:
 :AUTHOR: %^{Author}
 :GENRE: %^{Genre}
@@ -1613,75 +1135,15 @@ And the line would be overlaid like:
 :END:")))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("d" "Diary Log" entry(file+olp+datetree"~/Dropbox/org/journal/diary.org")
-                           "** <%<%I:%M:%S>> %^{diary entry}
+             '("d" "Diary Log" entry(file+olp+datetree"~/Dropbox/org/journal/diary.org")
+               "** <%<%I:%M:%S>> %^{diary entry}
 %?")))
 
 
 (after! org (add-to-list 'org-capture-templates
-                         '("G" "Set a Motto" entry(file+olp+datetree"~/Dropbox/org/journal/motto.org")
-                           "* %^{diary entry}
-%?" :immediate-finish t)))
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                        TODO Weekly Review Improvements                                                    ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; (defun org-find-week-in-datetree()
-;;   (org-datetree-find-iso-week-create (calendar-current-date))
-;;   (kill-line))
-
-
-
-;; (after! org (add-to-list 'org-capture-templates
-;;                          '("w" "Weekly Review" entry (file+function "~/Dropbox/org/journal/review.org" org-find-week-in-datetree)
-;;                            (file "~/Dropbox/org/templates/weeklyreviewtemplate.org") :tree-type week)))
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                     REVIEW TEMPLATES                                                                       ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(after! org
-  (add-to-list 'org-capture-templates
-               '("r" "Make a review")))
-
-(after! org (add-to-list 'org-capture-templates
-                         '("rw" "Weekly Review" entry (file+olp+datetree "~/Dropbox/org/journal/weeklyreview.org")
-                           (file "~/Dropbox/org/templates/weeklyreviewtemplate.org") :tree-type week)))
-
-(after! org (add-to-list 'org-capture-templates
-                         '("rm" "Monthly Review" entry (file+olp+datetree "~/Dropbox/org/journal/monthlyreview.org")
-                           (file "~/Dropbox/org/templates/monthlyreviewtemplate.org") :tree-type month)))
-
-(after! org (add-to-list 'org-capture-templates
-                         '("rd" "Daily Review" entry (file+olp+datetree "~/Dropbox/org/journal/dailyreview.org")
-                           (file "~/Dropbox/org/templates/dailyreviewtemplate.org"))))
-
-(after! org (add-to-list 'org-capture-templates
-                         '("rr" "Reflecting the day" entry (file+olp+datetree "~/Dropbox/org/journal/reflections.org")
-                           (file "~/Dropbox/org/templates/reflectiontemplate.org"))))
-
-;; TODO Make capture template clear
-(after! org (add-to-list 'org-capture-templates
-                         '("rp" "Deal With It Later" entry (file+olp "~/Dropbox/org/journal/dealwithitlater.org")
-                           "* <%<%I:%M:%S>> %^{The issue}
-%?")))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                        REVIEW TEMPLATES DONE                                                    ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(after! org (add-to-list 'org-capture-templates
-                         '("K" "Read on Kindle" entry(file "~/Dropbox/org/gtd/kindle_daily.org")
-                           "* %<%Y-%m-%d> ==> %^{diary entry}"
-                           :immediate-finish t)))
+             '("K" "Read on Kindle" entry(file "~/Dropbox/org/gtd/kindle_daily.org")
+               "* %<%Y-%m-%d> ==> %^{diary entry}"
+               :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
              '("k" "Read on Kindle [Clipboard URL]" entry(file "~/Dropbox/org/gtd/kindle_daily.org")
@@ -1703,8 +1165,8 @@ And the line would be overlaid like:
                    :empty-lines 1)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("c" "Capture [GTD]" entry (file "~/Dropbox/org/gtd/inbox.org")
-                           "* TODO %^{taskname}%?
+             '("c" "Capture [GTD]" entry (file "~/Dropbox/org/gtd/inbox.org")
+"* TODO %^{taskname}%?
 :PROPERTIES:
 :CREATED:    %U
 :END:
@@ -1723,39 +1185,37 @@ And the line would be overlaid like:
                            ("k" "Today\'s View"
                             ((agenda ""
                                      ((org-agenda-files
-                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org"
-                                         "~/Dropbox/org/gtd/events.org" "~/Dropbox/org/gtd/projects.org"))
-                                      (org-agenda-overriding-header "Overall Agenda View")
+                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org" "~/Dropbox/org/gtd/events.org"))
+                                      (org-agenda-overriding-header "What's on my calendar")
                                       (org-agenda-span 'day)
                                       (org-agenda-start-day
                                        (org-today))
                                       (org-agenda-current-span 'day))
                                      (org-time-budgets-in-agenda-maybe)
                                      )
-                             (todo "TODO|NEXT"
-                                   ((org-agenda-overriding-header "Tasks that don't belong to project\n ==========================================================\n")
-                                    ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
-                                    (org-agenda-files
-                                     '("~/Dropbox/org/gtd/tasks.org"))))
-                             ;; (todo "WAITING|NEXT"
-                             ;;       ((org-agenda-files
-                             ;;         '("~/Dropbox/org/gtd/tasks.org"))
-                             ;;        (org-agenda-overriding-header "Tasks other than projects in action\n\n")
-                             ;;        (org-agenda-use-time-grid nil)
-                             ;;        (org-agenda-show-all-dates nil)
-                             ;;        (org-agenda-current-span 'day)
-                             ;;        (org-agenda-span 7)))
+                             (todo "WAITING|NEXT"
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/tasks.org"))
+                                    (org-agenda-overriding-header "Waiting or In Progress")
+                                    (org-agenda-use-time-grid nil)
+                                    (org-agenda-show-all-dates nil)
+                                    (org-agenda-current-span 'day)
+                                    (org-agenda-span 7)))
+                             (todo "NEXT"
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/projects.org"))
+                                    (org-agenda-overriding-header " Next Projects\n ===================================================================\n")
+                                    ))
                              (todo "READING"
                                    ((org-agenda-files
                                      '("~/Dropbox/org/gtd/books.org"))
                                     (org-agenda-overriding-header "Books I am currently reading\n ======================================================\n")
                                     ))
-                             (todo "NEXT"
-                                   ((org-agenda-files
-                                     '("~/Dropbox/org/gtd/projects.org"))
-                                    (org-agenda-overriding-header " PROJECT TASKS\n ===================================================================\n")
-                                    ))
-                             )
+                             (todo "TODO|NEXT"
+                                   ((org-agenda-overriding-header " Highest priority and next up\n ===================================================================\n")
+                                    ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
+                                    (org-agenda-files
+                                     '("~/Dropbox/org/gtd/tasks.org")))))
                             nil)
                            ("o" "Monthly Review"
                             ((agenda "" ((org-agenda-span 30)
@@ -1893,8 +1353,7 @@ And the line would be overlaid like:
   (setq org-emphasis-alist
         '(("*" (bold :foreground "Orange" ))
           ("/" (italic :foreground "VioletRed"))
-          (":" (:foreground "SandyBrown"))
-          ("_" (underline))
+          ("_" underline)
           ("=" (:foreground "maroon"))
           ("@" (:foreground "seashell"))
           ("~" (:foreground "deep sky blue"))
@@ -1932,6 +1391,9 @@ And the line would be overlaid like:
   (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 )
 
+(after! org-roam
+  (setq org-roam-directory "~/Dropbox/org/notes/")
+  (setq org-roam-db-location "~/.org/org-roam.db"))
 
 (after! org-roam
   (setq org-roam-capture-templates
@@ -1976,13 +1438,13 @@ And the line would be overlaid like:
 #+hugo_categories:
 #+hugo_draft: false
 #+DATE: %t\n"
-           :unnarrowed t)
+          :unnarrowed t)
 
-          ("e" "emacs" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "emacs/${slug}"
-           :head "#+SETUPFILE:../hugo_in_setup.org
+         ("e" "emacs" plain
+          (function org-roam--capture-get-point)
+          "%?"
+          :file-name "emacs/${slug}"
+          :head "#+SETUPFILE:../hugo_in_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: emacs
 #+HUGO_SLUG: ${slug}
@@ -1990,13 +1452,13 @@ And the line would be overlaid like:
 #+hugo_categories:
 #+hugo_draft: false
 #+DATE: %t\n"
-           :unnarrowed t)
+          :unnarrowed t)
 
-          ("j" "paper-description" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "${slug}"
-           :head "#+SETUPFILE:./hugo_setup.org
+         ("j" "paper-description" plain
+          (function org-roam--capture-get-point)
+          "%?"
+          :file-name "${slug}"
+          :head "#+SETUPFILE:./hugo_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: ${section}
 #+HUGO_SLUG: ${slug}
@@ -2037,7 +1499,7 @@ And the line would be overlaid like:
 #+DATE: %t"
            :unnarrowed t)
           ))
-  )
+)
 
 (use-package org-roam-server
   :defer t
@@ -2070,7 +1532,7 @@ And the line would be overlaid like:
                                            ("fillcolor"  . "#EEEEEE")
                                            ("color"      . "#C9C9C9")
                                            ("fontcolor"  . "#111111")
-                                           ("fontname"   . "Overpass Nerd Font")))
+                                           ("fontname"   . "Overpass")))
 
   (setq +org-roam-graph--html-template
         (replace-regexp-in-string "%\\([^s]\\)" "%%\\1"
@@ -2232,13 +1694,19 @@ And the line would be overlaid like:
 
 (after! org
   (require 'org-books)
-  (add-to-list 'org-capture-templates
-               '("f" "Book" entry (file "~/Dropbox/org/gtd/books.org")
-                 "%(let* ((url (substring-no-properties (current-kill 0)))
+    (add-to-list 'org-capture-templates
+      '("f" "Book" entry (file "~/Dropbox/org/gtd/books.org")
+         "%(let* ((url (substring-no-properties (current-kill 0)))
                   (details (org-books-get-details url)))
              (when details
                (apply #'org-books-format 3 details))))"))
-  )
+    (add-to-list 'org-capture-templates
+      '("g" "Auto Book Entry" entry (file "~/Dropbox/org/gtd/books.org")
+         "%(let* ((url (substring-no-properties (current-kill 0)))
+                  (details (org-books-get-details %u)))
+             (when details
+               (apply #'org-books-format 3 details))))"))
+)
 
 (after! org
   (defun org-markup-region-or-point (type beginning-marker end-marker)
@@ -2428,40 +1896,40 @@ then exit them."
   (defun scimax-overlay-numbered-headings ()
     "Put numbered overlays on the headings."
     (interactive)
-    (cl-loop for (p lv) in (let ((counters (copy-list '(0 0 0 0 0 0 0 0 0 0)))
-                                 (current-level 1)
-                                 last-level)
-                             (mapcar (lambda (x)
-                                       (list (car x)
-                                             ;; trim trailing zeros
-                                             (let ((v (nth 1 x)))
-                                               (while (= 0 (car (last v)))
-                                                 (setq v (butlast v)))
-                                               v)))
-                                     (org-map-entries
-                                      (lambda ()
-                                        (let* ((hl (org-element-context))
-                                               (level (org-element-property :level hl)))
-                                          (setq last-level current-level
-                                                current-level level)
-                                          (cond
-                                           ;; no level change or increase, increment level counter
-                                           ((or (= last-level current-level)
-                                                (> current-level last-level))
-                                            (cl-incf (nth current-level counters)))
+    (loop for (p lv) in (let ((counters (copy-list '(0 0 0 0 0 0 0 0 0 0)))
+                              (current-level 1)
+                              last-level)
+                          (mapcar (lambda (x)
+                                    (list (car x)
+                                          ;; trim trailing zeros
+                                          (let ((v (nth 1 x)))
+                                            (while (= 0 (car (last v)))
+                                              (setq v (butlast v)))
+                                            v)))
+                                  (org-map-entries
+                                   (lambda ()
+                                     (let* ((hl (org-element-context))
+                                            (level (org-element-property :level hl)))
+                                       (setq last-level current-level
+                                             current-level level)
+                                       (cond
+                                        ;; no level change or increase, increment level counter
+                                        ((or (= last-level current-level)
+                                             (> current-level last-level))
+                                         (incf (nth current-level counters)))
 
-                                           ;; decrease in level
-                                           (t
-                                            (cl-loop for i from (+ 1 current-level) below (length counters)
-                                                     do
-                                                     (setf (nth i counters) 0))
-                                            (incf (nth current-level counters))))
+                                        ;; decrease in level
+                                        (t
+                                         (loop for i from (+ 1 current-level) below (length counters)
+                                               do
+                                               (setf (nth i counters) 0))
+                                         (incf (nth current-level counters))))
 
-                                          (list (point) (-slice counters 1)))))))
-             do
-             (let ((ov (make-overlay p p)))
-               (overlay-put ov 'before-string (concat (mapconcat 'number-to-string lv ".") ". "))
-               (overlay-put ov 'numbered-heading t))))
+                                       (list (point) (-slice counters 1)))))))
+          do
+          (let ((ov (make-overlay p p)))
+            (overlay-put ov 'before-string (concat (mapconcat 'number-to-string lv ".") ". "))
+            (overlay-put ov 'numbered-heading t))))
 
   (define-minor-mode scimax-numbered-org-mode
     "Minor mode to number org headings."
@@ -2481,7 +1949,7 @@ then exit them."
         (font-lock-remove-keywords
          nil
          `((fl-noh 0 nil))))))
-  )
+)
 
 (after! org
 
@@ -2881,44 +2349,44 @@ Opens a buffer with links to what is found. This function installs pylint if nee
 
 (after! org
   (defun unpackaged/org-outline-numbers (&optional remove-p)
-    "Add outline number overlays to the current buffer.
+  "Add outline number overlays to the current buffer.
 When REMOVE-P is non-nil (interactively, with prefix), remove
 them.  Overlays are not automatically updated when the outline
 structure changes."
-    ;; NOTE: This does not necessarily play nicely with org-indent-mode
-    ;; or org-bullets, but it probably wouldn't be too hard to fix that.
-    (interactive (list current-prefix-arg))
-    (cl-labels ((heading-number ()
-                                (or (when-let ((num (previous-sibling-number)))
-                                      (1+ num))
-                                    1))
-                (previous-sibling-number ()
-                                         (save-excursion
-                                           (let ((pos (point)))
-                                             (org-backward-heading-same-level 1)
-                                             (when (/= pos (point))
-                                               (heading-number)))))
-                (number-list ()
-                             (let ((ancestor-numbers (save-excursion
-                                                       (cl-loop while (org-up-heading-safe)
-                                                                collect (heading-number)))))
-                               (nreverse (cons (heading-number) ancestor-numbers))))
-                (add-overlay ()
-                             (let* ((ov-length (org-current-level))
-                                    (ov (make-overlay (point) (+ (point) ov-length)))
-                                    (ov-string (concat (mapconcat #'number-to-string (number-list) ".")
-                                                       ".")))
-                               (overlay-put ov 'org-outline-numbers t)
-                               (overlay-put ov 'display ov-string))))
-      (remove-overlays nil nil 'org-outline-numbers t)
-      (unless remove-p
-        (org-with-wide-buffer
-         (goto-char (point-min))
-         (when (org-before-first-heading-p)
-           (outline-next-heading))
-         (cl-loop do (add-overlay)
-                  while (outline-next-heading))))))
-  )
+  ;; NOTE: This does not necessarily play nicely with org-indent-mode
+  ;; or org-bullets, but it probably wouldn't be too hard to fix that.
+  (interactive (list current-prefix-arg))
+  (cl-labels ((heading-number ()
+               (or (when-let ((num (previous-sibling-number)))
+                     (1+ num))
+                   1))
+              (previous-sibling-number ()
+               (save-excursion
+                 (let ((pos (point)))
+                   (org-backward-heading-same-level 1)
+                   (when (/= pos (point))
+                     (heading-number)))))
+              (number-list ()
+               (let ((ancestor-numbers (save-excursion
+                                         (cl-loop while (org-up-heading-safe)
+                                                  collect (heading-number)))))
+                 (nreverse (cons (heading-number) ancestor-numbers))))
+              (add-overlay ()
+               (let* ((ov-length (org-current-level))
+                      (ov (make-overlay (point) (+ (point) ov-length)))
+                      (ov-string (concat (mapconcat #'number-to-string (number-list) ".")
+                                         ".")))
+                 (overlay-put ov 'org-outline-numbers t)
+                 (overlay-put ov 'display ov-string))))
+    (remove-overlays nil nil 'org-outline-numbers t)
+    (unless remove-p
+      (org-with-wide-buffer
+       (goto-char (point-min))
+       (when (org-before-first-heading-p)
+         (outline-next-heading))
+       (cl-loop do (add-overlay)
+                while (outline-next-heading))))))
+)
 
 (use-package! ob-jupyter
   :defer t
@@ -3065,7 +2533,7 @@ structure changes."
   ;; keys used:  o, b, p, y,e  and P,Y,B,O,E,J,K
   (map! :map org-mode-map
         "<C-return>" 'org-ctrl-c-ctrl-c
-        "<s-return>" 'jupyter-org-execute-and-next-block
+        "<S-return>" 'jupyter-org-execute-and-next-block
         ;; "gI" 'org-babel-previous-src-block
         ;; "H-s" 'org-babel-next-src-block
         "s-e" 'jupyter-org-execute-to-point
@@ -3099,16 +2567,16 @@ structure changes."
 )
 
 (after! org
-  (define-key org-mode-map (kbd "s-Y") 'other-window)
-  (define-key org-mode-map (kbd "s-y") 'org-strikethrough-region-or-point)
+  (define-key org-mode-map (kbd "s--") 'other-window)
+  (define-key org-mode-map (kbd "s-+") 'org-strikethrough-region-or-point)
   (define-key org-mode-map (kbd "s-i") 'org-italics-region-or-point)
   (define-key org-mode-map (kbd "s-I") 'org-bold-region-or-point)
   (define-key org-mode-map (kbd "s-v") 'org-verbatim-region-or-point)
   (define-key org-mode-map (kbd "s-V") 'org-code-region-or-point)
-  (define-key org-mode-map (kbd "s-u") 'org-superscript-region-or-point)
-  (define-key org-mode-map (kbd "s-U") 'org-underline-region-or-point)
+  (define-key org-mode-map (kbd "s-U") 'org-superscript-region-or-point)
+  (define-key org-mode-map (kbd "s-u") 'org-underline-region-or-point)
   (define-key org-mode-map (kbd "s-l") 'org-latex-math-region-or-point)
-  )
+)
 
 (bind-key "s-;" '+evil-window-split-a)
 (bind-key "s-\\" '+evil-window-vsplit-a)
@@ -3238,7 +2706,7 @@ choice's name, and the rest of which is its body forms."
                   (progn (message "Skipping removed entry at %s" e)
                          (cl-incf skipped))
                 (goto-char pos)
-                (let (org-cl-loop-over-headlines-in-active-region) (funcall 'jethro/org-agenda-process-inbox-item))
+                (let (org-loop-over-headlines-in-active-region) (funcall 'jethro/org-agenda-process-inbox-item))
                 ;; `post-command-hook' is not run yet.  We make sure any
                 ;; pending log note is processed.
                 (when (or (memq 'org-add-log-note (default-value 'post-command-hook))
@@ -3349,115 +2817,134 @@ restart lsp based on that environment"
     '(bar matches buffer-info remote-host buffer-position parrot selection-info)
     '(misc-info minor-modes checker input-method buffer-encoding major-mode process vcs  "    "))) ; <-- added padding here
 
-(defvar chrome-bookmarks-file
-  (cl-find-if
-   #'file-exists-p
-   ;; Base on `helm-chrome-file'
-   (list
-    ;; "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
-    ;; "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
-    ;; "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
-    ;; "~/.config/google-chrome/Default/Bookmarks"
-    ;; "~/bookmarks_edge_beta.json"
-    ;; "~/bookmarks_edge_dev.json"
-    ;; "~/bookmarks_edge.json"
-    "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
-    ;; "~/.config/google-chrome/Default/Bookmarks"
-    ;; "~/.config/chromium/Default/Bookmarks"
-    (substitute-in-file-name
-     "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
-    (substitute-in-file-name
-     "$USERPROFILE/Local Settings/Application Data/Google/Chrome/User Data/Default/Bookmarks")))
-  "Path to Google Chrome Bookmarks file (it's JSON).")
+;; (defvar chrome-bookmarks-file
+;;   (cl-find-if
+;;    #'file-exists-p
+;;    ;; Base on `helm-chrome-file'
+;;    (list
+;;     "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
+;;     "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
+;;     "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
+;;    ;; "~/.config/google-chrome/Default/Bookmarks"
+;;    ;; "~/bookmarks_edge_beta.json"
+;;    ;; "~/bookmarks_edge_dev.json"
+;;    ;; "~/bookmarks_edge.json"
+;;     "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
+;;    ;; "~/.config/google-chrome/Default/Bookmarks"
+;;    ;; "~/.config/chromium/Default/Bookmarks"
+;;     (substitute-in-file-name
+;;      "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
+;;     (substitute-in-file-name
+;;      "$USERPROFILE/Local Settings/Application Data/Google/Chrome/User Data/Default/Bookmarks")))
+;;   "Path to Google Chrome Bookmarks file (it's JSON).")
+
+
 
 ;;;###autoload
-(defun chrome-bookmarks-insert-as-org ()
-  "Insert Chrome Bookmarks as org-mode headings."
-  (interactive)
-  (require 'json)
-  (require 'org)
-  (let ((data (let ((json-object-type 'alist)
-                    (json-array-type  'list)
-                    (json-key-type    'symbol)
-                    (json-false       nil)
-                    (json-null        nil))
-                (json-read-file chrome-bookmarks-file)))
-        level)
-    (cl-labels ((fn
-                 (al)
-                 (pcase (alist-get 'type al)
-                   ("folder"
-                    (insert
-                     (format "%s %s\n"
-                             (make-string level ?*)
-                             (alist-get 'name al)))
-                    (cl-incf level)
-                    (mapc #'fn (alist-get 'children al))
-                    (cl-decf level))
-                   ("url"
-                    (insert
-                     (format "%s %s\n"
-                             (make-string level ?*)
-                             (org-make-link-string
-                              (alist-get 'url al)
-                              (alist-get 'name al))))))))
-      (setq level 1)
-      (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
-      (setq level 1)
-      (fn (alist-get 'other (alist-get 'roots data))))))
+;; (defun chrome-bookmarks-insert-as-org ()
+;;   "Insert Chrome Bookmarks as org-mode headings."
+;;   (interactive)
+;;   (require 'json)
+;;   (require 'org)
+;;   (let ((data (let ((json-object-type 'alist)
+;;                     (json-array-type  'list)
+;;                     (json-key-type    'symbol)
+;;                     (json-false       nil)
+;;                     (json-null        nil))
+;;                 (json-read-file chrome-bookmarks-file)))
+;;         level)
+;;     (cl-labels ((fn
+;;                  (al)
+;;                  (pcase (alist-get 'type al)
+;;                    ("folder"
+;;                     (insert
+;;                      (format "%s %s\n"
+;;                              (make-string level ?*)
+;;                              (alist-get 'name al)))
+;;                     (cl-incf level)
+;;                     (mapc #'fn (alist-get 'children al))
+;;                     (cl-decf level))
+;;                    ("url"
+;;                     (insert
+;;                      (format "%s %s\n"
+;;                              (make-string level ?*)
+;;                              (org-make-link-string
+;;                               (alist-get 'url al)
+;;                               (alist-get 'name al))))))))
+;;       (setq level 1)
+;;       (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
+;;       (setq level 1)
+;;       (fn (alist-get 'other (alist-get 'roots data))))))
 
 ;; (after! org
 ;;   (add-hook 'org-mode-hook (lambda () (org-autolist-mode))))
 
-;; (use-package! dired-sidebar
-;;   :unless (featurep! :emacs dired +ranger)
-;;   :defer
-;;   :config
-;;   (setq dired-sidebar-width 25
-;;         dired-sidebar-theme 'nerd
-;;         dired-sidebar-tui-update-delay 5
-;;         dired-sidebar-recenter-cursor-on-tui-update t
-;;         dired-sidebar-no-delete-other-windows t
-;;         dired-sidebar-use-custom-modeline t)
-;;   (pushnew! dired-sidebar-toggle-hidden-commands
-;;             'evil-window-rotate-upwards 'evil-window-rotate-downwards)
-;;   (map! :map dired-sidebar-mode-map
-;;         :n "q" #'dired-sidebar-toggle-sidebar))
+(use-package! dired-sidebar
+  :unless (featurep! :emacs dired +ranger)
+  :defer
+  :config
+  (setq dired-sidebar-width 25
+        dired-sidebar-theme 'nerd
+        dired-sidebar-tui-update-delay 5
+        dired-sidebar-recenter-cursor-on-tui-update t
+        dired-sidebar-no-delete-other-windows t
+        dired-sidebar-use-custom-modeline t)
+  (pushnew! dired-sidebar-toggle-hidden-commands
+            'evil-window-rotate-upwards 'evil-window-rotate-downwards)
+  (map! :map dired-sidebar-mode-map
+        :n "q" #'dired-sidebar-toggle-sidebar))
 
-;; (use-package! dired-subtree
-;;   :unless (featurep! :emacs dired +ranger)
-;;   :config
-;;   (setq dired-subtree-cycle-depth 4
-;;         dired-subtree-line-prefix ">")
-;;   (map! :map dired-mode-map
-;;         [backtab] #'dired-subtree-cycle
-;;         [tab] #'dired-subtree-toggle
-;;         :n "g^" #'dired-subtree-beginning
-;;         :n "g$" #'dired-subtree-end
-;;         :n "gm" #'dired-subtree-mark-subtree
-;;         :n "gu" #'dired-subtree-unmark-subtree))
+(use-package! dired-subtree
+  :unless (featurep! :emacs dired +ranger)
+  :config
+  (setq dired-subtree-cycle-depth 4
+        dired-subtree-line-prefix ">")
+  (map! :map dired-mode-map
+        [backtab] #'dired-subtree-cycle
+        [tab] #'dired-subtree-toggle
+        :n "g^" #'dired-subtree-beginning
+        :n "g$" #'dired-subtree-end
+        :n "gm" #'dired-subtree-mark-subtree
+        :n "gu" #'dired-subtree-unmark-subtree))
 
 (after! org
-  (require 'org-capture)
-  (require 'org-protocol)
+(require 'org-capture)
+(require 'org-protocol)
 
 ;;; Org Capture
 ;;;; Thank you random guy from StackOverflow
 ;;;; http://stackoverflow.com/questions/23517372/hook-or-advice-when-aborting-org-capture-before-template-selection
 
-  (defadvice org-capture
-      (after make-full-window-frame activate)
-    "Advise capture to be the only window when used as a popup"
-    (if (equal "emacs-capture" (frame-parameter nil 'name))
-        (delete-other-windows)))
+(defadvice org-capture
+    (after make-full-window-frame activate)
+  "Advise capture to be the only window when used as a popup"
+  (if (equal "emacs-capture" (frame-parameter nil 'name))
+      (delete-other-windows)))
 
-  (defadvice org-capture-finalize
-      (after delete-capture-frame activate)
-    "Advise capture-finalize to close the frame"
-    (if (equal "emacs-capture" (frame-parameter nil 'name))
-        (delete-frame)))
-  )
+(defadvice org-capture-finalize
+    (after delete-capture-frame activate)
+  "Advise capture-finalize to close the frame"
+  (if (equal "emacs-capture" (frame-parameter nil 'name))
+      (delete-frame)))
+)
 
+(use-package gkroam
+  :ensure t
+  :init
+  (setq gkroam-root-dir "~/org/notes/"
+        gkroam-pub-dir "~/org/site/")
+  :bind
+  (("C-c r G" . gkroam-update-all)
+   ("C-c r g" . gkroam-update)
+   ("C-c r d" . gkroam-daily)
+   ("C-c r f" . gkroam-find)
+   ("C-c r e" . gkroam-edit)
+   ("C-c r n" . gkroam-smart-new)
+   ("C-c r i" . gkroam-insert)
+   ("C-c r I" . gkroam-index)
+   ("C-c r p" . gkroam-preview)
+   ("C-c r v" . gkroam-preview-current)
+   ("C-c r t" . gkroam-toggle-brackets)))
 
 (after! org
 
@@ -3475,11 +2962,12 @@ restart lsp based on that environment"
         org-fontify-done-headline t
         org-fontify-quote-and-verse-blocks t)
 
+  (add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
   ;;(setq global-org-pretty-table-mode t)
   (custom-set-faces!
     '(outline-1 :inherit variable-pitch :weight extra-bold :height 1.6)
     '(outline-2 :inherit variable-pitch :weight bold :height 1.4)
-    '(outline-3 :inherit variable-pitch :weight bold :height 1.3)
+    '(outline-3 :inherit variable-pitch :slant italic :weight bold :height 1.3)
     '(outline-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
     '(outline-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
     '(outline-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
@@ -3487,7 +2975,7 @@ restart lsp based on that environment"
     '(outline-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
     '(org-level-1 :inherit variable-pitch :weight extra-bold :height 1.6)
     '(org-level-2 :inherit variable-pitch :weight bold :height 1.4)
-    '(org-level-3 :inherit variable-pitch :weight bold :height 1.3)
+    '(org-level-3 :inherit variable-pitch :slant italic :weight bold :height 1.3)
     '(org-level-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
     '(org-level-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
     '(org-level-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
@@ -3503,23 +2991,21 @@ restart lsp based on that environment"
     '(org-block :inherit (fixed-pitch shadow) :background nil :height 1.2)
     '(org-block-begin-line :inherit region  :background nil :height 0.9)
     '(org-block-end-line :inherit region :background nil :height 0.8)
-    '(org-document-title :height 1.1 :weight normal :underline nil)
-    '(org-document-info :height 1.1 :slant italic)
+    '(org-document-title :height 1.3 :weight normal :underline nil)
+    '(org-document-info :height 1.3 :slant italic)
     '(org-document-info-keyword :inherit shadow :height 0.8)
     '(org-meta-line :inherit (font-lock-comment-face fixed-pitch) :foreground "dark orange")
     '(org-property-value :inherit fixed-pitch)
     '(org-special-keyword :inherit (font-lock-comment-face fixed-pitch))
+    '(org-table :inherit fixed-pitch :foreground "#83a598")
     '(org-tag :inherit (shadow fixed-pitch) :weight bold :height 1.1)
     '(org-block :inherit fixed-pitch)
     '(org-ellipsis :underline nil)
     '(org-agenda-date :height 1.1 :background nil)
     '(org-agenda-date-today :height 1.5 :background nil)
-    '(org-table :inherit variable-pitch-serif)
-    ;; '(elfeed-search-unread-title-face :foreground fg :height 1.0 :weight 'bold :inherit 'variable-pitch)
-    ;; '(elfeed-show-title-face :weight 'ultrabold :height 1.5 :inherit 'variable-pitch)
+    '(org-table :inherit fixed-pitch-serif :height 1.3)
     '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet")
     )
-  (add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
   )
 
 ;; Modified from https://wilkesley.org/~ian/xah/emacs/dired_sort.html
@@ -3755,12 +3241,10 @@ appropriate.  In tables, insert a new row or end the table."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Tree Sitter Highlighting                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(use-package tree-sitter
-  :config
-  (require 'tree-sitter-langs)
-  (global-tree-sitter-mode)
-  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
-  )
+(require 'tree-sitter)
+(require 'tree-sitter-langs)
+(global-tree-sitter-mode)
+(add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
 
 
 ;; For converting org download links to normal file links for ease of use
@@ -3803,43 +3287,37 @@ appropriate.  In tables, insert a new row or end the table."
         mu4e-drafts-folder "/personal/drafts"
         mu4e-trash-folder "/personal/trash"
         mu4e-contexts
-        `(
-          ,(make-mu4e-context
-            :name "Private"
-            :enter-func (lambda () (mu4e-message "Entering Private context"))
-            :leave-func (lambda () (mu4e-message "Leaving Private context"))
-            :match-func (lambda (msg)
-                          (when msg
-                            (mu4e-message-contact-field-matches msg
-                                                                :to "sagar.r.alok@gmail.com")))
-            :vars '(
-                    (user-mail-address . "sagar.r.alok@gmail.com")
-                    (user-full-name . "Alok Regmi" )
-                    ;; (mu4e-sent-folder "/personal/sent")
-                    ;; (mu4e-drafts-folder "/personal/drafts")
-                    ;; (mu4e-trash-folder "/personal/trash")
-                    ( mu4e-compose-signature .
-                      (concat
-                       "Alok Regmi\n"
-                       "Kushma, Parbat\n"))))
-
-          ,(make-mu4e-context
-            :name "College"
-            :enter-func (lambda () (mu4e-message "Entering College context"))
-            :match-func (lambda (msg) (when msg (mu4e-message-contact-field-matches msg :to "072bex403.alok@pcampus.edu.np")))
-            :vars '(
-                    ( user-mail-address . "072bex403.alok@pcampus.edu.np"  )
-                    ( user-full-name . "Alok Regmi" )
-                    ( smtpmail-smtp-user "072bex403.alok@pcampus.edu.np" )
-                    ;; (mu4e-sent-folder "/pulchowk/sent")
-                    ;; (mu4e-drafts-folder "/pulchowk/drafts")
-                    ;; (mu4e-trash-folder "/pulchowk/trash")
-                    ( mu4e-compose-signature .
-                      (concat
-                       "Alok Regmi\n"
-                       "Pulchowk Campus, Lalitpur, Nepal\n"))))
-
-          )))
+        `( ,(make-mu4e-context
+             :name "Private"
+             :enter-func (lambda () (mu4e-message "Entering Private context"))
+             :leave-func (lambda () (mu4e-message "Leaving Private context"))
+             :match-func (lambda (msg)
+                           (when msg
+                             (mu4e-message-contact-field-matches msg
+                                                                 :to "sagar.r.alok@gmail.com")))
+             :vars '( ;; (mu4e-sent-folder "/personal/sent")
+                     ;; (mu4e-drafts-folder "/personal/drafts")
+                     ;; (mu4e-trash-folder "/personal/trash")
+                     (user-mail-address . "sagar.r.alok@gmail.com")
+                     ( user-full-name . "Alok Regmi" )
+                     ( mu4e-compose-signature .
+                       (concat
+                        "Alok Regmi\n"
+                        "Kushma, Parbat\n"))))
+           ,(make-mu4e-context
+             :name "College"
+             :enter-func (lambda () (mu4e-message "Entering College context"))
+             :match-func (lambda (msg) (when msg (mu4e-message-contact-field-matches msg :to "072bex403.alok@pcampus.edu.np")))
+             :vars '(     ;; (mu4e-sent-folder "/pulchowk/sent")
+                     ;; (mu4e-drafts-folder "/pulchowk/drafts")
+                     ;; (mu4e-trash-folder "/pulchowk/trash")
+                     ( user-mail-address . "072bex403.alok@ioe.edu.np"  )
+                     ( user-full-name . "Alok Regmi" )
+                     ( smtpmail-smtp-user "072bex403.alok@ioe.edu.np" )
+                     ( mu4e-compose-signature .
+                       (concat
+                        "Alok Regmi\n"
+                        "Pulchowk Campus, Lalitpur, Nepal\n")))))))
 
 (defun copy-link-for-kindle ()
   (interactive)
@@ -3960,30 +3438,6 @@ the inbox.  Set it as a waiting action and refile to
   (require 'org-edna)
   (org-edna-mode))
 
-(use-package! org-superstar ; "prettier" bullets
-  :hook (org-mode . org-superstar-mode)
-  :init
-  :config
-  ;; Make leading stars truly invisible, by rendering them as spaces!
-  (setq org-superstar-leading-bullet ?\s
-        org-superstar-leading-fallback ?\s
-        org-hide-leading-stars nil
-        org-superstar-todo-bullet-alist
-        '(("TODO" . 9744)
-          ("[ ]"  . 9744)
-          ("DONE" . 9745)
-          ("[X]"  . 9745))))
-
-(use-package! org-fancy-priorities ; priority icons
-  :after org
-  :config
-  (org-fancy-priorities-mode))
-
-(setq org-fancy-priorities-list
-      `((?A ,(all-the-icons-material "filter_1" :height 1.2))
-        (?B ,(all-the-icons-material "filter_2" :height 1.2))
-        (?C ,(all-the-icons-material "filter_3" :height 1.2))))
-
 (customize-set-value
  'org-agenda-category-icon-alist
  `(
@@ -4011,27 +3465,44 @@ the inbox.  Set it as a waiting action and refile to
    ("freelance" ,(list (all-the-icons-material "redeem" :height 1.2)) nil nil :ascent center)
    ))
 
-
+;; Git clone and open
+;; Taken from http://xenodium.com/emacs-clone-git-repo-from-clipboard/
+(defun ar/git-clone-clipboard-url ()
+  "Clone git URL in clipboard asynchronously and open in dired when finished."
+  (interactive)
+  (cl-assert (string-match-p "^http" (current-kill 0)) nil "No URL in clipboard")
+  (let* ((url (current-kill 0))
+         (download-dir (expand-file-name "~/Downloads/"))
+         (project-dir (concat (file-name-as-directory download-dir)
+                              (file-name-base url)))
+         (default-directory download-dir)
+         (command (format "git clone %s" url))
+         (buffer (generate-new-buffer (format "*%s*" command)))
+         (proc))
+    (when (file-exists-p project-dir)
+      (if (y-or-n-p (format "%s exists. delete?" (file-name-base url)))
+          (delete-directory project-dir t)
+        (user-error "Bailed")))
+    (switch-to-buffer buffer)
+    (setq proc (start-process-shell-command (nth 0 (split-string command)) buffer command))
+    (with-current-buffer buffer
+      (setq default-directory download-dir)
+      (shell-command-save-pos-or-erase)
+      (require 'shell)
+      (shell-mode)
+      (view-mode +1))
+    (set-process-sentinel proc (lambda (process state)
+                                 (let ((output (with-current-buffer (process-buffer process)
+                                                 (buffer-string))))
+                                   (kill-buffer (process-buffer process))
+                                   (if (= (process-exit-status process) 0)
+                                       (progn
+                                         (message "finished: %s" command)
+                                         (dired project-dir))
+                                     (user-error (format "%s\n%s" command output))))))
+    (set-process-filter proc #'comint-output-filter)))
 
 ;; Named terminal with vterm/here
-;;;###autoload
-(defun +vterm--change-directory-if-remote ()
-  "When `default-directory` is remote, use the corresponding
-method to prepare vterm at the corresponding remote directory."
-  (when (and (featurep 'tramp)
-             (tramp-tramp-file-p default-directory))
-    (message "default-directory is %s" default-directory)
-    (with-parsed-tramp-file-name default-directory path
-      (let ((method (cadr (assoc `tramp-login-program
-                                 (assoc path-method tramp-methods)))))
-        (vterm-send-string
-         (concat method " "
-                 (when path-user (concat path-user "@")) path-host))
-        (vterm-send-return)
-        (vterm-send-string
-         (concat "cd " path-localname))
-        (vterm-send-return)))))
-
 ;;;###autoload
 (defun +vterm/here (arg)
   "Open a terminal buffer in the current window at project root.
@@ -4223,6 +3694,29 @@ from .dir-locals.el"
 (after! org
   (setq org-highlight-latex-and-related '(native script entities)))
 
+(use-package! org-superstar ; "prettier" bullets
+  :hook (org-mode . org-superstar-mode)
+  :init
+  :config
+  ;; Make leading stars truly invisible, by rendering them as spaces!
+  (setq org-superstar-leading-bullet ?\s
+        org-superstar-leading-fallback ?\s
+        org-hide-leading-stars nil
+        org-superstar-todo-bullet-alist
+        '(("TODO" . 9744)
+          ("[ ]"  . 9744)
+          ("DONE" . 9745)
+          ("[X]"  . 9745))))
+
+(use-package! org-fancy-priorities ; priority icons
+  :after org
+  :config
+  (org-fancy-priorities-mode))
+
+(setq org-fancy-priorities-list
+      `((?A ,(all-the-icons-material "filter_1" :height 1.2))
+        (?B ,(all-the-icons-material "filter_2" :height 1.2))
+        (?C ,(all-the-icons-material "filter_3" :height 1.2))))
 
 (use-package eaf
   :load-path "~/emacs-application-framework" ; Set to "/usr/share/emacs/site-lisp/eaf" if installed from AUR
@@ -4235,6 +3729,7 @@ from .dir-locals.el"
   (eaf-bind-key take_photo "p" eaf-camera-keybinding))
 
 (use-package citeproc-org
+  :ensure t
   :after ox-hugo
   :config
   (citeproc-org-setup))
@@ -4246,93 +3741,3 @@ from .dir-locals.el"
           (when (eq 'dired-mode (buffer-local-value 'major-mode buffer))
             (kill-buffer buffer)))
         (buffer-list)))
-
-;; (load! "~/.doom.d/exwm-doom.el")
-(setq-default evil-escape-key-sequence "jk")
-(setq evil-escape-delay 0.1)
-
-;; (after! org
-;;   (font-lock-add-keywords 'org-mode
-;;                           '(("[^\\w]\\(:\\[^\n\r\t]+:\\)[^\\w]" 1 font-lock-warning-face prepend)) 'append)
-
-;;   (defun my-html-mark-tag (text backend info)
-;;     "Transcode :blah: into <mark>blah</mark> in body text."
-;;     (when (org-export-derived-backend-p backend 'html)
-;;       (let ((text (replace-regexp-in-string "[^\\w]\\(:\\)[^\n\t\r]+\\(:\\)[^\\w]" "<mark>"  text nil nil 1 nil)))
-;;         (replace-regexp-in-string "[^\\w]\\(<mark>\\)[^\n\t\r]+\\(:\\)[^\\w]" "</mark>" text nil nil 2 nil))))
-
-;;   (add-to-list 'org-export-filter-plain-text-functions 'my-html-mark-tag))
-(setq bookmark-default-file "~/.doom.d/bookmarks")
-
-
-
-(define-advice define-obsolete-function-alias (:filter-args (ll) fix-obsolete)
-  (let ((obsolete-name (pop ll))
-	(current-name (pop ll))
-	(when (if ll (pop ll) "1"))
-	(docstring (if ll (pop ll) nil)))
-    (list obsolete-name current-name when docstring)))
-
-
-(defun my/convert-task-to-org-note ()
-  "Convert a task in a `org-roam' note."
-  (interactive)
-  (let* ((heading (org-get-heading t t t t))
-         (body (org-get-entry))
-         (link (format "[[id:%s][%s]]" (org-id-get-create) heading))
-         (filepath (on/make-filepath heading (current-time))))
-    (on/insert-org-roam-file
-     filepath
-     heading
-     nil
-     (list link)
-     (format "* Note stored from tasks\n%s" body)
-     nil)
-    (find-file filepath)))
-
-;; (setq! +helm-posframe-text-scale '-0.5)
-;; (add-to-list 'load-path "~/.doom.d/doom-nano-testing")
-;; (require 'load-nano)
-
-
-(use-package! org-transclusion
-  :commands (org-transclusion-mode)
-  :hook ((org-load . org-transclusion-mode)))
-
-(setq ispell-dictionary "en")
-
-
-;; (use-package! delve
-;;   :bind (("<f12>" . delve-open-or-select))
-;;   :config
-;;   (set-evil-initial-state! 'delve-mode 'insert)
-;;   (map! :map delve-mode-map
-;;         :n "gr"      #'delve-refresh-buffer
-;;         :n "<right>" #'delve-expand-insert-tolinks
-;;         :n "<left>"  #'devle-expand-insert-backlinks
-;;         :localleader
-;;         "RET"  #'lister-key-action
-;;         "TAB"  #'delve-expand-toggle-sublist)
-;;   (use-package! delve-minor-mode
-;;     :hook (org-roam-mode . delve-minor-mode-maybe-activate)))
-
-;; (defun delve-sort-buffer-function (buf function)
-;;   "sort all items in BUF by FUNCTION."
-;;   (when-let* ((all-data (lister-get-all-data buf))
-;;               (head (car all-data))
-;;               (tail (cdr all-data)))
-;;     (lister-with-locked-cursor buf
-;;                                (with-temp-message "Updating the whole buffer, that might take some time...."
-;; 	                         (lister-set-list buf (cons head (funcall function  tail)))))))
-
-;; (evil-define-key* '(normal insert) delve-mode-map
-;;   (kbd "<return>") #'lister-key-action
-;;   (kbd "<tab>") #'delve-expand-toggle-sublist
-;;   (kbd "gr") #'delve-revert
-;;   (kbd "sm") #'delve-sort-buffer-by-mtime
-;;   (kbd "sa") #'delve-sort-buffer-by-atime
-;;   (kbd "sc") #'delve-sort-buffer-by-ctime
-;;   (kbd "<right>") #'delve-expand-insert-tolinks
-;;   (kbd "<left>")  #'delve-expand-insert-backlinks
-;;   (kbd "c") #'delve-collect
-;;   (kbd "q") #'delve-kill-buffer)
