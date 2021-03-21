@@ -154,13 +154,13 @@
         "s-d" 'ein:worksheet-kill-cell-km
         "s-;" 'ein:notebook-scratchsheet-open-km
         ;; Output
-        "C-s-o" 'ein:worksheet-toggle-output-km
+        "C-A-o" 'ein:worksheet-toggle-output-km
         "C-l" 'ein:worksheet-clear-output-km
-        "C-s-l" 'ein:worksheet-clear-all-output-km
+        "C-A-l" 'ein:worksheet-clear-all-output-km
         ;; Notebook Opening and closing
-        "C-s-s" 'ein:notebook-save-notebook-command-km
-        "C-s-r" 'ein:notebook-rename-command-km
-        "C-s-x" 'ein:notebook-close-km
+        "C-A-s" 'ein:notebook-save-notebook-command-km
+        "C-A-r" 'ein:notebook-rename-command-km
+        "C-A-x" 'ein:notebook-close-km
         :map ein:notebooklist-mode-map
         :nv "O" 'ein:notebook-open-km
         :nv "o" 'ace-link-custom)
@@ -236,10 +236,10 @@ latter - its output."
   (setq spray-wpm 500
         spray-height 700)
   :bind (:map spray-mode-map
-         ("s-7" . spray-faster)
-         ("s-8" . spray-slower)
-         ("s-9" . spray-start/stop)
-         ("s-0" . spray-quit)
+         ("A-7" . spray-faster)
+         ("A-8" . spray-slower)
+         ("A-9" . spray-start/stop)
+         ("A-0" . spray-quit)
          )
   )
 
@@ -1054,7 +1054,7 @@ command was called, go to its unstaged changes section."
   :config
   (setq plantuml-executable-path "/usr/bin/plantuml")
   (setq plantuml-default-exec-mode 'executable)
-)
+  )
 
 (use-package smerge-mode
   :after hydra
@@ -1138,7 +1138,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
         visual-fill-column-center-text t)
   (add-hook 'nov-mode-hook 'visual-line-mode)
   (add-hook 'nov-mode-hook 'visual-fill-column-mode)
-)
+  )
 
 (setq doom-themes-treemacs-theme "doom-colors") ; use the colorful treemacs theme
 
@@ -1155,8 +1155,8 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (use-package hydra-posframe
     :custom
     (hydra-posframe-parameters
-      '((left-fringe . 5)
-        (right-fringe . 5)))
+     '((left-fringe . 5)
+       (right-fringe . 5)))
     :custom-face
     (hydra-posframe-border-face ((t (:background "#6272a4"))))
     :hook (after-init . hydra-posframe-mode)))
@@ -1177,34 +1177,34 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 
 (after! prodigy
   (prodigy-define-tag
-    :name 'webpack
-    :ready-message "Compiled successfully!")
+   :name 'webpack
+   :ready-message "Compiled successfully!")
 
   (prodigy-define-tag
-    :name 'hugook
-    :ready-message "Hugo service started")
+   :name 'hugook
+   :ready-message "Hugo service started")
 
   (prodigy-define-tag
-    :name 'serve
-    :ready-message "Serving!")
+   :name 'serve
+   :ready-message "Serving!")
   (prodigy-define-service
-    :name "Python app"
-    :command "python"
-    :args '("-m" "SimpleHTTPServer" "6001")
-    :cwd "~/"
-    :tags '(work)
-    :stop-signal 'sigkill
-    :kill-process-buffer-on-stop t)
+   :name "Python app"
+   :command "python"
+   :args '("-m" "SimpleHTTPServer" "6001")
+   :cwd "~/"
+   :tags '(work)
+   :stop-signal 'sigkill
+   :kill-process-buffer-on-stop t)
 
   (prodigy-define-service
-    :name "Hugo server"
-    :port 5000
-    :command "hugo"
-    :args '("server" "-t")
-    :cwd "~/Dropbox/org/blogging/"
-    :stop-signal 'sigkill
-    :tags '(hugook)
-    :kill-process-buffer-on-stop t))
+   :name "Hugo server"
+   :port 5000
+   :command "hugo"
+   :args '("server" "-t")
+   :cwd "~/Dropbox/org/blogging/"
+   :stop-signal 'sigkill
+   :tags '(hugook)
+   :kill-process-buffer-on-stop t))
 
 (use-package conda
   :after python
@@ -1218,7 +1218,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (conda-env-initialize-interactive-shells)
   ;; if you want eshell support, include:
   (conda-env-initialize-eshell)
-)
+  )
 
 (use-package dart-mode
   :defer t
@@ -1496,8 +1496,8 @@ And the line would be overlaid like:
     (my-buffer-face-mode-org-clock-budget)))
 
 (after! org (add-to-list 'org-capture-templates
-             '("l" "Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
-"* TODO [[%:link][%:description]]\n\n %i" :immediate-finish t)))
+                         '("l" "Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
+                           "* TODO [[%:link][%:description]]\n\n %i" :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("h" "Clip Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
@@ -1594,15 +1594,15 @@ And the line would be overlaid like:
 
 
 (after! org (add-to-list 'org-capture-templates
-             '("e" "Add an event" entry(file "~/Dropbox/org/gtd/events.org")
-"* TODO Wish %^{Person} on their %^{Event}
+                         '("e" "Add an event" entry(file "~/Dropbox/org/gtd/events.org")
+                           "* TODO Wish %^{Person} on their %^{Event}
 :PROPERTIES:
 :END:" :immediate-finish t)))
 
 
 (after! org (add-to-list 'org-capture-templates
-             '("P" "Paper Log" entry(file "~/Dropbox/org/gtd/paper.org")
-"* SOMEDAY Read %^{Title}
+                         '("P" "Paper Log" entry(file "~/Dropbox/org/gtd/paper.org")
+                           "* SOMEDAY Read %^{Title}
 :PROPERTIES:
 :AUTHOR: %^{Author}
 :P_CATEGORY: %^{P_CATEGORY|VISION|NLP|RL|NEURO|MISC}
@@ -1689,9 +1689,9 @@ And the line would be overlaid like:
                :immediate-finish t)))
 
 (after! org
-    (add-to-list 'org-capture-templates
-                 '("C"  "Contact" entry (file "~/Dropbox/org/contacts.org")
-                   "* %(org-contacts-template-name)
+  (add-to-list 'org-capture-templates
+               '("C"  "Contact" entry (file "~/Dropbox/org/contacts.org")
+                 "* %(org-contacts-template-name)
     :PROPERTIES:
     :EMAIL: %(org-contacts-template-email)
     :PHONE: %^{Phone}
@@ -1700,7 +1700,7 @@ And the line would be overlaid like:
     :ORG:  %^{Company}
     :NOTE: %^{NOTE}
     :END:"
-                   :empty-lines 1)))
+                 :empty-lines 1)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("c" "Capture [GTD]" entry (file "~/Dropbox/org/gtd/inbox.org")
@@ -1713,7 +1713,7 @@ And the line would be overlaid like:
 (after! org
   (add-hook 'org-agenda-finalize-hook
             (lambda () (remove-text-properties
-                   (point-min) (point-max) '(mouse-face t))))
+                        (point-min) (point-max) '(mouse-face t))))
   ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
   ;; (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1))))
   )
@@ -1930,7 +1930,7 @@ And the line would be overlaid like:
         (sleep-for 2))
       (org-download-image tmp-file)))
   (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
-)
+  )
 
 
 (after! org-roam
@@ -2105,24 +2105,24 @@ And the line would be overlaid like:
                          (funcall callback temp-html)))))))))
 
 (after! (org org-roam)
-    (defun my/org-roam--backlinks-list (file)
-      (if (org-roam--org-roam-file-p file)
-          (--reduce-from
-           (concat acc (format "- [[file:%s][%s]]\n"
-                               (file-relative-name (car it) org-roam-directory)
-                               (org-roam--get-title-or-slug (car it))))
-           "" (org-roam-sql [:select [from]
-                             :from links
-                             :where (= to $s1)
-                             :and from :not :like $s2] file "%private%"))
-        ""))
-    (defun my/org-export-preprocessor (_backend)
-      (let ((links (my/org-roam--backlinks-list (buffer-file-name))))
-        (unless (string= links "")
-          (save-excursion
-            (goto-char (point-max))
-            (insert (concat "\n* Backlinks\n" links))))))
-    (add-hook 'org-export-before-processing-hook 'my/org-export-preprocessor))
+  (defun my/org-roam--backlinks-list (file)
+    (if (org-roam--org-roam-file-p file)
+        (--reduce-from
+         (concat acc (format "- [[file:%s][%s]]\n"
+                             (file-relative-name (car it) org-roam-directory)
+                             (org-roam--get-title-or-slug (car it))))
+         "" (org-roam-sql [:select [from]
+                           :from links
+                           :where (= to $s1)
+                           :and from :not :like $s2] file "%private%"))
+      ""))
+  (defun my/org-export-preprocessor (_backend)
+    (let ((links (my/org-roam--backlinks-list (buffer-file-name))))
+      (unless (string= links "")
+        (save-excursion
+          (goto-char (point-max))
+          (insert (concat "\n* Backlinks\n" links))))))
+  (add-hook 'org-export-before-processing-hook 'my/org-export-preprocessor))
 
 (after! (org ox-hugo)
   (defun jethro/conditional-hugo-enable ()
@@ -2794,7 +2794,7 @@ Opens a buffer with links to what is found. This function installs pylint if nee
           (switch-to-buffer-other-window cb))
         ;; final cleanup and delete file
         (delete-file tempfile))))
-)
+  )
 
 (after! org
   (defun +org-private/get-name-src-block ()
@@ -2877,7 +2877,7 @@ Opens a buffer with links to what is found. This function installs pylint if nee
               'counsel-org-tag))
            t)))))
 
-)
+  )
 
 (after! org
   (defun unpackaged/org-outline-numbers (&optional remove-p)
@@ -2974,35 +2974,35 @@ structure changes."
 
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
-(bind-key "s-h" '+ivy/switch-workspace-buffer-other-window)
-(bind-key "s-a" '+ivy/switch-workspace-buffer)
+(bind-key "A-h" '+ivy/switch-workspace-buffer-other-window)
+(bind-key "A-a" '+ivy/switch-workspace-buffer)
 
-(bind-key "s-1" 'winum-select-window-1)
-(bind-key "s-2" 'winum-select-window-2)
-(bind-key "s-3" 'winum-select-window-3)
-(bind-key "s-4" 'winum-select-window-4)
-(bind-key "s-5" 'winum-select-window-5)
+(bind-key "A-1" 'winum-select-window-1)
+(bind-key "A-2" 'winum-select-window-2)
+(bind-key "A-3" 'winum-select-window-3)
+(bind-key "A-4" 'winum-select-window-4)
+(bind-key "A-5" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
-(bind-key "s-k" 'scroll-other-window-down)
-(bind-key "s-j" 'scroll-other-window)
+(bind-key "A-k" 'scroll-other-window-down)
+(bind-key "A-j" 'scroll-other-window)
 (bind-key "<f5>" 'switch-dark-mode)
-(bind-key "s-<return>" 'newline-and-indent)
-(bind-key "s-s" #'+ivy/project-search-with-hidden-files)
-(bind-key "s-/" #'doom/toggle-comment-region-or-line)
+(bind-key "A-<return>" 'newline-and-indent)
+(bind-key "A-s" #'+ivy/project-search-with-hidden-files)
+(bind-key "A-/" #'doom/toggle-comment-region-or-line)
 (map! :leader
       (:prefix "e"
-        :n "e" #'ace-window
-        :n "u" #'swiper-all
-        :n "s" #'deadgrep
-        :n "r" #'helm-org-rifle-directories
-        :n "l" #'my/last-captured-org-note)
+       :n "e" #'ace-window
+       :n "u" #'swiper-all
+       :n "s" #'deadgrep
+       :n "r" #'helm-org-rifle-directories
+       :n "l" #'my/last-captured-org-note)
       (:prefix "o"
-        :n "e" #'elfeed
-        :n "s" #'org-open-at-point
-        :n "u" #'elfeed-update
-        ;; EXPERIMENTAL HACK
-        ;; :n "p" #'dired-sidebar-toggle-sidebar
-        :n "o" #'dired-jump)
+       :n "e" #'elfeed
+       :n "s" #'org-open-at-point
+       :n "u" #'elfeed-update
+       ;; EXPERIMENTAL HACK
+       ;; :n "p" #'dired-sidebar-toggle-sidebar
+       :n "o" #'dired-jump)
       (:prefix "s"
         :n "q" #'org-ql-search
         :n "a" #'helm-org-rifle-current-buffer
@@ -3053,7 +3053,7 @@ structure changes."
        :n "p" #'poetry
        :n "r" #'poetry-run
        :n "d" #'scimax-dired/body)
-)
+      )
 
 (after! org
 
@@ -3068,35 +3068,35 @@ structure changes."
         "<s-return>" 'jupyter-org-execute-and-next-block
         ;; "gI" 'org-babel-previous-src-block
         ;; "H-s" 'org-babel-next-src-block
-        "s-e" 'jupyter-org-execute-to-point
-        "s-E" 'jupyter-org-execute-subtree
+        "A-e" 'jupyter-org-execute-to-point
+        "A-E" 'jupyter-org-execute-subtree
 
-        "s-K" 'jupyter-org-move-src-block
-        "s-J" '(lambda ()
-                        (interactive)
-                        (jupyter-org-move-src-block t))
+        "A-K" 'jupyter-org-move-src-block
+        "A-J" '(lambda ()
+                 (interactive)
+                 (jupyter-org-move-src-block t))
 
-        "s-O" 'jupyter-org-insert-src-block
-        "s-o" '(lambda ()
-                        (interactive)
-                        (jupyter-org-insert-src-block t))
+        "A-O" 'jupyter-org-insert-src-block
+        "A-o" '(lambda ()
+                 (interactive)
+                 (jupyter-org-insert-src-block t))
 
-        "s-B" 'jupyter-org-split-src-block
-        "s-b" '(lambda ()
-                        (interactive)
-                        (jupyter-org-split-src-block t))
-        "C-s-k" 'jupyter-org-merge-blocks
-        "s-p" 'jupyter-org-jump-to-block
-        "s-P" 'jupyter-org-jump-to-visible-block
-        "s-y" 'jupyter-org-kill-block-and-results
-        "s-Y" 'jupyter-org-copy-block-and-results
-        "C-s-l" 'jupyter-org-clear-all-results
-        "s-n" 'jupyter-org-next-busy-src-block
-        "s-N" 'jupyter-org-previous-busy-src-block
-        "<s-return>" '(lambda ()
+        "A-B" 'jupyter-org-split-src-block
+        "A-b" '(lambda ()
+                 (interactive)
+                 (jupyter-org-split-src-block t))
+        "C-A-k" 'jupyter-org-merge-blocks
+        "A-p" 'jupyter-org-jump-to-block
+        "A-P" 'jupyter-org-jump-to-visible-block
+        "A-y" 'jupyter-org-kill-block-and-results
+        "A-Y" 'jupyter-org-copy-block-and-results
+        "C-A-l" 'jupyter-org-clear-all-results
+        "A-n" 'jupyter-org-next-busy-src-block
+        "A-N" 'jupyter-org-previous-busy-src-block
+        "<A-return>" '(lambda ()
                         (interactive)
                         (jupyter-org-execute-and-next-block t)))
-)
+  )
 
 (after! org
   (define-key org-mode-map (kbd "s-Y") 'other-window)
@@ -3128,12 +3128,12 @@ structure changes."
       :desc "List Item"     "n" 'markdown-insert-list-item
       :desc "Pre"           "p" 'markdown-insert-pre
       :prefix ("h" . "Headings")
-        :desc "One"   "1" 'markdown-insert-header-atx-1
-        :desc "Two"   "2" 'markdown-insert-header-atx-2
-        :desc "Three" "3" 'markdown-insert-header-atx-3
-        :desc "Four"  "4" 'markdown-insert-header-atx-4
-        :desc "Five"  "5" 'markdown-insert-header-atx-5
-        :desc "Six"   "6" 'markdown-insert-header-atx-6)
+      :desc "One"   "1" 'markdown-insert-header-atx-1
+      :desc "Two"   "2" 'markdown-insert-header-atx-2
+      :desc "Three" "3" 'markdown-insert-header-atx-3
+      :desc "Four"  "4" 'markdown-insert-header-atx-4
+      :desc "Five"  "5" 'markdown-insert-header-atx-5
+      :desc "Six"   "6" 'markdown-insert-header-atx-6)
 
 (defun doom/toggle-comment-region-or-line ()
   "Comments or uncomments the whole region or if no region is
@@ -3260,7 +3260,7 @@ choice's name, and the rest of which is its body forms."
     (interactive)
     "Capture a task in agenda mode."
     (org-capture nil "c"))
-)
+  )
 
 ;; (setq aw-keys '(106 107 108 105 111 104 121 117 112) t)
 
@@ -3296,7 +3296,7 @@ sEnter type of project: ")
     (save-buffer))
   (projectile-add-known-project full-proj)
   (projectile-switch-project-by-name full-proj)
-)
+  )
 
 ;;;###autoload
 (defun ml-gitignore ()
@@ -3566,13 +3566,13 @@ Version 2015-07-30"
     ))
 
 (map! (:after dired
-      :map dired-mode-map
-      :n "gb" #'light-dired-sort))
+       :map dired-mode-map
+       :n "gb" #'light-dired-sort))
 
 (setq writeroom-width 100)
 
 (custom-set-faces!
- '(vterm-color-black :foreground "SandyBrown" :background "SandyBrown"))
+  '(vterm-color-black :foreground "SandyBrown" :background "SandyBrown"))
 
 
 ;; Taken from tecosaur's config

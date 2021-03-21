@@ -27,8 +27,13 @@
        (ivy
         +fuzzy
         +icons
+<<<<<<< HEAD
         +prescient
         +childframe)               ; a search engine for love and life
+=======
+        +prescient)
+       ;; +childframe)               ; a search engine for love and life
+>>>>>>> 4051790f1563fd4df8e8d65ec7657a6531b5d89b
 
        :ui
        ;;deft              ; notational velocity for Emacs

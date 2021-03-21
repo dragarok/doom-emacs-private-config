@@ -2,6 +2,6 @@
 # name: rbl
 # key: <r
 # --
-#+BEGIN_SRC jupyter-R :async yes :session r :kernel ir
+#+BEGIN_SRC jupyter-R :async yes :session r :kernel R
 $1
 #+END_SRC
