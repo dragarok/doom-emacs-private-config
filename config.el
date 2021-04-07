@@ -16,6 +16,52 @@
       doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
       doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
 
+(custom-set-faces!
+  '(outline-1 :inherit variable-pitch :weight extra-bold :height 1.6)
+  '(outline-2 :inherit variable-pitch :weight bold :height 1.4)
+  '(outline-3 :inherit variable-pitch :weight bold :height 1.3)
+  '(outline-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
+  '(outline-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
+  '(outline-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
+  '(outline-8 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
+  '(outline-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
+  '(org-level-1 :inherit variable-pitch :weight extra-bold :height 1.6)
+  '(org-level-2 :inherit variable-pitch :weight bold :height 1.4)
+  '(org-level-3 :inherit variable-pitch :weight bold :height 1.3)
+  '(org-level-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
+  '(org-level-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
+  '(org-level-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
+  '(org-level-8 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
+  '(org-level-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
+  '(org-link :weight bold :height 1.1 :underline t)
+  '(org-document-info :foreground "dark orange")
+  '(hydra-posframe-border-face :background "OrangeRed3")
+  '(org-done :strike-through t :weight bold)
+  '(org-headline-done :strike-through t)
+  '(org-code :inherit (fixed-pitch shadow) :height 1.1)
+  '(org-verbatim :inherit shadow)
+  '(org-block :inherit (fixed-pitch shadow) :background nil :height 1.2)
+  '(org-block-begin-line :inherit region  :background nil :height 0.9)
+  '(org-block-end-line :inherit region :background nil :height 0.8)
+  '(org-document-title :height 1.1 :weight normal :underline nil)
+  '(org-document-info :height 1.1 :slant italic)
+  '(org-document-info-keyword :inherit shadow :height 0.8)
+  '(org-meta-line :inherit (font-lock-comment-face fixed-pitch) :foreground "dark orange")
+  '(org-property-value :inherit fixed-pitch)
+  '(org-special-keyword :inherit (font-lock-comment-face fixed-pitch))
+  '(org-tag :inherit (shadow fixed-pitch) :weight bold :height 1.1)
+  '(org-block :inherit fixed-pitch)
+  '(org-ellipsis :underline nil)
+  '(org-agenda-date :height 1.1 :background nil)
+  '(org-agenda-date-today :height 1.5 :background nil)
+  '(org-table :inherit variable-pitch-serif)
+  ;; '(elfeed-search-unread-title-face :foreground fg :height 1.0 :weight 'bold :inherit 'variable-pitch)
+  ;; '(elfeed-show-title-face :weight 'ultrabold :height 1.5 :inherit 'variable-pitch)
+  '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet")
+  )
+
+(add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
+
 
 (load-theme 'doom-flatwhite 'noconfirm)
 
@@ -90,9 +136,11 @@
 (setq org-roam-db-location "~/.org/org-roam.db")
 
 (after! org
-  (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
+  (set-popup-rule! "*CAPTURE-*" :side 'left :size .30 :select t)
+  ;; (set-popup-rule! "^CAPTURE-[A-Za-z]*\.org$" :side 'right :size .50 :select t :vslot 2 :ttl 3)
   ;; (set-popup-rule! "*helm*" :side 'bottom :height .40 :select t :vslot 5 :ttl 3)
   ;; (set-popup-rule! "^\\*Org Src" :side 'bottom :slot -2 :height 0.6 :width 0.5 :select t :autosave t :ttl nil :quit nil)
+  (set-popup-rule! "*Org QL View:*" :side 'right :size .25 :select t)
   (set-popup-rule! "\\*RefTeX Select\\*" :size 80)
   (set-popup-rule! "*Org Select" :side 'bottom :size .50 :select t :vslot 2 :ttl 3)
   ;; (set-popup-rule! "*Calendar*" :side 'bottom :size .40 :select t :vslot 2 :ttl 3)
@@ -104,6 +152,7 @@
   (set-popup-rule! "*xwidget" :side 'right :size .40 :select t :vslot 5 :ttl 3)
   (set-popup-rule! "*eshell*" :side 'bottom :size .30 :select t :hslot 2 :ttl 3)
   (set-popup-rule! "*Org clock budget report*" :side 'bottom :size .40 :select t :hslot 2 :ttl 3)
+  (set-popup-rule! "*Python:ob-ipython-py*" :side 'right :size .25 :select t)
   )
 
 (after! org
@@ -154,13 +203,13 @@
         "s-d" 'ein:worksheet-kill-cell-km
         "s-;" 'ein:notebook-scratchsheet-open-km
         ;; Output
-        "C-A-o" 'ein:worksheet-toggle-output-km
+        "C-H-o" 'ein:worksheet-toggle-output-km
         "C-l" 'ein:worksheet-clear-output-km
-        "C-A-l" 'ein:worksheet-clear-all-output-km
+        "C-H-l" 'ein:worksheet-clear-all-output-km
         ;; Notebook Opening and closing
-        "C-A-s" 'ein:notebook-save-notebook-command-km
-        "C-A-r" 'ein:notebook-rename-command-km
-        "C-A-x" 'ein:notebook-close-km
+        "C-H-s" 'ein:notebook-save-notebook-command-km
+        "C-H-r" 'ein:notebook-rename-command-km
+        "C-H-x" 'ein:notebook-close-km
         :map ein:notebooklist-mode-map
         :nv "O" 'ein:notebook-open-km
         :nv "o" 'ace-link-custom)
@@ -236,10 +285,10 @@ latter - its output."
   (setq spray-wpm 500
         spray-height 700)
   :bind (:map spray-mode-map
-         ("A-7" . spray-faster)
-         ("A-8" . spray-slower)
-         ("A-9" . spray-start/stop)
-         ("A-0" . spray-quit)
+         ("H-7" . spray-faster)
+         ("H-8" . spray-slower)
+         ("H-9" . spray-start/stop)
+         ("H-0" . spray-quit)
          )
   )
 
@@ -1436,25 +1485,39 @@ And the line would be overlaid like:
   ;; (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
 
   (setq org-tag-alist '((:startgroup . nil)
-                        ("@mundane" . ?p)
-                        ("@earning" . ?w)
-                        ("@growth" . ?g)
+                        ("@hobby" . ?h)
+                        ("@toearn" . ?e)
+                        ("@brain" . ?b)
+                        ("@personality" . ?p)
+                        ("@investment" . ?i)
+                        ("@random" . ?r)
                         (:endgroup . nil)
+
                         (:startgroup . nil)
-                        ("guitar" . ?G)
-                        ("videos" . ?v)
-                        ("articles" . ?a)
-                        ("emacs" . ?e)
-                        ("tinker" . ?t)
-                        ("entertaintment" . ?z)
-                        ("spiritual" . ?s)
-                        ("music" . ?m)
-                        ("code" . ?c)
-                        ("read" . ?r)
-                        ("personality" . ?y)
-                        ("income" . ?i)
-                        ("event" . ?E)
+                        ("paper" . ?P)
+                        ("article" . ?A)
+                        ("video" . ?V)
                         (:endgroup . nil)
+
+                        (:startgroup . nil)
+                        ("ds" . ?d)
+                        ("ml" . ?m)
+                        ("neuro" . ?n)
+                        (:endgroup . nil)
+
+                        (:startgroup . nil)
+                        ("outwards" . ?G)
+                        ("planning" . ?P)
+                        ("spirituality" . ?S)
+                        ("entrepre" . ?R)
+                        (:endgroup . nil)
+
+                        (:startgroup . nil)
+                        ("entertaintment" . ?Z)
+                        ("code" . ?C)
+                        ("event" . ?N)
+                        (:endgroup . nil)
+
                         (:startgroup . nil)
                         ("Challenge" . ?1)
                         ("Average" . ?2)
@@ -2974,21 +3037,20 @@ structure changes."
 
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
-(bind-key "A-h" '+ivy/switch-workspace-buffer-other-window)
-(bind-key "A-a" '+ivy/switch-workspace-buffer)
-
-(bind-key "A-1" 'winum-select-window-1)
-(bind-key "A-2" 'winum-select-window-2)
-(bind-key "A-3" 'winum-select-window-3)
-(bind-key "A-4" 'winum-select-window-4)
-(bind-key "A-5" 'winum-select-window-5)
+(bind-key "H-h" '+ivy/switch-workspace-buffer-other-window)
+(bind-key "H-a" '+ivy/switch-workspace-buffer)
+(bind-key "H-1" 'winum-select-window-1)
+(bind-key "H-2" 'winum-select-window-2)
+(bind-key "H-3" 'winum-select-window-3)
+(bind-key "H-4" 'winum-select-window-4)
+(bind-key "H-5" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
-(bind-key "A-k" 'scroll-other-window-down)
-(bind-key "A-j" 'scroll-other-window)
+(bind-key "H-k" 'scroll-other-window-down)
+(bind-key "H-j" 'scroll-other-window)
 (bind-key "<f5>" 'switch-dark-mode)
-(bind-key "A-<return>" 'newline-and-indent)
-(bind-key "A-s" #'+ivy/project-search-with-hidden-files)
-(bind-key "A-/" #'doom/toggle-comment-region-or-line)
+(bind-key "H-<return>" 'newline-and-indent)
+(bind-key "H-s" #'+ivy/project-search-with-hidden-files)
+(bind-key "H-/" #'doom/toggle-comment-region-or-line)
 (map! :leader
       (:prefix "e"
        :n "e" #'ace-window
@@ -3068,51 +3130,51 @@ structure changes."
         "<s-return>" 'jupyter-org-execute-and-next-block
         ;; "gI" 'org-babel-previous-src-block
         ;; "H-s" 'org-babel-next-src-block
-        "A-e" 'jupyter-org-execute-to-point
-        "A-E" 'jupyter-org-execute-subtree
+        "H-e" 'jupyter-org-execute-to-point
+        "H-E" 'jupyter-org-execute-subtree
 
-        "A-K" 'jupyter-org-move-src-block
-        "A-J" '(lambda ()
+        "H-K" 'jupyter-org-move-src-block
+        "H-J" '(lambda ()
                  (interactive)
                  (jupyter-org-move-src-block t))
 
-        "A-O" 'jupyter-org-insert-src-block
-        "A-o" '(lambda ()
+        "H-O" 'jupyter-org-insert-src-block
+        "H-o" '(lambda ()
                  (interactive)
                  (jupyter-org-insert-src-block t))
 
-        "A-B" 'jupyter-org-split-src-block
-        "A-b" '(lambda ()
+        "H-B" 'jupyter-org-split-src-block
+        "H-b" '(lambda ()
                  (interactive)
                  (jupyter-org-split-src-block t))
-        "C-A-k" 'jupyter-org-merge-blocks
-        "A-p" 'jupyter-org-jump-to-block
-        "A-P" 'jupyter-org-jump-to-visible-block
-        "A-y" 'jupyter-org-kill-block-and-results
-        "A-Y" 'jupyter-org-copy-block-and-results
-        "C-A-l" 'jupyter-org-clear-all-results
-        "A-n" 'jupyter-org-next-busy-src-block
-        "A-N" 'jupyter-org-previous-busy-src-block
-        "<A-return>" '(lambda ()
+        "C-H-k" 'jupyter-org-merge-blocks
+        "H-p" 'jupyter-org-jump-to-block
+        "H-P" 'jupyter-org-jump-to-visible-block
+        "H-y" 'jupyter-org-kill-block-and-results
+        "H-Y" 'jupyter-org-copy-block-and-results
+        "C-H-l" 'jupyter-org-clear-all-results
+        "H-n" 'jupyter-org-next-busy-src-block
+        "H-N" 'jupyter-org-previous-busy-src-block
+        "<H-return>" '(lambda ()
                         (interactive)
                         (jupyter-org-execute-and-next-block t)))
   )
 
 (after! org
-  (define-key org-mode-map (kbd "s-Y") 'other-window)
-  (define-key org-mode-map (kbd "s-y") 'org-strikethrough-region-or-point)
-  (define-key org-mode-map (kbd "s-i") 'org-italics-region-or-point)
-  (define-key org-mode-map (kbd "s-I") 'org-bold-region-or-point)
-  (define-key org-mode-map (kbd "s-v") 'org-verbatim-region-or-point)
-  (define-key org-mode-map (kbd "s-V") 'org-code-region-or-point)
-  (define-key org-mode-map (kbd "s-u") 'org-superscript-region-or-point)
-  (define-key org-mode-map (kbd "s-U") 'org-underline-region-or-point)
-  (define-key org-mode-map (kbd "s-l") 'org-latex-math-region-or-point)
+  (define-key org-mode-map (kbd "H-Y") 'other-window)
+  (define-key org-mode-map (kbd "H-y") 'org-strikethrough-region-or-point)
+  (define-key org-mode-map (kbd "H-i") 'org-italics-region-or-point)
+  (define-key org-mode-map (kbd "H-I") 'org-bold-region-or-point)
+  (define-key org-mode-map (kbd "H-v") 'org-verbatim-region-or-point)
+  (define-key org-mode-map (kbd "H-V") 'org-code-region-or-point)
+  (define-key org-mode-map (kbd "H-u") 'org-superscript-region-or-point)
+  (define-key org-mode-map (kbd "H-U") 'org-underline-region-or-point)
+  (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
   )
 
-(bind-key "s-;" '+evil-window-split-a)
-(bind-key "s-\\" '+evil-window-vsplit-a)
-(bind-key "s-t" '+my/vterm-run-project)
+(bind-key "H-;" '+evil-window-split-a)
+(bind-key "H-\\" '+evil-window-vsplit-a)
+(bind-key "H-t" '+my/vterm-run-project)
 
 (map! :localleader
       :map markdown-mode-map
@@ -3476,50 +3538,6 @@ restart lsp based on that environment"
         org-fontify-quote-and-verse-blocks t)
 
   ;;(setq global-org-pretty-table-mode t)
-  (custom-set-faces!
-    '(outline-1 :inherit variable-pitch :weight extra-bold :height 1.6)
-    '(outline-2 :inherit variable-pitch :weight bold :height 1.4)
-    '(outline-3 :inherit variable-pitch :weight bold :height 1.3)
-    '(outline-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
-    '(outline-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
-    '(outline-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-    '(outline-8 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-    '(outline-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-    '(org-level-1 :inherit variable-pitch :weight extra-bold :height 1.6)
-    '(org-level-2 :inherit variable-pitch :weight bold :height 1.4)
-    '(org-level-3 :inherit variable-pitch :weight bold :height 1.3)
-    '(org-level-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
-    '(org-level-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
-    '(org-level-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-    '(org-level-8 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-    '(org-level-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-    '(org-link :weight bold :height 1.1 :underline t)
-    '(org-document-info :foreground "dark orange")
-    '(hydra-posframe-border-face :background "OrangeRed3")
-    '(org-done :strike-through t :weight bold)
-    '(org-headline-done :strike-through t)
-    '(org-code :inherit (fixed-pitch shadow) :height 1.1)
-    '(org-verbatim :inherit shadow)
-    '(org-block :inherit (fixed-pitch shadow) :background nil :height 1.2)
-    '(org-block-begin-line :inherit region  :background nil :height 0.9)
-    '(org-block-end-line :inherit region :background nil :height 0.8)
-    '(org-document-title :height 1.1 :weight normal :underline nil)
-    '(org-document-info :height 1.1 :slant italic)
-    '(org-document-info-keyword :inherit shadow :height 0.8)
-    '(org-meta-line :inherit (font-lock-comment-face fixed-pitch) :foreground "dark orange")
-    '(org-property-value :inherit fixed-pitch)
-    '(org-special-keyword :inherit (font-lock-comment-face fixed-pitch))
-    '(org-tag :inherit (shadow fixed-pitch) :weight bold :height 1.1)
-    '(org-block :inherit fixed-pitch)
-    '(org-ellipsis :underline nil)
-    '(org-agenda-date :height 1.1 :background nil)
-    '(org-agenda-date-today :height 1.5 :background nil)
-    '(org-table :inherit variable-pitch-serif)
-    ;; '(elfeed-search-unread-title-face :foreground fg :height 1.0 :weight 'bold :inherit 'variable-pitch)
-    ;; '(elfeed-show-title-face :weight 'ultrabold :height 1.5 :inherit 'variable-pitch)
-    '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet")
-    )
-  (add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
   )
 
 ;; Modified from https://wilkesley.org/~ian/xah/emacs/dired_sort.html
@@ -3982,34 +4000,41 @@ the inbox.  Set it as a waiting action and refile to
 (setq org-fancy-priorities-list
       `((?A ,(all-the-icons-material "filter_1" :height 1.2))
         (?B ,(all-the-icons-material "filter_2" :height 1.2))
-        (?C ,(all-the-icons-material "filter_3" :height 1.2))))
+        (?C ,(all-the-icons-material "filter_3" :height 1.2))
+        (?D ,(all-the-icons-material "filter_4" :height 1.2))
+        ))
+(after! org
+  (setq org-priority-default 68
+        org-priority-highest 65
+        org-priority-lowest 68)
+  )
 
-(customize-set-value
- 'org-agenda-category-icon-alist
- `(
-   ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
-   ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
-   ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
-   ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
-   ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
-   ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
-   ("reading" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
-   ("coding" ,(list (all-the-icons-material "code" :height 1.2)) nil nil :ascent center)
-   ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
-   ("finance" ,(list (all-the-icons-material "attach_money" :height 1.2)) nil nil :ascent center)
-   ("ideas" ,(list (all-the-icons-material "lightbulb_outline" :height 1.2)) nil nil :ascent center)
-   ("tasks" ,(list (all-the-icons-material "functions" :height 1.2)) nil nil :ascent center)
-   ("music" ,(list (all-the-icons-material "music_video" :height 1.2)) nil nil :ascent center)
-   ("emacs" ,(list (all-the-icons-material "format_paint" :height 1.2)) nil nil :ascent center)
-   ("research" ,(list (all-the-icons-material "explore" :height 1.2)) nil nil :ascent center)
-   ("necessity" ,(list (all-the-icons-material "rowing" :height 1.2)) nil nil :ascent center)
-   ("tinker" ,(list (all-the-icons-material "build" :height 1.2)) nil nil :ascent center)
-   ("project" ,(list (all-the-icons-material "stars" :height 1.2)) nil nil :ascent center)
-   ("personal" ,(list (all-the-icons-material "mood" :height 1.2)) nil nil :ascent center)
-   ("chill" ,(list (all-the-icons-material "gamepad" :height 1.2)) nil nil :ascent center)
-   ("planning" ,(list (all-the-icons-material "tune" :height 1.2)) nil nil :ascent center)
-   ("freelance" ,(list (all-the-icons-material "redeem" :height 1.2)) nil nil :ascent center)
-   ))
+  (customize-set-value
+   'org-agenda-category-icon-alist
+   `(
+     ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
+     ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
+     ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
+     ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
+     ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
+     ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
+     ("reading" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
+     ("coding" ,(list (all-the-icons-material "code" :height 1.2)) nil nil :ascent center)
+     ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
+     ("finance" ,(list (all-the-icons-material "attach_money" :height 1.2)) nil nil :ascent center)
+     ("ideas" ,(list (all-the-icons-material "lightbulb_outline" :height 1.2)) nil nil :ascent center)
+     ("tasks" ,(list (all-the-icons-material "functions" :height 1.2)) nil nil :ascent center)
+     ("music" ,(list (all-the-icons-material "music_video" :height 1.2)) nil nil :ascent center)
+     ("emacs" ,(list (all-the-icons-material "format_paint" :height 1.2)) nil nil :ascent center)
+     ("research" ,(list (all-the-icons-material "explore" :height 1.2)) nil nil :ascent center)
+     ("necessity" ,(list (all-the-icons-material "rowing" :height 1.2)) nil nil :ascent center)
+     ("tinker" ,(list (all-the-icons-material "build" :height 1.2)) nil nil :ascent center)
+     ("project" ,(list (all-the-icons-material "stars" :height 1.2)) nil nil :ascent center)
+     ("personal" ,(list (all-the-icons-material "mood" :height 1.2)) nil nil :ascent center)
+     ("chill" ,(list (all-the-icons-material "gamepad" :height 1.2)) nil nil :ascent center)
+     ("planning" ,(list (all-the-icons-material "tune" :height 1.2)) nil nil :ascent center)
+     ("freelance" ,(list (all-the-icons-material "redeem" :height 1.2)) nil nil :ascent center)
+     ))
 
 
 
@@ -4301,38 +4326,19 @@ from .dir-locals.el"
 
 (setq ispell-dictionary "en")
 
+;; For having clear navigation with org-ql views
+(setq org-super-agenda-header-map (make-sparse-keymap))
 
-;; (use-package! delve
-;;   :bind (("<f12>" . delve-open-or-select))
-;;   :config
-;;   (set-evil-initial-state! 'delve-mode 'insert)
-;;   (map! :map delve-mode-map
-;;         :n "gr"      #'delve-refresh-buffer
-;;         :n "<right>" #'delve-expand-insert-tolinks
-;;         :n "<left>"  #'devle-expand-insert-backlinks
-;;         :localleader
-;;         "RET"  #'lister-key-action
-;;         "TAB"  #'delve-expand-toggle-sublist)
-;;   (use-package! delve-minor-mode
-;;     :hook (org-roam-mode . delve-minor-mode-maybe-activate)))
-
-;; (defun delve-sort-buffer-function (buf function)
-;;   "sort all items in BUF by FUNCTION."
-;;   (when-let* ((all-data (lister-get-all-data buf))
-;;               (head (car all-data))
-;;               (tail (cdr all-data)))
-;;     (lister-with-locked-cursor buf
-;;                                (with-temp-message "Updating the whole buffer, that might take some time...."
-;; 	                         (lister-set-list buf (cons head (funcall function  tail)))))))
-
-;; (evil-define-key* '(normal insert) delve-mode-map
-;;   (kbd "<return>") #'lister-key-action
-;;   (kbd "<tab>") #'delve-expand-toggle-sublist
-;;   (kbd "gr") #'delve-revert
-;;   (kbd "sm") #'delve-sort-buffer-by-mtime
-;;   (kbd "sa") #'delve-sort-buffer-by-atime
-;;   (kbd "sc") #'delve-sort-buffer-by-ctime
-;;   (kbd "<right>") #'delve-expand-insert-tolinks
-;;   (kbd "<left>")  #'delve-expand-insert-backlinks
-;;   (kbd "c") #'delve-collect
-;;   (kbd "q") #'delve-kill-buffer)
+(defun window-split-toggle ()
+  "Toggle between horizontal and vertical split with two windows."
+  (interactive)
+  (if (> (length (window-list)) 2)
+      (error "Can't toggle with more than 2 windows!")
+    (let ((func (if (window-full-height-p)
+                    #'split-window-vertically
+                  #'split-window-horizontally)))
+      (delete-other-windows)
+      (funcall func)
+      (save-selected-window
+        (other-window 1)
+        (switch-to-buffer (other-buffer))))))

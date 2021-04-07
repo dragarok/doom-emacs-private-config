@@ -92,12 +92,8 @@
 ;; since doom emacs doesn't add it by default for it's setup
 (package! lsp-julia :recipe (:host github :repo "non-jedi/lsp-julia"))
 ;; had issues with native emacs so let's not byte compile them
-<<<<<<< HEAD
 ;; (package! ein :recipe (:no-byte-compile t))
-(package! ein)
-=======
-(package! ein :recipe (:no-byte-compile t))
->>>>>>> 4051790f1563fd4df8e8d65ec7657a6531b5d89b
+;; (package! ein)
 ;; export org mode notebooks to ipynb
 (package! ox-ipynb
   :recipe (:host github :repo "zaeph/ox-ipynb"))
