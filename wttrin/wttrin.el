@@ -30,6 +30,10 @@
   :type '(choice (const 1) (const 2)))
 
 (defcustom wttrin-default-cities '("Baghdad"
+                                   "Kathmandu"
+                                   "Pokhara"
+                                   "Baglung"
+                                   "Lalitpur"
                                    "Beijing"
                                    "Brussels"
                                    "Buenos Aires"

@@ -8,67 +8,105 @@
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
+(setq gc-cons-threshold 4073741824 )
 (setq show-trailing-whitespace t)
+
+(setq org-roam-directory "~/Dropbox/org/notes/")
+(setq org-roam-db-location "~/.org/org-roam.db")
+(setq org-roam-dailies-directory "daily/")
+
+(add-hook 'dired-mode-hook
+          (lambda ()
+            (dired-hide-details-mode)))
+
+
+;; (setq wl-copy-process nil)
+;; (defun wl-copy (text)
+;;   (setq wl-copy-process (make-process :name "wl-copy"
+;;                                       :buffer nil
+;;                                       :command '("wl-copy" "-f" "-n")
+;;                                       :connection-type 'pipe))
+;;   (process-send-string wl-copy-process text)
+;;   (process-send-eof wl-copy-process))
+;; (defun wl-paste ()
+;;   (if (and wl-copy-process (process-live-p wl-copy-process))
+;;       nil ; should return nil if we're the current paste owner
+;;       (shell-command-to-string "wl-paste -n | tr -d \r")))
+;; (setq interprogram-cut-function 'wl-copy)
+;; (setq interprogram-paste-function 'wl-paste)
+
+
+
+;;;###autoload
+(defun copy-link-for-kindle ()
+  (interactive)
+  (elfeed-show-yank)
+  (org-capture nil "k")
+  )
+
 
 (setq doom-font (font-spec :family "Iosevka" :size 20)
       ;;       doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 22)
-      doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
+
+      doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 24)
       doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
+      ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
+      ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
       doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
 
-(custom-set-faces!
-  '(outline-1 :inherit variable-pitch :weight extra-bold :height 1.6)
-  '(outline-2 :inherit variable-pitch :weight bold :height 1.4)
-  '(outline-3 :inherit variable-pitch :weight bold :height 1.3)
-  '(outline-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
-  '(outline-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
-  '(outline-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-  '(outline-8 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-  '(outline-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-  '(org-level-1 :inherit variable-pitch :weight extra-bold :height 1.6)
-  '(org-level-2 :inherit variable-pitch :weight bold :height 1.4)
-  '(org-level-3 :inherit variable-pitch :weight bold :height 1.3)
-  '(org-level-4 :inherit variable-pitch :slant italic :weight semi-bold :height 1.2)
-  '(org-level-5 :inherit variable-pitch :slant italic :weight semi-bold :height 1.15)
-  '(org-level-6 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-  '(org-level-8 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-  '(org-level-9 :inherit variable-pitch :slant italic :weight semi-bold :height 1.1)
-  '(org-link :weight bold :height 1.1 :underline t)
-  '(org-document-info :foreground "dark orange")
-  '(hydra-posframe-border-face :background "OrangeRed3")
-  '(org-done :strike-through t :weight bold)
-  '(org-headline-done :strike-through t)
-  '(org-code :inherit (fixed-pitch shadow) :height 1.1)
-  '(org-verbatim :inherit shadow)
-  '(org-block :inherit (fixed-pitch shadow) :background nil :height 1.2)
-  '(org-block-begin-line :inherit region  :background nil :height 0.9)
-  '(org-block-end-line :inherit region :background nil :height 0.8)
-  '(org-document-title :height 1.1 :weight normal :underline nil)
-  '(org-document-info :height 1.1 :slant italic)
-  '(org-document-info-keyword :inherit shadow :height 0.8)
-  '(org-meta-line :inherit (font-lock-comment-face fixed-pitch) :foreground "dark orange")
-  '(org-property-value :inherit fixed-pitch)
-  '(org-special-keyword :inherit (font-lock-comment-face fixed-pitch))
-  '(org-tag :inherit (shadow fixed-pitch) :weight bold :height 1.1)
-  '(org-block :inherit fixed-pitch)
-  '(org-ellipsis :underline nil)
-  '(org-agenda-date :height 1.1 :background nil)
-  '(org-agenda-date-today :height 1.5 :background nil)
-  '(org-table :inherit variable-pitch-serif)
-  ;; '(elfeed-search-unread-title-face :foreground fg :height 1.0 :weight 'bold :inherit 'variable-pitch)
-  ;; '(elfeed-show-title-face :weight 'ultrabold :height 1.5 :inherit 'variable-pitch)
-  '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet")
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Org Mode Beautification                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(use-package! org-superstar ; "prettier" bullets
+  :hook (org-mode . org-superstar-mode)
+  :config
+  ;; Make leading stars truly invisible, by rendering them as spaces!
+  (setq org-superstar-leading-bullet ?\s
+        org-superstar-headline-bullets-list '(?\s)
+        org-superstar-leading-fallback ?\s
+        org-superstar-remove-leading-stars t
+        org-superstar-todo-bullet-alist
+        '(("TODO" . 9744)
+          ("[ ]"  . 9744)
+          ("DONE" . 9745)
+          ("[X]"  . 9745)))
+  ;; (org-superstar-restart)
+  )
+
+
+(use-package! org-fancy-priorities ; priority icons
+  :after org
+  :init
+  :config
+  (org-fancy-priorities-mode)
+  (setq org-fancy-priorities-list
+        `((?A ,(all-the-icons-octicon "flame" :height 1.2))
+          (?B ,(all-the-icons-octicon "arrow-up" :height 1.2))
+          (?C ,(all-the-icons-octicon "chevron-up" :height 1.2))
+          (?D ,(all-the-icons-octicon "squirrel" :height 1.2))
+          ))
+
+  (setq org-priority-faces '((?A . (:foreground "red" :weight bold))
+                             (?B . (:foreground "green" :weight bold))
+                             (?C . (:foreground "tomato"))
+                             (?D . (:foreground "orange"))))
+
+  (setq org-priority-default 68
+        org-priority-highest 65
+        org-priority-lowest 68)
   )
 
 (add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
 
-
-(load-theme 'doom-flatwhite 'noconfirm)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                       Org Mode Beautification End                                                     ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (if (not window-system)
-    (setq doom-theme 'doom-flatwhite))
+    (setq doom-theme 'doom-solarized-light))
 
-;; ;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
+;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
 (defun doom-dashboard-widget-banner ()
   (let ((point (point)))
     (mapc (lambda (line)
@@ -113,27 +151,19 @@
 
 (setq display-line-numbers-type 'relative)
 
-;; (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
+;; (use-package nov
+;;   :mode ("\\.epub\\'" . nov-mode)
+;;   :config
+;;   (setq nov-text-width t)
+;;   (setq visual-fill-column-center-text t)
+;;   (defun my-nov-font-setup ()
+;;     (face-remap-add-relative 'variable-pitch :family "Overpass Nerd Font"
+;;                              :height 1.2))
+;;   (setq nov-text-width 80)
+;;   (add-hook 'nov-mode-hook 'virtual-auto-fill-mode)
+;;   (add-hook 'nov-mode-hook 'visual-fill-column-mode)
+;;   (add-hook 'nov-mode-hook 'my-nov-font-setup))
 
-;; (add-hook 'nov-mode-hook 'my-nov-font-setup)
-
-(use-package nov
-  :mode ("\\.epub\\'" . nov-mode)
-  :config
-  (setq nov-text-width t)
-  (setq visual-fill-column-center-text t)
-  (defun my-nov-font-setup ()
-    (face-remap-add-relative 'variable-pitch :family "Overpass Nerd Font"
-                             :height 1.2))
-  (setq nov-text-width 80)
-  (add-hook 'nov-mode-hook 'virtual-auto-fill-mode)
-  (add-hook 'nov-mode-hook 'visual-fill-column-mode)
-  (add-hook 'nov-mode-hook 'my-nov-font-setup))
-
-
-
-(setq org-roam-directory "~/Dropbox/org/notes/")
-(setq org-roam-db-location "~/.org/org-roam.db")
 
 (after! org
   (set-popup-rule! "*CAPTURE-*" :side 'left :size .30 :select t)
@@ -178,8 +208,7 @@
   (evil-define-key 'insert ein:notebook-mode-map
     ;; keybindings mirror ipython web interface behavior
     "<C-return>" 'ein:worksheet-execute-cell-km
-    "<C-s-return>" 'ein:worksheet-execute-cell-and-goto-next-km)
-
+    "<C-H-return>" 'ein:worksheet-execute-cell-and-goto-next-km)
 
   ;; ein show images in there
   (setq ein:output-area-inlined-images t)
@@ -187,21 +216,21 @@
   (map! :map ein:notebook-mode-map
         ;; Insert new cell, Execute cells
         ;; Merge, Split, Remove or Move cells
-        "<C-return>" 'ein:worksheet-execute-cell-km
-        "<s-return>" 'ein:worksheet-execute-cell-and-goto-next-km
-        "s-o" 'ein:worksheet-insert-cell-below-km
-        "s-O" 'ein:worksheet-insert-cell-above-km
-        "s-c" 'ein:worksheet-change-cell-type-km
-        "s-b" 'ein:worksheet-split-cell-at-point-km
-        "s-k" 'ein:worksheet-move-cell-up-km
-        "s-j" 'ein:worksheet-move-cell-down-km
-        "C-s-k" 'ein:worksheet-merge-cell-km
-        "C-s-j" 'spacemacs/ein:worksheet-merge-cell-next
-        "s-y" 'ein:worksheet-copy-cell-km
-        "s-t" 'ein:worksheet-toggle-output-km
-        "s-p" 'ein:worksheet-yank-cell-km
-        "s-d" 'ein:worksheet-kill-cell-km
-        "s-;" 'ein:notebook-scratchsheet-open-km
+        "<C-H-return>" 'ein:worksheet-execute-cell-km
+        "<H-return>" 'ein:worksheet-execute-cell-and-goto-next-km
+        "H-o" 'ein:worksheet-insert-cell-below-km
+        "H-O" 'ein:worksheet-insert-cell-above-km
+        "H-c" 'ein:worksheet-change-cell-type-km
+        "H-b" 'ein:worksheet-split-cell-at-point-km
+        "H-k" 'ein:worksheet-move-cell-up-km
+        "H-j" 'ein:worksheet-move-cell-down-km
+        "C-H-k" 'ein:worksheet-merge-cell-km
+        "C-H-j" 'spacemacs/ein:worksheet-merge-cell-next
+        "H-y" 'ein:worksheet-copy-cell-km
+        "H-t" 'ein:worksheet-toggle-output-km
+        "H-p" 'ein:worksheet-yank-cell-km
+        "H-d" 'ein:worksheet-kill-cell-km
+        "H-;" 'ein:notebook-scratchsheet-open-km
         ;; Output
         "C-H-o" 'ein:worksheet-toggle-output-km
         "C-l" 'ein:worksheet-clear-output-km
@@ -537,6 +566,9 @@ latter - its output."
           (insert (propertize content 'face 'variable-pitch)))
       (insert (propertize "(empty)\n" 'face 'italic)))
     (goto-char (point-min))))
+
+(add-hook! 'elfeed-search-mode-hook 'elfeed-update)
+
 
 ;; * ace-link and xwidget
 ;;;###autoload
@@ -893,55 +925,56 @@ the buffer."
 
 
 
-(use-package eww
-  :defer t
-  :commands (eww
-             eww-browse-url
-             eww-search-words
-             eww-open-in-new-buffer
-             eww-open-file
-             prot/eww-visit-history)
-  :config
-  (setq eww-restore-desktop nil)
-  (setq eww-desktop-remove-duplicates t)
-  (setq eww-header-line-format "%u")
-  (setq eww-search-prefix "https://duckduckgo.com/html/?q=")
-  (setq eww-download-directory "~/Downloads/")
-  (setq eww-suggest-uris
-        '(eww-links-at-point
-          eww-prompt-history
-          thing-at-point-url-at-point))
-  (setq eww-bookmarks-directory "~/.emacs.d/eww-bookmarks/")
-  (setq eww-history-limit 150)
-  (setq eww-use-external-browser-for-content-type
-        "\\`\\(video/\\|audio/\\|application/pdf\\)")
-  (setq eww-browse-url-new-window-is-tab nil)
-  (setq eww-form-checkbox-selected-symbol "[X]")
-  (setq eww-form-checkbox-symbol "[ ]")
+;; (use-package eww
+;;   :defer t
+;;   :commands (eww
+;;              eww-browse-url
+;;              eww-search-words
+;;              eww-open-in-new-buffer
+;;              eww-open-file
+;;              prot/eww-visit-history)
+;;   :config
+;;   (setq eww-restore-desktop nil)
+;;   (setq eww-desktop-remove-duplicates t)
+;;   (setq eww-header-line-format "%u")
+;;   (setq eww-search-prefix "https://duckduckgo.com/html/?q=")
+;;   (setq eww-download-directory "~/Downloads/")
+;;   (setq eww-suggest-uris
+;;         '(eww-links-at-point
+;;           eww-prompt-history
+;;           thing-at-point-url-at-point))
+;;   (setq eww-bookmarks-directory "~/.emacs.d/eww-bookmarks/")
+;;   (setq eww-history-limit 150)
+;;   (setq eww-use-external-browser-for-content-type
+;;         "\\`\\(video/\\|audio/\\|application/pdf\\)")
+;;   (setq eww-browse-url-new-window-is-tab nil)
+;;   (setq eww-form-checkbox-selected-symbol "[X]")
+;;   (setq eww-form-checkbox-symbol "[ ]")
 
-  (defun prot/eww-visit-history (&optional arg)
-    "Revisit a URL from `eww-prompt-history' using completion.
-With \\[universal-argument] produce a new buffer."
-    (interactive "P")
-    (let ((history eww-prompt-history)  ; eww-bookmarks
-          (new (if arg t nil)))
-      (icomplete-vertical-do ()
-                             (eww
-                              (completing-read "Visit website from history: " history nil t)
-                              new))))
-  :bind (:map eww-mode-map
-         ("j" . next-line)
-         ("k" . previous-line)
-         ("f" . forward-char)
-         ("b" . backward-char)
-         ("a" . prot/eww-org-archive-current-url)
-         ("B" . eww-back-url)
-         ("N" . eww-next-url)
-         ("P" . eww-previous-url)))
-(use-package browse-url
-  :after eww
-  :config
-  (setq browse-url-browser-function 'eww-browse-url))
+;;   (defun prot/eww-visit-history (&optional arg)
+;;     "Revisit a URL from `eww-prompt-history' using completion.
+;; With \\[universal-argument] produce a new buffer."
+;;     (interactive "P")
+;;     (let ((history eww-prompt-history)  ; eww-bookmarks
+;;           (new (if arg t nil)))
+;;       (icomplete-vertical-do ()
+;;                              (eww
+;;                               (completing-read "Visit website from history: " history nil t)
+;;                               new))))
+;;   :bind (:map eww-mode-map
+;;          ("j" . next-line)
+;;          ("k" . previous-line)
+;;          ("f" . forward-char)
+;;          ("b" . backward-char)
+;;          ("a" . prot/eww-org-archive-current-url)
+;;          ("B" . eww-back-url)
+;;          ("N" . eww-next-url)
+;;          ("P" . eww-previous-url)))
+
+;; (use-package browse-url
+;;   :after eww
+;;   :config
+;;   (setq browse-url-browser-function 'eww-browse-url))
 
 (after! eshell
   (set-eshell-alias!
@@ -1247,7 +1280,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 
   (prodigy-define-service
    :name "Hugo server"
-   :port 5000
+   :port 1313
    :command "hugo"
    :args '("server" "-t")
    :cwd "~/Dropbox/org/blogging/"
@@ -1255,19 +1288,20 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
    :tags '(hugook)
    :kill-process-buffer-on-stop t))
 
-(use-package conda
-  :after python
-  :init
-  (setq-default
-   conda-env-home-directory "/home/kai/.conda/"
-   conda-anaconda-home "/opt/anaconda3/")
-  :config
-  (setq flycheck-checker-error-threshold nil)
-  ;; if you want interactive shell support, include:
-  (conda-env-initialize-interactive-shells)
-  ;; if you want eshell support, include:
-  (conda-env-initialize-eshell)
-  )
+;; (use-package conda
+;;   :after python
+;;   :init
+;;   (setq-default
+;;    conda-env-home-directory "/home/kai/.conda/"
+;;    conda-anaconda-home "/opt/anaconda3/")
+;;   :config
+;;   (setq flycheck-checker-error-threshold nil)
+;;   ;; if you want interactive shell support, include:
+;;   (conda-env-initialize-interactive-shells)
+;;   ;; if you want eshell support, include:
+;;   (conda-env-initialize-eshell)
+;;   (require 'dap-python)
+;;   )
 
 (use-package dart-mode
   :defer t
@@ -1421,14 +1455,14 @@ And the line would be overlaid like:
         org-archive-mark-done t
         org-archive-tag "DONE"
         org-image-actual-width nil
-        org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
+        ;; org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
         org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
         projectile-project-search-path '("~/workspace/projects/"))
   )
 
 (after! org
-  (setq org-agenda-tags-column 120)
-  (setq org-tags-column 120)
+  (setq org-agenda-tags-column 40)
+  (setq org-tags-column 40)
   (setq org-agenda-files '("~/Dropbox/org/gtd/"))
   (setq org-agenda-start-with-log-mode t)
   (setq org-columns-default-format "%40ITEM(Task) %Effort(EE){:} %CLOCKSUM(Time Spent) %SCHEDULED(Scheduled) %DEADLINE(Deadline) %TAGS")
@@ -1484,44 +1518,52 @@ And the line would be overlaid like:
         org-src-tab-acts-natively t)
   ;; (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
 
-  (setq org-tag-alist '((:startgroup . nil)
+  (setq org-tag-alist '(
+                        ;; Why this work?
+                        (:startgroup . nil)
                         ("@hobby" . ?h)
-                        ("@toearn" . ?e)
-                        ("@brain" . ?b)
-                        ("@personality" . ?p)
-                        ("@investment" . ?i)
-                        ("@random" . ?r)
+                        ("@toearn" . ?E)
+                        ("@personality" . ?K)
+                        ("@entertaintment" . ?e)
+                        ("@research" . ?R)
+                        ;; ("" . ?h)
+                        ;; ("" . ?e)
+                        ;; ("" . ?p)
+                        ;; ("" . ?r)
+                        ;; ("" . ?r)
                         (:endgroup . nil)
 
+                        ;; Type of work
                         (:startgroup . nil)
-                        ("paper" . ?P)
-                        ("article" . ?A)
-                        ("video" . ?V)
+                        ("read" . ?r)
+                        ("code" . ?c)
+                        ("meeting" . ?m)
+                        ("practice" . ?P)
+                        ("planning" . ?p)
+                        ("review" . ?r)
                         (:endgroup . nil)
 
+                        ;; Difficulty of work
                         (:startgroup . nil)
-                        ("ds" . ?d)
-                        ("ml" . ?m)
-                        ("neuro" . ?n)
+                        ("Challenge" . ?2)
+                        ("Average" . ?1)
+                        ("Easy" . ?0)
                         (:endgroup . nil)
 
+                        ;; Time Context for the work
                         (:startgroup . nil)
-                        ("outwards" . ?G)
-                        ("planning" . ?P)
-                        ("spirituality" . ?S)
-                        ("entrepre" . ?R)
+                        ("EM" . ?3)
+                        ("M" . ?4)
+                        ("D" . ?5)
+                        ("EV" . ?6)
                         (:endgroup . nil)
 
+                        ;; Motivation required for this work
                         (:startgroup . nil)
-                        ("entertaintment" . ?Z)
-                        ("code" . ?C)
-                        ("event" . ?N)
-                        (:endgroup . nil)
-
-                        (:startgroup . nil)
-                        ("Challenge" . ?1)
-                        ("Average" . ?2)
-                        ("Easy" . ?3)
+                        ("MR0" . ?7)
+                        ("MR1" . ?8)
+                        ("MR2" . ?9)
+                        ("MR3" .?Z)
                         (:endgroup . nil)
                         ))
 
@@ -1560,19 +1602,17 @@ And the line would be overlaid like:
 
 (after! org (add-to-list 'org-capture-templates
                          '("l" "Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
-                           "* TODO [[%:link][%:description]]\n\n %i" :immediate-finish t)))
+                           "* TODO [[%^{link}][%^{description}]]"
+                           :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("h" "Clip Link Capture" entry (file "~/Dropbox/org/gtd/links.org")
-                           "* TODO %(org-cliplink-capture)" :immediate-finish t)))
+                           "* TODO %(org-cliplink-capture)"
+                           :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("ph" "New Project" entry (file "~/Dropbox/org/gtd/projects.org")
                            (file "~/Dropbox/org/templates/newprojtemplate.org"))))
-
-
-
-
 
 ;; (after! org (add-to-list 'org-capture-templates
 ;;                          '("ph" "New Project" entry (file "~/Dropbox/org/gtd/projects.org")
@@ -1615,7 +1655,7 @@ And the line would be overlaid like:
 (after! org (add-to-list 'org-capture-templates
                          '("v" "Create a new habit" entry (file "~/Dropbox/org/gtd/recurring.org")
                            "* TODO %^{description} %?
-:SCHEDULED: %^{Start Time:}t
+SCHEDULED: %^{Start Time:}t
 :PROPERTIES:
 :STYLE: habit
 :CREATED:    %U
@@ -1748,7 +1788,7 @@ And the line would be overlaid like:
 
 (after! org (add-to-list 'org-capture-templates
              '("k" "Read on Kindle [Clipboard URL]" entry(file "~/Dropbox/org/gtd/kindle_daily.org")
-               "* %<%Y-%m-%d> ==> %x"
+               "* %<%Y-%m-%d> ==> %c"
                :immediate-finish t)))
 
 (after! org
@@ -1776,7 +1816,7 @@ And the line would be overlaid like:
 (after! org
   (add-hook 'org-agenda-finalize-hook
             (lambda () (remove-text-properties
-                        (point-min) (point-max) '(mouse-face t))))
+                   (point-min) (point-max) '(mouse-face t))))
   ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
   ;; (add-hook 'org-finalize-agenda-hook (lambda () (hl-line-mode 1))))
   )
@@ -1784,9 +1824,10 @@ And the line would be overlaid like:
 (after! org-agenda (setq org-agenda-custom-commands
                          '(
                            ("k" "Today\'s View"
-                            ((agenda ""
+                            ((my-agenda-motto "" nil)
+                             (agenda ""
                                      ((org-agenda-files
-                                       '("~/Dropbox/org/gtd/tasks.org" "~/Dropbox/org/gtd/recurring.org"
+                                       '("~/Dropbox/org/gtd/tasks.org"
                                          "~/Dropbox/org/gtd/events.org" "~/Dropbox/org/gtd/projects.org"))
                                       (org-agenda-overriding-header "Overall Agenda View")
                                       (org-agenda-span 'day)
@@ -1795,11 +1836,26 @@ And the line would be overlaid like:
                                       (org-agenda-current-span 'day))
                                      (org-time-budgets-in-agenda-maybe)
                                      )
+                             (todo "NEXT"
+                                   ((org-agenda-files
+                                     '("~/Dropbox/org/gtd/projects.org"))
+                                    (org-agenda-overriding-header " PROJECT TASKS\n ===================================================================\n")
+                                    ))
                              (todo "TODO|NEXT"
                                    ((org-agenda-overriding-header "Tasks that don't belong to project\n ==========================================================\n")
                                     ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
                                     (org-agenda-files
                                      '("~/Dropbox/org/gtd/tasks.org"))))
+                             (agenda ""
+                                     ((org-agenda-files
+                                       '("~/Dropbox/org/gtd/recurring.org"))
+                                      (org-agenda-overriding-header "Habits\n ==========================================================\n")
+                                      (org-agenda-span 'day)
+                                      (org-agenda-start-day
+                                       (org-today))
+                                      (org-agenda-current-span 'day)
+                                      ;; ((org-agenda-overriding-header "[[~/Dropbox/org/gtd/tasks.org][Task list]]")
+                                      ))
                              ;; (todo "WAITING|NEXT"
                              ;;       ((org-agenda-files
                              ;;         '("~/Dropbox/org/gtd/tasks.org"))
@@ -1812,11 +1868,6 @@ And the line would be overlaid like:
                                    ((org-agenda-files
                                      '("~/Dropbox/org/gtd/books.org"))
                                     (org-agenda-overriding-header "Books I am currently reading\n ======================================================\n")
-                                    ))
-                             (todo "NEXT"
-                                   ((org-agenda-files
-                                     '("~/Dropbox/org/gtd/projects.org"))
-                                    (org-agenda-overriding-header " PROJECT TASKS\n ===================================================================\n")
                                     ))
                              )
                             nil)
@@ -1992,74 +2043,64 @@ And the line would be overlaid like:
       (while (not (file-exists-p tmp-file))
         (sleep-for 2))
       (org-download-image tmp-file)))
-  (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
+  (global-set-key (kbd "<H-print>") 'my-org-download-screenshot)
   )
 
 
 (after! org-roam
   (setq org-roam-capture-templates
         '(("x" "braindump" plain
-           (function org-roam--capture-get-point)
            "%?"
-           :file-name "${slug}"
-           :head "#+SETUPFILE:./hugo_setup.org
-#+TITLE: ${title}
+           :if-new (file+head "${slug}.org"
+"#+SETUPFILE:./hugo_setup.org
 #+HUGO_SECTION: braindump
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
 #+hugo_draft: false
-#+DATE: %t\n"
-           :unnarrowed t)
-
-          ("t" "ai" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "AI/${slug}"
-           :head "#+SETUPFILE:../hugo_in_setup.org
+#+DATE: %t\n
+#+title: ${title}\n")
+:unnarrowed t)
+        ("t" "ai" plain
+          "%?"
+          :if-new (file+head "AI/${slug}.org"
+"#+SETUPFILE:../hugo_in_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: ai
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
 #+hugo_draft: false
-#+DATE: %t\n"
-           :unnarrowed t)
-
-
-          ("l" "neuroscience" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "neuroscience/${slug}"
-           :head "#+SETUPFILE:../hugo_in_setup.org
+#+DATE: %t\n")
+:unnarrowed t)
+        ("l" "neuroscience" plain
+          "%?"
+          :if-new (file+head "neuroscience/${slug}.org"
+"#+SETUPFILE:../hugo_in_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: neuroscience
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
 #+hugo_draft: false
-#+DATE: %t\n"
-           :unnarrowed t)
-
-          ("e" "emacs" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "emacs/${slug}"
-           :head "#+SETUPFILE:../hugo_in_setup.org
+#+DATE: %t\n")
+:unnarrowed t)
+        ("e" "emacs" plain
+         "%?"
+         :if-new (file+head "emacs/${slug}.org"
+"#+SETUPFILE:../hugo_in_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: emacs
 #+HUGO_SLUG: ${slug}
 #+hugo_tags:
 #+hugo_categories:
 #+hugo_draft: false
-#+DATE: %t\n"
-           :unnarrowed t)
-
-          ("j" "paper-description" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "${slug}"
-           :head "#+SETUPFILE:./hugo_setup.org
+#+DATE: %t\n")
+:unnarrowed t)
+        ("j" "paper-description" plain
+          "%?"
+          :if-new (file+head "${slug}.org"
+"#+SETUPFILE:./hugo_setup.org
 #+TITLE: ${title}
 #+HUGO_SECTION: ${section}
 #+HUGO_SLUG: ${slug}
@@ -2067,40 +2108,40 @@ And the line would be overlaid like:
 #+hugo_categories:
 #+hugo_draft: false
 #+DATE: %t\n * Main Contribution \n* Your description of significance \n* New algorithm or principles\n* Simulation Results and Comparisons\n* Solid Conclusion"
-           :unnarrowed t)
+:unnarrowed t)
 
 
-          ("e" "ref" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "websites/${slug}"
-           :head "#+SETUPFILE:./hugo_in_setup.org
+        ("e" "ref" plain
+          (function org-roam--capture-get-point)
+          "%?"
+          :if-new (file+head "websites/${slug}.org"
+"#+SETUPFILE:./hugo_in_setup.org
 #+ROAM_KEY: ${ref}
 #+HUGO_SLUG: ${slug}
-#+TITLE: ${title}\n- source :: ${ref}"
-           :unnarrowed t)
+#+TITLE: ${title}\n- source :: ${ref}")
+:unnarrowed t)
 
-          ("k" "private" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "private-${slug}"
-           :head "#+TITLE: ${title}\n"
-           :unnarrowed t)
+        ("k" "private" plain
+          (function org-roam--capture-get-point)
+          "%?"
+          :if-new (file+head "private-${slug}"
+                             "#+TITLE: ${title}\n")
+          :unnarrowed t)
 
-          ("h" "hugo blogging" plain
-           (function org-roam--capture-get-point)
-           "%?"
-           :file-name "%<%Y%m%d%H%M%S>-${slug}"
-           :head "#+SETUPFILE:./hugo_setup.org
+        ("h" "hugo blogging" plain
+          (function org-roam--capture-get-point)
+          "%?"
+          :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}"
+"#+SETUPFILE:./hugo_setup.org
 #+HUGO_SECTION: posts
 #+HUGO_TAGS: %^{Tags}
 #+EXPORT_FILE_NAME: %^{export name}
 #+TITLE: ${title}
 #+AUTHOR: Alok Regmi
-#+DATE: %t"
-           :unnarrowed t)
-          ))
-  )
+#+DATE: %t")
+        :unnarrowed t)
+        ))
+))
 
 (use-package org-roam-server
   :defer t
@@ -2167,33 +2208,33 @@ And the line would be overlaid like:
                        (when callback
                          (funcall callback temp-html)))))))))
 
-(after! (org org-roam)
-  (defun my/org-roam--backlinks-list (file)
-    (if (org-roam--org-roam-file-p file)
-        (--reduce-from
-         (concat acc (format "- [[file:%s][%s]]\n"
-                             (file-relative-name (car it) org-roam-directory)
-                             (org-roam--get-title-or-slug (car it))))
-         "" (org-roam-sql [:select [from]
-                           :from links
-                           :where (= to $s1)
-                           :and from :not :like $s2] file "%private%"))
-      ""))
-  (defun my/org-export-preprocessor (_backend)
-    (let ((links (my/org-roam--backlinks-list (buffer-file-name))))
-      (unless (string= links "")
-        (save-excursion
-          (goto-char (point-max))
-          (insert (concat "\n* Backlinks\n" links))))))
-  (add-hook 'org-export-before-processing-hook 'my/org-export-preprocessor))
+;; (after! (org org-roam)
+;;   (defun my/org-roam--backlinks-list (file)
+;;     (if (org-roam--org-roam-file-p file)
+;;         (--reduce-from
+;;          (concat acc (format "- [[file:%s][%s]]\n"
+;;                              (file-relative-name (car it) org-roam-directory)
+;;                              (org-roam--get-title-or-slug (car it))))
+;;          "" (org-roam-sql [:select [from]
+;;                            :from links
+;;                            :where (= to $s1)
+;;                            :and from :not :like $s2] file "%private%"))
+;;       ""))
+;;   (defun my/org-export-preprocessor (_backend)
+;;     (let ((links (my/org-roam--backlinks-list (buffer-file-name))))
+;;       (unless (string= links "")
+;;         (save-excursion
+;;           (goto-char (point-max))
+;;           (insert (concat "\n* Backlinks\n" links))))))
+;;   (add-hook 'org-export-before-processing-hook 'my/org-export-preprocessor))
 
-(after! (org ox-hugo)
-  (defun jethro/conditional-hugo-enable ()
-    (save-excursion
-      (if (cdr (assoc "SETUPFILE" (org-roam--extract-global-props '("SETUPFILE"))))
-          (org-hugo-auto-export-mode +1)
-        (org-hugo-auto-export-mode -1))))
-  (add-hook 'org-mode-hook #'jethro/conditional-hugo-enable))
+;; (after! (org ox-hugo)
+;;   (defun jethro/conditional-hugo-enable ()
+;;     (save-excursion
+;;       (if (cdr (assoc "SETUPFILE" (org-roam--extract-global-props '("SETUPFILE"))))
+;;           (org-hugo-auto-export-mode +1)
+;;         (org-hugo-auto-export-mode -1))))
+;;   (add-hook 'org-mode-hook #'jethro/conditional-hugo-enable))
 
 
 (use-package org-ref
@@ -2299,9 +2340,8 @@ And the line would be overlaid like:
                '("f" "Book" entry (file "~/Dropbox/org/gtd/books.org")
                  "%(let* ((url (substring-no-properties (current-kill 0)))
                   (details (org-books-get-details url)))
-             (when details
-               (apply #'org-books-format 3 details))))"))
-  )
+             (when details (apply #'org-books-format 1 details)))"))
+)
 
 (after! org
   (defun org-markup-region-or-point (type beginning-marker end-marker)
@@ -3033,6 +3073,7 @@ structure changes."
   (set-repl-handler! 'python-mode #'jupyter-repl-pop-to-buffer))
 
 (setq scihub-homepage "https://sci-hub.st"
+      scihub-download-directory "~/pdfs"
       scihub-open-after-download nil)
 
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
@@ -3115,7 +3156,13 @@ structure changes."
        :n "p" #'poetry
        :n "r" #'poetry-run
        :n "d" #'scimax-dired/body)
-      )
+      (:prefix "z"
+       :n "f" #'org-roam-node-find
+       :n "r" #'org-roam-node-random
+       :n "i" #'org-roam-capture
+       :n "b" #'org-roam-buffer
+       :n "B" #'org-roam-buffer-toggle)
+)
 
 (after! org
 
@@ -3172,9 +3219,11 @@ structure changes."
   (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
   )
 
-(bind-key "H-;" '+evil-window-split-a)
-(bind-key "H-\\" '+evil-window-vsplit-a)
+(bind-key "H-d" 'evil-window-vsplit)
+(bind-key "H-f" 'evil-window-split)
 (bind-key "H-t" '+my/vterm-run-project)
+(bind-key "H-q" '+workspace/close-window-or-workspace)
+(bind-key "H-w" '+workspace/load)
 
 (map! :localleader
       :map markdown-mode-map
@@ -3328,6 +3377,11 @@ choice's name, and the rest of which is its body forms."
 
 (defun +my/vterm-run-project ()
   (interactive)
+  ;; (if (not (eq (length (window-list)) 3))
+  ;;     (progn
+  ;;       (+evil-window-vsplit-a)
+  ;;       (+evil-window-split-a)))
+  (doom/window-maximize-buffer)
   (+evil-window-vsplit-a)
   (+evil-window-split-a)
   (call-interactively '+vterm/here))
@@ -3563,7 +3617,8 @@ Version 2015-07-30"
          ((equal -sort-by "Size Asc") (setq -arg "-AhlSr --si --time-style long-iso"))
          ((equal -sort-by "Dir") (setq -arg "-Ahl --si --time-style long-iso --group-directories-first"))
          (t (error "Logic error 09535" )))
-        (dired-listing-switches -arg )
+        (dired-sort-other -arg )
+        ;; (dired-listing-switches -arg )
         (setq dired-listing-switches -arg)))
      ((equal -hidden "No")
       (progn
@@ -3588,10 +3643,6 @@ Version 2015-07-30"
        :n "gb" #'light-dired-sort))
 
 (setq writeroom-width 100)
-
-(custom-set-faces!
-  '(vterm-color-black :foreground "SandyBrown" :background "SandyBrown"))
-
 
 ;; Taken from tecosaur's config
 ;;
@@ -3702,12 +3753,12 @@ appropriate.  In tables, insert a new row or end the table."
                (org-return t))))
        (t
         ;; All other cases: call `org-return-indent'.
-        (org-return t))))))
+        (org-return t)))))
 
-(map!
- :after evil-org
- :map evil-org-mode-map
- :i [return] #'unpackaged/org-return-dwim)
+  (map!
+   :after evil-org
+   :map evil-org-mode-map
+   :i [return] #'unpackaged/org-return-dwim))
 
 
 ;; ess config from tecosaur
@@ -3808,64 +3859,6 @@ appropriate.  In tables, insert a new row or end the table."
                 ;; replace with file: link and file: description
                 (insert (format "[[file:%s][file:%s]]" relpath relpath)))))))))
 
-;; Mail setup
-(after! org
-  (setq user-mail-address "sagar.r.alok@gmail.com"
-        user-full-name "Alok Regmi"
-        smtpmail-default-smtp-server "smtp.gmail.com"
-        smtpmail-smtp-server "smtp.gmail.com"
-        smtpmail-stream-type  'starttls
-        smtpmail-smtp-service 587)
-  (require 'mu4e)
-  (setq mu4e-sent-folder "/personal/sent"
-        mu4e-drafts-folder "/personal/drafts"
-        mu4e-trash-folder "/personal/trash"
-        mu4e-contexts
-        `(
-          ,(make-mu4e-context
-            :name "Private"
-            :enter-func (lambda () (mu4e-message "Entering Private context"))
-            :leave-func (lambda () (mu4e-message "Leaving Private context"))
-            :match-func (lambda (msg)
-                          (when msg
-                            (mu4e-message-contact-field-matches msg
-                                                                :to "sagar.r.alok@gmail.com")))
-            :vars '(
-                    (user-mail-address . "sagar.r.alok@gmail.com")
-                    (user-full-name . "Alok Regmi" )
-                    ;; (mu4e-sent-folder "/personal/sent")
-                    ;; (mu4e-drafts-folder "/personal/drafts")
-                    ;; (mu4e-trash-folder "/personal/trash")
-                    ( mu4e-compose-signature .
-                      (concat
-                       "Alok Regmi\n"
-                       "Kushma, Parbat\n"))))
-
-          ,(make-mu4e-context
-            :name "College"
-            :enter-func (lambda () (mu4e-message "Entering College context"))
-            :match-func (lambda (msg) (when msg (mu4e-message-contact-field-matches msg :to "072bex403.alok@pcampus.edu.np")))
-            :vars '(
-                    ( user-mail-address . "072bex403.alok@pcampus.edu.np"  )
-                    ( user-full-name . "Alok Regmi" )
-                    ( smtpmail-smtp-user "072bex403.alok@pcampus.edu.np" )
-                    ;; (mu4e-sent-folder "/pulchowk/sent")
-                    ;; (mu4e-drafts-folder "/pulchowk/drafts")
-                    ;; (mu4e-trash-folder "/pulchowk/trash")
-                    ( mu4e-compose-signature .
-                      (concat
-                       "Alok Regmi\n"
-                       "Pulchowk Campus, Lalitpur, Nepal\n"))))
-
-          )))
-
-(defun copy-link-for-kindle ()
-  (interactive)
-  (elfeed-show-yank)
-  (org-capture nil "k")
-  )
-
-
 ;; visiting tanglesd file at point
 (after! org
   (defun ibizaman/org-babel-goto-tangle-file ()
@@ -3880,47 +3873,6 @@ appropriate.  In tables, insert a new row or end the table."
 (add-hook 'emacs-lisp-mode-hook #'aggressive-indent-mode)
 (after! org
   (require 'ox-ipynb))
-
-
-(use-package! org-gtd
-  :after org
-  :config
-  ;; where org-gtd will put its files. This value is also the default one.
-  (setq org-gtd-directory "~/gtd/")
-  ;; package: https://github.com/Malabarba/org-agenda-property
-  ;; this is so you can see who an item was delegated to in the agenda
-  ;; (setq org-agenda-property-list '("DELEGATED_TO"))
-  ;; I think this makes the agenda easier to read
-  (setq org-agenda-property-position 'next-line)
-  ;; package: https://www.nongnu.org/org-edna-el/
-  ;; org-edna is used to make sure that when a project task gets DONE,
-  ;; the next TODO is automatically changed to NEXT.
-  (setq org-edna-use-inheritance t)
-  (org-edna-load)
-  :bind
-  (("C-c d c" . org-gtd-capture) ;; add item to inbox
-   ("C-c d a" . org-agenda-list) ;; see what's on your plate today
-   ("C-c d p" . org-gtd-process-inbox) ;; process entire inbox
-   ("C-c d n" . org-gtd-show-all-next) ;; see all NEXT items
-   ("C-c d s" . org-gtd-show-stuck-projects) ;; see projects that don't have a NEXT item
-   ("C-c d f" . org-gtd-clarify-finalize))) ;; the keybinding to hit when you're done editing an item in the processing phase
-(add-hook 'monkeytype-mode-hook
-          (lambda ()
-            (evil-escape-mode -1)
-            (evil-insert -1)))
-
-(defun gtd/planning-trigger ()
-  "Automatically insert chain-find-next trigger when entry becomes NEXT"
-  (when (equal org-state "NEXT")
-    (message "Planning next task")
-    (setq planned (car (org-map-entries (lambda () (
-                                               org-entry-get nil  "PLANNED")) "PLANNED<>\"\"" 'tree)))
-    (if planned (
-                 (message "It is %s" planned)
-                 (org-entry-put nil "SCHEDULED" planned)
-                 (org-entry-delete nil "PLANNED")
-                 ) nil) ))
-(add-hook 'org-after-todo-state-change-hook 'gtd/planning-trigger)
 
 ;; Managing projects with gtd workflow
 ;; Taken from org-gtd.el package and modified
@@ -3978,63 +3930,6 @@ the inbox.  Set it as a waiting action and refile to
   (require 'org-edna)
   (org-edna-mode))
 
-(use-package! org-superstar ; "prettier" bullets
-  :hook (org-mode . org-superstar-mode)
-  :init
-  :config
-  ;; Make leading stars truly invisible, by rendering them as spaces!
-  (setq org-superstar-leading-bullet ?\s
-        org-superstar-leading-fallback ?\s
-        org-hide-leading-stars nil
-        org-superstar-todo-bullet-alist
-        '(("TODO" . 9744)
-          ("[ ]"  . 9744)
-          ("DONE" . 9745)
-          ("[X]"  . 9745))))
-
-(use-package! org-fancy-priorities ; priority icons
-  :after org
-  :config
-  (org-fancy-priorities-mode))
-
-(setq org-fancy-priorities-list
-      `((?A ,(all-the-icons-material "filter_1" :height 1.2))
-        (?B ,(all-the-icons-material "filter_2" :height 1.2))
-        (?C ,(all-the-icons-material "filter_3" :height 1.2))
-        (?D ,(all-the-icons-material "filter_4" :height 1.2))
-        ))
-(after! org
-  (setq org-priority-default 68
-        org-priority-highest 65
-        org-priority-lowest 68)
-  )
-
-  (customize-set-value
-   'org-agenda-category-icon-alist
-   `(
-     ("office" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
-     ("mundane" ,(list (all-the-icons-material "weekend" :height 1.2)) nil nil :ascent center)
-     ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
-     ("events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
-     ("inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
-     ("book" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
-     ("reading" ,(list (all-the-icons-material "book" :height 1.2)) nil nil :ascent center)
-     ("coding" ,(list (all-the-icons-material "code" :height 1.2)) nil nil :ascent center)
-     ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
-     ("finance" ,(list (all-the-icons-material "attach_money" :height 1.2)) nil nil :ascent center)
-     ("ideas" ,(list (all-the-icons-material "lightbulb_outline" :height 1.2)) nil nil :ascent center)
-     ("tasks" ,(list (all-the-icons-material "functions" :height 1.2)) nil nil :ascent center)
-     ("music" ,(list (all-the-icons-material "music_video" :height 1.2)) nil nil :ascent center)
-     ("emacs" ,(list (all-the-icons-material "format_paint" :height 1.2)) nil nil :ascent center)
-     ("research" ,(list (all-the-icons-material "explore" :height 1.2)) nil nil :ascent center)
-     ("necessity" ,(list (all-the-icons-material "rowing" :height 1.2)) nil nil :ascent center)
-     ("tinker" ,(list (all-the-icons-material "build" :height 1.2)) nil nil :ascent center)
-     ("project" ,(list (all-the-icons-material "stars" :height 1.2)) nil nil :ascent center)
-     ("personal" ,(list (all-the-icons-material "mood" :height 1.2)) nil nil :ascent center)
-     ("chill" ,(list (all-the-icons-material "gamepad" :height 1.2)) nil nil :ascent center)
-     ("planning" ,(list (all-the-icons-material "tune" :height 1.2)) nil nil :ascent center)
-     ("freelance" ,(list (all-the-icons-material "redeem" :height 1.2)) nil nil :ascent center)
-     ))
 
 
 
@@ -4077,7 +3972,10 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
          display-buffer-alist)
     (setenv "PROOT" project-root)
     (setq my-proj-name (concat "vterm-" (nth 0 (reverse (s-split "/" project-root 'omit-nulls)))))
-    (vterm my-proj-name)
+    (if (get-buffer my-proj-name)
+        (switch-to-buffer my-proj-name)
+      (vterm my-proj-name))
+    ;; (vterm my-proj-name)
     (+vterm--change-directory-if-remote)))
 
 ;; Run my django project with the commands I want to run set in dir-locals.el file
@@ -4106,33 +4004,33 @@ from .dir-locals.el"
 
 ;; Auto convert task to done when the checkboxes are done.
 ;;;###autoload
-(after! org
-  (defun my/org-checkbox-todo ()
-    "Switch header TODO state to DONE when all checkboxes are ticked, to TODO otherwise"
-    (let ((todo-state (org-get-todo-state)) beg end)
-      (unless (not todo-state)
-        (save-excursion
-          (org-back-to-heading t)
-          (setq beg (point))
-          (end-of-line)
-          (setq end (point))
-          (goto-char beg)
-          (if (re-search-forward "\\[\\([0-9]*%\\)\\]\\|\\[\\([0-9]*\\)/\\([0-9]*\\)\\]"
-                                 end t)
-              (if (match-end 1)
-                  (if (equal (match-string 1) "100%")
-                      (unless (string-equal todo-state "DONE")
-                        (org-todo 'done))
-                    (unless (string-equal todo-state "TODO")
-                      (org-todo 'todo)))
-                (if (and (> (match-end 2) (match-beginning 2))
-                         (equal (match-string 2) (match-string 3)))
-                    (unless (string-equal todo-state "DONE")
-                      (org-todo 'done))
-                  (unless (string-equal todo-state "TODO")
-                    (org-todo 'todo)))))))))
-  (add-hook 'org-checkbox-statistics-hook 'my/org-checkbox-todo)
-  )
+;; (after! org
+;;   (defun my/org-checkbox-todo ()
+;;     "Switch header TODO state to DONE when all checkboxes are ticked, to TODO otherwise"
+;;     (let ((todo-state (org-get-todo-state)) beg end)
+;;       (unless (not todo-state)
+;;         (save-excursion
+;;           (org-back-to-heading t)
+;;           (setq beg (point))
+;;           (end-of-line)
+;;           (setq end (point))
+;;           (goto-char beg)
+;;           (if (re-search-forward "\\[\\([0-9]*%\\)\\]\\|\\[\\([0-9]*\\)/\\([0-9]*\\)\\]"
+;;                                  end t)
+;;               (if (match-end 1)
+;;                   (if (equal (match-string 1) "100%")
+;;                       (unless (string-equal todo-state "DONE")
+;;                         (org-todo 'done))
+;;                     (unless (string-equal todo-state "TODO")
+;;                       (org-todo 'todo)))
+;;                 (if (and (> (match-end 2) (match-beginning 2))
+;;                          (equal (match-string 2) (match-string 3)))
+;;                     (unless (string-equal todo-state "DONE")
+;;                       (org-todo 'done))
+;;                   (unless (string-equal todo-state "TODO")
+;;                     (org-todo 'todo)))))))))
+;;   (add-hook 'org-checkbox-statistics-hook 'my/org-checkbox-todo)
+;;   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Org super agenda                                                    ;;
@@ -4342,3 +4240,576 @@ from .dir-locals.el"
       (save-selected-window
         (other-window 1)
         (switch-to-buffer (other-buffer))))))
+(setq +lookup-open-url-fn #'+lookup-xwidget-webkit-open-url-fn)
+;; (setq +lookup-open-url-fn #'eww)
+
+(add-hook 'magit-mode-hook (lambda () (magit-delta-mode +1)))
+
+
+(use-package! aas
+  :commands aas-mode)
+
+(use-package! laas
+  :hook (LaTeX-mode . laas-mode)
+  :config
+  (defun laas-tex-fold-maybe ()
+    (unless (equal "/" aas-transient-snippet-key)
+      (+latex-fold-last-macro-a)))
+  (add-hook 'aas-post-snippet-expand-hook #'laas-tex-fold-maybe))
+
+(use-package! org-pretty-table
+  :commands (org-pretty-table-mode global-org-pretty-table-mode))
+
+(use-package! org-pandoc-import :after org)
+
+
+;; Org-plot with gnuplot
+(after! org-plot
+  (defun org-plot/generate-theme (_type)
+    "Use the current Doom theme colours to generate a GnuPlot preamble."
+    (format "
+fgt = \"textcolor rgb '%s'\" # foreground text
+fgat = \"textcolor rgb '%s'\" # foreground alt text
+fgl = \"linecolor rgb '%s'\" # foreground line
+fgal = \"linecolor rgb '%s'\" # foreground alt line
+
+# foreground colors
+set border lc rgb '%s'
+# change text colors of  tics
+set xtics @fgt
+set ytics @fgt
+# change text colors of labels
+set title @fgt
+set xlabel @fgt
+set ylabel @fgt
+# change a text color of key
+set key @fgt
+
+# line styles
+set linetype 1 lw 2 lc rgb '%s' # red
+set linetype 2 lw 2 lc rgb '%s' # blue
+set linetype 3 lw 2 lc rgb '%s' # green
+set linetype 4 lw 2 lc rgb '%s' # magenta
+set linetype 5 lw 2 lc rgb '%s' # orange
+set linetype 6 lw 2 lc rgb '%s' # yellow
+set linetype 7 lw 2 lc rgb '%s' # teal
+set linetype 8 lw 2 lc rgb '%s' # violet
+
+# palette
+set palette maxcolors 8
+set palette defined ( 0 '%s',\
+1 '%s',\
+2 '%s',\
+3 '%s',\
+4 '%s',\
+5 '%s',\
+6 '%s',\
+7 '%s' )
+"
+            (doom-color 'fg)
+            (doom-color 'fg-alt)
+            (doom-color 'fg)
+            (doom-color 'fg-alt)
+            (doom-color 'fg)
+            ;; colours
+            (doom-color 'red)
+            (doom-color 'blue)
+            (doom-color 'green)
+            (doom-color 'magenta)
+            (doom-color 'orange)
+            (doom-color 'yellow)
+            (doom-color 'teal)
+            (doom-color 'violet)
+            ;; duplicated
+            (doom-color 'red)
+            (doom-color 'blue)
+            (doom-color 'green)
+            (doom-color 'magenta)
+            (doom-color 'orange)
+            (doom-color 'yellow)
+            (doom-color 'teal)
+            (doom-color 'violet)
+            ))
+  (defun org-plot/gnuplot-term-properties (_type)
+    (format "background rgb '%s' size 1050,650"
+            (doom-color 'bg)))
+  (setq org-plot/gnuplot-script-preamble #'org-plot/generate-theme)
+  (setq org-plot/gnuplot-term-extra #'org-plot/gnuplot-term-properties))
+
+
+;; TODO Acronyms let's see how that works with exports
+(defun org-export-filter-text-acronym (text backend _info)
+  "Wrap suspected acronyms in acronyms-specific formatting.
+Treat sequences of 2+ capital letters (optionally succeeded by \"s\") as an acronym.
+Ignore if preceeded by \";\" (for manual prevention) or \"\\\" (for LaTeX commands).
+
+TODO abstract backend implementations."
+  (let ((base-backend
+         (cond
+          ((org-export-derived-backend-p backend 'latex) 'latex)
+          ;; Markdown is derived from HTML, but we don't want to format it
+          ((org-export-derived-backend-p backend 'md) nil)
+          ((org-export-derived-backend-p backend 'html) 'html)))
+        (case-fold-search nil))
+    (when base-backend
+      (replace-regexp-in-string
+       "[;\\\\]?\\b[A-Z][A-Z]+s?\\(?:[^A-Za-z]\\|\\b\\)"
+       (lambda (all-caps-str)
+         (cond ((equal (aref all-caps-str 0) ?\\) all-caps-str)                ; don't format LaTeX commands
+               ((equal (aref all-caps-str 0) ?\;) (substring all-caps-str 1))  ; just remove not-acronym indicator char ";"
+               (t (let* ((final-char (if (string-match-p "[^A-Za-z]" (substring all-caps-str -1 (length all-caps-str)))
+                                         (substring all-caps-str -1 (length all-caps-str))
+                                       nil)) ; needed to re-insert the [^A-Za-z] at the end
+                         (trailing-s (equal (aref all-caps-str (- (length all-caps-str) (if final-char 2 1))) ?s))
+                         (acr (if final-char
+                                  (substring all-caps-str 0 (if trailing-s -2 -1))
+                                (substring all-caps-str 0 (+ (if trailing-s -1 (length all-caps-str)))))))
+                    (pcase base-backend
+                      ('latex (concat "\\acr{" (s-downcase acr) "}" (when trailing-s "\\acrs{}") final-char))
+                      ('html (concat "<span class='acr'>" acr "</span>" (when trailing-s "<small>s</small>") final-char)))))))
+       text t t))))
+
+(add-to-list 'org-export-filter-plain-text-functions
+             #'org-export-filter-text-acronym)
+
+(defun org-latex-substitute-verb-with-texttt (content)
+  "Replace instances of \\verb with \\texttt{}."
+  (replace-regexp-in-string
+   "\\\\verb\\(.\\).+?\\1"
+   (lambda (verb-string)
+     (replace-regexp-in-string
+      "\\\\" "\\\\\\\\" ; Why elisp, why?
+      (org-latex--text-markup (substring verb-string 6 -1) 'code '(:latex-text-markup-alist ((code . protectedtexttt))))))
+   content))
+
+
+
+(defun org-html-format-headline-acronymised (todo todo-type priority text tags info)
+  "Like `org-html-format-headline-default-function', but with acronym formatting."
+  (org-html-format-headline-default-function
+   todo todo-type priority (org-export-filter-text-acronym text 'html info) tags info))
+(setq org-html-format-headline-function #'org-html-format-headline-acronymised)
+
+(defun org-latex-format-headline-acronymised (todo todo-type priority text tags info)
+  "Like `org-latex-format-headline-default-function', but with acronym formatting."
+  (org-latex-format-headline-default-function
+   todo todo-type priority (org-latex-substitute-verb-with-texttt
+                            (org-export-filter-text-acronym text 'latex info)) tags info))
+(setq org-latex-format-headline-function #'org-latex-format-headline-acronymised)
+
+;; TODO org-hugo-use-code-for-kbd
+
+
+;; Auto async onto packages
+(add-transient-hook! #'org-babel-execute-src-block
+  (require 'ob-async))
+
+(defvar org-babel-auto-async-languages '()
+  "Babel languages which should be executed asyncronously by default.")
+
+(defadvice! org-babel-get-src-block-info-eager-async-a (orig-fn &optional light datum)
+  "Eagarly add an :async parameter to the src information, unless it seems problematic.
+This only acts o languages in `org-babel-auto-async-languages'.
+Not added when either:
++ session is not \"none\"
++ :sync is set"
+  :around #'org-babel-get-src-block-info
+  (let ((result (funcall orig-fn light datum)))
+    (when (and (string= "none" (cdr (assoc :session (caddr result))))
+               (member (car result) org-babel-auto-async-languages)
+               (not (assoc :async (caddr result))) ; don't duplicate
+               (not (assoc :sync (caddr result))))
+      (push '(:async) (caddr result)))
+    result))
+
+(use-package! graphviz-dot-mode
+  :commands graphviz-dot-mode
+  :mode ("\\.dot\\'" "\\.gz\\'")
+  :init
+  (after! org
+    (setcdr (assoc "dot" org-src-lang-modes)
+            'graphviz-dot)))
+
+(use-package! company-graphviz-dot
+  :after graphviz-dot-mode)
+
+(add-hook! (gfm-mode markdown-mode) #'mixed-pitch-mode)
+(add-hook! (gfm-mode markdown-mode) #'visual-line-mode #'turn-off-auto-fill)
+
+
+;; TODO Use - and = key to do something that's most used such as buffer switching
+
+
+;; Org capture fix
+;; (defun +org--restart-mode-h ()
+;;     "Restart `org-mode', but only once."
+;;     (remove-hook 'doom-switch-buffer-hook #'+org--restart-mode-h
+;;                  'local)
+;;     (delq! (current-buffer) org-agenda-new-buffers)
+;;     (let ((file buffer-file-name)
+;;           (old-buffer (current-buffer))
+;;           (inhibit-redisplay t)
+;;           new-buffer)
+;;       (kill-buffer)
+;;       (setq new-buffer (find-file file))
+;;       (unless (buffer-live-p old-buffer)
+;;         (make-indirect-buffer new-buffer old-buffer 'clone))))
+
+
+(setq lsp-julia-package-dir nil)
+(setq lsp-julia-default-environment "~/.julia/environments/v1.6")
+(setq lsp-enable-folding t)
+;; (setq lsp-julia-flags `("-J/home/kai/.scripts/julia-lsp/languageserver.so"))
+;; (setq lsp-enable-folding t)
+
+
+(defun bms/consult-ripgrep-files-with-matches (&optional dir initial)
+  "Use consult-find style to return matches with \"rg --file-with-matches \". No live preview."
+  (interactive "P")
+  (let ((consult-find-command "rg --ignore-case --type org --files-with-matches . -e ARG OPTS"))
+    (consult-find dir initial)))
+
+(defun bms/org-roam-rg-file-search ()
+  "Search org-roam directory using consult-find with \"rg --file-with-matches \". No live preview."
+  (interactive)
+  (bms/consult-ripgrep-files-with-matches org-roam-directory))
+(global-set-key (kbd "H-o") 'bms/org-roam-rg-file-search)
+;; (setq lsp-signature-function 'lsp-signature-posframe)
+
+(after! python
+  (require 'dap-python))
+
+
+;; Add properties to generic stuffs
+(defun nm/org-clarify-properties ()
+  "Clarify properties for task."
+  (interactive)
+  (let ((my-list nm/org-clarify-templates)
+        (my-temp nil))
+    (dolist (i my-list) (push (car i) my-temp))
+    (dolist (i (cdr (assoc (ivy-completing-read "template: " my-temp) nm/org-clarify-templates))) (org-entry-put nil i (ivy-completing-read (format "%s: " i) (delete-dups (org-map-entries (org-entry-get nil i nil) nil 'file)))))))
+
+(setq nm/org-clarify-templates '(("book" "AUTHOR" "YEAR" "SOURCE")
+                                 ("online" "SOURCE" "SITE" "AUTHOR")
+                                 ("purchase" "WHY" "FUNCTION")
+                                 ("task" "AREA")
+                                 ("project" "GOAL" "DUE")
+                                 ("article" "SOURCE" "SITE" "SUBJECT")))
+
+;;;###autoload
+(defun nm/emacs-change-font ()
+  "Change font based on available font list."
+  (interactive)
+  (let ((font (ivy-completing-read "font: " nm/font-family-list))
+        (size (ivy-completing-read "size: " '("16" "18" "20" "22" "24" "26" "28" "30")))
+        (weight (ivy-completing-read "weight: " '(normal light bold extra-light ultra-light semi-light extra-bold ultra-bold)))
+        (width (ivy-completing-read "width: " '(normal condensed expanded ultra-condensed extra-condensed semi-condensed semi-expanded extra-expanded ultra-expanded))))
+    (setq doom-font (font-spec :family font :size (string-to-number size) :weight (intern weight) :width (intern width))
+          doom-big-font (font-spec :family font :size (+ 2 (string-to-number size)) :weight (intern weight) :width (intern width))))
+  (doom/reload-font))
+
+(setq nm/font-family-list '("Iosevka" "VictorMono Nerd Font Mono" "FiraCode Nerd Font" "Hack" "Input Mono" "Source Code Pro"  "DejaVu Sans Mono" "Liberation Mono"))
+
+;; (defvar +fl/splashcii-query ""
+;;   "The query to search on asciiur.com")
+
+;; (defun +fl/splashcii ()
+;;   (split-string (with-output-to-string
+;;                   (call-process "splashcii" nil standard-output nil +fl/splashcii-query))
+;;                 "\n" t))
+
+;; (defun +fl/doom-banner ()
+;;   (let ((point (point)))
+;;     (mapc (lambda (line)
+;;             (insert (propertize (+doom-dashboard--center +doom-dashboard--width line)
+;;                                 'face 'doom-dashboard-banner) " ")
+;;             (insert "\n"))
+;;           (+fl/splashcii))
+;;     (insert (make-string (or (cdr +doom-dashboard-banner-padding) 0) ?\n))))
+
+;; ;; override the first doom dashboard function
+;; (setcar (nthcdr 0 +doom-dashboard-functions) #'+fl/doom-banner)
+
+;; (setq +fl/splashcii-query "space")
+
+(defun zz/counsel-buffer-or-recentf-candidates ()
+  "Return candidates for `counsel-buffer-or-recentf'."
+  (require 'recentf)
+  (recentf-mode)
+  (let ((buffers
+         (delq nil
+               (mapcar (lambda (b)
+                         (when (buffer-file-name b)
+                           (abbreviate-file-name (buffer-file-name b))))
+                       (delq (current-buffer) (buffer-list))))))
+    (append
+     buffers
+     (cl-remove-if (lambda (f) (member f buffers))
+                   (counsel-recentf-candidates)))))
+
+(advice-add #'counsel-buffer-or-recentf-candidates
+            :override #'zz/counsel-buffer-or-recentf-candidates)
+(map! "H-z" #'counsel-buffer-or-recentf)
+(after! smartparens
+  (defun zz/goto-match-paren (arg)
+    "Go to the matching paren/bracket, otherwise (or if ARG is not
+    nil) insert %.  vi style of % jumping to matching brace."
+    (interactive "p")
+    (if (not (memq last-command '(set-mark
+                                  cua-set-mark
+                                  zz/goto-match-paren
+                                  down-list
+                                  up-list
+                                  end-of-defun
+                                  beginning-of-defun
+                                  backward-sexp
+                                  forward-sexp
+                                  backward-up-list
+                                  forward-paragraph
+                                  backward-paragraph
+                                  end-of-buffer
+                                  beginning-of-buffer
+                                  backward-word
+                                  forward-word
+                                  mwheel-scroll
+                                  backward-word
+                                  forward-word
+                                  mouse-start-secondary
+                                  mouse-yank-secondary
+                                  mouse-secondary-save-then-kill
+                                  move-end-of-line
+                                  move-beginning-of-line
+                                  backward-char
+                                  forward-char
+                                  scroll-up
+                                  scroll-down
+                                  scroll-left
+                                  scroll-right
+                                  mouse-set-point
+                                  next-buffer
+                                  previous-buffer
+                                  previous-line
+                                  next-line
+                                  back-to-indentation
+                                  doom/backward-to-bol-or-indent
+                                  doom/forward-to-last-non-comment-or-eol
+                                  )))
+        (self-insert-command (or arg 1))
+      (cond ((looking-at "\\s\(") (sp-forward-sexp) (backward-char 1))
+            ((looking-at "\\s\)") (forward-char 1) (sp-backward-sexp))
+            (t (self-insert-command (or arg 1))))))
+  (map! "%" 'zz/goto-match-paren))
+;; (use-package! org-roam
+;;   :after org
+;;   :commands
+;;   (org-roam-buffer
+;;    org-roam-setup
+;;    org-roam-capture
+;;    org-roam-node-find)
+;;   :init
+;;   (map! :after org
+;;         :map org-mode-map
+;;         :localleader
+;;         :prefix ("m" . "org-roam")
+;;         "b" #'org-roam-buffer-toggle
+;;         "g" #'org-roam-graph
+;;         "c" #'org-roam-capture
+;;         (:prefix ("n" . "Node")
+;;          :desc "Visit" "v" #'org-roam-node-visit
+;;          :desc "Read" "r" #'org-roam-node-random
+;;          :desc "Find" "f" #'org-roam-node-find
+;;          :desc "Add"  "a" #'org-roam-node-insert)
+;;         (:prefix ("R" . "reference")
+;;          :desc "Remove" "R" #'org-roam-ref-remove
+;;          :desc "Read" "r" #'org-roam-ref-read
+;;          :desc "Find" "f" #'org-roam-ref-find
+;;          :desc "Add"  "a" #'org-roam-ref-add)
+
+;;         (:prefix ("t" . "Tag")
+;;          :desc "Remove" "R" #'org-roam-dailies-find-previous-note
+;;          :desc "Add"  "a" #'org-roam-dailies-find-next-note)
+
+;;         (:prefix ("d" . "by date")
+;;          :desc "Find previous note" "b" #'org-roam-dailies-find-previous-note
+;;          :desc "Find date"          "d" #'org-roam-dailies-find-date
+;;          :desc "Find next note"     "f" #'org-roam-dailies-find-next-note
+;;          :desc "Find tomorrow"      "m" #'org-roam-dailies-find-tomorrow
+;;          :desc "Capture today"      "n" #'org-roam-dailies-capture-today
+;;          :desc "Find today"         "t" #'org-roam-dailies-find-today
+;;          :desc "Capture Date"       "v" #'org-roam-dailies-capture-date
+;;          :desc "Find yesterday"     "y" #'org-roam-dailies-find-yesterday
+;;          :desc "Find directory"     "." #'org-roam-dailies-find-directory))
+;;   :config
+;;   (setq org-roam-mode-section-functions
+;;        (list #'org-roam-backlinks-section
+;;              #'org-roam-reflinks-section
+;;              #'org-roam-unlinked-references-section))
+;;   ()
+;;   (org-roam-setup))
+
+;; (defun my/org-id-update-org-roam-files ()
+;;   "Update Org-ID locations for all Org-roam files."
+;;   (interactive)
+;;   (org-id-update-id-locations (org-roam--list-all-files)))
+
+;; (defun my/org-id-update-id-current-file ()
+;;   "Scan the current buffer for Org-ID locations and update them."
+;;   (interactive)
+;;   (org-id-update-id-locations (list (buffer-file-name (current-buffer)))))
+
+(use-package! org-roam
+  :init
+  (map! :leader
+        :prefix "z"
+        :desc "org-roam" "l" #'org-roam-buffer-toggle
+        :desc "org-roam-node-insert" "i" #'org-roam-node-insert
+        :desc "org-roam-node-find" "f" #'org-roam-node-find
+        :desc "org-roam-ref-find" "r" #'org-roam-ref-find
+        :desc "org-roam-show-graph" "g" #'org-roam-show-graph
+        :desc "org-roam-capture" "c" #'org-roam-capture
+        :desc "org-roam-dailies-capture-today" "j" #'org-roam-dailies-capture-today)
+  (setq org-roam-directory (file-truename "~/Dropbox/org/notes/")
+        org-roam-db-gc-threshold most-positive-fixnum
+        org-id-link-to-org-use-id t)
+  (add-to-list 'display-buffer-alist
+               '(("\\*org-roam\\*"
+                  (display-buffer-in-direction)
+                  (direction . right)
+                  (window-width . 0.33)
+                  (window-height . fit-window-to-buffer))))
+  :config
+  (setq org-roam-mode-sections
+        (list #'org-roam-backlinks-insert-section
+              #'org-roam-reflinks-insert-section
+              #'org-roam-unlinked-references-insert-section
+              ))
+  (org-roam-setup))
+
+(after! (org-roam)
+  (winner-mode +1)
+  (map! :map winner-mode-map
+        "<M-right>" #'winner-redo
+        "<M-left>" #'winner-undo))
+
+;; Mail setup
+;; (after! org
+;;   (setq user-mail-address "sagar.r.alok@gmail.com"
+;;         user-full-name "Alok Regmi"
+;;         smtpmail-default-smtp-server "smtp.gmail.com"
+;;         smtpmail-smtp-server "smtp.gmail.com"
+;;         smtpmail-stream-type  'starttls
+;;         smtpmail-smtp-service 587)
+;;   (setq +mu4e-mu4e-mail-path)
+;;   (setq mu4e-sent-folder "/personal/sent"
+;;         mu4e-drafts-folder "/personal/drafts"
+;;         mu4e-trash-folder "/personal/trash"
+;;         mu4e-contexts
+;;         `(
+;;           ,(make-mu4e-context
+;;             :name "Private"
+;;             :enter-func (lambda () (mu4e-message "Entering Private context"))
+;;             :leave-func (lambda () (mu4e-message "Leaving Private context"))
+;;             :match-func (lambda (msg)
+;;                           (when msg
+;;                             (mu4e-message-contact-field-matches msg
+;;                                                                 :to "sagar.r.alok@gmail.com")))
+;;             :vars '(
+;;                     (user-mail-address . "sagar.r.alok@gmail.com")
+;;                     (user-full-name . "Alok Regmi" )
+;;                     ;; (mu4e-sent-folder "/personal/sent")
+;;                     ;; (mu4e-drafts-folder "/personal/drafts")
+;;                     ;; (mu4e-trash-folder "/personal/trash")
+;;                     ( mu4e-compose-signature .
+;;                       (concat
+;;                        "Alok Regmi\n"
+;;                        "Kushma, Parbat\n"))))
+
+;;           ,(make-mu4e-context
+;;             :name "College"
+;;             :enter-func (lambda () (mu4e-message "Entering College context"))
+;;             :match-func (lambda (msg) (when msg (mu4e-message-contact-field-matches msg :to "072bex403.alok@pcampus.edu.np")))
+;;             :vars '(
+;;                     ( user-mail-address . "072bex403.alok@pcampus.edu.np"  )
+;;                     ( user-full-name . "Alok Regmi" )
+;;                     ( smtpmail-smtp-user "072bex403.alok@pcampus.edu.np" )
+;;                     ;; (mu4e-sent-folder "/pulchowk/sent")
+;;                     ;; (mu4e-drafts-folder "/pulchowk/drafts")
+;;                     ;; (mu4e-trash-folder "/pulchowk/trash")
+;;                     ( mu4e-compose-signature .
+;;                       (concat
+;;                        "Alok Regmi\n"
+;;                        "Pulchowk Campus, Lalitpur, Nepal\n"))))
+;;           )))
+
+
+(set-email-account! "pcampus"
+                    '((mu4e-sent-folder       . "/pcampus/Sent Mail")
+                      (mu4e-drafts-folder     . "/pcampus/Drafts")
+                      (mu4e-trash-folder      . "/pcampus/Trash")
+                      (mu4e-refile-folder     . "/pcampus/All Mail")
+                      (smtpmail-smtp-user     . "072bex403.alok@pcampus.edu.np")
+                      (mu4e-compose-signature . "---\nAlok Regmi\n Pulchowk Campus, Lalitpur, Nepal"))
+                    t)
+
+(set-email-account! "personal"
+                    '((mu4e-sent-folder       . "/personal/Sent Mail")
+                      (mu4e-drafts-folder     . "/personal/Drafts")
+                      (mu4e-trash-folder      . "/personal/Trash")
+                      (mu4e-refile-folder     . "/personal/All Mail")
+                      (smtpmail-smtp-user     . "sagar.r.alok@gmail.com")
+                      (mu4e-compose-signature . "---\nAlok Regmi"))
+                    t)
+(add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
+
+;;;###autoload
+(defun sticky-agenda ()
+  (progn
+    (org-agenda "TODO" "k")))
+
+;; Jupyter python to python for hugo text block syntax highlighting
+(defun jupyter-python-to-only-python (text backend info)
+  "Replace jupyter-python src blocks with python blocks."
+  (replace-regexp-in-string "```jupyter-python" "```python" text))
+(add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python)
+
+;; (add-hook 'org-agenda-finalize-hook #'org-agenda-find-same-or-today-or-agenda 90)
+
+
+(defun my-agenda-motto (&rest _ignore)
+  " INSERTS MOTTO FROM MOTTO FILE TO AGENDA"
+  (with-temp-buffer
+    (insert-file-contents "~/Dropbox/org/journal/motto.org")
+    (goto-char (point-max))
+    (forward-line -1)
+    (setq myLine (buffer-substring-no-properties
+                  (line-beginning-position)
+                  (line-end-position)))
+    (setq myLine (concat "MOTTO: " (s-upcase (s-replace "\*" "" myLine)))))
+  (dotimes (_ 160) (insert "="))
+  (insert "\n")
+  (dotimes (_ 40) (insert "="))
+  (insert myLine)
+  (dotimes (_ 40) (insert "="))
+  (insert "\n")
+  (dotimes (_ 160) (insert "="))
+  (insert "\n")
+  )
+
+(use-package! nov
+  :mode ("\\.epub\\'" . nov-mode)
+  :config
+  (setq nov-save-place-file (concat doom-cache-dir "nov-places")))
+
+;; Inspired from https://emacs.stackexchange.com/questions/38570/org-mode-quote-block-indentation-highlighting
+(add-hook 'org-font-lock-hook #'aj/org-indent-quotes)
+
+(defun aj/org-indent-quotes (limit)
+  (let ((case-fold-search t))
+    (while (search-forward-regexp "^[ \t]*#\\+begin_quote" limit t)
+      (let ((beg (1+ (match-end 0))))
+        ;; on purpose, we look further than LIMIT
+        (when (search-forward-regexp "^[ \t]*#\\+end_quote" nil t)
+          (let ((end (1- (match-beginning 0)))
+                (indent (propertize "    " 'face 'org-hide)))
+            (add-text-properties beg end (list 'line-prefix indent
+                                               'wrap-prefix indent))))))))

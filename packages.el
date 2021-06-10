@@ -35,7 +35,10 @@
   :recipe (:host github :repo "org-roam/org-roam-bibtex"))
 
 ;; When using org-roam via the `+roam` flag
-(unpin! org-roam)
+;; (unpin! org-roam)
+
+(package! org-roam
+  :recipe (:host github :repo "org-roam/org-roam" :branch "v2"))
 
 ;; When using bibtex-completion via the `biblio` module
 (unpin! bibtex-completion helm-bibtex ivy-bibtex)
@@ -96,21 +99,19 @@
 ;; (package! ein)
 ;; export org mode notebooks to ipynb
 (package! ox-ipynb
-  :recipe (:host github :repo "zaeph/ox-ipynb"))
+  :recipe (:host github :repo "jkitchin/ox-ipynb"))
 ;; org roam server to see my notes in graphs
 ;; (package! org-roam-server :recipe(:no-byte-compile t))
 (package! org-roam-server)
 ;; easy to read auto fill without doing anything
 (package! virtual-auto-fill)
 ;; (package! helm-bibtex)
-;; (package! nov)
+(package! nov)
 ;; (package! ob-mermaid)
 ;; (package! org-autolist) ;; For now , org-return-dwim from kitchin works
 ;; (package! dired-sidebar)
 (package! dired-subtree)
 ;; (package! gkroam)
-(package! org-pretty-table
-  :recipe (:host github :repo "Fuco1/org-pretty-table"))
 (package! libmpdel)
 (package! mpdel)
 (package! ivy-mpdel)
@@ -153,3 +154,21 @@
 (package! org-transclusion :recipe (:host github :repo "nobiot/org-transclusion" :files ("*")))
 (package! lister :recipe (:host github :repo "publicimageltd/lister"))
 (package! delve :recipe (:host github :repo "publicimageltd/delve"))
+(package! ess-view)
+(package! screenshot :recipe (:host github :repo "tecosaur/screenshot"))
+(package! laas)
+;; (package! aas :recipe (:host github :repo "ymarco/auto-activating-snippets")
+;;   :pin "e2b3edafd7...")
+(package! org-pretty-table
+  :recipe (:host github :repo "Fuco1/org-pretty-table"))
+(package! org-appear :recipe (:host github :repo "awth13/org-appear"))
+(package! org-pandoc-import
+  :recipe (:host github
+           :repo "tecosaur/org-pandoc-import"
+           :files ("*.el" "filters" "preprocessors")))
+;; (package! beancount :recipe (:host github :repo "beancount/beancount-mode")
+;;   :pin "3c04745fa5...")
+;; (package! smudge)
+;; (unpin! auto-activating-snippets)
+;; (package! nano-theme
+;;   :recipe (:host github :repo "rougier/nano-theme"))

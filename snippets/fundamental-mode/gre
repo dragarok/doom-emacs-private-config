@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: gre word
+# key: <gwo
+# --
+$1
+  - Meaning : $2
+  - Example : $3
+  - Mnemonic : $4

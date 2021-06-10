@@ -25,10 +25,13 @@
        ;;  +fuzzy)             ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        (ivy
-        +fuzzy
-        +icons
         +prescient
-        +childframe)               ; a search engine for love and life
+        +icons
+        ;; +childframe
+        )               ; a search engine for love and life
+       ;; (selectrum
+       ;;  +prescient
+       ;;  +orderless)
        :ui
        ;;deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
@@ -43,11 +46,11 @@
        ;;  +icons)
        ophints           ; highlight the region an operation acts on
        (popup            ; tame sudden yet inevitable temporary windows
-        ;;+all             ; catch all popups that start with an asterix
+        ;; +all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
-       (ligatures)
-       ;;+iosevka)
-       ;;tabs              ; an tab bar for Emacs
+       (ligatures
+        +iosevka)
+       ;; tabs              ; an tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
        unicode           ; extended unicode support for various languages
        ;; vc-gutter         ; vcs diff in the fringe
@@ -78,7 +81,8 @@
        electric          ; smarter, keyword-based electric-indent
        (ibuffer
         +icons)                                ; interactive buffer management
-       undo
+       (undo
+        +tree)
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
@@ -101,12 +105,11 @@
        direnv
        docker
        ;;editorconfig      ; let someone else argue about tabs vs spaces
-       ;;ein               ; tame Jupyter notebooks with emacs
+       ein               ; tame Jupyter notebooks with emacs
        (eval +overlay)     ; run code, run (also, repls)
        ;;gist              ; interacting with github gists
        (lookup           ; helps you navigate your code and documentation
         +dictionary
-        +offline
         +docsets)        ; ...or in Dash docsets locally
        (lsp
         +peek)
@@ -115,7 +118,7 @@
        make              ; run make tasks from Emacs
        pass              ; password manager for nerds
        pdf               ; pdf enhancements
-       ;;prodigy           ; FIXME managing external services & code builders
+       prodigy           ; FIXME managing external services & code builders
        ;;rgb               ; creating color strings
        ;;taskrunner
        ;;terraform         ; infrastructure as code
@@ -125,6 +128,8 @@
        :lang
        ;;agda              ; types of types of types of types...
        ;;assembly          ; assembly for fun or debugging
+       (beancount
+        +lsp)
        (cc
         +lsp)                                ; C/C++/Obj-C madness
        ;;clojure           ; java with a lisp
@@ -133,9 +138,9 @@
        ;;crystal           ; ruby at the speed of c
        ;;csharp            ; unity, .NET, and mono shenanigans
        data              ; config/data formats
-       ;;        (dart
-       ;; 	+flutter
-       ;; 	+lsp)
+       (dart
+        +flutter
+        +lsp)
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
@@ -162,7 +167,7 @@
         +latexmk)
        ;;lean
        ;;factor
-       ledger            ; an accounting system in Emacs
+       ;;ledger            ; an accounting system in Emacs
        ;;lua               ; one-based indices? one-based indices
        (markdown
 	+grip); writing docs for people to ignore
@@ -171,7 +176,7 @@
        ;;ocaml             ; an objective camel
        (org              ; organize your plain life in plain text
         +attach
-        +roam
+        ;;+roam
         ;; +dragndrop       ; drag & drop files/images into org buffers
         +hugo            ; use Emacs for hugo blogging
         ;;+pretty
@@ -187,9 +192,10 @@
        plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
-        +poetry
-	+conda
-        +pyright
+        +pyenv
+        ;; +poetry
+	;; +conda
+        ;; +pyright
 	+lsp)
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
@@ -201,8 +207,7 @@
        ;;scala             ; java, but good
        ;;scheme            ; a fully conniving family of lisps
        (sh
-        +lsp
-        +fish)                            ; she sells {ba,z,fi}sh shells on the C xor
+        +lsp)                            ; she sells {ba,z,fi}sh shells on the C xor
        ;;solidity          ; do you need a blockchain? No.
        ;;swift             ; who asked for emoji variables?
        ;;terra             ; Earth and Moon in alignment for performance.
@@ -215,6 +220,7 @@
 
        :app
        calendar
+       emms
        ;; irc               ; how neckbeards socialize
        everywhere
        ;; (rss +org)        ; emacs as an RSS reader
