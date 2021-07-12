@@ -1,0 +1,23 @@
+# -*- mode: snippet -*-
+# name: cornell-note
+# uuid: corn
+# key: <conot
+# condition: t
+# --
+
+* HEADER
+TOPIC: $1
+COURSE: $2
+DATE : $3
+
+* Essential Questions
+1. $4
+
+* Questions/Cues
+1. $5
+
+* Notes
+$6
+
+* Summary
+$7

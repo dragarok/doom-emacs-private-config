@@ -172,3 +172,16 @@
 ;; (unpin! auto-activating-snippets)
 ;; (package! nano-theme
 ;;   :recipe (:host github :repo "rougier/nano-theme"))
+(package! wallabag
+  :recipe (:host github
+           :repo "chenyanming/wallabag.el"
+           :files ("*.el" "*.alist" "*.css")))
+
+;; (package! ink
+;;   :recipe (:host github
+;;            :repo "foxfriday/ink"))
+
+(unpin! pdf-tools)
+
+;; (package! pdf-continuous-scroll-mode
+;;   :recipe (:local-repo "~/.doom.d/pdf-continuous-scroll-mode/"))

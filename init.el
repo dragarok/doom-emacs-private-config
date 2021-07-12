@@ -33,7 +33,7 @@
        ;;  +prescient
        ;;  +orderless)
        :ui
-       ;;deft              ; notational velocity for Emacs
+       ;; deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
        doom-dashboard    ; a nifty splash screen for Emacs
        ;;fill-column       ; a `fill-column' indicator
@@ -46,7 +46,7 @@
        ;;  +icons)
        ophints           ; highlight the region an operation acts on
        (popup            ; tame sudden yet inevitable temporary windows
-        ;; +all             ; catch all popups that start with an asterix
+        +all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
        (ligatures
         +iosevka)
@@ -100,7 +100,8 @@
 
        :tools
        ;;ansible
-       debugger          ; FIXME stepping through code, to help you add bugs
+       (debugger          ; FIXME stepping through code, to help you add bugs
+        +lsp)
        biblio
        direnv
        docker
@@ -110,6 +111,7 @@
        ;;gist              ; interacting with github gists
        (lookup           ; helps you navigate your code and documentation
         +dictionary
+        +offline
         +docsets)        ; ...or in Dash docsets locally
        (lsp
         +peek)
@@ -138,9 +140,9 @@
        ;;crystal           ; ruby at the speed of c
        ;;csharp            ; unity, .NET, and mono shenanigans
        data              ; config/data formats
-       (dart
-        +flutter
-        +lsp)
+       ;; (dart
+       ;;  +flutter
+       ;;  +lsp)
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
@@ -193,7 +195,7 @@
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
         +pyenv
-        ;; +poetry
+        +poetry
 	;; +conda
         ;; +pyright
 	+lsp)

@@ -60,6 +60,7 @@
                 (process-send-string process "pong"))))
 
 
+
            ((:POST . "/insertjpg") .
             (lambda (request)
               ;; An "assoc list" is just a list of (key value) pairs. Calling
@@ -152,7 +153,7 @@
       (orch-stop-server)
       (print "orch server stopped"))))
 
-(defun orch-image-dir () "~/Pictures/orch")
+(defun orch-image-dir () "~/Dropbox/org/.attach/orch")
 
 (defun orch-respond-text/plain (process status-code message)
   "Write an HTTP message to `process` with the given status code. The
