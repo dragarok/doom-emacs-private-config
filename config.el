@@ -4713,12 +4713,13 @@ Not added when either:
 ;;           )))
 
 
-(set-email-account! "pcampus"
-                    '((mu4e-sent-folder       . "/pcampus/Sent Mail")
-                      (mu4e-drafts-folder     . "/pcampus/Drafts")
-                      (mu4e-trash-folder      . "/pcampus/Trash")
-                      (mu4e-refile-folder     . "/pcampus/All Mail")
+(set-email-account! "campus"
+                    '((mu4e-sent-folder       . "/pulchowk/Sent Mail")
+                      (mu4e-drafts-folder     . "/pulchowk/Drafts")
+                      (mu4e-trash-folder      . "/pulchowk/Trash")
+                      (mu4e-refile-folder     . "/pulchowk/All Mail")
                       (smtpmail-smtp-user     . "072bex403.alok@pcampus.edu.np")
+                      (user-mail-address      . "072bex403.alok@pcampus.edu.np")
                       (mu4e-compose-signature . "---\nAlok Regmi\n Pulchowk Campus, Lalitpur, Nepal"))
                     t)
 
@@ -4728,6 +4729,7 @@ Not added when either:
                       (mu4e-trash-folder      . "/personal/Trash")
                       (mu4e-refile-folder     . "/personal/All Mail")
                       (smtpmail-smtp-user     . "sagar.r.alok@gmail.com")
+                      (user-mail-address      . "sagar.r.alok@gmail.com")
                       (mu4e-compose-signature . "---\nAlok Regmi"))
                     t)
 (add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
