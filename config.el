@@ -4792,16 +4792,327 @@ Not added when either:
   :config
   (setq nov-save-place-file (concat doom-cache-dir "nov-places")))
 
-;; Inspired from https://emacs.stackexchange.com/questions/38570/org-mode-quote-block-indentation-highlighting
-(add-hook 'org-font-lock-hook #'aj/org-indent-quotes)
+;;;###autoload
+(defun ruborcalor/org-pomodoro-time ()
+  "Return the remaining pomodoro time"
+  (if (org-pomodoro-active-p)
+      (cl-case org-pomodoro-state
+        (:pomodoro
+         (format "Pomo: %d mins - %s" (/ (org-pomodoro-remaining-seconds) 60) org-clock-heading))
+        (:short-break
+         (format "SB %d minutes" (/ (org-pomodoro-remaining-seconds) 60)))
+        (:long-break
+         (format "LB %d mins" (/ (org-pomodoro-remaining-seconds) 60)))
+        (:overtime
+         (format "Overtime! %d minutes" (/ (org-pomodoro-remaining-seconds) 60))))
+    "NO POMO"))
 
-(defun aj/org-indent-quotes (limit)
-  (let ((case-fold-search t))
-    (while (search-forward-regexp "^[ \t]*#\\+begin_quote" limit t)
-      (let ((beg (1+ (match-end 0))))
-        ;; on purpose, we look further than LIMIT
-        (when (search-forward-regexp "^[ \t]*#\\+end_quote" nil t)
-          (let ((end (1- (match-beginning 0)))
-                (indent (propertize "    " 'face 'org-hide)))
-            (add-text-properties beg end (list 'line-prefix indent
-                                               'wrap-prefix indent))))))))
+(after! org
+  (require 'org-pomodoro)
+  (setq org-pomodoro-length 45
+        org-pomodoro-short-break-length 10
+        org-pomodoro-long-break-length 15
+        org-pomodoro-keep-killed-pomodoro-time t
+        org-pomodoro-long-break-frequency 3
+        org-pomodoro-play-sounds t
+        org-pomodoro-ticking-sound-p t))
+
+(defun ess-r-comment-box-line ()
+  "Insert a comment box around the text of the current line of an R script.
+If the current line indentation is 0, the comment box begins with ###.
+Otherwise, it begins with ## and is indented accordingly."
+  (interactive)
+  (save-excursion
+    (let ((beg (progn (back-to-indentation)
+                      (point)))
+          (end (line-end-position)))
+      (comment-box beg end
+                   (if (> (current-indentation) 0)
+                       1
+                     2)))))
+
+;; A keybinding specific to ESS-R mode:
+(add-hook 'ess-r-mode-hook
+          #'(lambda ()
+              (local-set-key (kbd "H-/") #'ess-r-comment-box-line)))
+
+(use-package wallabag
+  :defer t
+  :config
+  (setq wallabag-host "http://localhost:1702") ;; wallabag server host name
+  (setq wallabag-username "wallabag") ;; username
+  (setq wallabag-password "Kohostan?") ;; password
+  (setq wallabag-clientid "3_bi4rte1agjwo4w80ws4c88wggkkks0wwgk4kwsk88oo8ocw4w") ;; created with API clients management
+  (setq wallabag-secret "3s8ap50dd4kkc04cco84ckg400gw8ckg8os0cs8884cc4o0gok") ;; created with API clients management
+  ;; (setq wallabag-db-file "~/OneDrive/Org/wallabag.sqlite") ;; optional, default is saved to ~/.emacs.d/.cache/wallabag.sqlite
+  ;; (run-with-timer 0 3540 'wallabag-request-token) ;; optional, auto refresh token, token should refresh every hour
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Inkscape [ Works partially ]                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; (after! org
+;;   (require 'ink))
+
+(defface vz/org-script-markers '((t :inherit shadow))
+  "Face to be used for sub/superscripts markers i.e., ^, _, {, }.")
+
+(defun vz/org-raise-scripts (limit)
+  "Add raise properties to sub/superscripts but don't remove the
+markers for sub/super scripts but fontify them."
+  (when (and org-pretty-entities org-pretty-entities-include-sub-superscripts
+             (re-search-forward
+              (if (eq org-use-sub-superscripts t)
+                  org-match-substring-regexp
+                org-match-substring-with-braces-regexp)
+              limit t))
+    (let* ((pos (point)) table-p comment-p
+           (mpos (match-beginning 3))
+           (emph-p (get-text-property mpos 'org-emphasis))
+           (link-p (get-text-property mpos 'mouse-face))
+           (keyw-p (eq 'org-special-keyword (get-text-property mpos 'face))))
+      (goto-char (point-at-bol))
+      (setq table-p (looking-at-p org-table-dataline-regexp)
+            comment-p (looking-at-p "^[ \t]*#[ +]"))
+      (goto-char pos)
+      ;; Handle a_b^c
+      (when (member (char-after) '(?_ ?^)) (goto-char (1- pos)))
+      (unless (or comment-p emph-p link-p keyw-p)
+        (put-text-property (match-beginning 3) (match-end 0)
+                           'display
+                           (if (equal (char-after (match-beginning 2)) ?^)
+                               (nth (if table-p 3 1) org-script-display)
+                             (nth (if table-p 2 0) org-script-display)))
+        (put-text-property (match-beginning 2) (match-end 2)
+                           'face 'vz/org-script-markers)
+        (when (and (eq (char-after (match-beginning 3)) ?{)
+                   (eq (char-before (match-end 3)) ?}))
+          (put-text-property (match-beginning 3) (1+ (match-beginning 3))
+                             'face 'vz/org-script-markers)
+          (put-text-property (1- (match-end 3)) (match-end 3)
+                             'face 'vz/org-script-markers)))
+      t)))
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (vz/org-raise-scripts t)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Dired Enter Key                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun dired-find-file-or-do-async-shell-command ()
+  "If there is a default command defined for this file type, run it asynchronously.If not, open it in Emacs."
+  (interactive)
+  (let (
+        ;; get the default for the file type,
+        ;; putting the string into a list because dired-guess-default throws an error otherwise.
+        (default (dired-guess-default (cons (dired-get-filename) '())))
+        ;; put the file name into a list so dired-shell-stuff-it will accept it
+        (file-list (cons (dired-get-filename) '())))
+    (if (null default)
+        ;; if no default found for file, open in Emacs
+        (dired-find-file)
+      ;; if default is found for file, run command asynchronously
+      (dired-run-shell-command (dired-shell-stuff-it (concat default " &") file-list nil)))))
+;; This function is bound to the Return key in dired-mode to replace the default behavior on Return
+(define-key dired-mode-map (kbd "<H-return>") #'dired-find-file-or-do-async-shell-command)
+;; For added convenience: Don't open a new Async Shell Command window
+(add-to-list 'display-buffer-alist(cons "\\*Async Shell Command\\*.*" (cons #'display-buffer-no-window nil)))
+;; Always open a new buffer if default is occupied.
+;; (setq async-shell-command-buffer 'new-buffer)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        PDF keyboard
+;;                                        highlight                                                      ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defcustom pdf-links-convert-pointsize-scale 0.02
+  "The scale factor for the -pointsize convert command.
+
+This determines the relative size of the font, when interactively
+reading links."
+  :group 'pdf-links
+  :type '(restricted-sexp :match-alternatives
+                          ((lambda (x) (and (numberp x)
+                                       (<= x 1)
+                                       (>= x 0))))))
+
+(defun pdf-links-read-char-action (query prompt)
+  "Using PROMPT, interactively read a link-action.
+BORROWED FROM `pdf-links-read-link-action'.
+See `pdf-links-action-perform' for the interface."
+  (pdf-util-assert-pdf-window)
+  (let* ((links (pdf-info-search-string
+                 query
+                 (pdf-view-current-page)
+                 (current-buffer)))
+         (keys (pdf-links-read-link-action--create-keys
+                (length links)))
+         (key-strings (mapcar (apply-partially 'apply 'string)
+                              keys))
+         (alist (cl-mapcar 'cons keys links))
+         (size (pdf-view-image-size))
+         (colors (pdf-util-face-colors
+                  'pdf-links-read-link pdf-view-dark-minor-mode))
+         (args (list
+                :foreground (car colors)
+                :background "blue"
+                :formats
+                `((?c . ,(lambda (_edges) (pop key-strings)))
+                  (?P . ,(number-to-string
+                          (max 1 (* (cdr size)
+                                    pdf-links-convert-pointsize-scale)))))
+                :commands pdf-links-read-link-convert-commands
+                :apply (pdf-util-scale-relative-to-pixel
+                        (mapcar (lambda (l) (car (cdr (assq 'edges l))))
+                                links)))))
+    (print colors)
+
+    (unless links
+      (error "No links on this page"))
+    (unwind-protect
+        (let ((image-data nil))
+          (unless image-data
+            (setq image-data (apply 'pdf-util-convert-page args ))
+            (pdf-cache-put-image
+             (pdf-view-current-page)
+             (car size) image-data 'pdf-links-read-link-action))
+          (pdf-view-display-image
+           (create-image image-data (pdf-view-image-type) t))
+          (pdf-links-read-link-action--read-chars prompt alist))
+      (pdf-view-redisplay))))
+
+(defun avy-timed-input ()
+  "BORROWED FORM `avy--read-candidates'"
+  (let ((str "")
+        char break)
+    (while (and (not break)
+                (setq char
+                      (read-char (format "char%s (prefer multiple chars w.r.t. speed): "
+                                         (if (string= str "")
+                                             str
+                                           (format " (%s)" str)))
+                                 t
+                                 (and (not (string= str ""))
+                                      avy-timeout-seconds))))
+      ;; Unhighlight
+      (cond
+       ;; Handle RET
+       ((= char 13)
+        (if avy-enter-times-out
+            (setq break t)
+          (setq str (concat str (list ?\n)))))
+       ;; Handle C-h, DEL
+       ((memq char avy-del-last-char-by)
+        (let ((l (length str)))
+          (when (>= l 1)
+            (setq str (substring str 0 (1- l))))))
+       ;; Handle ESC
+       ((= char 27)
+        (keyboard-quit))
+       (t
+        (setq str (concat str (list char))))))
+    (print str)))
+
+(defun get-coordinates (end)
+  (let* ((query (avy-timed-input))
+         (coords (list (or (pdf-links-read-char-action query "Please specify (SPC scrolls): ")
+                           (error "No char selected")))))
+    ;; (print coords)
+    ;; (print (car (alist-get 'edges (car coords))))))
+    (car (alist-get 'edges (car coords)))))
+
+(defun pdf-keyboard-highlight ()
+  (interactive)
+  (let* ((start (get-coordinates nil))
+         (end (get-coordinates t))
+         (edges (append (cl-subseq start 0 2) (cl-subseq end 2 4))))
+    (pdf-annot-add-markup-annotation
+     edges 'highlight '"yellow") nil))
+
+(map!
+ :map pdf-view-mode-map
+ :n "p" #'pdf-keyboard-highlight)
+
+(defun org-roam-dailies-capture-this-week (n &optional goto)
+  (interactive "p")
+  (let ((year (string-to-number (format-time-string "%Y" (current-time))))
+        (month (string-to-number (format-time-string "%m" (current-time))))
+        (day (string-to-number (format-time-string "%d" (current-time)))))
+    (org-roam-dailies--capture (time-add (* (org-day-of-week day month year) -86400) (current-time)) t)
+    (goto-char (point-min))
+    (when (not (search-forward "plan.txt" nil t))
+      (goto-char (point-max))
+      (insert "\n* Weekly Plan\n\n** Monday\n\n** Tuesday\n\n** Wednesday\n\n** Thursday\n\n** Friday\n\n** Saturday\n\n** Sunday"))))
+
+
+;; Time related functions from holtzermann17
+(defun now ()
+  "Insert string for the current time formatted like '2:34 PM'."
+  (interactive)
+  (insert (format-time-string "%D %-I:%M %p")))
+;; 04/29/21 3:08 pm
+
+(defun today ()
+  "Insert string for today's date nicely formatted in American style,
+e.g. Sunday, September 17, 2000."
+  (interactive)
+  (insert (format-time-string "<%Y-%m-%d %a %e>")))
+;; Thu, April 29, 2021
+;; Thursday, April 29, 2021
+;; <2021-04-29 Thu, April 29>
+
+(defun date-string ()
+  (interactive)
+  (format-time-string  "<%Y-%m-%d %a %-H:%M>" nil t))
+
+(defun date ()
+  (interactive)
+  (insert (date-string)))
+
+(defun date-string ()
+  (interactive)
+  (format-time-string  "<%Y-%m-%d %a %-H:%M>" nil t))
+
+(defun now-string ()
+  (interactive)
+  (format-time-string  "%Y-%m-%d %-H:%M|Z" nil t))
+
+;; I don't want to easily close my agenda.
+(map! :map org-agenda-mode-map
+      "q" nil)
+(setq org-id-link-to-org-use-id 'nil)
+
+
+;; TODO Fix tab jump out mode
+
+(setq yas-fallback-behavior '(apply tab-jump-out 1))
+(setq tab-jump-out-mode t)
+
+(require 'dired-aux)
+(defvar dired-filelist-cmd
+  '(("vlc" "-L")))
+(defun dired-start-process (cmd &optional file-list)
+  (interactive
+   (let ((files (dired-get-marked-files
+                 t current-prefix-arg)))
+     (list
+      (dired-read-shell-command "& on %s: "
+                                current-prefix-arg files)
+      files)))
+  (let (list-switch)
+    (start-process
+     cmd nil shell-file-name
+     shell-command-switch
+     (format
+      "nohup 1>/dev/null 2>/dev/null %s \"%s\""
+      (if (and (> (length file-list) 1)
+               (setq list-switch
+                     (cadr (assoc cmd dired-filelist-cmd))))
+          (format "%s %s" cmd list-switch)
+        cmd)
+      (mapconcat #'expand-file-name file-list "\" \"")))))
+(define-key dired-mode-map "r" 'dired-start-process)
