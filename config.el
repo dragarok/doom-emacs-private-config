@@ -2703,7 +2703,7 @@ _t_: run tests _m_: magit  _8_: autopep8
     ("e" end-of-defun)
     ("<" python-indent-shift-left)
     (">" python-indent-shift-right)
-    ("j" counsel-imenu)
+    ("j" consult-imenu)
 
     ("t" elpy-test)
     ("." elpy-goto-definition)
@@ -3052,10 +3052,26 @@ structure changes."
       scihub-download-directory "~/pdfs"
       scihub-open-after-download nil)
 
+
+;; PDF Tools ease of highlighting and history
+(map!
+ :map pdf-view-mode-map
+ :v "a" #'pdf-annot-add-highlight-markup-annotation
+ :v "A" #'pdf-annot-add-markup-annotation
+ :v "t" #'pdf-annot-add-text-annotation
+ :n "x" #'pdf-annot-delete
+ :n "c" #'pdf-history-backward
+ :n "C" #'pdf-history-forward
+ :n "b" #'pdf-view-set-slice-from-bounding-box
+ :n "B" #'pdf-view-reset-slice)
+
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "H-h" '+ivy/switch-workspace-buffer-other-window)
-(bind-key "H-a" '+ivy/switch-workspace-buffer)
+(bind-key "H-z" 'consult-recent-file)
+(bind-key "H-x" 'consult-buffer)
+;; (bind-key "H-a" '+ivy/switch-workspace-buffer)
+(bind-key "H-a" '+vertico/switch-workspace-buffer)
 (bind-key "H-1" 'winum-select-window-1)
 (bind-key "H-2" 'winum-select-window-2)
 (bind-key "H-3" 'winum-select-window-3)
@@ -3076,7 +3092,7 @@ structure changes."
        :n "r" #'helm-org-rifle-directories
        :n "l" #'my/last-captured-org-note)
       (:prefix "o"
-       :n "e" #'elfeed
+       :n "U" #'elfeed
        :n "s" #'org-open-at-point
        :n "u" #'elfeed-update
        ;; EXPERIMENTAL HACK
@@ -3101,7 +3117,7 @@ structure changes."
         :n "s" #'org-babel-jupyter-scratch-buffer
         :n "S" #'jupyter-repl-scratch-buffer
         :n "e" #'jupyter-org-restart-and-execute-to-point))
-      (:prefix "a"
+      (:prefix "z"
        :n "a" #'unpackaged/iedit-or-flyspell
        :n "s" #'create-new-ml-project
        :n "w" #'change-env-and-restart-lsp
