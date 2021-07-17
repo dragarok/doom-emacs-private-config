@@ -108,6 +108,10 @@
         org-priority-lowest 68)
   )
 
+(add-hook 'dired-mode-hook
+          (lambda ()
+            (dired-hide-details-mode)))
+
 (add-hook! 'org-mode-hook #'+org-pretty-mode #'mixed-pitch-mode)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
