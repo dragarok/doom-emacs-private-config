@@ -37,22 +37,33 @@
 
 
 
+;; ;;;###autoload
+;; (defun copy-link-for-kindle ()
+;;   (interactive)
+;;   (elfeed-show-yank)
+;;   (org-capture nil "k")
+;;   )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        Add entry to wallabag                                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;;###autoload
 (defun copy-link-for-kindle ()
   (interactive)
   (elfeed-show-yank)
-  (org-capture nil "k")
+  (wallabag-add-entry (car kill-ring) "")
   )
 
 
-(setq doom-font (font-spec :family "Iosevka" :size 20)
+(setq doom-font (font-spec :family "Iosevka" :size 16)
       ;;       doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 22)
 
-      doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 24)
-      doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
+      doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
+      doom-serif-font (font-spec :family "Arvo" :size 18)
       ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
       ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-      doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 36))
+      doom-big-font (font-spec :family "JetBrainsMono Nerd Font Mono" :size 30))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        Org Mode Beautification                                                    ;;
