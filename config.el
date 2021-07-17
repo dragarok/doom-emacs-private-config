@@ -1522,7 +1522,7 @@ And the line would be overlaid like:
         org-refile-allow-creating-parent-nodes 'confirm)
 
   ;;(advice-add #'org-refile :after 'org-save-all-org-buffers)
-  (advice-add #'org-agenda-exit :around 'doom-shut-up-a)
+  ;; (advice-add #'org-agenda-exit :around 'doom-shut-up-a)
   ;;(advice-add #'org-agenda-exit :before 'org-save-all-org-buffers)
 
   (setq org-startup-indented t
@@ -1776,6 +1776,10 @@ SCHEDULED: %^{Start Time:}t
 (after! org (add-to-list 'org-capture-templates
                          '("rd" "Daily Review" entry (file+olp+datetree "~/Dropbox/org/journal/dailyreview.org")
                            (file "~/Dropbox/org/templates/dailyreviewtemplate.org"))))
+
+(after! org (add-to-list 'org-capture-templates
+                         '("re" "Daily Enthusiasm" entry (file+olp+datetree "~/Dropbox/org/journal/daily_focus_and_enthusiasm.org")
+                           (file "~/Dropbox/org/templates/dailyfocusandenthtemplate.org"))))
 
 (after! org (add-to-list 'org-capture-templates
                          '("rr" "Reflecting the day" entry (file+olp+datetree "~/Dropbox/org/journal/reflections.org")
@@ -2060,99 +2064,60 @@ SCHEDULED: %^{Start Time:}t
 
 (after! org-roam
   (setq org-roam-capture-templates
-        '(("x" "braindump" plain
+        '(("n" "Note" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+DATE: %t
+#+ROAM_ALIASES: ${alias}
+#+title: ${title}\n")
+           :unnarrowed t)
+          ("h" "Hugo" plain
+           "%?"
+           :if-new (file+head "emacs/${slug}.org"
+                              "#+SETUPFILE:../hugo_in_setup.org
+#+HUGO_SECTION: ${ai|emacs|neuroscience}
+#+HUGO_SLUG: ${slug}
+#+hugo_tags:
+#+hugo_categories:
+#+hugo_draft: false\n
+#+FILETAGS: ${filetags}\n
+#+TITLE: ${title}
+#+DATE: %t\n")
+           :unnarrowed t)
+          ("j" "paper-description" plain
            "%?"
            :if-new (file+head "${slug}.org"
-"#+SETUPFILE:./hugo_setup.org
-#+HUGO_SECTION: braindump
-#+HUGO_SLUG: ${slug}
-#+hugo_tags:
-#+hugo_categories:
-#+hugo_draft: false
-#+DATE: %t\n
-#+title: ${title}\n")
-:unnarrowed t)
-        ("t" "ai" plain
-          "%?"
-          :if-new (file+head "AI/${slug}.org"
-"#+SETUPFILE:../hugo_in_setup.org
-#+TITLE: ${title}
-#+HUGO_SECTION: ai
-#+HUGO_SLUG: ${slug}
-#+hugo_tags:
-#+hugo_categories:
-#+hugo_draft: false
-#+DATE: %t\n")
-:unnarrowed t)
-        ("l" "neuroscience" plain
-          "%?"
-          :if-new (file+head "neuroscience/${slug}.org"
-"#+SETUPFILE:../hugo_in_setup.org
-#+TITLE: ${title}
-#+HUGO_SECTION: neuroscience
-#+HUGO_SLUG: ${slug}
-#+hugo_tags:
-#+hugo_categories:
-#+hugo_draft: false
-#+DATE: %t\n")
-:unnarrowed t)
-        ("e" "emacs" plain
-         "%?"
-         :if-new (file+head "emacs/${slug}.org"
-"#+SETUPFILE:../hugo_in_setup.org
-#+TITLE: ${title}
-#+HUGO_SECTION: emacs
-#+HUGO_SLUG: ${slug}
-#+hugo_tags:
-#+hugo_categories:
-#+hugo_draft: false
-#+DATE: %t\n")
-:unnarrowed t)
-        ("j" "paper-description" plain
-          "%?"
-          :if-new (file+head "${slug}.org"
-"#+SETUPFILE:./hugo_setup.org
-#+TITLE: ${title}
-#+HUGO_SECTION: ${section}
-#+HUGO_SLUG: ${slug}
-#+hugo_tags:
-#+hugo_categories:
-#+hugo_draft: false
+                              "#+TITLE: ${title}
 #+DATE: %t\n * Main Contribution \n* Your description of significance \n* New algorithm or principles\n* Simulation Results and Comparisons\n* Solid Conclusion"
-:unnarrowed t)
-
-
-        ("e" "ref" plain
-          (function org-roam--capture-get-point)
-          "%?"
-          :if-new (file+head "websites/${slug}.org"
-"#+SETUPFILE:./hugo_in_setup.org
+                              :unnarrowed t))
+          ("e" "ref" plain "%?"
+           :if-new (file+head "websites/${slug}.org"
+                              "#+SETUPFILE:./hugo_in_setup.org
 #+ROAM_KEY: ${ref}
 #+HUGO_SLUG: ${slug}
 #+TITLE: ${title}\n- source :: ${ref}")
-:unnarrowed t)
+           :unnarrowed t)
 
-        ("k" "private" plain
-          (function org-roam--capture-get-point)
-          "%?"
-          :if-new (file+head "private-${slug}"
-                             "#+TITLE: ${title}\n")
-          :unnarrowed t)
+          ("k" "private" plain
+           (function org-roam--capture-get-point)
+           "%?"
+           :if-new (file+head "private-${slug}"
+                              "#+TITLE: ${title}\n")
+           :unnarrowed t)
 
-        ("h" "hugo blogging" plain
-          (function org-roam--capture-get-point)
-          "%?"
-          :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}"
-"#+SETUPFILE:./hugo_setup.org
-#+HUGO_SECTION: posts
-#+HUGO_TAGS: %^{Tags}
-#+EXPORT_FILE_NAME: %^{export name}
-#+TITLE: ${title}
-#+AUTHOR: Alok Regmi
-#+DATE: %t")
-        :unnarrowed t)
+          ;;            ("h" "hugo blogging" plain
+          ;;             (function org-roam--capture-get-point)
+          ;;             "%?"
+          ;;             :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}"
+          ;;                                "#+SETUPFILE:./hugo_setup.org
+          ;; #+HUGO_SECTION: posts
+          ;; #+HUGO_TAGS: %^{Tags}
+          ;; #+EXPORT_FILE_NAME: %^{export name}
+          ;; #+TITLE: ${title}
+          ;; #+AUTHOR: Alok Regmi
+          ;; #+DATE: %t")
+          ;;             :unnarrowed t)
+          )
         ))
-))
 
 (use-package org-roam-server
   :defer t
