@@ -7,3 +7,6 @@
 [submodule "wttrin"]
 	path = wttrin
 	url = https://github.com/bcbcarl/emacs-wttrin.git
+[submodule "orch"]
+	path = orch
+	url = https://github.com/dragarok/orch.git
