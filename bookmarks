@@ -1,0 +1,65 @@
+;;;; Emacs Bookmark Format Version 1;;;; -*- coding: utf-8-emacs; mode: lisp-data -*-
+;;; This format is meant to be slightly human-readable;
+;;; nevertheless, you probably don't want to edit it.
+;;; -*- End Of Bookmark File Format Version Stamp -*-
+(("Active"
+ (filename . "/run/media/kai/Active/")
+ (front-context-string . ".doom.d\n  drwxrw")
+ (rear-context-string . "0K Feb 15 05:09 ")
+ (position . 70))
+("Archive"
+ (filename . "/run/media/kai/Archive/")
+ (front-context-string . "Books\n  drwxrwxr")
+ (rear-context-string . "6K Jul 18  2021 ")
+ (position . 71))
+("OS"
+ (filename . "/run/media/kai/OS/")
+ (front-context-string . "Config.Msi\n  lrw")
+ (rear-context-string . " 0 Mar 17  2021 ")
+ (position . 66))
+("vertico-readme"
+ (filename . "~/.emacs.d/modules/completion/vertico/README.org")
+ (front-context-string . "C .= support exp")
+ (rear-context-string . "SPC f f= and =SP")
+ (position . 8408))
+("Books"
+ (filename . "/run/media/kai/Books/")
+ (front-context-string . "facebook-sagarra")
+ (rear-context-string . "020-03-12 19:09 ")
+ (position . 121))
+("Project"
+ (filename . "/run/media/kai/Project/")
+ (front-context-string . ".Trashes\n  drwxr")
+ (rear-context-string . " 0 Jun 17  2021 ")
+ (position . 71))
+("org-capture-last-stored-marker"
+ (filename . "~/Dropbox/org/notes/books_log.org")
+ (front-context-string . "*** Life 3.0: Be")
+ (rear-context-string . "aS&rank=1\n:END:\n")
+ (position . 7526))
+("org-refile-last-stored"
+ (filename . "~/Dropbox/org/notes/books_log.org")
+ (front-context-string . "*** Life 3.0: Be")
+ (rear-context-string . "aS&rank=1\n:END:\n")
+ (position . 7526))
+("org-capture-last-stored"
+ (filename . "~/Dropbox/org/notes/books.org")
+ (front-context-string . "* Life 3.0: Bein")
+ (rear-context-string)
+ (position . 1))
+("zshrc"
+ (filename . "~/.zshrc")
+ (front-context-string . "# If you come fr")
+ (rear-context-string)
+ (position . 1))
+("polybar"
+ (filename . "~/.config/polybar/material/")
+ (front-context-string . "config.ini\n  -rw")
+ (rear-context-string . "1K Jan 26 08:53 ")
+ (position . 281))
+("i3config"
+ (filename . "~/.config/i3/config")
+ (front-context-string . "# switch to work")
+ (rear-context-string . " border normal\n\n")
+ (position . 10991))
+)
