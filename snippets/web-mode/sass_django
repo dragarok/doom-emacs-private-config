@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: sass django
+# uuid: sass django
+# key: djs
+# condition: t
+# --
+
+{% compress css %}
+    <link type="text/x-scss" href="{% static '$1' %}" rel="stylesheet" media="screen">
+{% endcompress %}

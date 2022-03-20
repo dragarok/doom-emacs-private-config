@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: Ml
+# key: <m
+# --
+#+BEGIN_SRC jupyter-python :async yes :session py :kernel $1
+$2
+#+END_SRC

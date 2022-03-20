@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: Py
+# key: <p
+# --
+#+BEGIN_SRC jupyter-python :async yes :session py :kernel python3
+$1
+#+END_SRC

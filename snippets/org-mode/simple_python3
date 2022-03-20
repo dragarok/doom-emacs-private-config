@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: Spy
+# key: <k
+# --
+#+BEGIN_SRC python
+$1
+#+END_SRC

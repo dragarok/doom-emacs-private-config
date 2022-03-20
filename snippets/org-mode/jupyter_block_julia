@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: Julia
+# key: <j
+# --
+#+BEGIN_SRC jupyter-julia :async yes :session py :kernel julia-1.5
+$1
+#+END_SRC

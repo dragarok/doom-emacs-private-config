@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: REVEAL_JS_PRESENTATION
+# key: REVEAL JS PRESENTATION 
+# --
+#+OPTIONS: num:nil toc:nil
+#+REVEAL_TRANS: None/Fade/Slide/Convex/Concave/Zoom
+#+REVEAL_THEME: Black/White/League/Sky/Beige/Simple/Serif/Blood/Night/Moon/Solarized
+#+Title: Title of Your Talk
+#+Author: Your Name
+#+Email: Your Email Address or Twitter Handle
