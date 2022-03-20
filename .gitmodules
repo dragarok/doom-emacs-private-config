@@ -1,12 +1,12 @@
 [submodule "spray"]
 	path = spray
-	url = https://git.sr.ht/~iank/spray
+	url = https://github.com/emacsmirror/spray
 [submodule "clip2org"]
 	path = clip2org
-	url = https://github.com/dragarok/clip2org.git
+	url = git@github.com:dragarok/clip2org.git
 [submodule "wttrin"]
 	path = wttrin
 	url = https://github.com/bcbcarl/emacs-wttrin.git
 [submodule "orch"]
 	path = orch
-	url = https://github.com/dragarok/orch.git
+	url = git@github.com:dragarok/orch.git
