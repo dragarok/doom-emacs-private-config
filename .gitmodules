@@ -1,6 +1,6 @@
 [submodule "spray"]
 	path = spray
-	url = https://github.com/emacsmirror/spray
+	url = git@github.com:dragarok/spray.git
 [submodule "clip2org"]
 	path = clip2org
 	url = git@github.com:dragarok/clip2org.git
