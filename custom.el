@@ -53,14 +53,23 @@
 (customize-set-value
  'org-agenda-category-icon-alist
  `(
-   ("Events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
+   ;; Tasks that are still not classified but will be in the future
    ("Inbox" ,(list (all-the-icons-material "check_box" :height 1.2)) nil nil :ascent center)
+   ;; Reminders of dates for something important
+   ("Events" ,(list (all-the-icons-material "event_note" :height 1.2)) nil nil :ascent center)
+   ;; Long term tasks whose output is not immediately known
    ("ToTheMoon" ,(list (all-the-icons-octicon "rocket" :height 1.2)) nil nil :ascent center)
-   ("Hobby" ,(list (all-the-icons-material "spa" :height 1.2)) nil nil :ascent center)
-   ("Fitness" ,(list (all-the-icons-material "fitness_center" :height 1.2)) nil nil :ascent center)
-   ("Normal" ,(list (all-the-icons-material "computer" :height 1.2)) nil nil :ascent center)
+   ;; Short term tasks that show immediate improvements
    ("ToImprove" ,(list (all-the-icons-material "motorcycle" :height 1.2)) nil nil :ascent center)
+   ;; Something I do just for the sake of doing it
+   ("Hobby" ,(list (all-the-icons-material "spa" :height 1.2)) nil nil :ascent center)
+   ;; Health related tasks
+   ("Fitness" ,(list (all-the-icons-material "fitness_center" :height 1.2)) nil nil :ascent center)
+   ;; Tasks that don't fall into any category
+   ("Normal" ,(list (all-the-icons-material "computer" :height 1.2)) nil nil :ascent center)
+   ;; Something that is not too valuable in terms of information
    ("Mundane" ,(list (all-the-icons-material "sentiment_dissatisfied" :height 1.2)) nil nil :ascent center)
+   ("Meeting" ,(list (all-the-icons-material "repeat" :height 1.2)) nil nil :ascent center)
    ;; based on where the task comes from
    ;; ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
    ;; ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)

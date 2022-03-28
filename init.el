@@ -76,8 +76,7 @@
        electric          ; smarter, keyword-based electric-indent
        (ibuffer         ; interactive buffer management
         +icons)
-       (undo              ; persistent, smarter undo for your inevitable mistakes
-        +tree)
+       undo              ; persistent, smarter undo for your inevitable mistakes
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
@@ -158,8 +157,8 @@
        ;;(java +meghanada) ; the poster child for carpal tunnel syndrome
        (javascript        ; all(hope(abandon(ye(who(enter(here))))))
         +lsp)
-       (julia             ; a better, faster MATLAB
-        +lsp)
+       ;; (julia             ; a better, faster MATLAB
+       ;;  +lsp)
        ;;kotlin            ; a better, slicker Java(Script)
        (latex             ; writing papers in Emacs has never been so fun
         +cdlatex
@@ -186,7 +185,7 @@
         +roam2
         )
        ;;php               ; perl's insecure younger brother
-       plantuml          ; diagrams for confusing people more
+       ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
         +pyenv

@@ -1,5 +1,11 @@
 #+TITLE: Emacs Config
 * Doom Basics
+** Hide frame in emacs 29
+
+#+begin_src emacs-lisp
+(add-to-list 'default-frame-alist '(undecorated . t))
+#+end_src
+
 ** Make everything unicode
 #+begin_src elisp
 (prefer-coding-system       'utf-8)
@@ -39,13 +45,13 @@
 #+END_SRC
 ** Fonts and Themes
 #+BEGIN_SRC elisp
-(setq doom-font (font-spec :family "SpaceMono Nerd Font Mono" :size 18)
-      doom-variable-pitch-font (font-spec :family "OverpassMono Nerd Font" :size 21)
+(setq doom-font (font-spec :family "SpaceMono Nerd Font Mono" :size 12)
+      doom-variable-pitch-font (font-spec :family "OverpassMono Nerd Font" :size 14)
       ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-      doom-serif-font (font-spec :family "Iosevka Etoile" :size 18)
+      doom-serif-font (font-spec :family "OverpassMono Nerd Font" :size 14)
       ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
       ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-      doom-big-font (font-spec :family "SpaceMono Nerd Font" :size 26))
+      doom-big-font (font-spec :family "SpaceMono Nerd Font" :size 20))
 
 (load-theme 'modus-operandi 'noconfirm)
 
@@ -2770,13 +2776,6 @@ SCHEDULED: %^{Start Time:}t
           ("@" (:foreground "seashell"))
           ("~" (:foreground "deep sky blue"))
           ("+" (:strike-through t :foreground "slate grey" ))))
-  (setq org-fancy-priorities-list
-        `(
-          (?A . ,(concat " " (all-the-icons-octicon "pulse" :height 1.2) " "))
-          (?B . ,(concat " " (all-the-icons-octicon "mortar-board" :height 1.2) " "))
-          (?C . ,(concat " " (all-the-icons-octicon "flame" :height 1.2) " "))
-          (?D . ,(concat " " (all-the-icons-octicon "telescope" :height 1.2) " "))
-          ))
   )
 
 #+END_SRC
@@ -4059,7 +4058,7 @@ structure changes."
 
 #+begin_src emacs-lisp
 (use-package! org-fancy-priorities
-  :after org
+  :defer 20
   :config
   (setq org-fancy-priorities-list
         `(

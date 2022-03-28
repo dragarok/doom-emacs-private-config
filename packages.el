@@ -186,11 +186,11 @@
 ;; (package! org-time-budgets
 ;;   :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
 
-(straight-use-package
- '(webkit :type git :host github :repo "akirakyle/emacs-webkit"
-          :branch "main"
-          :files (:defaults "*.js" "*.css" "*.so" "Makefile" ".c" ".h")
-          :pre-build ("make")))
+;; (straight-use-package
+;;  '(webkit :type git :host github :repo "akirakyle/emacs-webkit"
+;;           :branch "main"
+;;           :files (:defaults "*.js" "*.css" "*.so" "Makefile" ".c" ".h")
+;;           :pre-build ("make")))
 (package! org-roam-bibtex)
 (package! dirvish)
 ;; (package! meow)
