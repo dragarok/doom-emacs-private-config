@@ -43,10 +43,10 @@
  (rear-context-string . "aS&rank=1\n:END:\n")
  (position . 7526))
 ("org-capture-last-stored"
- (filename . "~/Dropbox/org/notes/books.org")
- (front-context-string . "* Life 3.0: Bein")
- (rear-context-string)
- (position . 1))
+ (filename . "~/Dropbox/org/notes/daily/diary.org")
+ (front-context-string . "**** <08:58:51> ")
+ (rear-context-string . "22-04-17 Sunday\n")
+ (position . 174282))
 ("zshrc"
  (filename . "~/.zshrc")
  (front-context-string . "# If you come fr")

@@ -3,33 +3,23 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(safe-local-variable-values
-   '((git-commit-major-mode . git-commit-elisp-text-mode)
-     (org-refile-targets)
-     (org-download-delete-image-after-download)
-     (org-download-method . directory)))
- '(smtpmail-smtp-server "smtp.gmail.com")
- '(smtpmail-smtp-service 587))
+ '(custom-safe-themes
+   '("745d03d647c4b118f671c49214420639cb3af7152e81f132478ed1c649d4597d" default)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(hydra-posframe-border-face ((t (:background "#6272a4"))))
- ;; '(org-ref-cite-face :weight unspecified :foreground unspecified :underline ,(doom-color 'grey))
  '(org-agenda-date ((t (:height 1.1 :background nil))))
  '(org-agenda-date-today ((t (:height 1.5 :background nil))))
- ;; '(org-block ((t (:inherit (fixed-pitch shadow) :background nil :height 1.2))))
- ;; '(org-block-begin-line ((t (:inherit region :background nil :height 0.9))))
- ;; '(org-block-end-line ((t (:inherit region :background nil :height 0.8))))
- ;; '(org-code ((t (:inherit (fixed-pitch shadow) :height 1.1))))
- '(org-block ((t (:inherit (fixed-pitch shadow) :background nil))))
- '(org-block-begin-line ((t (:inherit region :background nil))))
- '(org-block-end-line ((t (:inherit region :background nil))))
- '(org-code ((t (:inherit (fixed-pitch shadow)))))
+ '(org-block ((t (:inherit (fixed-pitch shadow) :background nil :height 1.2))))
+ '(org-block-begin-line ((t (:inherit region :background nil :height 0.9))))
+ '(org-block-end-line ((t (:inherit region :background nil :height 0.8))))
+ '(org-code ((t (:inherit (fixed-pitch shadow) :height 1.1))))
  '(org-document-info ((t (:foreground "dark orange"))))
- ;; '(org-document-info-keyword ((t (:inherit shadow :height 0.8))))
- ;; '(org-document-title ((t (:height 1.3 :weight normal :underline nil))))
+ '(org-document-info-keyword ((t (:inherit shadow :height 0.8))))
+ '(org-document-title ((t (:height 1.3 :weight normal :underline nil))))
  '(org-done ((t (:strike-through t :weight bold))))
  '(org-ellipsis ((t (:underline nil))))
  '(org-headline-done ((t (:strike-through t))))
@@ -37,18 +27,10 @@
  '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch) :foreground "dark orange"))))
  '(org-property-value ((t (:inherit fixed-pitch))) t)
  '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
- '(org-table ((t (:foreground "#83a598" :height 0.8))))
- ;; '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
+ '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+ '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 1.1))))
  '(org-verbatim ((t (:inherit shadow))))
- '(outline-1 ((t (:weight extra-bold :height 1.3))))
- '(outline-2 ((t (:weight bold :height 1.25))))
- '(outline-3 ((t (:slant italic :weight bold :height 1.2))))
- '(outline-4 ((t (:slant italic :weight semi-bold :height 1.15))))
- '(outline-5 ((t (:slant italic :weight semi-bold :height 1.1))))
- '(outline-6 ((t (:slant italic :weight semi-bold :height 1.1))))
- '(outline-8 ((t (:slant italic :weight semi-bold :height 1.1))))
- '(outline-9 ((t (:slant italic :weight semi-bold :height 1.1))))
- '(vterm-color-black ((t (:foreground "SandyBrown" :background "SandyBrown")))))
+ '(vterm-color-black ((t (:foreground "OrangeRed3" :background "BlueViolet")))))
 
 (customize-set-value
  'org-agenda-category-icon-alist

@@ -1,40 +1,7 @@
 #+TITLE: Emacs Config
 * Doom Basics
 ** Hide frame in emacs 29
-
-#+begin_src emacs-lisp
-(add-to-list 'default-frame-alist '(undecorated . t))
-#+end_src
-
-** Make everything unicode
-#+begin_src elisp
-(prefer-coding-system       'utf-8)
-(set-default-coding-systems 'utf-8)
-(set-terminal-coding-system 'utf-8)
-(set-keyboard-coding-system 'utf-8)
-#+end_src
-** Delete to trash
-#+begin_src elisp
-(setq delete-by-moving-to-trash t)
-#+end_src
-** Make localleader
-#+BEGIN_SRC elisp
-(setq doom-localleader-key ",")
-#+END_SRC
-** Evil Keybinding to do o or 0 on normal mode
-#+begin_src elisp
-(setq +evil-want-o/O-to-continue-comments nil)
-#+end_src
-** User Info
-#+BEGIN_SRC elisp
-(setq user-full-name "Alok Regmi"
-      user-mail-address "sagar.r.alok@gmail.com")
-#+END_SRC
-** Speeding things up
-#+begin_src elisp
-(setq gc-cons-threshold 4073741824 )
-#+end_src
-** Org Roam Directory
+Org Roam Directory
 #+begin_src elisp
 (setq org-roam-directory "~/Dropbox/org/notes")
 #+end_src
@@ -619,7 +586,6 @@ And the line would be overlaid like:
   :config
   )
 #+end_src
-
 * Newest Changes
 ** Org Protocol I3
 #+BEGIN_SRC elisp
@@ -2224,7 +2190,7 @@ the inbox.  Set it as a waiting action and refile to
         '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
 
   (add-to-list 'org-global-properties
-               '("Effort". "0:05 0:15 0:30 1:00 2:00 3:00 4:00"))
+               '("Effort_ALL". "0:05 0:10 0:15 0:30 1:00 2:00"))
   (setq org-agenda-skip-scheduled-if-done t
         org-agenda-skip-deadline-if-done t
         ;; for showing only recurring task's next entry
@@ -2234,97 +2200,119 @@ the inbox.  Set it as a waiting action and refile to
 
   (setq org-todo-keyword-faces
         '(("TODO" :foreground "DeepSkyBlue4" :weight bold)
-          ("TOREAD" :foreground "DeepSkyBlue4" :weight bold)
-          ("WAITING" :foreground "light sea green" :weight bold)
-          ("READING" :foreground "light sea green" :weight bold)
           ("SOMEDAY" :foreground "chocolate3" :weight bold)
-          ("REVISE" :foreground "firebrick" :weight bold)
-          ("SUMMARISE" :foreground "firebrick" :weight bold)
-          ("DELEGATED" :foreground "Gold" :weight bold)
+
+          ;; BOOKS
+          ("TOREAD" :foreground "DeepSkyBlue4" :weight bold)
+          ("READING" :foreground "light sea green" :weight bold)
+          ("REREADING" :foreground "DimGray" :weight bold)
+          ("SUMMARISING" :foreground "firebrick" :weight bold)
+
+          ;; MEETING
+          ;; ("MEETING" :foreground "DeepSkyBlue4" :weight bold)
+
+          ;; NORMAL States
+          ("WAITING" :foreground "light sea green" :weight bold)
           ("NEXT" :foreground "red1" :weight bold)
           ("ACTIVE" :background "DimGray" :foreground "gold1" :weight bold)
-          ("DONE" :foreground "slategrey" :weight bold)))
+          ))
 
-  (setq org-todo-keywords
-        '((sequence "TODO(t)" "NEXT(n)" "ACTIVE(a)" "REVISE(y)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
-          (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "SUMMARISE(s)" "|" "DONE(d!/!)")
-          (sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
-          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
-          (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
+        (setq org-todo-keywords
+              '((sequence "TODO(t)" "NEXT(n)" "ACTIVE(a)" "WAITING(w)" "|" "DONE(d!/!)")
+                ;; (sequence "MEETING(m)" "ACTIVE(a)" "|" "CANCELED(c@/!)")
+                ;; (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "SUMMARISE(s)" "|" "DONE(d!/!)")
+                (sequence "SOMEDAY(f@/!)")
+                (sequence "PROJ(p)")
+                (sequence  "|" "CANCELLED(c@/!)")
+                ;; (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")
+                ))
 
-  (setq org-log-state-notes-insert-after-drawers nil
-        org-log-into-drawer t
-        org-log-done 'time
-        org-log-repeat 'time
-        org-log-redeadline 'note
-        org-log-reschedule 'note)
+        (setq org-log-state-notes-insert-after-drawers nil
+              org-log-into-drawer t
+              org-log-done 'time
+              org-log-repeat 'time
+              org-log-redeadline 'note
+              org-log-reschedule 'note)
 
-  (setq org-refile-targets '((org-agenda-files . (:maxlevel . 5)))
-        org-outline-path-complete-in-steps nil
-        org-refile-allow-creating-parent-nodes 'confirm)
+        (setq org-refile-targets '((org-agenda-files . (:maxlevel . 5)))
+              org-outline-path-complete-in-steps nil
+              org-refile-allow-creating-parent-nodes 'confirm)
 
-  ;;(advice-add #'org-refile :after 'org-save-all-org-buffers)
-  ;; (advice-add #'org-agenda-exit :around 'doom-shut-up-a)
-  ;;(advice-add #'org-agenda-exit :before 'org-save-all-org-buffers)
+        ;;(advice-add #'org-refile :after 'org-save-all-org-buffers)
+        ;; (advice-add #'org-agenda-exit :around 'doom-shut-up-a)
+        ;;(advice-add #'org-agenda-exit :before 'org-save-all-org-buffers)
 
-  (setq org-startup-indented t
-        org-src-tab-acts-natively t)
-  ;; (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
+        (setq org-startup-indented t
+              org-src-tab-acts-natively t)
+        ;; (add-hook 'org-mode-hook (lambda () (org-autolist-mode)))
 
-  (setq org-tag-alist '(
-                        ;; Type of work
-                        (:startgroup . nil)
-                        ;; Have topic you are planning for as a tag
-                        ("plan" . ?p)
+        (setq org-tag-alist '(
+                              ;; Type of work
+                              (:startgroup . nil)
+                              ;; Have topic you are planning for as a tag
+                              ("plan" . ?p)
 
-                        ;; Have place and person who you are meeting with
-                        ("meeting". ?m)
-                        ;; Have person as a tag if working with someone or collaborating
-                        ;; ("assist". ?A)
+                              ;; Have place and person who you are meeting with
+                              ("meeting". ?m)
+                              ;; Have person as a tag if working with someone or collaborating
+                              ;; ("assist". ?A)
 
-                        ;; hobby category and coding type
-                        ;; ("customization". ?C)
-                        ;; ("do" . ?d)
+                              ;; hobby category and coding type
+                              ;; ("customization". ?C)
+                              ;; ("do" . ?d)
 
-                        ("code" . ?c)
-                        ("practice" . ?s)
-                        (:endgroup . nil)
+                              ("code" . ?c)
+                              (:endgroup . nil)
 
-                        ;; Active or Passive Work
-                        (:startgroup . nil)
-                        ("Active". "V")
-                        ;; ("read" . ?r)
-                        ;; ("write" . ?W)
-                        ("Passive". "P")
-                        ;; ("watch" . ?w)
-                        ;; ("listen" . ?L)
-                        (:endgroup . nil)
+                              ;; Achievement goal vs habit goal
+                              ;; If your achievement goal is to “Loose weight”,
+                              ;; then your habit item will have a title of “Jogging 30 mins a day”,
+                              ;; scheduled “every 7AM” in the morning, with a location of “At the park”.
+                              ;; What, when, and where
+                              (:startgroup . nil)
+                              ;; For results based
+                              ("habit". ?h)
+                              ;; For achievement based with deadline
+                              ("goal" . ?g)
+                              ;; re-evaluate goals and make adjustments
+                              ("refinement" . ?r)
+                              (:endgroup . nil)
 
-                        ;; Difficulty of work
-                        (:startgroup . nil)
-                        ("Challenge" . ?1)
-                        ("Average" . ?2)
-                        ("Easy" . ?3)
-                        (:endgroup . nil)
+                              ;; Active or Passive Work
+                              (:startgroup . nil)
+                              ("Active". "V")
+                              ;; ("read" . ?r)
+                              ;; ("write" . ?W)
+                              ("Passive". "P")
+                              ;; ("watch" . ?w)
+                              ;; ("listen" . ?L)
+                              (:endgroup . nil)
 
-                        ;; ;; Time Context for the work
-                        ;; (:startgroup . nil)
-                        ;; ("Morning" . ?4)
-                        ;; ("Day" . ?5)
-                        ;; ("Evening" . ?6)
-                        ;; (:endgroup . nil)
+                              ;; Difficulty of work
+                              (:startgroup . nil)
+                              ("Challenge" . ?1)
+                              ("Average" . ?2)
+                              ("Easy" . ?3)
+                              (:endgroup . nil)
 
-                        ;; Motivation required for this work
-                        (:startgroup . nil)
-                        ("Lazy" . ?7)
-                        ("ModeratelyLazy" . ?8)
-                        ("Energetic" . ?9)
-                        (:endgroup . nil)
-                        ))
+                              ;; ;; Time Context for the work
+                              ;; (:startgroup . nil)
+                              ;; ("Morning" . ?4)
+                              ;; ("Day" . ?5)
+                              ;; ("Evening" . ?6)
+                              ;; (:endgroup . nil)
 
-  (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
-        org-clone-delete-id t)
-  )
+                              ;; Motivation required for this work
+                              (:startgroup . nil)
+                              ("Lazy" . ?7)
+                              ("ModeratelyLazy" . ?8)
+                              ("Energetic" . ?9)
+                              (:endgroup . nil)
+                              ))
+
+        (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
+              org-clone-delete-id t)
+        )
 
 #+END_SRC
 ** Org Clocking
@@ -5250,4 +5238,14 @@ latter - its output."
 :PROPERTIES:
 :CREATED:    %U
 :END:")))
+#+end_src
+** Colemak Keyboard Evil
+
+#+begin_src emacs-lisp
+(use-package evil-colemak-basics
+  :after evil evil-snipe
+  :init
+  (setq evil-colemak-basics-char-jump-commands 'evil-snipe)
+  :config
+  (global-evil-colemak-basics-mode))
 #+end_src

@@ -25,6 +25,7 @@
        ;;ido               ; the other *other* search engine...
        ;;ivy               ; a search engine for love and life
        (vertico
+        +childframe
         +icons)        ; the search engine of the future
 
        :ui
@@ -57,6 +58,7 @@
        zen               ; distraction-free coding or writing
 
        :editor
+       ;;(meow +colemak +override)
        (evil +everywhere); come to the dark side, we have cookies
        file-templates    ; auto-snippets for empty files
        fold              ; (nigh) universal code folding
@@ -107,7 +109,7 @@
         +offline
         +docsets)
        (lsp               ; M-x vscode
-        +peek)
+        +eglot)
        (magit             ; a git porcelain for Emacs
         +forge)
        ;;make              ; run make tasks from Emacs

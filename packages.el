@@ -166,7 +166,7 @@
 ;;           :files (:defaults "*.js" "*.css" "*.so" "Makefile" ".c" ".h")
 ;;           :pre-build ("make")))
 (package! ox-json)
-(package! valign)
+;; (package! valign)
 ;; (package! lsp-tailwindcss :recipe (:host github :repo "merrickluo/lsp-tailwindcss"))
 
 ;; UNUSED PACKAGES
@@ -193,5 +193,5 @@
 ;;           :pre-build ("make")))
 (package! org-roam-bibtex)
 (package! dirvish)
-;; (package! meow)
 (package! powershell)
+(package! evil-colemak-basics)
