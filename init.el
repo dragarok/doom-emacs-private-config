@@ -111,7 +111,8 @@
        (lsp               ; M-x vscode
         +eglot)
        (magit             ; a git porcelain for Emacs
-        +forge)
+        ;; +forge
+        )
        ;;make              ; run make tasks from Emacs
        ;;pass              ; password manager for nerds
        pdf               ; pdf enhancements
@@ -229,5 +230,5 @@
        ;; twitter           ; twitter client https://twitter.com/vnought
 
        :config
-       literate
+       ;; literate
        (default +bindings +smartparens))

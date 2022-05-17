@@ -194,4 +194,4 @@
 (package! org-roam-bibtex)
 (package! dirvish)
 (package! powershell)
-(package! evil-colemak-basics)
+;; (package! evil-colemak-basics)
