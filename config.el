@@ -9,7 +9,6 @@
 
 (setq doom-localleader-key ",")
 
-
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
@@ -29,6 +28,88 @@
       doom-big-font (font-spec :family "SpaceMono NF" :size 22))
 
 (load-theme 'modus-operandi 'noconfirm)
+
+
+(after! evil
+
+  ;; Mapping
+  ;; Vim ==> Colemak Mine
+  ;; j ==> n
+  ;; k ==> e
+  ;; l ==> i
+  ;; i ==> l
+  ;; n ==> k
+  ;; e ==> j
+  (map! :n "l" 'evil-insert
+        :n "L" 'evil-insert-line
+        :nv "k" 'evil-ex-search-next
+        :nv "K" 'evil-ex-search-previous
+        :nvm "j" 'evil-forward-word-end
+        :nvm "J" 'evil-forward-word-end
+        :nv "N" 'evil-join
+        :nvm "n" 'evil-next-line
+        :nvm "e" 'evil-previous-line
+        :nvm "E" '+lookup/documentation
+        :nvm "i" 'evil-forward-char
+        :nvm "I" 'evil-window-bottom
+        :nv "gI" 'evil-lion-left
+        :nv "gi" 'evil-lion-right
+        :nv "gl" 'evil-insert-resume
+        :nv "gL" '+lookup/implementations
+        :nv "gj" 'evil-backward-word-end
+        :nv "gJ" 'evil-backward-WORD-end
+        :nv "gE" 'evil-join-whitespace
+        :nv "ge" 'evil-next-visual-line
+        :nv "gk" 'evil-next-match
+        :nv "gK" 'evil-previous-match
+        :nv "gn" 'evil-previous-visual-line
+        :nv "gN" nil
+        :n "zn" '+fold/next
+        :n "ze" '+fold/previous
+        :n "zE" 'nil
+        :n "zD" 'vimish-fold-delete-all
+        :n "zi" 'evil-scroll-column-right
+        :n "zI" 'evil-scroll-right
+        :nv "zk" '+evil:narrow-buffer
+        :n "zK" 'doom/widen-indirectly-narrowed-buffer
+        )
+
+  (map! :leader
+        (:prefix "w"
+         :n "J" nil
+         :n "n" #'evil-window-down
+         :n "e" #'evil-window-up
+         :n "i" #'evil-window-right
+         :n "N" #'+evil/window-move-down
+         :n "E" #'+evil/window-move-up
+         :n "I" #'+evil/window-move-right
+         :n "C-n" #'evil-window-down
+         :n "C-e" #'evil-window-up
+         :n "C-i" #'evil-window-right
+         ;; Not losing keybinding for C-n
+         :n "C-j" #'evil-window-new
+         :n "j" #'evil-window-new
+         :n "C-S-n" #'evil-window-move-very-bottom
+         :n "C-S-e" #'evil-window-move-very-top
+         :n "C-S-i" #'evil-window-move-far-right)
+        (:prefix "c")
+        :n "F" #'consult-flycheck
+        :n "T" #'lsp-treemacs-symbols
+        )
+  )
+
+
+(map! :localleader
+      :map python-mode-map
+      :nvm "r" #'+python/open-repl
+      :nvm "R" #'+python/open-ipython-repl
+      :vm "X" #'python-shell-send-region
+      :n "x" #'python-shell-send-defun
+      :n "X" #'python-shell-send-buffer
+      :n "z" #'python-shell-send-statement
+      :n "F" #'python-shell-send-file
+      :nvm "h" #'scimax-python-mode/body
+      )
 
 ;; (if (not window-system)
 ;;     (setq doom-theme 'doom-))
@@ -508,26 +589,26 @@ And the line would be overlaid like:
   :config
   )
 
-(after! org
-(require 'org-capture)
-(require 'org-protocol)
+;; (after! org
+;; (require 'org-capture)
+;; (require 'org-protocol)
 
 ;;; Org Capture
 ;;;; Thank you random guy from StackOverflow
 ;;;; http://stackoverflow.com/questions/23517372/hook-or-advice-when-aborting-org-capture-before-template-selection
 
-(defadvice org-capture
-    (after make-full-window-frame activate)
-  "Advise capture to be the only window when used as a popup"
-  (if (equal "emacs-capture" (frame-parameter nil 'name))
-      (delete-other-windows)))
+;; (defadvice org-capture
+;;     (after make-full-window-frame activate)
+;;   "Advise capture to be the only window when used as a popup"
+;;   (if (equal "emacs-capture" (frame-parameter nil 'name))
+;;       (delete-other-windows)))
 
-(defadvice org-capture-finalize
-    (after delete-capture-frame activate)
-  "Advise capture-finalize to close the frame"
-  (if (equal "emacs-capture" (frame-parameter nil 'name))
-      (delete-frame)))
-)
+;; (defadvice org-capture-finalize
+;;     (after delete-capture-frame activate)
+;;   "Advise capture-finalize to close the frame"
+;;   (if (equal "emacs-capture" (frame-parameter nil 'name))
+;;       (delete-frame)))
+;; )
 
 (after! org
 
@@ -740,13 +821,6 @@ Call a second time to restore the original window configuration."
 
 (global-set-key (kbd "<f7>") 'sanityinc/split-window)
 
-(use-package! tree-sitter
-  :config
-  (require 'tree-sitter-langs)
-  (global-tree-sitter-mode)
-  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
-(pushnew! tree-sitter-major-mode-language-alist
-          '(scss-mode . css))
 
 (defun my/resolve-orgzly-autosync ()
   (interactive)
@@ -3930,8 +4004,6 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 
 (global-org-modern-mode)
 
-
-
 ;; (map!
 ;;  ;; window management (prefix "C-w")
 ;;  (:map evil-window-map
@@ -4020,84 +4092,6 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 ;;    :i "C-o"    #'company-capf
 ;;    :i "C-n"    #'+company/dabbrev
 ;;    :i "C-p"    #'+company/dabbrev-code-previous)))
-(after! evil
-
-  ;; Mapping
-  ;; Vim ==> Colemak Mine
-  ;; j ==> n
-  ;; k ==> e
-  ;; l ==> i
-  ;; i ==> l
-  ;; n ==> k
-  ;; e ==> j
-  (map! :n "l" 'evil-insert
-        :n "L" 'evil-insert-line
-        :nv "k" 'evil-ex-search-next
-        :nv "K" '+lookup/documentation
-        :nvm "j" 'evil-forward-word-end
-        :nvm "J" 'evil-forward-word-end
-        :nv "N" 'evil-join
-        :nvm "n" 'evil-next-line
-        :nvm "e" 'evil-previous-line
-        :nvm "i" 'evil-forward-char
-        :nv "gI" 'evil-lion-left
-        :nv "gi" 'evil-lion-right
-        :nv "gl" 'evil-insert-resume
-        :nv "gL" '+lookup/implementations
-        :nv "gj" 'evil-backward-word-end
-        :nv "gJ" 'evil-backward-WORD-end
-        :nv "gE" 'evil-join-whitespace
-        :nv "ge" 'evil-next-visual-line
-        :nv "gk" 'evil-next-match
-        :nv "gK" 'evil-previous-match
-        :nv "gn" 'evil-previous-visual-line
-        :nv "gN" nil
-        :n "zn" '+fold/next
-        :n "ze" '+fold/previous
-        :n "zE" 'nil
-        :n "zD" 'vimish-fold-delete-all
-        :n "zi" 'evil-scroll-column-right
-        :n "zI" 'evil-scroll-right
-        :nv "zk" '+evil:narrow-buffer
-        :n "zK" 'doom/widen-indirectly-narrowed-buffer
-        )
-
-  (map! :leader
-        (:prefix "w"
-         :n "J" nil
-         :n "n" #'evil-window-down
-         :n "e" #'evil-window-up
-         :n "i" #'evil-window-right
-         :n "N" #'+evil/window-move-down
-         :n "E" #'+evil/window-move-up
-         :n "I" #'+evil/window-move-right
-         :n "C-n" #'evil-window-down
-         :n "C-e" #'evil-window-up
-         :n "C-i" #'evil-window-right
-         ;; Not losing keybinding for C-n
-         :n "C-j" #'evil-window-new
-         :n "j" #'evil-window-new
-         :n "C-S-n" #'evil-window-move-very-bottom
-         :n "C-S-e" #'evil-window-move-very-top
-         :n "C-S-i" #'evil-window-move-far-right)
-        (:prefix "c")
-        :n "F" #'consult-flycheck
-        :n "T" #'lsp-treemacs-symbols
-        )
-  )
-
-
-(map! :localleader
-      :map python-mode-map
-      :nvm "r" #'+python/open-repl
-      :nvm "R" #'+python/open-ipython-repl
-      :vm "X" #'python-shell-send-region
-      :n "x" #'python-shell-send-defun
-      :n "X" #'python-shell-send-buffer
-      :n "z" #'python-shell-send-statement
-      :n "F" #'python-shell-send-file
-      :nvm "h" #'scimax-python-mode/body
-      )
 
 (after! python-mode
   (setq dap-python-debugger 'debugpy)
@@ -4110,3 +4104,55 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
   ;;        :debugger 'debugpy
   ;;        :name "Python :: Run Pytest (EHP)"))
   )
+
+;; accept completion from copilot and fallback to company
+(defun my-tab ()
+  (interactive)
+  (or (copilot-accept-completion)
+      (company-indent-or-complete-common nil)))
+
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
+         ("C-<tab>" . 'copilot-accept-completion-by-word)
+         :map company-active-map
+         ("<tab>" . 'my-tab)
+         ("TAB" . 'my-tab)
+         :map company-mode-map
+         ("<tab>" . 'my-tab)
+         ("TAB" . 'my-tab)))
+
+;; (use-package! tree-sitter
+;;   :config
+;;   (require 'tree-sitter-langs)
+;;   (global-tree-sitter-mode)
+;;   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
+;; (pushnew! tree-sitter-major-mode-language-alist
+;;           '(scss-mode . css))
+
+(use-package elfeed-tube
+  ;; :straight (:host github :repo "karthink/elfeed-tube")
+  :after elfeed
+  :demand t
+  :config
+  ;; (setq elfeed-tube-auto-save-p nil) ;; t is auto-save (not default)
+  ;; (setq elfeed-tube-auto-fetch-p t) ;;  t is auto-fetch (default)
+  (elfeed-tube-setup)
+
+  :bind (:map elfeed-show-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)
+         :map elfeed-search-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)))
+
+(use-package elfeed-tube-mpv
+  ;; :straight (:host github :repo "karthink/elfeed-tube")
+  :bind (:map elfeed-show-mode-map
+         ("C-c C-f" . elfeed-tube-mpv-follow-mode)
+         ("C-c C-w" . elfeed-tube-mpv-where)))
+
+;; open subsrciptions csv in side buffer and elfeed on left buffer
+(defalias 'subscription_elfeed
+  (kmacro "0 v f , h y SPC w w i l * * * * SPC [ [ <escape> p i a [ <escape> SPC w w f , i v $ h y SPC w w p o <escape> SPC w w n"))
+
