@@ -14,7 +14,6 @@
 (package! nepali-romanized
   :recipe (:host github :repo "bishesh/emacs-nepali-romanized"))
 (package! org-clock-convenience)
-(package! org-roam-bibtex)
 (package! magit-delta
   :recipe (:host github :repo "dandavison/magit-delta"))
 (package! ov
@@ -54,8 +53,8 @@
 ;; easy to read auto fill without doing anything
 (package! virtual-auto-fill)
 (package! org-fragtog)
-(package! tree-sitter)
-(package! tree-sitter-langs)
+;; (package! tree-sitter)
+;; (package! tree-sitter-langs)
 (package! focus)
 (package! aggressive-indent)
 (package! visual-regexp-steroids)
@@ -86,8 +85,12 @@
 (package! evil-escape :disable t)
 (package! org-modern)
 (package! org-appear)
-
-
+(package! copilot
+  :recipe (:host github :repo "zerolfx/copilot.el" :files ("*.el" "dist")))
+(package! elfeed-tube
+  :recipe (:host github :repo "karthink/elfeed-tube"))
+(package! elfeed-tube-mpv
+  :recipe (:host github :repo "karthink/elfeed-tube"))
 ;; for managing book reading
 ;; (package! org-books)
 ;;  :recipe (:local-repo "~/.doom.d/org-books/"))
