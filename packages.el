@@ -91,6 +91,8 @@
   :recipe (:host github :repo "karthink/elfeed-tube"))
 (package! elfeed-tube-mpv
   :recipe (:host github :repo "karthink/elfeed-tube"))
+(package! numpydoc
+  :recipe (:host github :repo "douglasdavis/numpydoc.el"))
 ;; for managing book reading
 ;; (package! org-books)
 ;;  :recipe (:local-repo "~/.doom.d/org-books/"))
