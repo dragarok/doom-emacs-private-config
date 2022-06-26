@@ -98,3 +98,4 @@
    (?D . (:foreground "orange"))
    )
  )
+(put 'narrow-to-region 'disabled nil)
