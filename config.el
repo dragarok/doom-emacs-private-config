@@ -5,6 +5,8 @@
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 
+(setq server-auth-dir "~/.emacs.d/.local/cache/server")
+
 (setq delete-by-moving-to-trash t)
 
 (setq doom-localleader-key ",")
@@ -37,25 +39,36 @@
   ;; j ==> n
   ;; k ==> e
   ;; l ==> i
-  ;; i ==> l
+  ;; i ==> u
+  ;; u ==> l
   ;; n ==> k
   ;; e ==> j
-  (map! :n "l" 'evil-insert
-        :n "L" 'evil-insert-line
+  (map! :n "u" 'evil-insert
+        :n "U" 'evil-insert-line
+        :n "l" 'evil-undo
+        :v "l" 'evil-downcase
+        :v "L" 'evil-upcase
+        :v "U" 'evil-insert
+        :vo "u" evil-inner-text-objects-map
+        :o "i" 'evil-forward-char
         :nv "k" 'evil-ex-search-next
         :nv "K" 'evil-ex-search-previous
         :nvm "j" 'evil-forward-word-end
         :nvm "J" 'evil-forward-word-end
         :nv "N" 'evil-join
-        :nvm "n" 'evil-next-line
-        :nvm "e" 'evil-previous-line
+        :nm "n" 'evil-next-line
+        :v "n" 'evil-next-visual-line
+        :nm "e" 'evil-previous-line
+        :v "e" 'evil-previous-visual-line
         :nvm "E" '+lookup/documentation
         :nvm "i" 'evil-forward-char
         :nvm "I" 'evil-window-bottom
         :nv "gI" 'evil-lion-left
         :nv "gi" 'evil-lion-right
-        :nv "gl" 'evil-insert-resume
-        :nv "gL" '+lookup/implementations
+        :nv "gl" 'evil-downcase
+        :nv "gL" 'evil-upcase
+        :nv "gu" 'evil-insert-resume
+        :nv "gU" '+lookup/implementations
         :nv "gj" 'evil-backward-word-end
         :nv "gJ" 'evil-backward-WORD-end
         :nv "gE" 'evil-join-whitespace
@@ -64,6 +77,13 @@
         :nv "gK" 'evil-previous-match
         :nv "gn" 'evil-previous-visual-line
         :nv "gN" nil
+        :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
+        :nv "gzu" nil
+        :nv "gzk" 'evil-mc-make-and-goto-next-cursor
+        :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
+        :nv "gzj" nil
+        :nv "gzn" 'evil-mc-make-cursor-move-next-line
+        :nv "gze" 'evil-mc-make-cursor-move-prev-line
         :n "zn" '+fold/next
         :n "ze" '+fold/previous
         :n "zE" 'nil
@@ -96,6 +116,11 @@
         :n "F" #'consult-flycheck
         :n "T" #'lsp-treemacs-symbols
         )
+
+  ;; (after! magit
+  ;;   (map! :map magit-mode-map
+  ;;         :n "n" 'magit-next-line
+  ;;         :n "e" 'magit-previous-line))
   )
 
 
@@ -2012,6 +2037,8 @@ the inbox.  Set it as a waiting action and refile to
                         ("plan" . ?p)
 
                         ;; Have place and person who you are meeting with
+                        ;; You can use additonal tags to describe the meeting
+                        ;; For example, you can use e.g. Zoom, Slack, Messenger, Place Name etc.
                         ("meeting". ?m)
                         ;; Have person as a tag if working with someone or collaborating
                         ;; ("assist". ?A)
@@ -2019,14 +2046,14 @@ the inbox.  Set it as a waiting action and refile to
                         ;; hobby category and coding type
                         ;; ("customization". ?C)
                         ;; ("do" . ?d)
-
                         ("code" . ?c)
                         ("practice" . ?s)
+                        ("plain" . ?l)
                         (:endgroup . nil)
 
                         ;; Active or Passive Work
                         (:startgroup . nil)
-                        ("Active". "V")
+                        ("Active". "A")
                         ;; ("read" . ?r)
                         ;; ("write" . ?W)
                         ("Passive". "P")
@@ -2042,11 +2069,11 @@ the inbox.  Set it as a waiting action and refile to
                         (:endgroup . nil)
 
                         ;; ;; Time Context for the work
-                        ;; (:startgroup . nil)
-                        ;; ("Morning" . ?4)
-                        ;; ("Day" . ?5)
-                        ;; ("Evening" . ?6)
-                        ;; (:endgroup . nil)
+                        (:startgroup . nil)
+                        ("Morning" . ?4)
+                        ("Day" . ?5)
+                        ("Evening" . ?6)
+                        (:endgroup . nil)
 
                         ;; Motivation required for this work
                         (:startgroup . nil)
@@ -3877,9 +3904,23 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 (setq org-latex-pdf-process '("LC_ALL=en_US.UTF-8 latexmk -f -pdf -%latex -shell-escape -interaction=nonstopmode -output-directory=%o %f"))
 
 (after! lsp-mode
-  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\Feedback\\'")
-  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\NinjaTrader\\'")
-  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\Trading_Fleet\\'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\Feedback\\'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\db'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\cach'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\templates'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\export'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\import'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\import'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\incoming'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\log'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\outgoing'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\strategyanalyzerlogs'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\temp'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\trace'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\workspaces'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\Supervised'")
+  ;; (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\Trading_Fleet\\'")
+  (setq lsp-enable-file-watchers nil)
   )
 
 (defalias 'Portfolio_yaml
@@ -3888,9 +3929,9 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 (after! org
   (add-hook 'org-mode-hook #'mixed-pitch-mode))
 
-(setq shell-file-name "C:/Windows/system32/bash.exe")
-(setenv "ESHELL" "bash")
-(setq doom-projectile-fd-binary "fdfind")
+;; (setq shell-file-name "C:/Windows/system32/bash.exe")
+;; (setenv "ESHELL" "bash")
+;; (setq doom-projectile-fd-binary "fdfind")
 
 ;; Evil specific functions
 
@@ -4156,3 +4197,10 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 (defalias 'subscription_elfeed
   (kmacro "0 v f , h y SPC w w i l * * * * SPC [ [ <escape> p i a [ <escape> SPC w w f , i v $ h y SPC w w p o <escape> SPC w w n"))
 
+;; with use-package
+(use-package numpydoc
+  :ensure t
+  :bind (:map python-mode-map
+         ("C-c C-n" . numpydoc-generate)))
+
+;; (setq explicit-shell-file-name "C:/Windows/System32/bash.exe")
