@@ -42,9 +42,11 @@
 (package! spray
   :recipe (:local-repo "~/.doom.d/spray"))
 
+(package! evil-colemak-basics
+  :recipe (:local-repo "~/.doom.d/evil-colemak-basics"))
 ;; see weather with ease
 (package! wttrin
-          :recipe (:local-repo "~/.doom.d/wttrin"))
+  :recipe (:local-repo "~/.doom.d/wttrin"))
 
 ;; handle very large files
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
@@ -93,6 +95,7 @@
   :recipe (:host github :repo "karthink/elfeed-tube"))
 (package! numpydoc
   :recipe (:host github :repo "douglasdavis/numpydoc.el"))
+;; (package! evil-colemak-basics)
 ;; for managing book reading
 ;; (package! org-books)
 ;;  :recipe (:local-repo "~/.doom.d/org-books/"))
