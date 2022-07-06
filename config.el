@@ -31,6 +31,10 @@
 
 (load-theme 'modus-operandi 'noconfirm)
 
+(use-package evil-colemak-basics
+  :config
+  (global-evil-colemak-basics-mode))
+
 (after! evil
 
   ;; Mapping
@@ -42,56 +46,56 @@
   ;; u ==> l
   ;; n ==> k
   ;; e ==> j
-  (map! :n "u" 'evil-insert
-        :n "U" 'evil-insert-line
-        :n "l" 'evil-undo
-        :v "l" 'evil-downcase
-        :v "L" 'evil-upcase
-        :v "U" 'evil-insert
-        :vo "u" evil-inner-text-objects-map
-        :o "i" 'evil-forward-char
-        :nv "k" 'evil-ex-search-next
-        :nv "K" 'evil-ex-search-previous
-        :nvm "j" 'evil-forward-word-end
-        :nvm "J" 'evil-forward-word-end
-        :nv "N" 'evil-join
-        :nm "n" 'evil-next-line
-        :v "n" 'evil-next-visual-line
-        :nm "e" 'evil-previous-line
-        :v "e" 'evil-previous-visual-line
-        :nvm "E" '+lookup/documentation
-        :nvm "i" 'evil-forward-char
-        :nvm "I" 'evil-window-bottom
-        :nv "gI" 'evil-lion-left
-        :nv "gi" 'evil-lion-right
-        :nv "gl" 'evil-downcase
-        :nv "gL" 'evil-upcase
-        :nv "gu" 'evil-insert-resume
-        :nv "gU" '+lookup/implementations
-        :nv "gj" 'evil-backward-word-end
-        :nv "gJ" 'evil-backward-WORD-end
-        :nv "gE" 'evil-join-whitespace
-        :nv "ge" 'evil-next-visual-line
-        :nv "gk" 'evil-next-match
-        :nv "gK" 'evil-previous-match
-        :nv "gn" 'evil-previous-visual-line
-        :nv "gN" nil
-        :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
-        :nv "gzu" nil
-        :nv "gzk" 'evil-mc-make-and-goto-next-cursor
-        :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
-        :nv "gzj" nil
-        :nv "gzn" 'evil-mc-make-cursor-move-next-line
-        :nv "gze" 'evil-mc-make-cursor-move-prev-line
-        :n "zn" '+fold/next
-        :n "ze" '+fold/previous
-        :n "zE" 'nil
-        :n "zD" 'vimish-fold-delete-all
-        :n "zi" 'evil-scroll-column-right
-        :n "zI" 'evil-scroll-right
-        :nv "zk" '+evil:narrow-buffer
-        :n "zK" 'doom/widen-indirectly-narrowed-buffer
-        )
+  ;; (map! :n "u" 'evil-insert
+  ;;       :n "U" 'evil-insert-line
+  ;;       :n "l" 'evil-undo
+  ;;       :v "l" 'evil-downcase
+  ;;       :v "L" 'evil-upcase
+  ;;       :v "U" 'evil-insert
+  ;;       :vo "u" evil-inner-text-objects-map
+  ;;       :o "i" 'evil-forward-char
+  ;;       :nv "k" 'evil-ex-search-next
+  ;;       :nv "K" 'evil-ex-search-previous
+  ;;       :nvm "j" 'evil-forward-word-end
+  ;;       :nvm "J" 'evil-forward-word-end
+  ;;       :nv "N" 'evil-join
+  ;;       :nm "n" 'evil-next-line
+  ;;       :v "n" 'evil-next-visual-line
+  ;;       :nm "e" 'evil-previous-line
+  ;;       :v "e" 'evil-previous-visual-line
+  ;;       :nvm "E" '+lookup/documentation
+  ;;       :nvm "i" 'evil-forward-char
+  ;;       :nvm "I" 'evil-window-bottom
+  ;;       :nv "gI" 'evil-lion-left
+  ;;       :nv "gi" 'evil-lion-right
+  ;;       :nv "gl" 'evil-downcase
+  ;;       :nv "gL" 'evil-upcase
+  ;;       :nv "gu" 'evil-insert-resume
+  ;;       :nv "gU" '+lookup/implementations
+  ;;       :nv "gj" 'evil-backward-word-end
+  ;;       :nv "gJ" 'evil-backward-WORD-end
+  ;;       :nv "gE" 'evil-join-whitespace
+  ;;       :nv "ge" 'evil-next-visual-line
+  ;;       :nv "gk" 'evil-next-match
+  ;;       :nv "gK" 'evil-previous-match
+  ;;       :nv "gn" 'evil-previous-visual-line
+  ;;       :nv "gN" nil
+  ;;       :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
+  ;;       :nv "gzu" nil
+  ;;       :nv "gzk" 'evil-mc-make-and-goto-next-cursor
+  ;;       :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
+  ;;       :nv "gzj" nil
+  ;;       :nv "gzn" 'evil-mc-make-cursor-move-next-line
+  ;;       :nv "gze" 'evil-mc-make-cursor-move-prev-line
+  ;;       :n "zn" '+fold/next
+  ;;       :n "ze" '+fold/previous
+  ;;       :n "zE" 'nil
+  ;;       :n "zD" 'vimish-fold-delete-all
+  ;;       :n "zi" 'evil-scroll-column-right
+  ;;       :n "zI" 'evil-scroll-right
+  ;;       :nv "zk" '+evil:narrow-buffer
+  ;;       :n "zK" 'doom/widen-indirectly-narrowed-buffer
+  ;;       )
 
   (map! :leader
         (:prefix "w"
@@ -121,7 +125,6 @@
           :n "n" 'magit-next-line
           :n "e" 'magit-previous-line))
   )
-
 
 (map! :localleader
       :map python-mode-map
