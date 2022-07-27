@@ -4349,3 +4349,40 @@ Must be run as part of `org-font-lock-set-keywords-hook'."
   :priority_d    "[#D]"
   :priority_e    "[#E]")
 (plist-put +ligatures-extra-symbols :name "⁍")
+
+;; PDF Tools and some more colors
+;; annotation colours
+(defun bms/pdf-annot-colour-blue ()
+  (interactive)
+  (setq pdf-annot-default-markup-annotation-properties
+        '((label . "") (color . "blue") (popup-is-open)))
+  (message "%s" (propertize "Annotation colour set to blue." 'face '(:foreground "blue"))))
+
+(defun bms/pdf-annot-colour-yellow ()
+  (interactive)
+  (setq pdf-annot-default-markup-annotation-properties
+        '((label . "") (color . "yellow") (popup-is-open)))
+  (message "%s" (propertize "Annotation colour set to yellow." 'face '(:foreground "yellow"))))
+
+(defun bms/pdf-annot-colour-red ()
+  (interactive)
+  (setq pdf-annot-default-markup-annotation-properties
+        '((label . "") (color . "red") (popup-is-open)))
+  (message "%s" (propertize "Annotation colour set to red." 'face '(:foreground "red"))))
+
+(defun bms/pdf-annot-colour-orange ()
+  (interactive)
+  (setq pdf-annot-default-markup-annotation-properties
+        '((label . "") (color . "orange") (popup-is-open)))
+  (message "%s" (propertize "Annotation colour set to orange." 'face '(:foreground "orange"))))
+
+;; rebind keys for pdf-tools
+(defun bms/pdf-tools-mode-config ()
+  "Set pdf-tools keybindings."
+  (local-set-key (kbd "R") #'bms/pdf-annot-colour-red)
+  (local-set-key (kbd "L") #'bms/pdf-annot-colour-blue)
+  (local-set-key (kbd "O") #'bms/pdf-annot-colour-orange)
+  (local-set-key (kbd "Y") #'bms/pdf-annot-colour-yellow))
+
+;; add to pdf-view-mode-hook
+(add-hook 'pdf-view-mode-hook #'bms/pdf-tools-mode-config)
