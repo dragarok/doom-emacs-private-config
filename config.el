@@ -6,6 +6,7 @@
 (set-keyboard-coding-system 'utf-8)
 
 (setq server-auth-dir "~/.emacs.d/.local/cache/server")
+(setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org"))
 
 (setq delete-by-moving-to-trash t)
 
@@ -34,6 +35,13 @@
 (use-package evil-colemak-basics
   :config
   (global-evil-colemak-basics-mode))
+(after! vertico
+  (map! :map vertico-map
+        "C-n"   #'vertico-next
+        "C-M-n" #'vertico-next-group
+        "C-e"   #'vertico-previous
+        "C-M-e" #'vertico-previous-group))
+
 
 (after! evil
 
@@ -46,56 +54,61 @@
   ;; u ==> l
   ;; n ==> k
   ;; e ==> j
-  ;; (map! :n "u" 'evil-insert
-  ;;       :n "U" 'evil-insert-line
-  ;;       :n "l" 'evil-undo
-  ;;       :v "l" 'evil-downcase
-  ;;       :v "L" 'evil-upcase
-  ;;       :v "U" 'evil-insert
-  ;;       :vo "u" evil-inner-text-objects-map
-  ;;       :o "i" 'evil-forward-char
-  ;;       :nv "k" 'evil-ex-search-next
-  ;;       :nv "K" 'evil-ex-search-previous
-  ;;       :nvm "j" 'evil-forward-word-end
-  ;;       :nvm "J" 'evil-forward-word-end
-  ;;       :nv "N" 'evil-join
-  ;;       :nm "n" 'evil-next-line
-  ;;       :v "n" 'evil-next-visual-line
-  ;;       :nm "e" 'evil-previous-line
-  ;;       :v "e" 'evil-previous-visual-line
-  ;;       :nvm "E" '+lookup/documentation
-  ;;       :nvm "i" 'evil-forward-char
-  ;;       :nvm "I" 'evil-window-bottom
-  ;;       :nv "gI" 'evil-lion-left
-  ;;       :nv "gi" 'evil-lion-right
-  ;;       :nv "gl" 'evil-downcase
-  ;;       :nv "gL" 'evil-upcase
-  ;;       :nv "gu" 'evil-insert-resume
-  ;;       :nv "gU" '+lookup/implementations
-  ;;       :nv "gj" 'evil-backward-word-end
-  ;;       :nv "gJ" 'evil-backward-WORD-end
-  ;;       :nv "gE" 'evil-join-whitespace
-  ;;       :nv "ge" 'evil-next-visual-line
-  ;;       :nv "gk" 'evil-next-match
-  ;;       :nv "gK" 'evil-previous-match
-  ;;       :nv "gn" 'evil-previous-visual-line
-  ;;       :nv "gN" nil
-  ;;       :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
-  ;;       :nv "gzu" nil
-  ;;       :nv "gzk" 'evil-mc-make-and-goto-next-cursor
-  ;;       :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
-  ;;       :nv "gzj" nil
-  ;;       :nv "gzn" 'evil-mc-make-cursor-move-next-line
-  ;;       :nv "gze" 'evil-mc-make-cursor-move-prev-line
-  ;;       :n "zn" '+fold/next
-  ;;       :n "ze" '+fold/previous
-  ;;       :n "zE" 'nil
-  ;;       :n "zD" 'vimish-fold-delete-all
-  ;;       :n "zi" 'evil-scroll-column-right
-  ;;       :n "zI" 'evil-scroll-right
-  ;;       :nv "zk" '+evil:narrow-buffer
-  ;;       :n "zK" 'doom/widen-indirectly-narrowed-buffer
-  ;;       )
+  (map! :n "u" 'evil-insert
+        :n "U" 'evil-insert-line
+        :n "l" 'evil-undo
+        :v "l" 'evil-downcase
+        :v "L" 'evil-upcase
+        :v "U" 'evil-insert
+        :vo "u" evil-inner-text-objects-map
+        :o "i" 'evil-forward-char
+        :nv "k" 'evil-ex-search-next
+        :nv "K" 'evil-ex-search-previous
+        :nvm "j" 'evil-forward-word-end
+        :nvm "J" 'evil-forward-word-end
+        :nv "N" 'evil-join
+        :nm "n" 'evil-next-line
+        :v "n" 'evil-next-visual-line
+        :nm "e" 'evil-previous-line
+        :v "e" 'evil-previous-visual-line
+        :nvm "E" '+lookup/documentation
+        :nvm "i" 'evil-forward-char
+        :nvm "I" 'evil-window-bottom
+        :nv "gI" 'evil-lion-left
+        :nv "gi" 'evil-lion-right
+        :nv "gl" 'evil-downcase
+        :nv "gL" 'evil-upcase
+        :nv "gu" 'evil-insert-resume
+        :nv "gU" '+lookup/implementations
+        :nv "gj" 'evil-backward-word-end
+        :nv "gJ" 'evil-backward-WORD-end
+        :nv "gE" 'evil-join-whitespace
+        :nv "ge" 'evil-next-visual-line
+        :nv "gk" 'evil-next-match
+        :nv "gK" 'evil-previous-match
+        :nv "gn" 'evil-previous-visual-line
+        :nv "gN" nil
+        :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
+        :nv "gzu" nil
+        :nv "gzk" 'evil-mc-make-and-goto-next-cursor
+        :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
+        :nv "gzj" nil
+        :nv "gzn" 'evil-mc-make-cursor-move-next-line
+        :nv "gze" 'evil-mc-make-cursor-move-prev-line
+        :n "zn" '+fold/next
+        :n "ze" '+fold/previous
+        :n "zE" 'nil
+        :n "zD" 'vimish-fold-delete-all
+        :n "zi" 'evil-scroll-column-right
+        :n "zI" 'evil-scroll-right
+        :nv "zk" '+evil:narrow-buffer
+        :n "zK" 'doom/widen-indirectly-narrowed-buffer
+        )
+
+  ;; (after! magit
+  ;;   (map! :map magit-mode-map
+  ;;         :n "n" 'magit-next-line
+  ;;         :n "e" 'magit-previous-line))
 
   (map! :leader
         (:prefix "w"
@@ -119,11 +132,6 @@
         :n "F" #'consult-flycheck
         :n "T" #'lsp-treemacs-symbols
         )
-
-  ;; (after! magit
-  ;;   (map! :map magit-mode-map
-  ;;         :n "n" 'magit-next-line
-  ;;         :n "e" 'magit-previous-line))
   )
 
 (map! :localleader
@@ -1515,9 +1523,9 @@ e.g. Sunday, September 17, 2000."
   :config
   (setq wallabag-host "http://localhost:1702") ;; wallabag server host name
   (setq wallabag-username "wallabag") ;; username
-  (setq wallabag-password "Kohostan?") ;; password
-  (setq wallabag-clientid "3_bi4rte1agjwo4w80ws4c88wggkkks0wwgk4kwsk88oo8ocw4w") ;; created with API clients management
-  (setq wallabag-secret "3s8ap50dd4kkc04cco84ckg400gw8ckg8os0cs8884cc4o0gok") ;; created with API clients management
+  (setq wallabag-password "wallabag") ;; password
+  (setq wallabag-clientid "3_2ylrrsv1nsw0kc88sokkwsc04wo8gscs4kgsosss40408go04c") ;; created with API clients management
+  (setq wallabag-secret "41vaib6g5yo0ooc0s4kocgow0wg4cccw08k884oo8s8ssw4gkg") ;; created with API clients management
   ;; (setq wallabag-db-file "~/OneDrive/Org/wallabag.sqlite") ;; optional, default is saved to ~/.emacs.d/.cache/wallabag.sqlite
   ;; (run-with-timer 0 3540 'wallabag-request-token) ;; optional, auto refresh token, token should refresh every hour
   )
@@ -3938,53 +3946,53 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 ;; Evil specific functions
 
 ;;;###autoload
-;; (defun +vertico/switch-workspace-buffer-other-window()
-;;   (interactive)
-;;   (+evil-window-vsplit-a)
-;;   (+vertico/switch-workspace-buffer))
+(defun +vertico/switch-workspace-buffer-other-window()
+  (interactive)
+  (+evil-window-vsplit-a)
+  (+vertico/switch-workspace-buffer))
 
-;; (setq +evil-want-o/O-to-continue-comments nil)
+(setq +evil-want-o/O-to-continue-comments nil)
 
-;; (bind-key "H-F" 'evil-window-split)
-;; (bind-key "H-f" 'evil-window-vsplit)
-;; (bind-key "H-t" '+my/vterm-run-project)
-;; (bind-key "H-;" '+evil-window-split-a)
-;; (bind-key "H-\\" '+evil-window-vsplit-a)
-
-
-;; (evil-define-command evil-buffer-org-new (count file)
-;;   "Creates a new ORG buffer replacing the current window, optionally
-;;    editing a certain FILE"
-;;   :repeat nil
-;;   (interactive "P<f>")
-;;   (if file
-;;       (evil-edit file)
-;;     (let ((buffer (generate-new-buffer "*new org*")))
-;;       (set-window-buffer nil buffer)
-;;       (with-current-buffer buffer
-;;         (org-mode)))))
-;; (map! :leader
-;;       (:prefix "b"
-;;        :desc "New empty ORG buffer" "o" #'evil-buffer-org-new))
+(bind-key "H-F" 'evil-window-split)
+(bind-key "H-f" 'evil-window-vsplit)
+(bind-key "H-t" '+my/vterm-run-project)
+(bind-key "H-;" '+evil-window-split-a)
+(bind-key "H-\\" '+evil-window-vsplit-a)
 
 
-;; (after! evil
-;;   (setq evil-ex-substitute-global t
-;;         evil-move-cursor-back nil
-;;         evil-kill-on-visual-paste nil))
+(evil-define-command evil-buffer-org-new (count file)
+  "Creates a new ORG buffer replacing the current window, optionally
+   editing a certain FILE"
+  :repeat nil
+  (interactive "P<f>")
+  (if file
+      (evil-edit file)
+    (let ((buffer (generate-new-buffer "*new org*")))
+      (set-window-buffer nil buffer)
+      (with-current-buffer buffer
+        (org-mode)))))
+(map! :leader
+      (:prefix "b"
+       :desc "New empty ORG buffer" "o" #'evil-buffer-org-new))
 
 
-;; (after! org
-;;   ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
-;;   (evil-define-key 'normal org-mode-map
-;;     ;; keybindings mirror ipython web interface behavior
-;;     "go" 'org-babel-previous-src-block
-;;     "gO" 'org-babel-next-src-block)
-;;   (map!
-;;    :after evil-org
-;;    :map evil-org-mode-map
-;;    :i [return] #'unpackaged/org-return-dwim)
-;;   )
+(after! evil
+  (setq evil-ex-substitute-global t
+        evil-move-cursor-back nil
+        evil-kill-on-visual-paste nil))
+
+
+(after! org
+  ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
+  (evil-define-key 'normal org-mode-map
+    ;; keybindings mirror ipython web interface behavior
+    "go" 'org-babel-previous-src-block
+    "gO" 'org-babel-next-src-block)
+  (map!
+   :after evil-org
+   :map evil-org-mode-map
+   :i [return] #'unpackaged/org-return-dwim)
+  )
 
 ;; (use-package! yasnippet
 ;;   :config
@@ -4165,14 +4173,6 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
          ("<tab>" . 'my-tab)
          ("TAB" . 'my-tab)))
 
-;; (use-package! tree-sitter
-;;   :config
-;;   (require 'tree-sitter-langs)
-;;   (global-tree-sitter-mode)
-;;   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
-;; (pushnew! tree-sitter-major-mode-language-alist
-;;           '(scss-mode . css))
-
 (use-package elfeed-tube
   ;; :straight (:host github :repo "karthink/elfeed-tube")
   :after elfeed
@@ -4206,3 +4206,5 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
          ("C-c C-n" . numpydoc-generate)))
 
 ;; (setq explicit-shell-file-name "C:/Windows/System32/bash.exe")
+
+
