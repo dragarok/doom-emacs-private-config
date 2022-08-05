@@ -443,16 +443,9 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :config
   (setq dired-subtree-use-backgrounds nil)
   :bind (:map dired-mode-map
-              ("<tab>" . dired-subtree-toggle)
-              ("<C-tab>" . dired-subtree-cycle)
-              ("<S-iso-lefttab>" . dired-subtree-remove)))
-
-(use-package gif-screencast
-  :defer t
-  :bind
-  ("<C-print>" . gif-screencast-start-or-stop)
-  :config
-  (setq gif-screencast-output-directory (expand-file-name "images/gif-screencast" org-directory)))
+         ("<tab>" . dired-subtree-toggle)
+         ("<C-tab>" . dired-subtree-cycle)
+         ("<S-iso-lefttab>" . dired-subtree-remove)))
 
 (use-package! vlf-setup
   :defer-incrementally vlf-tune vlf-base vlf-write vlf-search vlf-occur vlf-follow vlf-ediff vlf)
@@ -1923,8 +1916,8 @@ choice's name, and the rest of which is its body forms."
         org-archive-tag "DONE"
         org-image-actual-width nil
         +org-export-directory "~/Dropbox/publish/"
-        org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
-        org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
+        org-archive-location "~/Dropbox/org/archive/archive.org::datetree/"
+        org-default-notes-file "~/Dropbox/org/agenda/inbox.org"
         projectile-project-search-path '("~/workspace/projects/"))
 )
 
@@ -2917,13 +2910,13 @@ capture was not aborted."
         ;; I want to see the whole file
         org-noter-hide-other nil
         org-noter-insert-note-no-questions t
-        org-noter-notes-search-path '("~/Dropbox/org/interleave_notes/")
+        org-noter-notes-search-path '("~/Dropbox/org/notes/")
         org-noter-separate-notes-from-heading t
         ;; org-noter-auto-save-last-location t
         )
   ;; fuxialexander's code
   (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
-)
+  )
 
 (use-package org-noter-pdftools
   :after org-noter
@@ -4208,3 +4201,10 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 ;; (setq explicit-shell-file-name "C:/Windows/System32/bash.exe")
 
 
+
+;; (use-package gif-screencast
+;;   :defer t
+;;   :bind
+;;   ("<C-print>" . gif-screencast-start-or-stop)
+;;   :config
+;;   (setq gif-screencast-output-directory (expand-file-name "images/gif-screencast" org-directory)))
