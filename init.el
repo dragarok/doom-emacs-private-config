@@ -137,6 +137,7 @@
        ;;coq               ; proofs-as-programs
        ;;crystal           ; ruby at the speed of c
        (csharp            ; unity, .NET, and mono shenanigans
+        +tree-sitter
         +lsp)
        data              ; config/data formats
        ;;(dart +flutter)   ; paint ui and not much else
@@ -156,9 +157,11 @@
        ;;(haskell +lsp)    ; a language that's lazier than I am
        ;;hy                ; readability of scheme w/ speed of python
        ;;idris             ; a language you can depend on
-       json              ; At least it ain't XML
+       (json              ; At least it ain't XML
+        +tree-sitter)
        ;;(java +meghanada) ; the poster child for carpal tunnel syndrome
        (javascript        ; all(hope(abandon(ye(who(enter(here))))))
+        +tree-sitter
         +lsp)
        ;; (julia             ; a better, faster MATLAB
        ;;  +lsp)
@@ -192,6 +195,7 @@
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
         +poetry
+        +treesitter
         +lsp
         +pyright)
        ;;qt                ; the 'cutest' gui framework ever
@@ -204,12 +208,15 @@
        ;;scala             ; java, but good
        ;;(scheme +guile)   ; a fully conniving family of lisps
        (sh                ; she sells {ba,z,fi}sh shells on the C xor
+        +powershell
+        +tree-sitter
         +lsp)
        ;;sml
        ;;solidity          ; do you need a blockchain? No.
        ;;swift             ; who asked for emoji variables?
        ;;terra             ; Earth and Moon in alignment for performance.
        (web               ; the tubes
+        +tree-sitter
         +lsp)
        (yaml              ; JSON, but readable
         +lsp)
@@ -223,7 +230,7 @@
        :app
        calendar
        ;; emms
-       everywhere        ; *leave* Emacs!? You must be joking
+       ;; everywhere        ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize
        (rss +org)        ; emacs as an RSS reader
        ;; twitter           ; twitter client https://twitter.com/vnought
