@@ -6,6 +6,7 @@
 (set-keyboard-coding-system 'utf-8)
 
 (setq server-auth-dir "~/.emacs.d/.local/cache/server")
+(setq rmh-elfeed-org-files (list "~/Dropbox/elfeed/elfeed.org"))
 
 (setq delete-by-moving-to-trash t)
 
@@ -34,6 +35,13 @@
 (use-package evil-colemak-basics
   :config
   (global-evil-colemak-basics-mode))
+(after! vertico
+  (map! :map vertico-map
+        "C-n"   #'vertico-next
+        "C-M-n" #'vertico-next-group
+        "C-e"   #'vertico-previous
+        "C-M-e" #'vertico-previous-group))
+
 
 (after! evil
 
@@ -46,56 +54,61 @@
   ;; u ==> l
   ;; n ==> k
   ;; e ==> j
-  ;; (map! :n "u" 'evil-insert
-  ;;       :n "U" 'evil-insert-line
-  ;;       :n "l" 'evil-undo
-  ;;       :v "l" 'evil-downcase
-  ;;       :v "L" 'evil-upcase
-  ;;       :v "U" 'evil-insert
-  ;;       :vo "u" evil-inner-text-objects-map
-  ;;       :o "i" 'evil-forward-char
-  ;;       :nv "k" 'evil-ex-search-next
-  ;;       :nv "K" 'evil-ex-search-previous
-  ;;       :nvm "j" 'evil-forward-word-end
-  ;;       :nvm "J" 'evil-forward-word-end
-  ;;       :nv "N" 'evil-join
-  ;;       :nm "n" 'evil-next-line
-  ;;       :v "n" 'evil-next-visual-line
-  ;;       :nm "e" 'evil-previous-line
-  ;;       :v "e" 'evil-previous-visual-line
-  ;;       :nvm "E" '+lookup/documentation
-  ;;       :nvm "i" 'evil-forward-char
-  ;;       :nvm "I" 'evil-window-bottom
-  ;;       :nv "gI" 'evil-lion-left
-  ;;       :nv "gi" 'evil-lion-right
-  ;;       :nv "gl" 'evil-downcase
-  ;;       :nv "gL" 'evil-upcase
-  ;;       :nv "gu" 'evil-insert-resume
-  ;;       :nv "gU" '+lookup/implementations
-  ;;       :nv "gj" 'evil-backward-word-end
-  ;;       :nv "gJ" 'evil-backward-WORD-end
-  ;;       :nv "gE" 'evil-join-whitespace
-  ;;       :nv "ge" 'evil-next-visual-line
-  ;;       :nv "gk" 'evil-next-match
-  ;;       :nv "gK" 'evil-previous-match
-  ;;       :nv "gn" 'evil-previous-visual-line
-  ;;       :nv "gN" nil
-  ;;       :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
-  ;;       :nv "gzu" nil
-  ;;       :nv "gzk" 'evil-mc-make-and-goto-next-cursor
-  ;;       :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
-  ;;       :nv "gzj" nil
-  ;;       :nv "gzn" 'evil-mc-make-cursor-move-next-line
-  ;;       :nv "gze" 'evil-mc-make-cursor-move-prev-line
-  ;;       :n "zn" '+fold/next
-  ;;       :n "ze" '+fold/previous
-  ;;       :n "zE" 'nil
-  ;;       :n "zD" 'vimish-fold-delete-all
-  ;;       :n "zi" 'evil-scroll-column-right
-  ;;       :n "zI" 'evil-scroll-right
-  ;;       :nv "zk" '+evil:narrow-buffer
-  ;;       :n "zK" 'doom/widen-indirectly-narrowed-buffer
-  ;;       )
+  (map! :n "u" 'evil-insert
+        :n "U" 'evil-insert-line
+        :n "l" 'evil-undo
+        :v "l" 'evil-downcase
+        :v "L" 'evil-upcase
+        :v "U" 'evil-insert
+        :vo "u" evil-inner-text-objects-map
+        :o "i" 'evil-forward-char
+        :nv "k" 'evil-ex-search-next
+        :nv "K" 'evil-ex-search-previous
+        :nvm "j" 'evil-forward-word-end
+        :nvm "J" 'evil-forward-word-end
+        :nv "N" 'evil-join
+        :nm "n" 'evil-next-line
+        :v "n" 'evil-next-visual-line
+        :nm "e" 'evil-previous-line
+        :v "e" 'evil-previous-visual-line
+        :nvm "E" '+lookup/documentation
+        :nvm "i" 'evil-forward-char
+        :nvm "I" 'evil-window-bottom
+        :nv "gI" 'evil-lion-left
+        :nv "gi" 'evil-lion-right
+        :nv "gl" 'evil-downcase
+        :nv "gL" 'evil-upcase
+        :nv "gu" 'evil-insert-resume
+        :nv "gU" '+lookup/implementations
+        :nv "gj" 'evil-backward-word-end
+        :nv "gJ" 'evil-backward-WORD-end
+        :nv "gE" 'evil-join-whitespace
+        :nv "ge" 'evil-next-visual-line
+        :nv "gk" 'evil-next-match
+        :nv "gK" 'evil-previous-match
+        :nv "gn" 'evil-previous-visual-line
+        :nv "gN" nil
+        :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
+        :nv "gzu" nil
+        :nv "gzk" 'evil-mc-make-and-goto-next-cursor
+        :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
+        :nv "gzj" nil
+        :nv "gzn" 'evil-mc-make-cursor-move-next-line
+        :nv "gze" 'evil-mc-make-cursor-move-prev-line
+        :n "zn" '+fold/next
+        :n "ze" '+fold/previous
+        :n "zE" 'nil
+        :n "zD" 'vimish-fold-delete-all
+        :n "zi" 'evil-scroll-column-right
+        :n "zI" 'evil-scroll-right
+        :nv "zk" '+evil:narrow-buffer
+        :n "zK" 'doom/widen-indirectly-narrowed-buffer
+        )
+
+  ;; (after! magit
+  ;;   (map! :map magit-mode-map
+  ;;         :n "n" 'magit-next-line
+  ;;         :n "e" 'magit-previous-line))
 
   (map! :leader
         (:prefix "w"
@@ -119,11 +132,6 @@
         :n "F" #'consult-flycheck
         :n "T" #'lsp-treemacs-symbols
         )
-
-  (after! magit
-    (map! :map magit-mode-map
-          :n "n" 'magit-next-line
-          :n "e" 'magit-previous-line))
   )
 
 (map! :localleader
@@ -435,16 +443,9 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   :config
   (setq dired-subtree-use-backgrounds nil)
   :bind (:map dired-mode-map
-              ("<tab>" . dired-subtree-toggle)
-              ("<C-tab>" . dired-subtree-cycle)
-              ("<S-iso-lefttab>" . dired-subtree-remove)))
-
-(use-package gif-screencast
-  :defer t
-  :bind
-  ("<C-print>" . gif-screencast-start-or-stop)
-  :config
-  (setq gif-screencast-output-directory (expand-file-name "images/gif-screencast" org-directory)))
+         ("<tab>" . dired-subtree-toggle)
+         ("<C-tab>" . dired-subtree-cycle)
+         ("<S-iso-lefttab>" . dired-subtree-remove)))
 
 (use-package! vlf-setup
   :defer-incrementally vlf-tune vlf-base vlf-write vlf-search vlf-occur vlf-follow vlf-ediff vlf)
@@ -1515,9 +1516,9 @@ e.g. Sunday, September 17, 2000."
   :config
   (setq wallabag-host "http://localhost:1702") ;; wallabag server host name
   (setq wallabag-username "wallabag") ;; username
-  (setq wallabag-password "Kohostan?") ;; password
-  (setq wallabag-clientid "3_bi4rte1agjwo4w80ws4c88wggkkks0wwgk4kwsk88oo8ocw4w") ;; created with API clients management
-  (setq wallabag-secret "3s8ap50dd4kkc04cco84ckg400gw8ckg8os0cs8884cc4o0gok") ;; created with API clients management
+  (setq wallabag-password "wallabag") ;; password
+  (setq wallabag-clientid "3_2ylrrsv1nsw0kc88sokkwsc04wo8gscs4kgsosss40408go04c") ;; created with API clients management
+  (setq wallabag-secret "41vaib6g5yo0ooc0s4kocgow0wg4cccw08k884oo8s8ssw4gkg") ;; created with API clients management
   ;; (setq wallabag-db-file "~/OneDrive/Org/wallabag.sqlite") ;; optional, default is saved to ~/.emacs.d/.cache/wallabag.sqlite
   ;; (run-with-timer 0 3540 'wallabag-request-token) ;; optional, auto refresh token, token should refresh every hour
   )
@@ -1915,8 +1916,8 @@ choice's name, and the rest of which is its body forms."
         org-archive-tag "DONE"
         org-image-actual-width nil
         +org-export-directory "~/Dropbox/publish/"
-        org-archive-location "~/Dropbox/org/gtd/archive.org::datetree/"
-        org-default-notes-file "~/Dropbox/org/gtd/inbox.org"
+        org-archive-location "~/Dropbox/org/archive/archive.org::datetree/"
+        org-default-notes-file "~/Dropbox/org/agenda/inbox.org"
         projectile-project-search-path '("~/workspace/projects/"))
 )
 
@@ -2909,13 +2910,13 @@ capture was not aborted."
         ;; I want to see the whole file
         org-noter-hide-other nil
         org-noter-insert-note-no-questions t
-        org-noter-notes-search-path '("~/Dropbox/org/interleave_notes/")
+        org-noter-notes-search-path '("~/Dropbox/org/notes/")
         org-noter-separate-notes-from-heading t
         ;; org-noter-auto-save-last-location t
         )
   ;; fuxialexander's code
   (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
-)
+  )
 
 (use-package org-noter-pdftools
   :after org-noter
@@ -3938,53 +3939,53 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 ;; Evil specific functions
 
 ;;;###autoload
-;; (defun +vertico/switch-workspace-buffer-other-window()
-;;   (interactive)
-;;   (+evil-window-vsplit-a)
-;;   (+vertico/switch-workspace-buffer))
+(defun +vertico/switch-workspace-buffer-other-window()
+  (interactive)
+  (+evil-window-vsplit-a)
+  (+vertico/switch-workspace-buffer))
 
-;; (setq +evil-want-o/O-to-continue-comments nil)
+(setq +evil-want-o/O-to-continue-comments nil)
 
-;; (bind-key "H-F" 'evil-window-split)
-;; (bind-key "H-f" 'evil-window-vsplit)
-;; (bind-key "H-t" '+my/vterm-run-project)
-;; (bind-key "H-;" '+evil-window-split-a)
-;; (bind-key "H-\\" '+evil-window-vsplit-a)
-
-
-;; (evil-define-command evil-buffer-org-new (count file)
-;;   "Creates a new ORG buffer replacing the current window, optionally
-;;    editing a certain FILE"
-;;   :repeat nil
-;;   (interactive "P<f>")
-;;   (if file
-;;       (evil-edit file)
-;;     (let ((buffer (generate-new-buffer "*new org*")))
-;;       (set-window-buffer nil buffer)
-;;       (with-current-buffer buffer
-;;         (org-mode)))))
-;; (map! :leader
-;;       (:prefix "b"
-;;        :desc "New empty ORG buffer" "o" #'evil-buffer-org-new))
+(bind-key "H-F" 'evil-window-split)
+(bind-key "H-f" 'evil-window-vsplit)
+(bind-key "H-t" '+my/vterm-run-project)
+(bind-key "H-;" '+evil-window-split-a)
+(bind-key "H-\\" '+evil-window-vsplit-a)
 
 
-;; (after! evil
-;;   (setq evil-ex-substitute-global t
-;;         evil-move-cursor-back nil
-;;         evil-kill-on-visual-paste nil))
+(evil-define-command evil-buffer-org-new (count file)
+  "Creates a new ORG buffer replacing the current window, optionally
+   editing a certain FILE"
+  :repeat nil
+  (interactive "P<f>")
+  (if file
+      (evil-edit file)
+    (let ((buffer (generate-new-buffer "*new org*")))
+      (set-window-buffer nil buffer)
+      (with-current-buffer buffer
+        (org-mode)))))
+(map! :leader
+      (:prefix "b"
+       :desc "New empty ORG buffer" "o" #'evil-buffer-org-new))
 
 
-;; (after! org
-;;   ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
-;;   (evil-define-key 'normal org-mode-map
-;;     ;; keybindings mirror ipython web interface behavior
-;;     "go" 'org-babel-previous-src-block
-;;     "gO" 'org-babel-next-src-block)
-;;   (map!
-;;    :after evil-org
-;;    :map evil-org-mode-map
-;;    :i [return] #'unpackaged/org-return-dwim)
-;;   )
+(after! evil
+  (setq evil-ex-substitute-global t
+        evil-move-cursor-back nil
+        evil-kill-on-visual-paste nil))
+
+
+(after! org
+  ;; (add-hook 'evil-org-agenda-mode-hook 'org-save-all-org-buffers)
+  (evil-define-key 'normal org-mode-map
+    ;; keybindings mirror ipython web interface behavior
+    "go" 'org-babel-previous-src-block
+    "gO" 'org-babel-next-src-block)
+  (map!
+   :after evil-org
+   :map evil-org-mode-map
+   :i [return] #'unpackaged/org-return-dwim)
+  )
 
 ;; (use-package! yasnippet
 ;;   :config
@@ -4165,14 +4166,6 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
          ("<tab>" . 'my-tab)
          ("TAB" . 'my-tab)))
 
-;; (use-package! tree-sitter
-;;   :config
-;;   (require 'tree-sitter-langs)
-;;   (global-tree-sitter-mode)
-;;   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
-;; (pushnew! tree-sitter-major-mode-language-alist
-;;           '(scss-mode . css))
-
 (use-package elfeed-tube
   ;; :straight (:host github :repo "karthink/elfeed-tube")
   :after elfeed
@@ -4207,182 +4200,9 @@ allowfullscreen>%s</iframe>" path (or "" desc)))
 
 ;; (setq explicit-shell-file-name "C:/Windows/System32/bash.exe")
 
-(defvar org-prettify-inline-results t
-  "Whether to use (ab)use prettify-symbols-mode on {{{results(...)}}}.
-Either t or a cons cell of strings which are used as substitutions
-for the start and end of inline results, respectively.")
-
-(defvar org-fontify-inline-src-blocks-max-length 200
-  "Maximum content length of an inline src block that will be fontified.")
-
-(defun org-fontify-inline-src-blocks (limit)
-  "Try to apply `org-fontify-inline-src-blocks-1'."
-  (condition-case nil
-      (org-fontify-inline-src-blocks-1 limit)
-    (error (message "Org mode fontification error in %S at %d"
-                    (current-buffer)
-                    (line-number-at-pos)))))
-
-(defun org-fontify-inline-src-blocks-1 (limit)
-  "Fontify inline src_LANG blocks, from `point' up to LIMIT."
-  (let ((case-fold-search t)
-        (initial-point (point)))
-    (while (re-search-forward "\\_<src_\\([^ \t\n[{]+\\)[{[]?" limit t) ; stolen from `org-element-inline-src-block-parser'
-      (let ((beg (match-beginning 0))
-            pt
-            (lang-beg (match-beginning 1))
-            (lang-end (match-end 1)))
-        (remove-text-properties beg lang-end '(face nil))
-        (font-lock-append-text-property lang-beg lang-end 'face 'org-meta-line)
-        (font-lock-append-text-property beg lang-beg 'face 'shadow)
-        (font-lock-append-text-property beg lang-end 'face 'org-block)
-        (setq pt (goto-char lang-end))
-        ;; `org-element--parse-paired-brackets' doesn't take a limit, so to
-        ;; prevent it searching the entire rest of the buffer we temporarily
-        ;; narrow the active region.
-        (save-restriction
-          (narrow-to-region beg (min (point-max) limit (+ lang-end org-fontify-inline-src-blocks-max-length)))
-          (when (ignore-errors (org-element--parse-paired-brackets ?\[))
-            (remove-text-properties pt (point) '(face nil))
-            (font-lock-append-text-property pt (point) 'face 'org-block)
-            (setq pt (point)))
-          (when (ignore-errors (org-element--parse-paired-brackets ?\{))
-            (remove-text-properties pt (point) '(face nil))
-            (font-lock-append-text-property pt (1+ pt) 'face '(org-block shadow))
-            (unless (= (1+ pt) (1- (point)))
-              (if org-src-fontify-natively
-                  (org-src-font-lock-fontify-block (buffer-substring-no-properties lang-beg lang-end) (1+ pt) (1- (point)))
-                (font-lock-append-text-property (1+ pt) (1- (point)) 'face 'org-block)))
-            (font-lock-append-text-property (1- (point)) (point) 'face '(org-block shadow))
-            (setq pt (point))))
-        (when (and org-prettify-inline-results (re-search-forward "\\= {{{results(" limit t))
-          (font-lock-append-text-property pt (1+ pt) 'face 'org-block)
-          (goto-char pt))))
-    (when org-prettify-inline-results
-      (goto-char initial-point)
-      (org-fontify-inline-src-results limit))))
-
-(defun org-fontify-inline-src-results (limit)
-  (while (re-search-forward "{{{results(\\(.+?\\))}}}" limit t)
-    (remove-list-of-text-properties (match-beginning 0) (point)
-                                    '(composition
-                                      prettify-symbols-start
-                                      prettify-symbols-end))
-    (font-lock-append-text-property (match-beginning 0) (match-end 0) 'face 'org-block)
-    (let ((start (match-beginning 0)) (end (match-beginning 1)))
-      (with-silent-modifications
-        (compose-region start end (if (eq org-prettify-inline-results t) "⟨" (car org-prettify-inline-results)))
-        (add-text-properties start end `(prettify-symbols-start ,start prettify-symbols-end ,end))))
-    (let ((start (match-end 1)) (end (point)))
-      (with-silent-modifications
-        (compose-region start end (if (eq org-prettify-inline-results t) "⟩" (cdr org-prettify-inline-results)))
-        (add-text-properties start end `(prettify-symbols-start ,start prettify-symbols-end ,end))))))
-
-(defun org-fontify-inline-src-blocks-enable ()
-  "Add inline src fontification to font-lock in Org.
-Must be run as part of `org-font-lock-set-keywords-hook'."
-  (setq org-font-lock-extra-keywords
-        (append org-font-lock-extra-keywords '((org-fontify-inline-src-blocks)))))
-
-(add-hook 'org-font-lock-set-keywords-hook #'org-fontify-inline-src-blocks-enable)
-
-(appendq! +ligatures-extra-symbols
-          `(:checkbox      "☐"
-            :pending       "◼"
-            :checkedbox    "☑"
-            :list_property "∷"
-            :em_dash       "—"
-            :ellipses      "…"
-            :arrow_right   "→"
-            :arrow_left    "←"
-            :html_head     "🅷"
-            :html          "🅗"
-            :latex_class   "🄻"
-            :latex_header  "🅻"
-            :beamer_header "🅑"
-            :latex         "🅛"
-            :attr_latex    "🄛"
-            :attr_html     "🄗"
-            :attr_org      "⒪"
-            :begin_quote   "❝"
-            :end_quote     "❞"
-            :caption       "☰"
-            :header        "›"
-            :begin_export  "⏩"
-            :end_export    "⏪"
-            :end           "∎"
-            :priority_a   ,(propertize "⚑" 'face 'all-the-icons-red)
-            :priority_b   ,(propertize "⬆" 'face 'all-the-icons-orange)
-            :priority_c   ,(propertize "■" 'face 'all-the-icons-yellow)
-            :priority_d   ,(propertize "⬇" 'face 'all-the-icons-green)
-            :priority_e   ,(propertize "❓" 'face 'all-the-icons-blue)))
-(set-ligatures! 'org-mode
-  :merge t
-  :checkbox      "[ ]"
-  :pending       "[-]"
-  :checkedbox    "[X]"
-  :list_property "::"
-  :em_dash       "---"
-  :ellipsis      "..."
-  :arrow_right   "->"
-  :arrow_left    "<-"
-  :html_head     "#+html_head:"
-  :html          "#+html:"
-  :latex_class   "#+latex_class:"
-  :latex_header  "#+latex_header:"
-  :beamer_header "#+beamer_header:"
-  :latex         "#+latex:"
-  :attr_latex    "#+attr_latex:"
-  :attr_html     "#+attr_html:"
-  :attr_org      "#+attr_org:"
-  :begin_quote   "#+begin_quote"
-  :end_quote     "#+end_quote"
-  :caption       "#+caption:"
-  :header        "#+header:"
-  :begin_export  "#+begin_export"
-  :end_export    "#+end_export"
-  :results       "#+RESULTS:"
-  :end           ":END:"
-  :priority_a    "[#A]"
-  :priority_b    "[#B]"
-  :priority_c    "[#C]"
-  :priority_d    "[#D]"
-  :priority_e    "[#E]")
-(plist-put +ligatures-extra-symbols :name "⁍")
-
-;; PDF Tools and some more colors
-;; annotation colours
-(defun bms/pdf-annot-colour-blue ()
-  (interactive)
-  (setq pdf-annot-default-markup-annotation-properties
-        '((label . "") (color . "blue") (popup-is-open)))
-  (message "%s" (propertize "Annotation colour set to blue." 'face '(:foreground "blue"))))
-
-(defun bms/pdf-annot-colour-yellow ()
-  (interactive)
-  (setq pdf-annot-default-markup-annotation-properties
-        '((label . "") (color . "yellow") (popup-is-open)))
-  (message "%s" (propertize "Annotation colour set to yellow." 'face '(:foreground "yellow"))))
-
-(defun bms/pdf-annot-colour-red ()
-  (interactive)
-  (setq pdf-annot-default-markup-annotation-properties
-        '((label . "") (color . "red") (popup-is-open)))
-  (message "%s" (propertize "Annotation colour set to red." 'face '(:foreground "red"))))
-
-(defun bms/pdf-annot-colour-orange ()
-  (interactive)
-  (setq pdf-annot-default-markup-annotation-properties
-        '((label . "") (color . "orange") (popup-is-open)))
-  (message "%s" (propertize "Annotation colour set to orange." 'face '(:foreground "orange"))))
-
-;; rebind keys for pdf-tools
-(defun bms/pdf-tools-mode-config ()
-  "Set pdf-tools keybindings."
-  (local-set-key (kbd "R") #'bms/pdf-annot-colour-red)
-  (local-set-key (kbd "L") #'bms/pdf-annot-colour-blue)
-  (local-set-key (kbd "O") #'bms/pdf-annot-colour-orange)
-  (local-set-key (kbd "Y") #'bms/pdf-annot-colour-yellow))
-
-;; add to pdf-view-mode-hook
-(add-hook 'pdf-view-mode-hook #'bms/pdf-tools-mode-config)
+;; (use-package gif-screencast
+;;   :defer t
+;;   :bind
+;;   ("<C-print>" . gif-screencast-start-or-stop)
+;;   :config
+;;   (setq gif-screencast-output-directory (expand-file-name "images/gif-screencast" org-directory)))

@@ -70,11 +70,90 @@ rotated; see evil-colemak-basics-rotate-t-f-j."
                  (const :tag "evil-snipe" evil-snipe)))
 
 
+;; (defun evil-colemak-basics--make-keymap ()
+;;   "Initialise the keymap based on the current configuration."
+;;   (let ((keymap (make-sparse-keymap)))
+;;     (evil-define-key '(motion normal visual) keymap
+;;       "n" 'evil-next-line
+;;       "gn" 'evil-next-visual-line
+;;       "e" 'evil-previous-line
+;;       "E" 'evil-lookup
+;;       "ge" 'evil-previous-visual-line
+;;       "i" 'evil-forward-char
+;;       "I" 'evil-window-bottom
+;;       "j" 'evil-forward-word-end
+;;       "J" 'evil-forward-WORD-end
+;;       "gj" 'evil-backward-word-end
+;;       "K" (if (eq evil-search-module 'evil-search) 'evil-ex-search-previous 'evil-search-previous)
+;;       "gk" 'evil-next-match
+;;       "gK" 'evil-previous-match)
+;;     (evil-define-key '(normal visual) keymap
+;;       "N" 'evil-join
+;;       "gN" 'evil-join-whitespace
+;;       "gl" 'evil-downcase
+;;       "gL" 'evil-upcase)
+;;     (evil-define-key 'normal keymap
+;;       "l" 'evil-undo
+;;       "u" 'evil-insert
+;;       "U" 'evil-insert-line
+;;       "gu" 'evil-insert-resume
+;;       "gU" 'evil-insert-0-line)
+;;     (evil-define-key 'visual keymap
+;;       "l" 'evil-downcase
+;;       "L" 'evil-upcase
+;;       "U" 'evil-insert)
+;;     (evil-define-key '(visual operator) keymap
+;;       "u" evil-inner-text-objects-map)
+;;     (evil-define-key 'operator keymap
+;;       "i" 'evil-forward-char)
+;;     (when evil-colemak-basics-rotate-t-f-j
+;;       (evil-define-key '(motion normal visual) keymap
+;;         "f" 'evil-forward-word-end
+;;         "F" 'evil-forward-WORD-end
+;;         "gf" 'evil-backward-word-end
+;;         "gF" 'evil-backward-WORD-end)
+;;       (evil-define-key 'normal keymap
+;;         "gt" 'find-file-at-point
+;;         "gT" 'evil-find-file-at-point-with-line)
+;;       (evil-define-key 'visual keymap
+;;         "gt" 'evil-find-file-at-point-visual)
+;;       (when (featurep 'tab-bar)  ; Evil also checks this; see evil-maps.el
+;;         (evil-define-key 'normal keymap
+;;           "gj" 'tab-bar-switch-to-next-tab
+;;           "gJ" 'tab-bar-switch-to-prev-tab))
+;;       (cond
+;;        ((eq evil-colemak-basics-char-jump-commands nil)
+;;         (evil-define-key '(motion normal visual) keymap
+;;           "t" 'evil-find-char
+;;           "T" 'evil-find-char-backward
+;;           "j" 'evil-find-char-to
+;;           "J" 'evil-find-char-to-backward))
+;;        ((eq evil-colemak-basics-char-jump-commands 'evil-snipe)
+;;         ;; XXX https://github.com/hlissner/evil-snipe/issues/46
+;;         (evil-snipe-def 1 inclusive "t" "T")
+;;         (evil-snipe-def 1 exclusive "j" "J")
+;;         (evil-define-key '(motion normal visual) keymap
+;;           "t" 'evil-snipe-t
+;;           "T" 'evil-snipe-T
+;;           "j" 'evil-snipe-j
+;;           "J" 'evil-snipe-J))
+;;        (t (user-error "Invalid evil-colemak-basics-char-jump-commands configuration"))))
+;;     (when (eq evil-colemak-basics-layout-mod 'mod-dh)
+;;       (evil-define-key '(motion normal visual) keymap
+;;         "m" 'evil-backward-char)
+;;       (evil-define-key '(normal visual) keymap
+;;         "h" 'evil-set-marker))
+;;     keymap))
+
 (defun evil-colemak-basics--make-keymap ()
   "Initialise the keymap based on the current configuration."
   (let ((keymap (make-sparse-keymap)))
+    (evil-define-key '(motion) keymap
+      "C-n" 'evil-next-line
+      "C-e" 'evil-scroll-line-up)
     (evil-define-key '(motion normal visual) keymap
       "n" 'evil-next-line
+      ""
       "gn" 'evil-next-visual-line
       "e" 'evil-previous-line
       "E" 'evil-lookup
@@ -90,136 +169,57 @@ rotated; see evil-colemak-basics-rotate-t-f-j."
       "k" (if (eq evil-search-module 'evil-search) 'evil-ex-search-next 'evil-search-next)
       "K" (if (eq evil-search-module 'evil-search) 'evil-ex-search-previous 'evil-search-previous)
       "gk" 'evil-next-match
-      "gK" 'evil-previous-match)
+      )
     (evil-define-key '(normal visual) keymap
+      "gI" 'evil-lion-left
+      "gi" 'evil-lion-right
+      "gl" 'evil-downcase
+      "gL" 'evil-upcase
+      "gu" 'evil-insert-resume
+      "gU" '+lookup/implementations
+      "gj" 'evil-backward-word-end
+      "gJ" 'evil-backward-WORD-end
+      "gE" 'evil-join-whitespace
+      "ge" 'evil-next-visual-line
+      "gk" 'evil-next-match
+      "gK" 'evil-previous-match
+      "gn" 'evil-previous-visual-line
+      "gN" nil
+      "gzl" '+multiple-cursors/evil-mc-undo-cursor
+      "gzu" nil
+      "gzk" 'evil-mc-make-and-goto-next-cursor
+      "gzK" 'evil-mc-make-and-goto-prev-cursor
+      "gzj" nil
+      "gzn" 'evil-mc-make-cursor-move-next-line
+      "gze" 'evil-mc-make-cursor-move-prev-line
+      "zk" '+evil:narrow-buffer
       "N" 'evil-join
       "gN" 'evil-join-whitespace
       "gl" 'evil-downcase
-      "gL" 'evil-upcase)
+      )
     (evil-define-key 'normal keymap
+      "zn" '+fold/next
+      "ze" '+fold/previous
+      "zE" 'nil
+      "zD" 'vimish-fold-delete-all
+      "zi" 'evil-scroll-column-right
+      "zI" 'evil-scroll-right
+      "zK" 'doom/widen-indirectly-narrowed-buffer
       "l" 'evil-undo
       "u" 'evil-insert
       "U" 'evil-insert-line
       "gu" 'evil-insert-resume
-      "gU" 'evil-insert-0-line)
+      )
     (evil-define-key 'visual keymap
       "l" 'evil-downcase
       "L" 'evil-upcase
-      "U" 'evil-insert)
+      "U" 'evil-insert
+      )
     (evil-define-key '(visual operator) keymap
       "u" evil-inner-text-objects-map)
     (evil-define-key 'operator keymap
       "i" 'evil-forward-char)
-    (when evil-colemak-basics-rotate-t-f-j
-      (evil-define-key '(motion normal visual) keymap
-        "f" 'evil-forward-word-end
-        "F" 'evil-forward-WORD-end
-        "gf" 'evil-backward-word-end
-        "gF" 'evil-backward-WORD-end)
-      (evil-define-key 'normal keymap
-        "gt" 'find-file-at-point
-        "gT" 'evil-find-file-at-point-with-line)
-      (evil-define-key 'visual keymap
-        "gt" 'evil-find-file-at-point-visual)
-      (when (featurep 'tab-bar)  ; Evil also checks this; see evil-maps.el
-        (evil-define-key 'normal keymap
-          "gj" 'tab-bar-switch-to-next-tab
-          "gJ" 'tab-bar-switch-to-prev-tab))
-      (cond
-       ((eq evil-colemak-basics-char-jump-commands nil)
-        (evil-define-key '(motion normal visual) keymap
-          "t" 'evil-find-char
-          "T" 'evil-find-char-backward
-          "j" 'evil-find-char-to
-          "J" 'evil-find-char-to-backward))
-       ((eq evil-colemak-basics-char-jump-commands 'evil-snipe)
-        ;; XXX https://github.com/hlissner/evil-snipe/issues/46
-        (evil-snipe-def 1 inclusive "t" "T")
-        (evil-snipe-def 1 exclusive "j" "J")
-        (evil-define-key '(motion normal visual) keymap
-          "t" 'evil-snipe-t
-          "T" 'evil-snipe-T
-          "j" 'evil-snipe-j
-          "J" 'evil-snipe-J))
-       (t (user-error "Invalid evil-colemak-basics-char-jump-commands configuration"))))
-    (when (eq evil-colemak-basics-layout-mod 'mod-dh)
-      (evil-define-key '(motion normal visual) keymap
-        "m" 'evil-backward-char)
-      (evil-define-key '(normal visual) keymap
-        "h" 'evil-set-marker))
     keymap))
-
-;; (defun evil-colemak-basics--make-keymap ()
-;;   "Initialise the keymap based on the current configuration."
-;;   (let ((keymap (make-sparse-keymap)))
-;;     (evil-define-key '(motion normal visual) keymap
-;;       "n" 'evil-next-line
-;;       "gn" 'evil-next-visual-line
-;;       "e" 'evil-previous-line
-;;       "E" 'evil-lookup
-;;       "ge" 'evil-previous-visual-line
-;;       "i" 'evil-forward-char
-;;       "I" 'evil-window-bottom
-;;       "zi" 'evil-scroll-column-right
-;;       "zI" 'evil-scroll-right
-;;       "j" 'evil-forward-word-end
-;;       "J" 'evil-forward-WORD-end
-;;       "gj" 'evil-backward-word-end
-;;       "gJ" 'evil-backward-WORD-end
-;;       "k" (if (eq evil-search-module 'evil-search) 'evil-ex-search-next 'evil-search-next)
-;;       "K" (if (eq evil-search-module 'evil-search) 'evil-ex-search-previous 'evil-search-previous)
-;;       "gk" 'evil-next-match
-;;       )
-;;     (evil-define-key '(normal visual) keymap
-;;       "gI" 'evil-lion-left
-;;       "gi" 'evil-lion-right
-;;       "gl" 'evil-downcase
-;;       "gL" 'evil-upcase
-;;       "gu" 'evil-insert-resume
-;;       "gU" '+lookup/implementations
-;;       "gj" 'evil-backward-word-end
-;;       "gJ" 'evil-backward-WORD-end
-;;       "gE" 'evil-join-whitespace
-;;       "ge" 'evil-next-visual-line
-;;       "gk" 'evil-next-match
-;;       "gK" 'evil-previous-match
-;;       "gn" 'evil-previous-visual-line
-;;       "gN" nil
-;;       "gzl" '+multiple-cursors/evil-mc-undo-cursor
-;;       "gzu" nil
-;;       "gzk" 'evil-mc-make-and-goto-next-cursor
-;;       "gzK" 'evil-mc-make-and-goto-prev-cursor
-;;       "gzj" nil
-;;       "gzn" 'evil-mc-make-cursor-move-next-line
-;;       "gze" 'evil-mc-make-cursor-move-prev-line
-;;       "zk" '+evil:narrow-buffer
-;;       "N" 'evil-join
-;;       "gN" 'evil-join-whitespace
-;;       "gl" 'evil-downcase
-;;       )
-;;     (evil-define-key 'normal keymap
-;;       "zn" '+fold/next
-;;       "ze" '+fold/previous
-;;       "zE" 'nil
-;;       "zD" 'vimish-fold-delete-all
-;;       "zi" 'evil-scroll-column-right
-;;       "zI" 'evil-scroll-right
-;;       "zK" 'doom/widen-indirectly-narrowed-buffer
-;;       "l" 'evil-undo
-;;       "u" 'evil-insert
-;;       "U" 'evil-insert-line
-;;       "gu" 'evil-insert-resume
-;;       )
-;;     (evil-define-key 'visual keymap
-;;       "l" 'evil-downcase
-;;       "L" 'evil-upcase
-;;       "U" 'evil-insert
-;;       )
-;;     (evil-define-key '(visual operator) keymap
-;;       )
-;;     (evil-define-key 'operator keymap
-;;       )
-;;     keymap))
 
 (defvar evil-colemak-basics-keymap
   (evil-colemak-basics--make-keymap)
