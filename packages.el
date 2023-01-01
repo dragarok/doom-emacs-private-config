@@ -82,7 +82,7 @@
 (package! consult-dir)
 (package! ox-json)
 (package! org-roam-bibtex)
-(package! dirvish)
+;; (package! dirvish)
 (package! powershell)
 (package! evil-escape :disable t)
 (package! org-modern)
@@ -212,3 +212,9 @@
 ;; (package! ivy-mpdel)
 ;; ox twitter bootstrap
 ;; (package! ox-twbs)
+;; (package! sway
+;;   :recipe (:host github :repo "thblt/sway.el"))
+
+(package! dockerfile-mode)
+(package! docker)
+(package! elfeed-score)
