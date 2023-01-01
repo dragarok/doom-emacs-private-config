@@ -22,117 +22,117 @@
 (setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
 
-(setq doom-font (font-spec :family "SpaceMono Nerd Font Mono" :size 14)
-      doom-variable-pitch-font (font-spec :family "OverpassMono Nerd Font" :size 14)
+(setq doom-font (font-spec :family "SpaceMono Nerd Font Mono" :size 17)
+      doom-variable-pitch-font (font-spec :family "OverpassMono Nerd Font" :size 17)
       ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-      doom-serif-font (font-spec :family "OverpassMono Nerd Font" :size 14)
+      doom-serif-font (font-spec :family "OverpassMono Nerd Font" :size 17)
       ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
       ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-      doom-big-font (font-spec :family "SpaceMono Nerd Font" :size 20))
+      doom-big-font (font-spec :family "SpaceMono Nerd Font" :size 24))
 
 (load-theme 'modus-operandi 'noconfirm)
 
-(use-package evil-colemak-basics
-  :config
-  (global-evil-colemak-basics-mode))
-(after! vertico
-  (map! :map vertico-map
-        "C-n"   #'vertico-next
-        "C-M-n" #'vertico-next-group
-        "C-e"   #'vertico-previous
-        "C-M-e" #'vertico-previous-group))
+;; (use-package evil-colemak-basics
+;;   :config
+;;   (global-evil-colemak-basics-mode))
+;; (after! vertico
+;;   (map! :map vertico-map
+;;         "C-n"   #'vertico-next
+;;         "C-M-n" #'vertico-next-group
+;;         "C-e"   #'vertico-previous
+;;         "C-M-e" #'vertico-previous-group))
 
 
-(after! evil
+;; (after! evil
 
-  ;; Mapping
-  ;; Vim ==> Colemak Mine
-  ;; j ==> n
-  ;; k ==> e
-  ;; l ==> i
-  ;; i ==> u
-  ;; u ==> l
-  ;; n ==> k
-  ;; e ==> j
-  (map! :n "u" 'evil-insert
-        :n "U" 'evil-insert-line
-        :n "l" 'evil-undo
-        :v "l" 'evil-downcase
-        :v "L" 'evil-upcase
-        :v "U" 'evil-insert
-        :vo "u" evil-inner-text-objects-map
-        :o "i" 'evil-forward-char
-        :nv "k" 'evil-ex-search-next
-        :nv "K" 'evil-ex-search-previous
-        :nvm "j" 'evil-forward-word-end
-        :nvm "J" 'evil-forward-word-end
-        :nv "N" 'evil-join
-        :nm "n" 'evil-next-line
-        :v "n" 'evil-next-visual-line
-        :nm "e" 'evil-previous-line
-        :v "e" 'evil-previous-visual-line
-        :nvm "E" '+lookup/documentation
-        :nvm "i" 'evil-forward-char
-        :nvm "I" 'evil-window-bottom
-        :nv "gI" 'evil-lion-left
-        :nv "gi" 'evil-lion-right
-        :nv "gl" 'evil-downcase
-        :nv "gL" 'evil-upcase
-        :nv "gu" 'evil-insert-resume
-        :nv "gU" '+lookup/implementations
-        :nv "gj" 'evil-backward-word-end
-        :nv "gJ" 'evil-backward-WORD-end
-        :nv "gE" 'evil-join-whitespace
-        :nv "ge" 'evil-next-visual-line
-        :nv "gk" 'evil-next-match
-        :nv "gK" 'evil-previous-match
-        :nv "gn" 'evil-previous-visual-line
-        :nv "gN" nil
-        :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
-        :nv "gzu" nil
-        :nv "gzk" 'evil-mc-make-and-goto-next-cursor
-        :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
-        :nv "gzj" nil
-        :nv "gzn" 'evil-mc-make-cursor-move-next-line
-        :nv "gze" 'evil-mc-make-cursor-move-prev-line
-        :n "zn" '+fold/next
-        :n "ze" '+fold/previous
-        :n "zE" 'nil
-        :n "zD" 'vimish-fold-delete-all
-        :n "zi" 'evil-scroll-column-right
-        :n "zI" 'evil-scroll-right
-        :nv "zk" '+evil:narrow-buffer
-        :n "zK" 'doom/widen-indirectly-narrowed-buffer
-        )
+;;   ;; Mapping
+;;   ;; Vim ==> Colemak Mine
+;;   ;; j ==> n
+;;   ;; k ==> e
+;;   ;; l ==> i
+;;   ;; i ==> u
+;;   ;; u ==> l
+;;   ;; n ==> k
+;;   ;; e ==> j
+;;   (map! :n "u" 'evil-insert
+;;         :n "U" 'evil-insert-line
+;;         :n "l" 'evil-undo
+;;         :v "l" 'evil-downcase
+;;         :v "L" 'evil-upcase
+;;         :v "U" 'evil-insert
+;;         :vo "u" evil-inner-text-objects-map
+;;         :o "i" 'evil-forward-char
+;;         :nv "k" 'evil-ex-search-next
+;;         :nv "K" 'evil-ex-search-previous
+;;         :nvm "j" 'evil-forward-word-end
+;;         :nvm "J" 'evil-forward-word-end
+;;         :nv "N" 'evil-join
+;;         :nm "n" 'evil-next-line
+;;         :v "n" 'evil-next-visual-line
+;;         :nm "e" 'evil-previous-line
+;;         :v "e" 'evil-previous-visual-line
+;;         :nvm "E" '+lookup/documentation
+;;         :nvm "i" 'evil-forward-char
+;;         :nvm "I" 'evil-window-bottom
+;;         :nv "gI" 'evil-lion-left
+;;         :nv "gi" 'evil-lion-right
+;;         :nv "gl" 'evil-downcase
+;;         :nv "gL" 'evil-upcase
+;;         :nv "gu" 'evil-insert-resume
+;;         :nv "gU" '+lookup/implementations
+;;         :nv "gj" 'evil-backward-word-end
+;;         :nv "gJ" 'evil-backward-WORD-end
+;;         :nv "gE" 'evil-join-whitespace
+;;         :nv "ge" 'evil-next-visual-line
+;;         :nv "gk" 'evil-next-match
+;;         :nv "gK" 'evil-previous-match
+;;         :nv "gn" 'evil-previous-visual-line
+;;         :nv "gN" nil
+;;         :nv "gzl" '+multiple-cursors/evil-mc-undo-cursor
+;;         :nv "gzu" nil
+;;         :nv "gzk" 'evil-mc-make-and-goto-next-cursor
+;;         :nv "gzK" 'evil-mc-make-and-goto-prev-cursor
+;;         :nv "gzj" nil
+;;         :nv "gzn" 'evil-mc-make-cursor-move-next-line
+;;         :nv "gze" 'evil-mc-make-cursor-move-prev-line
+;;         :n "zn" '+fold/next
+;;         :n "ze" '+fold/previous
+;;         :n "zE" 'nil
+;;         :n "zD" 'vimish-fold-delete-all
+;;         :n "zi" 'evil-scroll-column-right
+;;         :n "zI" 'evil-scroll-right
+;;         :nv "zk" '+evil:narrow-buffer
+;;         :n "zK" 'doom/widen-indirectly-narrowed-buffer
+;;         )
 
-  ;; (after! magit
-  ;;   (map! :map magit-mode-map
-  ;;         :n "n" 'magit-next-line
-  ;;         :n "e" 'magit-previous-line))
+;;   ;; (after! magit
+;;   ;;   (map! :map magit-mode-map
+;;   ;;         :n "n" 'magit-next-line
+;;   ;;         :n "e" 'magit-previous-line))
 
-  (map! :leader
-        (:prefix "w"
-         :n "J" nil
-         :n "n" #'evil-window-down
-         :n "e" #'evil-window-up
-         :n "i" #'evil-window-right
-         :n "N" #'+evil/window-move-down
-         :n "E" #'+evil/window-move-up
-         :n "I" #'+evil/window-move-right
-         :n "C-n" #'evil-window-down
-         :n "C-e" #'evil-window-up
-         :n "C-i" #'evil-window-right
-         ;; Not losing keybinding for C-n
-         :n "C-j" #'evil-window-new
-         :n "j" #'evil-window-new
-         :n "C-S-n" #'evil-window-move-very-bottom
-         :n "C-S-e" #'evil-window-move-very-top
-         :n "C-S-i" #'evil-window-move-far-right)
-        (:prefix "c")
-        :n "F" #'consult-flycheck
-        :n "T" #'lsp-treemacs-symbols
-        )
-  )
+;;   (map! :leader
+;;         (:prefix "w"
+;;          :n "J" nil
+;;          :n "n" #'evil-window-down
+;;          :n "e" #'evil-window-up
+;;          :n "i" #'evil-window-right
+;;          :n "N" #'+evil/window-move-down
+;;          :n "E" #'+evil/window-move-up
+;;          :n "I" #'+evil/window-move-right
+;;          :n "C-n" #'evil-window-down
+;;          :n "C-e" #'evil-window-up
+;;          :n "C-i" #'evil-window-right
+;;          ;; Not losing keybinding for C-n
+;;          :n "C-j" #'evil-window-new
+;;          :n "j" #'evil-window-new
+;;          :n "C-S-n" #'evil-window-move-very-bottom
+;;          :n "C-S-e" #'evil-window-move-very-top
+;;          :n "C-S-i" #'evil-window-move-far-right)
+;;         (:prefix "c")
+;;         :n "F" #'consult-flycheck
+;;         :n "T" #'lsp-treemacs-symbols
+;;         )
+;;   )
 
 (map! :localleader
       :map python-mode-map
@@ -1794,7 +1794,7 @@ choice's name, and the rest of which is its body forms."
        :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
        :n "o" #'org-noter
-       :n "c" #'org-noter-pdftools-create-skeleton
+      ;;  :n "c" #'org-noter-pdftools-create-skeleton
        :n "j" #'org-hugo-auto-export-mode
        :n "p" #'poetry
        :n "r" #'poetry-run
@@ -1876,14 +1876,14 @@ choice's name, and the rest of which is its body forms."
 ;;   )
 
 (after! org
-  (defun who/org-noter-insert-highlighted-note ()
-    "Highlight the active region and add a precise note at its position."
-    (interactive)
-    ;; Adding an annotation will deactivate the region, so we reset it afterward
-    (let ((region (pdf-view-active-region)))
-      (call-interactively 'pdf-annot-add-highlight-markup-annotation)
-      (setq pdf-view-active-region region))
-    (call-interactively 'org-noter-insert-precise-note))
+  ;; (defun who/org-noter-insert-highlighted-note ()
+  ;;   "Highlight the active region and add a precise note at its position."
+  ;;   (interactive)
+  ;;   ;; Adding an annotation will deactivate the region, so we reset it afterward
+  ;;   (let ((region (pdf-view-active-region)))
+  ;;     (call-interactively 'pdf-annot-add-highlight-markup-annotation)
+  ;;     (setq pdf-view-active-region region))
+  ;;   (call-interactively 'org-noter-insert-precise-note))
 
   (setq org-noter-always-create-frame nil
         org-noter-insert-selected-text-inside-note t
@@ -1897,14 +1897,14 @@ choice's name, and the rest of which is its body forms."
         ;; org-noter-auto-save-last-location t
         )
   ;; fuxialexander's code
-  (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
+  ;; (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
   )
 
-(use-package org-noter-pdftools
-  :after org-noter
-  :config
-  (with-eval-after-load 'pdf-annot
-    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
+;; (use-package org-noter-pdftools
+;;   :after org-noter
+;;   :config
+;;   (with-eval-after-load 'pdf-annot
+;;     (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 
 (after! org
   ;; (add-hook 'org-mode-hook #'auto-fill-mode)
@@ -2889,43 +2889,9 @@ capture was not aborted."
                     t)
 (add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
 
-(use-package org-noter
-  :defer t
-  :commands (org-noter org-noter-create-skeleton)
-  :config
 
-  (defun who/org-noter-insert-highlighted-note ()
-    "Highlight the active region and add a precise note at its position."
-    (interactive)
-    ;; Adding an annotation will deactivate the region, so we reset it afterward
-    (let ((region (pdf-view-active-region)))
-      (call-interactively 'pdf-annot-add-highlight-markup-annotation)
-      (setq pdf-view-active-region region))
-    (call-interactively 'org-noter-insert-precise-note))
-
-  (setq org-noter-always-create-frame nil
-        org-noter-insert-selected-text-inside-note t
-        ;; ;; The WM can handle splits
-        ;; org-noter-notes-window-location 'other-frame
-        ;; I want to see the whole file
-        org-noter-hide-other nil
-        org-noter-insert-note-no-questions t
-        org-noter-notes-search-path '("~/Dropbox/org/notes/")
-        org-noter-separate-notes-from-heading t
-        ;; org-noter-auto-save-last-location t
-        )
-  ;; fuxialexander's code
-  (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
-  )
-
-(use-package org-noter-pdftools
-  :after org-noter
-  :config
-  (with-eval-after-load 'pdf-annot
-    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
-
-(use-package org-pdftools
-  :hook (org-load . org-pdftools-setup-link))
+;; (use-package org-pdftools
+;;   :hook (org-load . org-pdftools-setup-link))
 
 (after! org
   (add-to-list 'org-src-lang-modes '("plantuml" . plantuml))
