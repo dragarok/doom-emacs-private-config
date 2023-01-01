@@ -73,6 +73,7 @@
 
        :emacs
        (dired             ; making dired pretty [functional]
+        +dirvish
         +icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer         ; interactive buffer management
@@ -98,7 +99,7 @@
        (debugger          ; FIXME stepping through code, to help you add bugs
         +lsp)
        direnv
-       docker
+       ;; docker
        editorconfig      ; let someone else argue about tabs vs spaces
        ein               ; tame Jupyter notebooks with emacs
        (eval +overlay)     ; run code, run (also, repls)
@@ -118,7 +119,7 @@
        ;;prodigy           ; FIXME managing external services & code builders
        rgb               ; creating color strings
        ;;taskrunner        ; taskrunner for all your projects
-       ;;terraform         ; infrastructure as code
+       terraform         ; infrastructure as code
        ;;tmux              ; an API for interacting with tmux
        tree-sitter
        upload            ; map local to remote projects via ssh/ftp
@@ -230,11 +231,11 @@
        :app
        calendar
        ;; emms
-       ;; everywhere        ; *leave* Emacs!? You must be joking
+       everywhere        ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize
        (rss +org)        ; emacs as an RSS reader
        ;; twitter           ; twitter client https://twitter.com/vnought
 
        :config
-       ;; literate
+       literate
        (default +bindings +smartparens))
