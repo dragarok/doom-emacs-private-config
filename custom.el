@@ -546,6 +546,8 @@
    ("Mundane" ,(list (all-the-icons-material "sentiment_dissatisfied" :height 1.2)) nil nil :ascent center)
    ;; Birthdays and Anniversaries
    ("Celebration" ,(list (all-the-icons-material "cake" :height 1.2)) nil nil :ascent center)
+   ;; Birthdays and Anniversaries
+   ("EHP" ,(list (all-the-icons-material "work" :height 1.2)) nil nil :ascent center)
    ;; ("recurring" ,(list (all-the-icons-material "loop" :height 1.2)) nil nil :ascent center)
    ;; ("someday" ,(list (all-the-icons-material "schedule" :height 1.2)) nil nil :ascent center)
    ;; ("project" ,(list (all-the-icons-material "stars" :height 1.2)) nil nil :ascent center)
