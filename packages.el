@@ -215,6 +215,6 @@
 ;; (package! sway
 ;;   :recipe (:host github :repo "thblt/sway.el"))
 
-(package! dockerfile-mode)
-(package! docker)
+;; (package! dockerfile-mode)
+;; (package! docker)
 (package! elfeed-score)
