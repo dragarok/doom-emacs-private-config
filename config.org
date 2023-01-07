@@ -102,22 +102,20 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq! citar-bibliography '((concat org-directory "references.bib")))
 (setq! citar-notes-paths '(org-roam-directory))
 (setq! citar-library-paths '(("~/OneDrive/OrgMode/Ref_Library/")))
-(setq org-agenda-files '("~/OneDrive/OrgMode/org/agenda/Dropbox/"))
-(setq org-agenda-directory "~/OneDrive/OrgMode/org/agenda/Dropbox/")
+
+(setq org-directory "~/OneDrive/OrgMode/org/")
+(setq org-roam-directory "~/OneDrive/OrgMode/org/notes")
+(setq org-agenda-directory "~/Dropbox/")
+(setq org-agenda-files '(org-agenda-directory))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-bookslog-file (concat org-agenda-directory "books_log.org"))
 (setq org-projects-file (concat org-agenda-directory "projects.org"))
 (setq org-tasks-file (concat org-agenda-directory "tasks.org"))
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
+(setq org-motto-file (concat org-agenda-directory "motto.org"))
 (setq org-someday-file (concat org-directory "archive/someday.org"))
 #+END_SRC
-** Org Roam
-
-#+begin_src elisp
-(setq org-roam-directory "~/OneDrive/OrgMode/org/notes")
-#+end_src
-
 ** Elfeed Defaults
 
 #+begin_src elisp
@@ -2240,13 +2238,13 @@ SCHEDULED: %t
 ;; " :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("d" "Diary Log" entry(file+olp+datetree"~/OneDrive/OrgMode/org/lookbacks/diary.org")
+                         '("d" "Diary Log" entry(file+olp+datetree org-diary-file)
                            "** <%<%I:%M:%S>> %^{diary entry}
 %?")))
 
 
 (after! org (add-to-list 'org-capture-templates
-                         '("G" "Set a Motto" entry(file+olp+datetree"~/OneDrive/OrgMode/org/agenda/Dropbox/motto.org")
+                         '("G" "Set a Motto" entry(file+olp+datetree org-motto-file
                            "* %^{diary entry}
 %?" :immediate-finish t)))
 
@@ -2308,7 +2306,7 @@ SCHEDULED: %t
 (defun my-agenda-motto (&rest _ignore)
   " INSERTS MOTTO FROM MOTTO FILE TO AGENDA"
   (with-temp-buffer
-    (insert-file-contents "~/OneDrive/OrgMode/org/agenda/Dropbox/motto.org")
+    (insert-file-contents org-motto-file)
     (goto-char (point-max))
     (forward-line -1)
     (setq myLine (buffer-substring-no-properties
