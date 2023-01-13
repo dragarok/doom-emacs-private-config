@@ -105,7 +105,7 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 
 (setq org-directory "~/OneDrive/OrgMode/org/")
 (setq org-roam-directory "~/OneDrive/OrgMode/org/notes")
-(setq org-agenda-directory "~/Dropbox/")
+(setq org-agenda-directory "~/OneDrive/OrgMode/org/agenda/Dropbox/")
 (setq org-agenda-files '(org-agenda-directory))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
@@ -2271,8 +2271,8 @@ SCHEDULED: %t
 
 (after! org (add-to-list 'org-capture-templates
                          '("G" "Set a Motto" entry(file+olp+datetree org-motto-file
-                           "* %^{diary entry}
-%?" :immediate-finish t)))
+                                                                     "* %^{diary entry}
+%?" :immediate-finish t))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
