@@ -97,8 +97,6 @@
   :recipe (:host github :repo "douglasdavis/numpydoc.el"))
 ;; (package! evil-colemak-basics)
 ;; for managing book reading
-;; (package! org-books)
-;;  :recipe (:local-repo "~/.doom.d/org-books/"))
 ;; (package! ein :recipe (:no-byte-compile t))
 ;; (package! ein)
 
@@ -218,3 +216,6 @@
 ;; (package! dockerfile-mode)
 ;; (package! docker)
 (package! elfeed-score)
+(unpin! emacsql)
+(package! org-books
+  :recipe (:host github :repo "goderich/org-books"))
