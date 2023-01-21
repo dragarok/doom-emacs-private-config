@@ -20,16 +20,17 @@
 ** Fonts and Themes
 
 #+begin_src elisp
-(setq doom-font (font-spec :family "SpaceMono Nerd Font Mono" :size 17)
-      doom-variable-pitch-font (font-spec :family "Overpass Mono" :size 17)
+(setq doom-font (font-spec :family "Maple Mono SC NF" :size 17)
+      doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 17)
       ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-      doom-serif-font (font-spec :family "Overpass Mono" :size 17)
+      doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 17)
       ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
       ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-      doom-big-font (font-spec :family "SpaceMono Nerd Font" :size 24))
+      doom-big-font (font-spec :family "Maple Mono SC NF" :size 24))
 
 (load-theme 'modus-operandi 'noconfirm)
 #+end_src
+
 
 ** Emacs 29 Good scroll
 
@@ -106,10 +107,11 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-directory "~/OneDrive/OrgMode/org/")
 (setq org-roam-directory "~/OneDrive/OrgMode/org/notes")
 (setq org-agenda-directory "~/OneDrive/OrgMode/org/agenda/Dropbox/")
-(setq org-agenda-files '(org-agenda-directory))
+(setq org-agenda-files '("~/OneDrive/OrgMode/org/agenda/Dropbox/"))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-bookslog-file (concat org-agenda-directory "books_log.org"))
+(setq org-books-file org-bookslog-file)
 (setq org-projects-file (concat org-agenda-directory "projects.org"))
 (setq org-tasks-file (concat org-agenda-directory "tasks.org"))
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
@@ -273,10 +275,6 @@ Version 2015-07-30"
        :map dired-mode-map
        :n "gb" #'light-dired-sort))
 
-#+END_SRC
-**** Writeroom width
-#+BEGIN_SRC elisp
-(setq writeroom-width 100)
 #+END_SRC
 **** Vterm not showing my completions
 #+BEGIN_SRC elisp
@@ -555,6 +553,8 @@ Very large files often break emacs. And this way, we only see a portion.
 #+begin_src elisp
 (setq writeroom-extra-line-spacing 0.3
       writeroom-width 100)
+
+(add-hook 'writeroom-mode-hook #'mixed-pitch-mode)
 #+end_src
 ** Vterm
 *** Vterm Execute Current Line
@@ -716,14 +716,6 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
                    :italic t)))
   )
 #+end_src
-** Numpy doc
-
-#+begin_src elisp
-(use-package numpydoc
-  :ensure t
-  :bind (:map python-mode-map
-              ("C-c C-n" . numpydoc-generate)))
-#+end_src
 ** Elfeed
 *** Elfeed Tube
 
@@ -786,9 +778,31 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
          ("C-<tab>" . 'copilot-accept-completion-by-word)
          :map copilot-completion-map
          ("<tab>" . 'copilot-accept-completion)
-         ("TAB" . 'copilot-accept-completion)))
+         ("<right>". 'copilot-accept-completion)
+         ("C-f". 'copilot-accept-completion)
+         ("M-f". 'copilot-accept-completion-by-word)
+         ("C-e". 'copilot-accept-completion-by-line)
+         ("<end>". 'copilot-accept-completion-by-line)
+         ("TAB" . 'copilot-accept-completion))
+  :config
+  (advice-add #'indent-for-tab-command :before #'copilot-complete)
+  )
+
 #+end_src
 
+
+*** For copilot disable smartparens
+
+#+begin_src elisp
+(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
+(add-hook 'doom-first-buffer-hook #'electric-pair-mode)
+#+end_src
+** Org Books
+
+#+begin_src elisp
+(after! org
+  (require 'org-books))
+#+end_src
 
 * Languages
 ** Elisp
@@ -833,6 +847,16 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
 
 #+begin_src elisp
 (setq lsp-pyright-multi-root nil)
+#+end_src
+*** Numpydoc
+
+#+begin_src elisp
+(use-package numpydoc
+  :ensure t
+  :bind (:map python-mode-map
+              ("C-c C-n" . numpydoc-generate))
+  :config
+  (setq! numpydoc-insertion-style 'yas))
 #+end_src
 
 ** Latex
@@ -1721,6 +1745,7 @@ ease of use.
 (bind-key "H-<return>" 'newline-and-indent)
 (bind-key "H-c" #'doom/toggle-comment-region-or-line)
 (map! :leader
+      :n ">" #'projectile-find-dir
       (:prefix "e"
        :n "e" #'ace-window
        :n "u" #'swiper-all
@@ -2101,7 +2126,7 @@ the inbox.  Set it as a waiting action and refile to
                         ;; Type of work
                         (:startgroup . nil)
                         ;; Have topic you are planning for as a tag
-                        ("plan" . ?P)
+                        ("plan" . ?n)
 
                         ;; Have place and person who you are meeting with
                         ;; You can use additonal tags to describe the meeting
@@ -2126,10 +2151,10 @@ the inbox.  Set it as a waiting action and refile to
 
                         ;; Active or Passive Work
                         (:startgroup . nil)
-                        ("Active". ?A)
+                        ("Active". ?a)
                         ;; ("read" . ?r)
                         ;; ("write" . ?W)
-                        ("Passive". ?P)
+                        ("Passive". ?v)
                         ;; ("watch" . ?w)
                         ;; ("listen" . ?L)
                         (:endgroup . nil)
@@ -5869,8 +5894,6 @@ capture was not aborted."
   (elfeed-score-enable)
   (define-key elfeed-search-mode-map "=" elfeed-score-map))
 #+end_src
-
-
 
 ** Docker
 
