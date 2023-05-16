@@ -73,7 +73,7 @@
 
        :emacs
        (dired             ; making dired pretty [functional]
-        +dirvish
+        ;; +dirvish
         +icons)
        electric          ; smarter, keyword-based electric-indent
        (ibuffer         ; interactive buffer management
@@ -238,4 +238,4 @@
 
        :config
        literate
-       (default +bindings +smartparens))
+       (default +bindings))

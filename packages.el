@@ -81,7 +81,7 @@
 (package! org-roam-ui :recipe (:host github :repo "org-roam/org-roam-ui" :files ("*.el" "out")))
 (package! consult-dir)
 (package! ox-json)
-(package! org-roam-bibtex)
+;; (package! org-roam-bibtex)
 ;; (package! dirvish)
 (package! powershell)
 (package! evil-escape :disable t)
@@ -171,13 +171,13 @@
 ;;           :branch "main"
 ;;           :files (:defaults "*.js" "*.css" "*.so" "Makefile" ".c" ".h")
 ;;           :pre-build ("make")))
-(package! dirvish)
-(package! powershell)
+;; (package! dirvish)
+;; (package! powershell)
 ;; (package! evil-colemak-basics)
 
 ;;looks
-(package! focus)
-(package! dimmer)
+;; (package! focus)
+;; (package! dimmer)
 (package! info-colors)
 ;; (package! svg-tag-mode)
 ;; (package! solaire-mode :disable t)
@@ -219,3 +219,13 @@
 (unpin! emacsql)
 (package! org-books
   :recipe (:host github :repo "goderich/org-books"))
+
+;; ;; (straight-use-package '(tsx-mode :type git :host github :repo "orzechowskid/tsx-mode.el"
+;; (package! tsx-mode
+;;   :recipe (:host github :repo "orzechowskid/tsx-mode.el" :branch "emacs28"))
+;; (package! tsi
+;;   :recipe (:host github :repo "orzechowskid/tsi.el"))
+;;; (pa! org-time-budgets
+;;   :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
+(package! org-transclusion)
+(package! org-remark)
