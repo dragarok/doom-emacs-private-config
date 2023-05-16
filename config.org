@@ -31,7 +31,6 @@
 (load-theme 'modus-operandi 'noconfirm)
 #+end_src
 
-
 ** Emacs 29 Good scroll
 
 #+begin_src elisp
@@ -97,17 +96,19 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ** Org Directory and Org Agenda
 
 #+BEGIN_SRC elisp
-(setq org-directory "~/OneDrive/OrgMode/org/")
-(setq elfeed-score-file "~/OneDrive/OrgMode/elfeed/elfeed-score.el")
+(setq org-directory "~/Nextcloud/")
+(setq elfeed-score-file "~/Nextcloud/elfeed/elfeed-score.el")
 
 (setq! citar-bibliography '((concat org-directory "references.bib")))
 (setq! citar-notes-paths '(org-roam-directory))
-(setq! citar-library-paths '(("~/OneDrive/OrgMode/Ref_Library/")))
+(setq! citar-library-paths '(("~/Nextcloud/Ref_Library/")))
 
-(setq org-directory "~/OneDrive/OrgMode/org/")
-(setq org-roam-directory "~/OneDrive/OrgMode/org/notes")
-(setq org-agenda-directory "~/OneDrive/OrgMode/org/agenda/Dropbox/")
-(setq org-agenda-files '("~/OneDrive/OrgMode/org/agenda/Dropbox/"))
+(setq org-directory "~/Nextcloud/")
+(setq org-roam-directory "~/Nextcloud/notes")
+(setq org-agenda-directory "~/Nextcloud/agenda/")
+(setq org-templates-directory "~/Nextcloud/templates/")
+(setq org-lookbacks-directory "~/Nextcloud/lookbacks/")
+(setq org-agenda-files '("~/Nextcloud/agenda/"))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-bookslog-file (concat org-agenda-directory "books_log.org"))
@@ -117,11 +118,15 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
 (setq org-motto-file (concat org-agenda-directory "motto.org"))
 (setq org-someday-file (concat org-directory "archive/someday.org"))
+
+(setq org-refile-targets
+      '((org-someday-file :maxlevel . 1)
+        (org-agenda-files :maxlevel . 3)))
 #+END_SRC
 ** Elfeed Defaults
 
 #+begin_src elisp
-(setq rmh-elfeed-org-files (list "~/OneDrive/OrgMode/elfeed/elfeed.org"))
+(setq rmh-elfeed-org-files (list "~/Nextcloud/elfeed/elfeed.org"))
 #+end_src
 
 ** Bookmarks
@@ -167,6 +172,11 @@ Set local leader to comma for ease of use.
         evil-move-cursor-back nil
         evil-kill-on-visual-paste nil))
 #+end_src
+** Set monday as starting date
+
+#+begin_src emacs-lisp
+(setq calendar-week-start-day 1) ; 0:Sunday, 1:Monday
+#+end_src
 
 * Popup Rules
 
@@ -194,6 +204,7 @@ Set local leader to comma for ease of use.
 #+END_SRC
 
 * Tools
+
 ** Ace Link
 
 #+BEGIN_SRC elisp
@@ -399,18 +410,6 @@ Version 2015-07-30"
     )
   )
 #+end_src
-*** Dirvish - Getting more out of dired
-
-#+begin_src emacs-lisp
-(use-package! dirvish
-  :config
-  (map! :map dirvish-mode-map
-        :n "y" #'dirvish-yank-menu
-        :n "TAB" #'dirvish-subtree-toggle)
-  (require 'dirvish-peek)
-  (require 'dirvish-extras))
-#+end_src
-
 ** Eshell Aliases for Ease of Use
 
 Eshell have some aliases for ease of use.
@@ -654,15 +653,23 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
   (setq wallabag-password "Onlypeace") ;; password
   (setq wallabag-clientid "1_i7vxaa7qbc0kkcwcgsos4og8w4kwo8w8w44ooogk8kocc8440") ;; created with API clients management
   (setq wallabag-secret "1mnsj6pk7fok0oscg8ogk88kco0ks8swc888gso0w0s0k4owg0") ;; created with API clients management
-  ;; (setq wallabag-db-file "~/OneDrive/Org/wallabag.sqlite") ;; optional, default is saved to ~/.emacs.d/.cache/wallabag.sqlite
-  ;; (run-with-timer 0 3540 'wallabag-request-token) ;; optional, auto refresh token, token should refresh every hour
   )
 ;;;###autoload
 (defun copy-link-for-kindle ()
   (interactive)
   (elfeed-show-yank)
-  (wallabag-add-entry (car kill-ring) "")
+  (wallabag-add-entry (car kill-ring) "elfeed")
   )
+#+end_src
+
+
+*** Get twitter thread to threader and to wallabag
+
+#+begin_src emacs-lisp
+(defun add-thread-to-wallabag()
+  (interactive)
+  (wallabag-add-entry
+   (concat "https://threadreaderapp.com/search?q=" (url-hexify-string (car kill-ring))) "twitterthread"))
 #+end_src
 
 ** Nepali Romanized Layout
@@ -795,13 +802,86 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
 
 #+begin_src elisp
 (remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
-(add-hook 'doom-first-buffer-hook #'electric-pair-mode)
+;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
 #+end_src
 ** Org Books
 
 #+begin_src elisp
 (after! org
   (require 'org-books))
+#+end_src
+** Org Transclusion
+
+#+begin_src emacs-lisp
+(use-package! org-transclusion
+              :after org
+              :init
+              (map!
+               :map global-map "<f8>" #'org-transclusion-add
+               :leader
+               :prefix "n"
+               :desc "Org Transclusion Mode" "T" #'org-transclusion-mode))
+#+end_src
+** Org Remark
+
+#+begin_src emacs-lisp
+(after! org
+  (org-remark-global-tracking-mode +1)
+
+  ;; Optional if you would like to highlight websites via eww-mode
+  (with-eval-after-load 'eww
+    (org-remark-eww-mode +1))
+  ;; Key-bind `org-remark-mark' to global-map so that you can call it
+  ;; globally before the library is loaded.
+
+  (define-key global-map (kbd "C-c n m") #'org-remark-mark)
+
+  ;; The rest of keybidings are done only on loading `org-remark'
+  (with-eval-after-load 'org-remark
+    (define-key org-remark-mode-map (kbd "C-c n o") #'org-remark-open)
+    (define-key org-remark-mode-map (kbd "C-c n ]") #'org-remark-view-next)
+    (define-key org-remark-mode-map (kbd "C-c n [") #'org-remark-view-prev)
+    (define-key org-remark-mode-map (kbd "C-c n r") #'org-remark-remove))
+  )
+#+end_src
+
+** Org Noter
+
+#+begin_src elisp
+(after! org
+  (defun who/org-noter-insert-highlighted-note ()
+    "Highlight the active region and add a precise note at its position."
+    (interactive)
+    ;; Adding an annotation will deactivate the region, so we reset it afterward
+    (let ((region (pdf-view-active-region)))
+      (call-interactively 'pdf-annot-add-highlight-markup-annotation)
+      (setq pdf-view-active-region region))
+    (call-interactively 'org-noter-insert-precise-note))
+
+  (setq org-noter-always-create-frame nil
+        org-noter-insert-selected-text-inside-note t
+        ;; ;; The WM can handle splits
+        ;; org-noter-notes-window-location 'other-frame
+        ;; I want to see the whole file
+        org-noter-hide-other nil
+        org-noter-insert-note-no-questions t
+        org-noter-notes-search-path '(org-roam-directory)
+        org-noter-separate-notes-from-heading t
+        ;; org-noter-auto-save-last-location t
+        )
+  ;; fuxialexander's code
+  ;; (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
+)
+#+end_src
+
+** Org Noter Pdftools Jump to Note
+
+#+begin_src elisp
+(use-package org-noter-pdftools
+  :after org-noter
+  :config
+  (with-eval-after-load 'pdf-annot
+    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 #+end_src
 
 * Languages
@@ -912,6 +992,22 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
         ;; (+org-init-custom-links-h)
         )
   )
+#+end_src
+
+**** Org Agenda hook
+
+I want agenda to be more concise and easy to look at.
+It fits only on my side monitor then.
+
+#+begin_src elisp
+;; make elisp function that decreases text scale by 2 if text scale is not adjusted already
+(defun decrease-text-scale ()
+  (interactive)
+  (if (eq text-scale-mode-amount 0)
+      (text-scale-decrease 2)))
+
+(add-hook 'evil-org-agenda-mode-hook #'decrease-text-scale)
+
 #+end_src
 
 ** Markdown
@@ -1545,7 +1641,7 @@ Otherwise, it begins with ## and is indented accordingly."
         (org-agenda-redo-all)
         (sit-for 5)
         (split-window-horizontally)
-        (find-file-other-window "~/OneDrive/OrgMode/org/notes/my_daily_ritual.org")
+        (find-file-other-window (concat org-roam-directory "my_daily_ritual.org"))
         ;; (switch-to-buffer "my_daily_ritual.org")
         )
     )
@@ -1817,7 +1913,7 @@ ease of use.
        :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
        :n "o" #'org-noter
-       ;; :n "c" #'org-noter-pdftools-create-skeleton
+       :n "c" #'org-noter-pdftools-create-skeleton
        :n "j" #'org-hugo-auto-export-mode
        :n "p" #'poetry
        :n "r" #'poetry-run
@@ -1993,14 +2089,14 @@ All file definitions and defaults go here.
 #+BEGIN_SRC elisp
 (after! org
   ;; (add-hook 'org-mode-hook #'auto-fill-mode)
-  (setq org-attach-id-dir "~/OneDrive/OrgMode/org/.attach/"
+  (setq org-attach-id-dir (concat org-directory ".attach/")
         ;; show images instead of links to images
         org-startup-with-inline-images t
         org-archive-mark-done t
         org-archive-tag "DONE"
         org-image-actual-width nil
-        +org-export-directory "~/OneDrive/OrgMode/publish/"
-        org-archive-location "~/OneDrive/OrgMode/org/archive/archive.org::datetree/"
+        +org-export-directory (concat org-directory "publish/")
+        org-archive-location (concat org-directory "archive/archive.org::datetree/")
         org-default-notes-file org-inbox-file
         projectile-project-search-path '("~/workspace/"))
   )
@@ -2144,9 +2240,9 @@ the inbox.  Set it as a waiting action and refile to
                         (:endgroup . nil)
 
                         (:startgroup . nil)
-                        ("#personal" . ?p)
-                        ("#work" . ?w)
-                        ("#both" . ?b)
+                        ("personal" . ?p)
+                        ("work" . ?w)
+                        ("both" . ?b)
                         (:endgroup . nil)
 
                         ;; Active or Passive Work
@@ -2219,11 +2315,10 @@ the inbox.  Set it as a waiting action and refile to
 
   (add-hook 'org-open-at-point-functions 'ibizaman/org-babel-goto-tangle-file))
 #+end_src
-
 ** Org Capture Templates
 #+BEGIN_SRC elisp
 (after! org (add-to-list 'org-capture-templates
-                         '("l" "Link Capture" entry (file "~/OneDrive/OrgMode/org/links.org")
+                         '("l" "Link Capture" entry (file (concat org-directory "extra/links.org"))
                           "* TODO [[%^{link}][%^{description}]]"
                            :immediate-finish t)))
 
@@ -2238,14 +2333,14 @@ the inbox.  Set it as a waiting action and refile to
 
 
 (after! org (add-to-list 'org-capture-templates
-                         '("h" "Clip Link Capture" entry (file "~/OneDrive/OrgMode/org/links.org")
+                         '("h" "Clip Link Capture" entry (file (concat org-directory "extra/links.org"))
                            "* TODO %(org-cliplink-capture)"
                            :immediate-finish t)))
 
 
 (after! org (add-to-list 'org-capture-templates
                          '("pn" "New Project" entry
-                           (file "~/OneDrive/OrgMode/org/templates/newprojtemplate.org")
+                           (file (concat org-directory "templates/newprojtemplate.org"))
                            :if-new (file org-inbox-file)
                            :unnarrowed t)
                          ))
@@ -2273,7 +2368,7 @@ SCHEDULED: %^{Start Time:}t
 
 (after! org (add-to-list 'org-capture-templates
                          '("z" "Create EHP Task" entry (file org-tasks-file)
-                           "* TODO %^{Task Description} %(org-set-tags \"#work:Day\")%(org-set-tags-command)
+                           "* TODO %^{Task Description} %(org-set-tags \"work:Day\")%(org-set-tags-command)
 SCHEDULED: %t
 :PROPERTIES:
 :CREATED: %U
@@ -2283,7 +2378,7 @@ SCHEDULED: %t
 
 ;; TODO Upgrade this functionality to use a template
 ;; (after! org (add-to-list 'org-capture-templates
-;;                          '("e" "Add an event" entry(file "~/OneDrive/OrgMode/org/agenda/Dropbox/birthdays_and_anniversaries.org")
+;;                          '("e" "Add an event" entry (file (concat org-agenda-directory "birthdays_and_anniversaries.org"))
 ;;                            "* %^{Person}
 ;; \%\%(org-anniversary %^{Date}) %^{Person}'s %^{Event}
 ;; " :immediate-finish t)))
@@ -2295,9 +2390,9 @@ SCHEDULED: %t
 
 
 (after! org (add-to-list 'org-capture-templates
-                         '("G" "Set a Motto" entry(file+olp+datetree org-motto-file
-                                                                     "* %^{diary entry}
-%?" :immediate-finish t))))
+                         '("m" "Set a Motto" entry(file+olp+datetree org-motto-file)
+                           "* %^{diary entry}
+%?" :immediate-finish t)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2310,20 +2405,20 @@ SCHEDULED: %t
                '("r" "Make a review")))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("rw" "Weekly Review" entry (file+olp+datetree "~/OneDrive/OrgMode/org/lookbacks/weeklyreview.org")
-                           (file "~/OneDrive/OrgMode/org/templates/weeklyreviewtemplate.org") :tree-type week)))
+                         '("rw" "Weekly Review" entry (file+olp+datetree (concat org-lookbacks-directory "weeklyreview.org"))
+                           (file (concat org-templates-directory "weeklyreviewtemplate.org")) :tree-type week)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("rm" "Monthly Review" entry (file+olp+datetree "~/OneDrive/OrgMode/org/lookbacks/monthlyreview.org")
-                           (file "~/OneDrive/OrgMode/org/templates/monthlyreviewtemplate.org") :tree-type month)))
+                         '("rm" "Monthly Review" entry (file+olp+datetree (concat org-lookbacks-directory "monthlyreview.org"))
+                           (file (concat org-templates-directory "monthlyreviewtemplate.org")) :tree-type month)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("rq" "Quarterly Review" entry (file+olp+datetree "~/OneDrive/OrgMode/org/lookbacks/quarterlyreview.org")
-                           (file "~/OneDrive/OrgMode/org/templates/monthlyreviewtemplate.org") :tree-type month)))
+                         '("rq" "Quarterly Review" entry (file+olp+datetree  (concat org-lookbacks-directory "quarterlyreview.org"))
+                           (file (concat org-templates-directory "monthlyreviewtemplate.org")) :tree-type month)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("rd" "Daily Review" entry (file+olp+datetree "~/OneDrive/OrgMode/org/lookbacks/dailyreview.org")
-                           (file "~/OneDrive/OrgMode/org/templates/dailyreviewtemplate.org"))))
+                         '("rd" "Daily Review" entry (file+olp+datetree  (concat org-lookbacks-directory "dailyreview.org"))
+                           (file (concat org-templates-directory "dailyreviewtemplate.org")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        REVIEW TEMPLATES DONE                                                    ;;
@@ -2331,7 +2426,7 @@ SCHEDULED: %t
 
 (after! org
   (add-to-list 'org-capture-templates
-               '("C"  "Contact" entry (file "~/OneDrive/OrgMode/org/contacts.org")
+               '("C"  "Contact" entry (file (concat org-directory "extra/contacts.org"))
                  "* %(org-contacts-template-name)
     :PROPERTIES:
     :EMAIL: %(org-contacts-template-email)
@@ -2452,7 +2547,7 @@ SCHEDULED: %t
                              (todo ""
                                    ((org-agenda-overriding-header " Process Someday\n ===========================================================\n")
                                     (org-agenda-files
-                                     '("~/OneDrive/OrgMode/org/archive/someday.org"))
+                                     '(org-someday-file))
                                     ))
                              )
                             nil)
@@ -2588,7 +2683,7 @@ SCHEDULED: %t
 
 #+begin_src elisp
 (after! org
-  (setq org-roam-directory (file-truename "~/OneDrive/OrgMode/org/notes/")
+  (setq org-roam-directory (file-truename (concat org-directory "notes"))
         org-roam-dailies-directory "daily/")
 
   (org-roam-setup)
@@ -2667,15 +2762,59 @@ SCHEDULED: %t
 (after! org-roam
   (setq org-roam-capture-templates
         '(("d" "default" plain "%?"
-           :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n")
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+CREATED_DATE: %T
+,#+filetags: %^G
+")
+           :unnarrowed t)
+
+          ("l" "Literature Notes " plain "%?"
+           :if-new (file+head "ln_${slug}.org"
+                              "#+TITLE: ${title}
+,#+CREATED_DATE: %T
+,#+filetags: :%^{definition|theory|course|video|article|library|subject|chapter|research}:%^G
+,#+REF_URL: %^{URL}
+")
+           :unnarrowed t)
+
+          ("c" "Creative Writing" plain "%?"
+           :if-new (file+head "cw_${slug}.org"
+                              "#+TITLE: ${title}
+,#+CREATED_DATE: %T
+,#+filetags: :creativewriting:
+")
+           :unnarrowed t)
+
+          ;; TODO Manage it later
+          ;;           ("m" "Meeting Notes" plain "%?"
+          ;;            :if-new (file+head "meet_${slug}.org"
+          ;;                               "#+TITLE: ${title}
+          ;; #+CREATED_DATE: %T
+          ;; #+filetags: :meeting:
+          ;; #+ATTENDEES: %^{Attendees}
+          ;; #+LOCATION: %^{Location}
+          ;; #+START_TIME: %^{Start Time}
+          ;; #+END_TIME: %^{End Time}
+          ;; ")
+          ;;            :unnarrowed t)
+
+          ("p" "Person" plain "%?"
+           :if-new (file+head "per_${slug}.org"
+                              "#+TITLE: ${title}
+,#+CREATED_DATE: %T
+,#+filetags: :person:
+")
            :unnarrowed t)
 
           ;; Org roam bibtex template
-          ("r" "Bibliography Reference" plain
-           (file "~/OneDrive/OrgMode/org/templates/orbreftemplate.org")
+          ("b" "Bibliography Reference" plain
+           (file (concat org-templates-directory "orbreftemplate.org"))
            :if-new
-           (file+head "papers/${citekey}.org" "#+title: ${title}\n")
+           (file+head "papers/${citekey}.org"
+                      "#+title: ${title}
+,#+CREATED_DATE: %T
+")
            :unnarrowed t)
 
           ;; Use this field if necessary #+EXPORT_FILE_NAME: %^{export name}
@@ -2693,19 +2832,22 @@ SCHEDULED: %t
 ,#+date: %t\n")
            :unnarrowed t)
 
-          ("j" "paper-description" plain "* Main Contribution \n\n* Your description of significance \n\n* New algorithm or principles\n\n* Simulation Results and Comparisons\n\n* Solid Conclusion"
-           :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+filetags: paper")
-           :unnarrowed t)
+          ;;           ("j" "paper-description" plain "* Main Contribution \n\n* Your description of significance \n\n* New algorithm or principles\n\n* Simulation Results and Comparisons\n\n* Solid Conclusion"
+          ;;            :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+          ;;                               "#+title: ${title}\n#+filetags: paper")
+          ;;            :unnarrowed t)
 
-          ("e" "ref" plain "%?"
-           :if-new (file+head "websites/${slug}.org" "#+SETUPFILE:./hugo_in_setup.org
-,#+ROAM_KEY: ${ref}#+TITLE: ${title}\n- source :: ${ref}")
-           :unnarrowed t)
+          ;;           ("e" "ref" plain "%?"
+          ;;            :if-new (file+head "websites/${slug}.org" "#+SETUPFILE:./hugo_in_setup.org
+          ;; ,#+ROAM_KEY: ${ref}#+TITLE: ${title}\n- source :: ${ref}")
+          ;;            :unnarrowed t)
 
-          ("k" "private" plain (function org-roam--capture-get-point)
-           "%?" :if-new (file+head "private-${slug}"
-                                   "#+TITLE: ${title}\n")
+          ("k" "private" plain
+           "%?" :if-new (file+head "private-${slug}.org"
+                                   "#+TITLE: ${title}\n
+,#+CREATED_DATE: %T
+,#+filetags: %^G
+")
            :unnarrowed t)
 
           ("w" "webref" entry "* ${title} ([[${ref}][${hostname}]])\n%?"
@@ -2716,6 +2858,9 @@ SCHEDULED: %t
           )))
 
 #+END_SRC
+
+#+RESULTS:
+| d | default | plain | %? | :if-new | (file+head ${slug}.org #+TITLE: ${title} |
 
 *** Org Roam UI
 #+begin_src elisp
@@ -2811,35 +2956,6 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
                       (mu4e-compose-signature . "---\nAlok Regmi"))
                     t)
 (add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
-#+end_src
-
-** Org Noter
-
-#+begin_src elisp
-(after! org
-  (defun who/org-noter-insert-highlighted-note ()
-    "Highlight the active region and add a precise note at its position."
-    (interactive)
-    ;; Adding an annotation will deactivate the region, so we reset it afterward
-    (let ((region (pdf-view-active-region)))
-      (call-interactively 'pdf-annot-add-highlight-markup-annotation)
-      (setq pdf-view-active-region region))
-    (call-interactively 'org-noter-insert-precise-note))
-
-  (setq org-noter-always-create-frame nil
-        org-noter-insert-selected-text-inside-note t
-        ;; ;; The WM can handle splits
-        ;; org-noter-notes-window-location 'other-frame
-        ;; I want to see the whole file
-        org-noter-hide-other nil
-        org-noter-insert-note-no-questions t
-        org-noter-notes-search-path '("~/OneDrive/OrgMode/org/notes/")
-        org-noter-separate-notes-from-heading t
-        ;; org-noter-auto-save-last-location t
-        )
-  ;; fuxialexander's code
-  ;; (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
-)
 #+end_src
 
 ** Org Regions Markup [Scimax]
@@ -5044,7 +5160,7 @@ Inspired from sacha chua's config with nextcloud or something.
 #+begin_src elisp
 (defun my/resolve-orgzly-autosync ()
   (interactive)
-  (kai/autosync-resolve-conflicts "~/OneDrive/OrgMode/org/notes"))
+  (kai/autosync-resolve-conflicts org-roam-directory))
 
 (defun kai/autosync-resolve-conflicts (directory)
   "Resolve all conflicts under given DIRECTORY."
@@ -5173,8 +5289,8 @@ choice's name, and the rest of which is its body forms."
 
 (after! bibtex-completion
   (setq! bibtex-completion-notes-path org-roam-directory
-         bibtex-completion-bibliography "~/OneDrive/OrgMode/org/references/articles.bib"
-         org-cite-global-bibliography "~/OneDrive/OrgMode/org/references/articles.bib"
+         bibtex-completion-bibliography (concat org-directory "references/articles.bib")
+         org-cite-global-bibliography (concat org-directory "references/articles.bib")
          )
 
   (defun jethro/org-roam-node-from-cite (keys-entries)
@@ -5547,7 +5663,7 @@ capture was not aborted."
      (my/org-roam-filter-by-tag "agenda")
      :templates
      '(("p" "project" entry
-        (file "~/OneDrive/OrgMode/org/templates/newprojtemplate.org")
+        (file (concat org-directory "templates/newprojtemplate.org"))
         :if-new (file "%<%Y%m%d%H%M%S>-${slug}.org")
         :unnarrowed t)))
     )
@@ -5742,16 +5858,6 @@ capture was not aborted."
     (not (eq org-display-remote-inline-images 'skip))))
 #+end_src
 
-** Org Noter Pdftools Jump to Note
-
-#+begin_src elisp
-(use-package org-noter-pdftools
-  :after org-noter
-  :config
-  (with-eval-after-load 'pdf-annot
-    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
-#+end_src
-
 ** Org Books
 #+BEGIN_SRC elisp
 ;; (setq org-books-file "~/OneDrive/OrgMode/org/gtd/books.org")
@@ -5907,4 +6013,68 @@ capture was not aborted."
 (use-package docker
   :ensure t
   :bind ("C-c d" . docker))
+#+end_src
+
+** Vertico Posframe only on gui though
+
+#+begin_src emacs-lisp
+(add-hook 'after-make-frame-functions
+          (lambda ()
+            ;; we want some font only in GUI Emacs
+            (when (window-system)
+              (if (not vertico-posframe-mode)
+                  (vertico-posframe-mode)
+                (progn
+                  (vertico-posframe-mode)
+                  (vertico-posframe-mode))
+                ))))
+#+end_src
+
+*** Dirvish - Getting more out of dired
+
+#+begin_src emacs-lisp
+(use-package! dirvish
+  :config
+  (map! :map dirvish-mode-map
+        :n "y" #'dirvish-yank-menu
+        :n "TAB" #'dirvish-subtree-toggle)
+  (require 'dirvish-peek)
+  (require 'dirvish-extras))
+#+end_src
+
+** Typescript for react
+
+#+begin_src emacs-lisp
+(use-package typescript-mode
+  :after tree-sitter
+  :config
+  ;; we choose this instead of tsx-mode so that eglot can automatically figure out language for server
+  ;; see https://github.com/joaotavora/eglot/issues/624 and https://github.com/joaotavora/eglot#handling-quirky-servers
+  (define-derived-mode typescriptreact-mode typescript-mode
+    "TypeScript TSX")
+
+  ;; use our derived mode for tsx files
+  (add-to-list 'auto-mode-alist '("\\.tsx?\\'" . typescriptreact-mode))
+  ;; by default, typescript-mode is mapped to the treesitter typescript parser
+  ;; use our derived mode to map both .tsx AND .ts -> typescriptreact-mode -> treesitter tsx
+  (add-to-list 'tree-sitter-major-mode-language-alist '(typescriptreact-mode . tsx)))
+
+;; https://github.com/orzechowskid/tsi.el/
+;; great tree-sitter-based indentation for typescript/tsx, css, json
+(use-package tsi
+  :after tree-sitter
+  ;; define autoload definitions which when actually invoked will cause package to be loaded
+  :commands (tsi-typescript-mode tsi-json-mode tsi-css-mode)
+  :init
+  (add-hook 'typescript-mode-hook (lambda () (tsi-typescript-mode 1)))
+  (add-hook 'json-mode-hook (lambda () (tsi-json-mode 1)))
+  (add-hook 'css-mode-hook (lambda () (tsi-css-mode 1)))
+  (add-hook 'scss-mode-hook (lambda () (tsi-scss-mode 1))))
+#+end_src
+
+** Use darkman to set themes automatically
+
+#+begin_src emacs-lisp
+(if (eq system-type 'gnu/linux)
+    (require 'darkman))
 #+end_src
