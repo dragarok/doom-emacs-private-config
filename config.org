@@ -96,19 +96,23 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ** Org Directory and Org Agenda
 
 #+BEGIN_SRC elisp
-(setq org-directory "~/Nextcloud/")
-(setq elfeed-score-file "~/Nextcloud/elfeed/elfeed-score.el")
+(setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
+(setq project-resources-dir (concat nextcloud-dir "projects/"))
+(setq org-directory (expand-file-name "~/Nextcloud/org/"))
+(setq! elfeed-score-file "~/Nextcloud/org/elfeed/elfeed-score.el")
 
-(setq! citar-bibliography '((concat org-directory "references.bib")))
+(setq! citar-bibliography '("~/Nextcloud/org/references.bib"))
 (setq! citar-notes-paths '(org-roam-directory))
-(setq! citar-library-paths '(("~/Nextcloud/Ref_Library/")))
+(setq! citar-library-paths '(("~/Nextcloud/org/Ref_Library/")))
 
-(setq org-directory "~/Nextcloud/")
-(setq org-roam-directory "~/Nextcloud/notes")
-(setq org-agenda-directory "~/Nextcloud/agenda/")
-(setq org-templates-directory "~/Nextcloud/templates/")
-(setq org-lookbacks-directory "~/Nextcloud/lookbacks/")
-(setq org-agenda-files '("~/Nextcloud/agenda/"))
+(setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
+(setq project-resources-dir (concat nextcloud-dir "projects/"))
+(setq org-roam-directory (concat org-directory "notes"))
+(setq org-logs-directory (concat org-directory "logs/"))
+(setq org-agenda-directory (concat org-directory "agenda/"))
+(setq org-templates-directory (concat org-directory "templates/"))
+(setq org-lookbacks-directory (concat org-directory "lookbacks/"))
+(setq org-agenda-files '("~/Nextcloud/org/agenda/"))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-bookslog-file (concat org-agenda-directory "books_log.org"))
@@ -118,6 +122,21 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
 (setq org-motto-file (concat org-agenda-directory "motto.org"))
 (setq org-someday-file (concat org-directory "archive/someday.org"))
+(setq org-dailyreview-file (concat org-lookbacks-directory "dailyreview.org"))
+(setq org-monthlyreview-file (concat org-lookbacks-directory "monthlyreview.org"))
+(setq org-weeklyreview-file (concat org-lookbacks-directory "weeklyreview.org"))
+(setq org-quarterlyreview-file (concat org-lookbacks-directory "quarterlyreview.org"))
+(setq org-yearlyreview-file (concat org-lookbacks-directory "yearlyreview.org"))
+(setq org-roam-logs-file (concat org-logs-directory "notes_log.txt"))
+
+(setq org-download-method 'directory
+    org-download-image-dir "~/Nextcloud/org/org-images/"
+    org-download-heading-lvl nil
+    org-download-delete-image-after-download t
+    org-download-screenshot-method "/usr/share/sway/scripts/grimshot save area %s"
+    org-download-image-org-width 600
+    org-download-annotate-function (lambda (link) "") ;; Don't annotate
+    )
 
 (setq org-refile-targets
       '((org-someday-file :maxlevel . 1)
@@ -126,7 +145,7 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ** Elfeed Defaults
 
 #+begin_src elisp
-(setq rmh-elfeed-org-files (list "~/Nextcloud/elfeed/elfeed.org"))
+(setq rmh-elfeed-org-files (list "~/Nextcloud/org/elfeed/elfeed.org"))
 #+end_src
 
 ** Bookmarks
