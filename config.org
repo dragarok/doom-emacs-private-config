@@ -6660,3 +6660,16 @@ It fits only on my side monitor then.
          ("C-x C-j" . consult-dir-jump-file)))
 
 #+end_src
+
+** Mpdel
+
+#+begin_src elisp
+(require 'mpdel)
+(mpdel-mode)
+(use-package mpdel-embark
+  :demand t
+  :after (embark mpdel)
+  :config
+  (progn
+    (mpdel-embark-setup)))
+#+end_src
