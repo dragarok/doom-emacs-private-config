@@ -1252,30 +1252,7 @@ See `pdf-links-action-perform' for the interface."
  :n "p" #'pdf-keyboard-highlight
  :n "B" #'pdf-view-reset-slice)
 #+end_src
-** Tree Sitter
-#+begin_src elisp
-(use-package! tree-sitter
-  :config
-  (require 'tree-sitter-langs)
-  (global-tree-sitter-mode)
-  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
-(pushnew! tree-sitter-major-mode-language-alist
-          '(scss-mode . css))
-#+end_src
-
 ** Consult and Vertico addons and shortcuts
-*** Consult-dir
-#+begin_src elisp
-(use-package consult-dir
-  :ensure t
-  :config
-  (setq consult-dir-project-list-function #'consult-dir-projectile-dirs)
-  :bind (("C-x C-d" . consult-dir)
-         :map vertico-map
-         ("C-x C-d" . consult-dir)
-         ("C-x C-j" . consult-dir-jump-file)))
-
-#+end_src
 *** Split and choose a buffer in the same workspace vertico
 #+begin_src elisp
 ;;;###autoload
