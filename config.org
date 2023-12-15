@@ -1886,18 +1886,18 @@ ease of use.
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "C-M-s-f" 'evil-window-vsplit)
-(bind-key "C-M-s-F" 'evil-window-split)
+(bind-key "C-M-s-p" 'evil-window-split)
 (bind-key "C-M-s-t" '+my/vterm-run-project)
 (bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
 (bind-key "C-M-s-l" '+workspace/load)
-(bind-key "C-M-s-a" '+vertico/switch-workspace-buffer)
-(bind-key "C-M-s-S" 'consult-ripgrep)
+(bind-key "C-M-s-<tab>" '+vertico/switch-workspace-buffer)
+(bind-key "C-M-s-/" 'consult-ripgrep)
 (bind-key "C-M-s-d" 'projectile-find-dir-other-window)
-(bind-key "C-M-s-s" '+vertico/switch-workspace-buffer-other-window)
+(bind-key "C-M-s-<return>" '+vertico/switch-workspace-buffer-other-window)
 (bind-key "C-M-s-z" 'consult-recent-file)
 (bind-key "C-M-s-x" 'consult-buffer)
-(bind-key "C-M-s-e" 'org-roam-dailies-find-today)
-(bind-key "C-M-s-E" 'org-roam-dailies-find-tomorrow)
+(bind-key "C-M-s-{" 'org-roam-dailies-find-today)
+(bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
 (bind-key "C-M-s-!" 'winum-select-window-1)
@@ -1906,10 +1906,11 @@ ease of use.
 (bind-key "C-M-s-$" 'winum-select-window-4)
 (bind-key "C-M-s-%" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
-(bind-key "C-M-s-r" 'scroll-other-window-down)
-(bind-key "C-M-s-w" 'scroll-other-window)
-(bind-key "<f5>" 'switch-dark-mode)
-(bind-key "C-M-s-<return>" 'newline-and-indent)
+(bind-key "C-M-s-j" 'scroll-other-window-down)
+(bind-key "C-M-s-k" 'scroll-other-window)
+;; (bind-key "<f5>" 'switch-dark-mode)
+(bind-key "C-M-s-:" 'newline-and-indent)
+(bind-key "C-M-s-:" 'newline-and-indent)
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
 (map! :leader
       :n ">" #'projectile-find-dir
@@ -2041,24 +2042,24 @@ ease of use.
 TODO Use them only inside org mode
 #+BEGIN_SRC elisp
 (after! org
-  (define-key org-mode-map (kbd "H--") 'other-window)
-  (define-key org-mode-map (kbd "H-+") 'org-strikethrough-region-or-point)
-  (define-key org-mode-map (kbd "H-i") 'org-italics-region-or-point)
-  (define-key org-mode-map (kbd "H-I") 'org-bold-region-or-point)
-  (define-key org-mode-map (kbd "H-v") 'org-verbatim-region-or-point)
-  (define-key org-mode-map (kbd "H-V") 'org-code-region-or-point)
-  (define-key org-mode-map (kbd "H-U") 'org-superscript-region-or-point)
-  (define-key org-mode-map (kbd "H-u") 'org-underline-region-or-point)
-  (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
+  ;; (define-key org-mode-map (kbd "H--") 'other-window)
+  ;; (define-key org-mode-map (kbd "H-+") 'org-strikethrough-region-or-point)
+  (define-key org-mode-map (kbd "C-M-s-|") 'org-italics-region-or-point)
+  (define-key org-mode-map (kbd "C-M-s-+") 'org-bold-region-or-point)
+  (define-key org-mode-map (kbd "C-M-s-_") 'org-verbatim-region-or-point)
+  (define-key org-mode-map (kbd "C-M-s-(") 'org-code-region-or-point)
+  (define-key org-mode-map (kbd "C-M-s-)") 'org-superscript-region-or-point)
+  ;; (define-key org-mode-map (kbd "H-u") 'org-underline-region-or-point)
+  ;; (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
 )
 #+END_SRC
 ** Ease in projects
 #+BEGIN_SRC elisp
-(bind-key "H-F" 'evil-window-split)
-(bind-key "H-f" 'evil-window-vsplit)
-(bind-key "H-t" '+my/vterm-run-project)
-(bind-key "H-;" '+evil-window-split-a)
-(bind-key "H-\\" '+evil-window-vsplit-a)
+;; (bind-key "H-F" 'evil-window-split)
+;; (bind-key "H-f" 'evil-window-vsplit)
+;; (bind-key "H-t" '+my/vterm-run-project)
+;; (bind-key "H-;" '+evil-window-split-a)
+;; (bind-key "H-\\" '+evil-window-vsplit-a)
 #+END_SRC
 
 * Note Taking Setup
@@ -2354,20 +2355,20 @@ the inbox.  Set it as a waiting action and refile to
 (use-package org-clock-convenience
   :after org
   :bind (:map org-agenda-mode-map
-              ("<H-up>" . org-clock-convenience-timestamp-up)
-              ("<H-down>" . org-clock-convenience-timestamp-down)
-              ("<H-right>" . org-clock-convenience-fill-gap)
-              ("<H-left>" . org-clock-convenience-fill-gap-both)))
+              ("C-M-s-<up>" . org-clock-convenience-timestamp-up)
+              ("C-M-s-<down>" . org-clock-convenience-timestamp-down)
+              ("C-M-s-<right>" . org-clock-convenience-fill-gap)
+              ("C-M-s-<left>" . org-clock-convenience-fill-gap-both)))
 #+END_SRC
 ** Org Time Budget for Task Categories
 #+BEGIN_SRC elisp
-(setq org-time-budgets '((:title "Spanish Lessons" :match "+spanish" :budget "10:00" :blocks (day week))
-                         (:title "Growing Personally" :match "+@growth+home" :budget "30:00" :blocks (day week))
-                         (:title "Entertaintment" :match "+entertaintment" :budget "5:00" :blocks (day week))
-                         (:title "All Mundane" :match "+@mundane" :budget "8:00" :blocks (day week))
-                         (:title "Freelancing Projects" :match "+@work+home" :budget "20:00" :blocks (day week))
-                         (:title "Guitar practice" :match "+music" :budget "5:00" :blocks (nil week))
-                         (:title "Sanskrit" :match "+sanskrit" :budget "5:15" :blocks (day week))))
+;; (setq org-time-budgets '((:title "Spanish Lessons" :match "+spanish" :budget "10:00" :blocks (day week))
+;;                          (:title "Growing Personally" :match "+@growth+home" :budget "30:00" :blocks (day week))
+;;                          (:title "Entertaintment" :match "+entertaintment" :budget "5:00" :blocks (day week))
+;;                          (:title "All Mundane" :match "+@mundane" :budget "8:00" :blocks (day week))
+;;                          (:title "Freelancing Projects" :match "+@work+home" :budget "20:00" :blocks (day week))
+;;                          (:title "Guitar practice" :match "+music" :budget "5:00" :blocks (nil week))
+;;                          (:title "Sanskrit" :match "+sanskrit" :budget "5:15" :blocks (day week))))
 #+END_SRC
 
 ** Visit Tangled file at point
@@ -3155,7 +3156,7 @@ the second element is the other tags."
   (interactive)
   (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
     (consult-ripgrep org-roam-directory)))
-(global-set-key (kbd "H-o") 'bms/org-roam-rg-search)
+(global-set-key (kbd "C-M-s-o") 'bms/org-roam-rg-search)
 #+end_src
 
 *** Org Export jupyter python blocks to python for hugo
