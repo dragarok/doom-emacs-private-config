@@ -487,6 +487,9 @@ Irritates you every time you get to search for a module. So, ignore these.
 (defun projectile-ignored-project-function (filepath)
   "Return t if FILEPATH is within any of `projectile-ignored-projects'"
   (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
+
+(after! projectile
+  (add-to-list 'projectile-globally-ignored-directories "*.stversions"))
 #+end_src
 
 ** Spray
@@ -908,7 +911,7 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
         org-priority-lowest 68
         )
 
-  (global-org-modern-mode)
+  ;; (global-org-modern-mode)
   )
 #+end_src
 *** Org Latex Options
@@ -924,20 +927,14 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
   )
 #+end_src
 
-**** Org Agenda hook
+*** Org Imdb
 
-I want agenda to be more concise and easy to look at.
-It fits only on my side monitor then.
-
-#+begin_src elisp
-;; make elisp function that decreases text scale by 2 if text scale is not adjusted already
-(defun decrease-text-scale ()
-  (interactive)
-  (if (eq text-scale-mode-amount 0)
-      (text-scale-decrease 2)))
-
-(add-hook 'evil-org-agenda-mode-hook #'decrease-text-scale)
-
+#+begin_src emacs-lisp
+(use-package! orgmdb
+  :after org
+  :config
+  (setq orgmdb-omdb-apikey "")
+  )
 #+end_src
 
 ** Markdown
@@ -1345,6 +1342,13 @@ See `pdf-links-action-perform' for the interface."
 #+begin_src elisp
 (setq ispell-dictionary "en")
 #+end_src
+** Hugo
+
+#+begin_src elisp
+(after! org
+  (setq org-hugo-base-dir "~/workspace/personalblog/"))
+#+end_src
+
 * My own configurations
 ** Create ML Projects
 #+BEGIN_SRC elisp
@@ -2936,12 +2940,14 @@ the second element is the other tags."
 *** Org Export jupyter python blocks to python for hugo
 Rename jupyter-python to python for hugo text block syntax highlighting for python code blocks present in org file.
 #+begin_src elisp
+(after! org
 (defun jupyter-python-to-only-python (text backend info)
   "Replace jupyter-python src blocks with python blocks."
   (replace-regexp-in-string "```jupyter-python" "```python" text))
-(add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python)
-
+(add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python))
 #+end_src
+
+
 *** Task to Org Note
 #+begin_src elisp
 (defun my/convert-task-to-org-note ()
