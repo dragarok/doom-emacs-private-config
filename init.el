@@ -73,12 +73,16 @@
 
        :emacs
        (dired             ; making dired pretty [functional]
-        ;; +dirvish
-        +icons)
+        +icons
+        +dirvish
+        ;; +icons
+        )
        electric          ; smarter, keyword-based electric-indent
        (ibuffer         ; interactive buffer management
         +icons)
-       undo              ; persistent, smarter undo for your inevitable mistakes
+       (undo              ; persistent, smarter undo for your inevitable mistakes
+        +tree
+        )
        vc                ; version-control and Emacs, sitting in a tree
 
        :term
@@ -89,8 +93,11 @@
 
        :checkers
        (syntax              ; tasing you for every semicolon you forget
+        +flymake
         +childframe)
-       (spell +aspell) ; tasing you for misspelling mispelling
+       (spell
+        +enchant
+        ) ; tasing you for misspelling mispelling
        grammar           ; tasing grammar mistake every you make
 
        :tools
@@ -114,7 +121,7 @@
        ;;  ;; +forge
        ;;  )
        ;;make              ; run make tasks from Emacs
-       ;;pass              ; password manager for nerds
+       pass              ; password manager for nerds
        pdf               ; pdf enhancements
        ;;prodigy           ; FIXME managing external services & code builders
        rgb               ; creating color strings
@@ -195,9 +202,10 @@
        ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
-        +treesitter
+        +tree-sitter
         +lsp
-        +pyright)
+        +pyright
+        +pyenv)
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
        ;;raku              ; the artist formerly known as perl6
@@ -232,7 +240,7 @@
        ;; emms
        everywhere        ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize
-       (rss +org)        ; emacs as an RSS reader
+       ;; (rss +org)        ; emacs as an RSS reader
        ;; twitter           ; twitter client https://twitter.com/vnought
 
        :config
