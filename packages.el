@@ -30,24 +30,6 @@
 ;; Managing citations with zotero
 (package! zotxt)
 
-;; Send notes from my S-note to Org mode directly
-(package! orch
-  :recipe (:local-repo "~/.doom.d/orch/"))
-
-;; Web servers were clashing. Orch needed one and org-roam-web-server the other
-;; I still have no idea how this is working now.
-(package! simple-httpd)
-
-;; fast reading with ease. I love spray when I am bored to read through the page
-(package! spray
-  :recipe (:local-repo "~/.doom.d/spray"))
-
-(package! evil-colemak-basics
-  :recipe (:local-repo "~/.doom.d/evil-colemak-basics"))
-;; see weather with ease
-(package! wttrin
-  :recipe (:local-repo "~/.doom.d/wttrin"))
-
 ;; handle very large files
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
 (package! ox-ipynb
@@ -73,9 +55,6 @@
   :recipe (:host github
            :repo "chenyanming/wallabag.el"
            :files ("*.el" "*.alist" "*.css")))
-
-(package! clip2org
-  :recipe (:local-repo "~/.doom.d/clip2org/"))
 (package! page-break-lines)
 (package! websocket)
 (package! org-roam-ui :recipe (:host github :repo "org-roam/org-roam-ui" :files ("*.el" "out")))
