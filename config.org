@@ -2471,10 +2471,10 @@ SCHEDULED: %t
                            (:title "Ritual" :match "+ritual" :budget "0:40" :blocks (day week))
                            (:title "Entertainment" :match "+entertainment" :budget "10:00" :blocks (day week))
                            (:title "Guitar" :match "+music" :budget "3:00" :blocks (day week))
-                           (:title "Exercise" :match "+personal" :budget "0:20" :blocks (day))
-                           (:title "Coding" :match "+coding" :budget "40:00" :blocks (nil week))
+                           (:title "Exercise" :match "+exercise" :budget "0:20" :blocks (day))
+                           (:title "Coding" :match "+code" :budget "40:00" :blocks (nil week))
                            (:title "Reading" :match "+book" :budget "3:00" :blocks (nil week))
-                           (:title "Yollo" :match "+personal+coding" :budget "20:00" :blocks (nil week))
+                           (:title "Yollo" :match "+personal+code" :budget "20:00" :blocks (nil week))
                            ))
   )
 #+END_SRC
