@@ -37,8 +37,6 @@
 ;; easy to read auto fill without doing anything
 (package! virtual-auto-fill)
 (package! org-fragtog)
-;; (package! tree-sitter)
-;; (package! tree-sitter-langs)
 (package! focus)
 (package! aggressive-indent)
 (package! visual-regexp-steroids)
@@ -60,7 +58,6 @@
 (package! org-roam-ui :recipe (:host github :repo "org-roam/org-roam-ui" :files ("*.el" "out")))
 (package! ox-json)
 ;; (package! org-roam-bibtex)
-;; (package! dirvish)
 (package! powershell)
 (package! evil-escape :disable t)
 (package! org-modern)
@@ -149,7 +146,6 @@
 ;;           :branch "main"
 ;;           :files (:defaults "*.js" "*.css" "*.so" "Makefile" ".c" ".h")
 ;;           :pre-build ("make")))
-;; (package! dirvish)
 ;; (package! powershell)
 ;; (package! evil-colemak-basics)
 
