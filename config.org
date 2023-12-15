@@ -20,13 +20,13 @@
 ** Fonts and Themes
 
 #+begin_src elisp
-(setq doom-font (font-spec :family "Maple Mono SC NF" :size 17)
-      doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 17)
+(setq doom-font (font-spec :family "Maple Mono SC NF" :size 18)
+      doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 18)
       ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-      doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 17)
+      doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 18)
       ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
       ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-      doom-big-font (font-spec :family "Maple Mono SC NF" :size 24))
+      doom-big-font (font-spec :family "Maple Mono SC NF" :size 25))
 
 (load-theme 'modus-operandi 'noconfirm)
 #+end_src
