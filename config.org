@@ -2362,16 +2362,6 @@ the inbox.  Set it as a waiting action and refile to
               ("C-M-s-<right>" . org-clock-convenience-fill-gap)
               ("C-M-s-<left>" . org-clock-convenience-fill-gap-both)))
 #+END_SRC
-** Org Time Budget for Task Categories
-#+BEGIN_SRC elisp
-;; (setq org-time-budgets '((:title "Spanish Lessons" :match "+spanish" :budget "10:00" :blocks (day week))
-;;                          (:title "Growing Personally" :match "+@growth+home" :budget "30:00" :blocks (day week))
-;;                          (:title "Entertaintment" :match "+entertaintment" :budget "5:00" :blocks (day week))
-;;                          (:title "All Mundane" :match "+@mundane" :budget "8:00" :blocks (day week))
-;;                          (:title "Freelancing Projects" :match "+@work+home" :budget "20:00" :blocks (day week))
-;;                          (:title "Guitar practice" :match "+music" :budget "5:00" :blocks (nil week))
-;;                          (:title "Sanskrit" :match "+sanskrit" :budget "5:15" :blocks (day week))))
-#+END_SRC
 
 ** Visit Tangled file at point
 #+begin_src elisp
