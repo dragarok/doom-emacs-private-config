@@ -4391,137 +4391,6 @@ With \\[universal-argument] produce a new buffer."
   :config
   (setq browse-url-browser-function 'eww-browse-url))
 #+END_SRC
-** Elfeed
-#+BEGIN_SRC elisp
-(use-package elfeed
-  :defer t
-  :config
-  (require 'elfeed-goodies)
-  (elfeed-org)
-
-  (defun prot/elfeed-show-eww (&optional link)
-    "Browse current `elfeed' entry link in `eww'.
-Only show the readable part once the website loads.  This can
-fail on poorly-designed websites."
-    (interactive)
-    (let* ((entry (if (eq major-mode 'elfeed-show-mode)
-                      elfeed-show-entry
-                    (elfeed-search-selected :ignore-region)))
-           (link (if link link (elfeed-entry-link entry))))
-      (eww link)
-      (add-hook 'eww-after-render-hook 'eww-readable nil t)))
-  (defun prot/elfeed-search-other-window (&optional arg)
-    "Browse `elfeed' entry in the other window.
-With \\[universal-argument] browse the entry in `eww' using the
-`prot/elfeed-show-eww' wrapper."
-    (interactive "P")
-    (let* ((entry (if (eq major-mode 'elfeed-show-mode)
-                      elfeed-show-entry
-                    (elfeed-search-selected :ignore-region)))
-           (link (elfeed-entry-link entry))
-           (win (selected-window)))
-      (with-current-buffer (get-buffer "*elfeed-search*")
-        (unless (one-window-p)              ; experimental
-          (delete-other-windows win))
-        (split-window win (/ (frame-height) 5) 'below)
-        (other-window 1)
-        (if arg
-            (progn
-              (when (eq major-mode 'elfeed-search-mode)
-                (elfeed-search-untag-all-unread))
-              (prot/elfeed-show-eww link))
-          (elfeed-search-show-entry entry)))))
-
-
-  (defun prot/elfeed-kill-buffer-close-window-dwim ()
-    "Do-what-I-mean way to handle `elfeed' windows and buffers.
-
-When in an entry buffer, kill the buffer and return to the Elfeed
-Search view.  If the entry is in its own window, delete it as
-well.
-
-When in the search view, close all other windows.  Else just kill
-the buffer."
-    (interactive)
-    (let ((win (selected-window)))
-      (cond ((eq major-mode 'elfeed-show-mode)
-             (elfeed-kill-buffer)
-             (unless (one-window-p) (delete-window win))
-             (switch-to-buffer "*elfeed-search*"))
-            ((eq major-mode 'elfeed-search-mode)
-             (if (one-window-p)
-                 (elfeed-search-quit-window)
-               (delete-other-windows win))))))
-
-
-
-  (setq rmh-elfeed-org-files (list "~/OneDrive/OrgMode/elfeed/elfeed.org")
-        elfeed-db-directory "~/.elfeed/")
-
-  ;; scoring elfeed entries for better visibility
-  (defun score-elfeed-entry (entry)
-    (let ((title (elfeed-entry-title entry))
-          (content (elfeed-deref (elfeed-entry-content entry)))
-          (score 0))
-      (loop for (pattern n) in '(("space" 1)
-                                 ("machine learning\\|neural" 1)
-                                 ("startups" 1)
-                                 ("breakthrough" 3)
-                                 ("state of the art" 3))
-            if (string-match pattern title)
-            do (incf score n)
-            if (string-match pattern content)
-            do (incf score n))
-      (message "%s - %s" title score)
-
-      ;; store score for later in case I ever integrate machine learning
-      (setf (elfeed-meta entry :my/score) score)
-
-      (cond
-       ((= score 1)
-        (elfeed-tag entry 'relevant))
-       ((> score 1)
-        (elfeed-tag entry 'important)))
-      entry))
-
-  (add-hook 'elfeed-new-entry-hook 'score-elfeed-entry)
-
-  ;; some key bindings
-  (define-key elfeed-search-mode-map (kbd "i")
-    (lambda () (interactive)
-      (elfeed-search-set-filter "@6-months-ago +unread +important")))
-
-  (define-key elfeed-search-mode-map (kbd "v")
-    (lambda () (interactive)
-      (elfeed-search-set-filter "@6-months-ago +unread +relevant")))
-
-  (define-key elfeed-search-mode-map (kbd "c")
-    (lambda () (interactive)
-      (elfeed-search-set-filter "@6-months-ago +unread")))
-
-  ;; help me alternate fingers in marking entries as read
-  (define-key elfeed-search-mode-map (kbd "f") 'elfeed-search-untag-all-unread)
-  (define-key elfeed-search-mode-map (kbd "j") 'elfeed-search-untag-all-unread)
-
-;; faces for relevant and important feeds
-  (defface relevant-elfeed-entry
-    `((t :background ,(color-lighten-name "orange1" 40)))
-    "Marks a relevant Elfeed entry.")
-
-  (defface important-elfeed-entry
-    `((t :background ,(color-lighten-name "OrangeRed2" 40)))
-    "Marks an important Elfeed entry.")
-
-  (push '(relevant relevant-elfeed-entry)
-        elfeed-search-face-alist)
-
-  (push '(important important-elfeed-entry)
-        elfeed-search-face-alist)
-  :bind (:map elfeed-show-mode-map
-         ("s-z" . prot/elfeed-show-eww)
-         ("s-x" . prot/elfeed-kill-buffer-close-window-dwim))
-)
-#+END_SRC
 
 ** EIN [ Emacs Ipython Notebook ]
 #+BEGIN_SRC elisp
@@ -5219,6 +5088,302 @@ And the line would be overlaid like:
                                          (string-match-p regexp string)))
                 (overlay-match 2))
               (goto-char (match-end 2)))))))))
+#+end_src
+** Pdf
+
+#+begin_src emacs-lisp
+(use-package! saveplace-pdf-view
+  :disabled t)
+#+end_src
+
+** Org heading with elfeedurl to org roam with properties
+
+#+begin_src elisp
+;;;###autoload
+(defun elfeed-inbox-to-org-roam-node ()
+  "Create an Org-roam note from the current headline and jump to it."
+  (interactive)
+  (let ((title "")
+        (url "")
+        (node nil)
+        (elfeedurl "")
+        (filetag ""))
+    (if (org-in-regexp org-link-bracket-re 1)
+        (if (match-end 2)
+            (setq title (match-string-no-properties 2)
+                  url (buffer-substring-no-properties (match-beginning 0) (match-end 0)))
+          (setq title (org-link-unescape (match-string-no-properties 1))
+                url "")))
+    (setq node (org-roam-node-read title))
+    (if (cl-search "youtube.com" url)
+        (setq filetag (list "youtube" "video"))
+      (setq filetag (list "article")))
+    (setq elfeedurl (car (org--property-local-values "ELFEED_URL" nil)) )
+    (if (org-roam-node-file node)
+        (message"Skipping %s, node already exists" title)
+      (org-roam-capture- :node node
+                         :keys "d"
+                         )
+
+      (org-entry-put (point-min) "REF_URL" url)
+      (org-entry-put (point-min) "REF_ELFEED" elfeedurl)
+      (org-roam-tag-add filetag)
+      (org-capture-finalize nil)
+      ;; (kill-whole-line)
+      ;; (org-capture-finalize nil)
+      )))
+#+end_src
+** Elfeed url to org heading without org roam
+
+#+begin_src elisp
+(defun elfeed-inbox-to-org-heading ()
+  "Create an Org-roam note from the current headline and jump to it."
+  (interactive)
+  (let ((title "")
+        (url "")
+        (node nil)
+        (elfeedurl "")
+        (filetag ""))
+    (if (org-in-regexp org-link-bracket-re 1)
+        (if (match-end 2)
+            (setq title (match-string-no-properties 2)
+                  url (match-string-no-properties 1))
+          (setq title (org-link-unescape (match-string-no-properties 1))
+                url "")))
+    (+org/remove-link)
+    (org-set-property "REF_URL" url)
+    (if (cl-search "youtube.com" url)
+        (setq filetag (list "youtube" "video"))
+      (setq filetag (list "article")))
+    (org-copy-subtree)
+    (org-paste-subtree)
+    (org-todo "")
+    (setq noteid (org-id-get-create))
+    (setq notelink (format "[[id:%s][%s]]" noteid title))
+    (org-roam-refile)
+    (org-set-property "REF_NOTE" notelink)
+    ;; (org-entry-put (point-min) "REF_URL" url)
+    ;; (org-entry-put (point-min) "REF_ELFEED" elfeedurl)
+    ;; (org-roam-tag-add filetag)
+    ;; (kill-whole-line)
+    ;; (org-capture-finalize nil)
+    ))
+#+end_src
+
+** Elfeed org template
+
+#+begin_src elisp
+(after! org (add-to-list 'org-capture-templates
+                         '("E" "Elfeed Show Task" entry
+                           (file org-inbox-file)
+                           "* TODO %?
+:PROPERTIES:
+:CREATED:    %U
+:ELFEED_URL: %a
+:END:")))
+#+end_src
+
+** Elfeed
+#+BEGIN_SRC elisp
+(use-package elfeed
+  :defer t
+  :config
+  (require 'elfeed-goodies)
+  (elfeed-org)
+
+  (defun prot/elfeed-show-eww (&optional link)
+    "Browse current `elfeed' entry link in `eww'.
+Only show the readable part once the website loads.  This can
+fail on poorly-designed websites."
+    (interactive)
+    (let* ((entry (if (eq major-mode 'elfeed-show-mode)
+                      elfeed-show-entry
+                    (elfeed-search-selected :ignore-region)))
+           (link (if link link (elfeed-entry-link entry))))
+      (eww link)
+      (add-hook 'eww-after-render-hook 'eww-readable nil t)))
+  (defun prot/elfeed-search-other-window (&optional arg)
+    "Browse `elfeed' entry in the other window.
+With \\[universal-argument] browse the entry in `eww' using the
+`prot/elfeed-show-eww' wrapper."
+    (interactive "P")
+    (let* ((entry (if (eq major-mode 'elfeed-show-mode)
+                      elfeed-show-entry
+                    (elfeed-search-selected :ignore-region)))
+           (link (elfeed-entry-link entry))
+           (win (selected-window)))
+      (with-current-buffer (get-buffer "*elfeed-search*")
+        (unless (one-window-p)              ; experimental
+          (delete-other-windows win))
+        (split-window win (/ (frame-height) 5) 'below)
+        (other-window 1)
+        (if arg
+            (progn
+              (when (eq major-mode 'elfeed-search-mode)
+                (elfeed-search-untag-all-unread))
+              (prot/elfeed-show-eww link))
+          (elfeed-search-show-entry entry)))))
+
+
+  (defun prot/elfeed-kill-buffer-close-window-dwim ()
+    "Do-what-I-mean way to handle `elfeed' windows and buffers.
+
+When in an entry buffer, kill the buffer and return to the Elfeed
+Search view.  If the entry is in its own window, delete it as
+well.
+
+When in the search view, close all other windows.  Else just kill
+the buffer."
+    (interactive)
+    (let ((win (selected-window)))
+      (cond ((eq major-mode 'elfeed-show-mode)
+             (elfeed-kill-buffer)
+             (unless (one-window-p) (delete-window win))
+             (switch-to-buffer "*elfeed-search*"))
+            ((eq major-mode 'elfeed-search-mode)
+             (if (one-window-p)
+                 (elfeed-search-quit-window)
+               (delete-other-windows win))))))
+
+
+
+  (setq rmh-elfeed-org-files (list "~/OneDrive/OrgMode/elfeed/elfeed.org")
+        elfeed-db-directory "~/.elfeed/")
+
+  ;; scoring elfeed entries for better visibility
+  (defun score-elfeed-entry (entry)
+    (let ((title (elfeed-entry-title entry))
+          (content (elfeed-deref (elfeed-entry-content entry)))
+          (score 0))
+      (loop for (pattern n) in '(("space" 1)
+                                 ("machine learning\\|neural" 1)
+                                 ("startups" 1)
+                                 ("breakthrough" 3)
+                                 ("state of the art" 3))
+            if (string-match pattern title)
+            do (incf score n)
+            if (string-match pattern content)
+            do (incf score n))
+      (message "%s - %s" title score)
+
+      ;; store score for later in case I ever integrate machine learning
+      (setf (elfeed-meta entry :my/score) score)
+
+      (cond
+       ((= score 1)
+        (elfeed-tag entry 'relevant))
+       ((> score 1)
+        (elfeed-tag entry 'important)))
+      entry))
+
+  (add-hook 'elfeed-new-entry-hook 'score-elfeed-entry)
+
+  ;; some key bindings
+  (define-key elfeed-search-mode-map (kbd "i")
+    (lambda () (interactive)
+      (elfeed-search-set-filter "@6-months-ago +unread +important")))
+
+  (define-key elfeed-search-mode-map (kbd "v")
+    (lambda () (interactive)
+      (elfeed-search-set-filter "@6-months-ago +unread +relevant")))
+
+  (define-key elfeed-search-mode-map (kbd "c")
+    (lambda () (interactive)
+      (elfeed-search-set-filter "@6-months-ago +unread")))
+
+  ;; help me alternate fingers in marking entries as read
+  (define-key elfeed-search-mode-map (kbd "f") 'elfeed-search-untag-all-unread)
+  (define-key elfeed-search-mode-map (kbd "j") 'elfeed-search-untag-all-unread)
+
+;; faces for relevant and important feeds
+  (defface relevant-elfeed-entry
+    `((t :background ,(color-lighten-name "orange1" 40)))
+    "Marks a relevant Elfeed entry.")
+
+  (defface important-elfeed-entry
+    `((t :background ,(color-lighten-name "OrangeRed2" 40)))
+    "Marks an important Elfeed entry.")
+
+  (push '(relevant relevant-elfeed-entry)
+        elfeed-search-face-alist)
+
+  (push '(important important-elfeed-entry)
+        elfeed-search-face-alist)
+  :bind (:map elfeed-show-mode-map
+         ("s-z" . prot/elfeed-show-eww)
+         ("s-x" . prot/elfeed-kill-buffer-close-window-dwim))
+)
+#+END_SRC
+
+** Elfeed Score
+
+#+begin_src elisp
+(use-package! elfeed-score
+  :after elfeed
+  :config
+  (elfeed-score-load-score-file elfeed-score-file) ; See the elfeed-score documentation for the score file syntax
+  (elfeed-score-enable)
+  (define-key elfeed-search-mode-map "=" elfeed-score-map))
+#+end_src
+
+** Elfeed Defaults
+
+#+begin_src elisp
+(setq rmh-elfeed-org-files (list "~/Nextcloud/org/elfeed/elfeed.org"))
+(setq! elfeed-score-file "~/Nextcloud/org/elfeed/elfeed-score.el")
+#+end_src
+
+** Elfeed
+*** Elfeed Tube
+
+#+begin_src elisp
+(use-package elfeed-tube
+  :after elfeed
+  :demand t
+  :config
+  (elfeed-tube-setup)
+
+  :bind (:map elfeed-show-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)
+         :map elfeed-search-mode-map
+         ("F" . elfeed-tube-fetch)
+         )
+  )
+
+(use-package elfeed-tube-mpv
+  :after elfeed
+  :bind (:map elfeed-show-mode-map
+              ("C-c m" . elfeed-tube-mpv)
+              ("C-c f" . elfeed-tube-mpv-follow-mode)
+              ("C-c w" . elfeed-tube-mpv-where)))
+#+end_src
+*** Elfeed Note Taking
+
+#+begin_src elisp
+(defun elfeed-link-title (entry)
+  "Copy the entry title and URL as org link to the clipboard."
+  (interactive)
+  (let* ((link (elfeed-entry-link entry))
+         (title (elfeed-entry-title entry))
+         (titlelink (org-make-link-string link title)))
+    (when titlelink
+      (kill-new titlelink)
+      (x-set-selection 'PRIMARY titlelink)
+      (message "Yanked: %s" titlelink))))
+
+(defun elfeed-show-link-title ()
+  "Copy the current entry title and URL as org link to the clipboard."
+  (interactive)
+  (elfeed-link-title elfeed-show-entry))
+
+(defun add-elfeed-show-to-inbox ()
+  "Fastest way to capture entry link to org agenda from elfeed show mode"
+  (interactive)
+  (elfeed-link-title elfeed-show-entry)
+  (org-capture nil "E")
+  (yank)
+  (org-capture-finalize))
 #+end_src
 * Need More Tests
 :PROPERTIES:
@@ -6081,17 +6246,6 @@ capture was not aborted."
           ))
   )
 #+end_src
-** Elfeed Score
-
-#+begin_src elisp
-(use-package! elfeed-score
-  :after elfeed
-  :config
-  (elfeed-score-load-score-file elfeed-score-file) ; See the elfeed-score documentation for the score file syntax
-  (elfeed-score-enable)
-  (define-key elfeed-search-mode-map "=" elfeed-score-map))
-#+end_src
-
 ** Docker
 
 #+begin_src elisp
@@ -6168,4 +6322,44 @@ capture was not aborted."
 #+begin_src emacs-lisp
 (if (eq system-type 'gnu/linux)
     (require 'darkman))
+#+end_src
+
+** Tree Sitter
+#+begin_src elisp
+(use-package! tree-sitter
+  :config
+  (require 'tree-sitter-langs)
+  (global-tree-sitter-mode)
+  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
+(pushnew! tree-sitter-major-mode-language-alist
+          '(scss-mode . css))
+#+end_src
+
+** Org Agenda hook
+
+I want agenda to be more concise and easy to look at.
+It fits only on my side monitor then.
+
+#+begin_src elisp
+;; make elisp function that decreases text scale by 2 if text scale is not adjusted already
+(defun decrease-text-scale ()
+  (interactive)
+  (if (eq text-scale-mode-amount 0)
+      (text-scale-decrease 1)))
+
+(add-hook 'evil-org-agenda-mode-hook #'decrease-text-scale)
+
+#+end_src
+
+** Consult-dir
+#+begin_src elisp
+(use-package consult-dir
+  :ensure t
+  :config
+  (setq consult-dir-project-list-function #'consult-dir-projectile-dirs)
+  :bind (("C-x C-d" . consult-dir)
+         :map vertico-map
+         ("C-x C-d" . consult-dir)
+         ("C-x C-j" . consult-dir-jump-file)))
+
 #+end_src
