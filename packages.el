@@ -229,3 +229,12 @@
 ;;   :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
 (package! org-transclusion)
 (package! org-remark)
+;; (unpin! ox-hugo)
+;; (package! gptel)
+(package! org-fancy-priorities)
+
+;; (unpin! saveplace-pdf-view)
+
+(package! org-time-budgets
+  :recipe (:host github :repo "dragarok/org-time-budgets" :branch "cl-lib")) ;; budgeting on tasks
+(package! orgmdb)
