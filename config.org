@@ -2192,10 +2192,10 @@ the inbox.  Set it as a waiting action and refile to
 
 (after! org (add-to-list 'org-capture-templates
                          '("pn" "New Project" entry
-                           (file (concat org-directory "templates/newprojtemplate.org"))
-                           :if-new (file org-inbox-file)
-                           :unnarrowed t)
+                           (file "~/Nextcloud/org/agenda/inbox.org")
+                           (file "~/Nextcloud/org/templates/newprojtemplate.org"))
                          ))
+
 
 (after! org (add-to-list 'org-capture-templates
                          '("ps" "Create Project Subtask" entry (file org-inbox-file)
