@@ -1555,6 +1555,30 @@ Otherwise, it begins with ## and is indented accordingly."
 ;;     )
 ;;   (add-hook 'org-roam-capture-new-node-hook #'tag-new-org-roam-node))
 #+end_src
+** Org roam create note for project
+
+#+begin_src emacs-lisp
+;;;###autoload
+(defun title-to-org-roam-node (title)
+  "Create an Org-roam note from the current headline and jump to it."
+  (interactive)
+  (let ((node nil)
+        (filetag ""))
+    (setq node (org-roam-node-read title))
+    (setq filetag (list "proj"))
+    (if (org-roam-node-file node)
+        (message"Skipping %s, node already exists" title)
+      (org-roam-capture- :node node
+                         :keys "d"
+                         )
+      (org-entry-put (point-min) "PROJ_RESOURCES_DIR" (concat "[[" project-resources-dir title "]]"))
+      (org-roam-tag-add filetag)
+      (org-capture-finalize nil)
+      ;; (kill-whole-line)
+      ;; (org-capture-finalize nil)
+      )))
+#+end_src
+
 ** Daily Ritual
 
 #+begin_src elisp
@@ -2254,8 +2278,7 @@ the inbox.  Set it as a waiting action and refile to
         org-log-redeadline 'note
         org-log-reschedule 'note)
 
-  (setq org-refile-targets '((org-agenda-files . (:maxlevel . 5)))
-        org-outline-path-complete-in-steps nil
+  (setq org-outline-path-complete-in-steps nil
         org-refile-allow-creating-parent-nodes 'confirm)
 
   ;;(advice-add #'org-refile :after 'org-save-all-org-buffers)
