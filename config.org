@@ -1560,19 +1560,21 @@ Otherwise, it begins with ## and is indented accordingly."
   (interactive)
   (let ((node nil)
         (filetag ""))
-    (setq node (org-roam-node-read title))
-    (setq filetag (list "proj"))
+    (setq node (org-roam-node-create :title title))
+    (setq filetag (list "auto"))
     (if (org-roam-node-file node)
-        (message"Skipping %s, node already exists" title)
+        (progn
+          (message "Skipping %s, node already exists" title)
+          node)  ; Return node here if it already exists
       (org-roam-capture- :node node
-                         :keys "d"
-                         )
+                         :keys "r")
       (org-entry-put (point-min) "PROJ_RESOURCES_DIR" (concat "[[" project-resources-dir title "]]"))
       (org-roam-tag-add filetag)
       (org-capture-finalize nil)
       ;; (kill-whole-line)
       ;; (org-capture-finalize nil)
-      )))
+      node)  ; Return node here after creating new node
+    ))
 #+end_src
 
 ** Daily Ritual
@@ -2551,11 +2553,18 @@ SCHEDULED: %t
   )
 (after! org
   (require 'org-time-budgets)
-  (setq org-time-budgets '((:title "EHP" :match "+ehp" :budget "60:00" :blocks (workday week))
-                           (:title "Sideprojects" :match "+personal+project" :budget "20:00" :blocks (day week))
-                           (:title "Practice Music" :match "+music+practice" :budget "2:55" :blocks (nil week))
-                           (:title "Exercise" :match "+exercise" :budget "5:15" :blocks (day))
-                           (:title "Language" :match "+lang" :budget "5:15" :blocks (day week))))
+  (setq org-time-budgets '((:title "EHP" :match "+work" :budget "40:00" :blocks (workday week))
+                           (:title "EHP Deep Work" :match "+work+deepwork" :budget "13:00" :blocks (workday week))
+                           (:title "Meditation" :match "+meditation" :budget "10:00" :blocks (day week))
+                           (:title "Review" :match "+review" :budget "1:00" :blocks (day week))
+                           (:title "Ritual" :match "+ritual" :budget "0:40" :blocks (day week))
+                           (:title "Entertainment" :match "+entertainment" :budget "10:00" :blocks (day week))
+                           (:title "Guitar" :match "+music" :budget "3:00" :blocks (day week))
+                           (:title "Exercise" :match "+personal" :budget "0:20" :blocks (day))
+                           (:title "Coding" :match "+coding" :budget "40:00" :blocks (nil week))
+                           (:title "Reading" :match "+book" :budget "3:00" :blocks (nil week))
+                           (:title "Yollo" :match "+personal+coding" :budget "20:00" :blocks (nil week))
+                           ))
   )
 #+END_SRC
 *** Agenda View
@@ -2577,13 +2586,15 @@ SCHEDULED: %t
                                       (org-agenda-current-span 'day))
                                      )
                              (org-time-budgets-in-agenda-maybe)
-                             (todo "NEXT"
-                                   ((org-agenda-overriding-header " PROJECT TASKS\n ===================================================================\n")
-                                    ))
-                             (todo "READING"
-                                   ((org-agenda-overriding-header "Books I am currently reading\n ======================================================\n")))
+                             (todo "READING|SUMMARISING"
+                                   ((org-agenda-overriding-header "Books I am currently reading and summarizing\n ======================================================\n")))
                              )
                             nil)
+                           ("n" "Next tasks"
+                            ((todo "NEXT"
+                                   ((org-agenda-overriding-header " PROJECT TASKS\n ===================================================================\n")
+                                    ))
+                             ) nil)
                            ("o" "Monthly Review"
                             ((agenda "" ((org-agenda-span 30)
                                          (org-agenda-overriding-header " Previous Month Deferred and not completed\n ===================================================================\n")
@@ -2633,14 +2644,6 @@ SCHEDULED: %t
                                     ))
                              )
                             nil)
-                           ;; ("x" "On mobile"
-                           ;;  ((agenda ""
-                           ;;           ((org-agenda-span '2)
-                           ;;            ((org-agenda-overriding-header "Can you spare some time?\n ==============================================================\n")
-                           ;;             (org-agenda-span '3)
-                           ;;             (org-agenda-tag-filter-preset
-                           ;;              '("+phone" "-Challenge"))))
-                           ;;           )) nil)
                            ("v" "I am bored"
                                         ; Easy tasks
                             ((tags-todo "+Easy"
@@ -2989,11 +2992,18 @@ the second element is the other tags."
 (after! org-roam
   (setq org-roam-capture-templates
         '(("d" "Default" plain "%?"
-           :if-new (file+head "${slug}.org"
+   :if-new (file+head "${slug}.org"
                               "#+TITLE: ${title}
 ,#+FILETAGS: :default:
 ")
            :immediate-finish t)
+
+          ("r" "Default but open buffer" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS:
+")
+           :unnarrowed t)
 
           ("t" "Tagged" plain "%?"
            :if-new (file+head "${slug}.org"
@@ -3134,18 +3144,18 @@ the second element is the other tags."
 
 *** Org Roam v2 Frame Title
 #+begin_src elisp
-;; (setq frame-title-format
-;;       '(""
-;;         (:eval
-;;          (if (s-contains-p org-roam-directory (or buffer-file-name ""))
-;;              (replace-regexp-in-string
-;;               ".*/[0-9]*-?" "☰ "
-;;               (subst-char-in-string ?_ ?  buffer-file-name))
-;;            "%b"))
-;;         (:eval
-;;          (let ((project-name (projectile-project-name)))
-;;            (unless (string= "-" project-name)
-;;              (format (if (buffer-modified-p)  " ◉ %s" "  ●  %s") project-name))))))
+(setq frame-title-format
+      '(""
+        (:eval
+         (if (s-contains-p org-roam-directory (or buffer-file-name ""))
+             (replace-regexp-in-string
+              ".*/[0-9]*-?" "☰ "
+              (subst-char-in-string ?_ ?  buffer-file-name))
+           "%b"))
+        (:eval
+         (let ((project-name (projectile-project-name)))
+           (unless (string= "-" project-name)
+             (format (if (buffer-modified-p)  " ◉ %s" "  ●  %s") project-name))))))
 #+end_src
 
 *** Roam File Search
