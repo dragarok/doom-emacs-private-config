@@ -235,71 +235,6 @@ Set local leader to comma for ease of use.
   (setq dash-docs-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas")))
 #+END_SRC
 ** Dired
-*** Dired Hide Details by Default
-
-#+begin_src elisp
-(add-hook 'dired-mode-hook
-          (lambda ()
-            (dired-hide-details-mode)))
-#+end_src
-
-*** Dired Sort
-
-#+BEGIN_SRC elisp
-;; Modified from https://wilkesley.org/~ian/xah/emacs/dired_sort.html
-(defun light-dired-sort ()
-  "Sort dired dir listing in different ways.
-Prompt for a choice.
-URL `http://ergoemacs.org/emacs/dired_sort.html'
-Version 2015-07-30"
-  (interactive)
-  (let (-sort-by -hidden -arg)
-    (setq -sort-by (completing-read "Sort by:" '( "Date" "Size" "Name" "Ext" "Dir" "Date Asc" "Name Desc" "Size Asc")))
-    (setq -hidden (completing-read "Show Hidden Files:" '("Yes" "No")))
-    (cond
-     ((equal -hidden "Yes")
-      (progn
-        (cond
-         ((equal -sort-by "Name") (setq -arg "-Ahl --si --time-style long-iso "))
-         ((equal -sort-by "Date") (setq -arg "-Ahlt --si --time-style long-iso"))
-         ((equal -sort-by "Size") (setq -arg "-AhlS --si --time-style long-iso"))
-         ((equal -sort-by "Ext") (setq -arg "-AhlX --si --time-style long-iso --group-directories-first"))
-         ((equal -sort-by "Name Desc") (setq -arg "-Ahlr --si --time-style long-iso "))
-         ((equal -sort-by "Date Asc") (setq -arg "-Ahltr --si --time-style long-iso"))
-         ((equal -sort-by "Size Asc") (setq -arg "-AhlSr --si --time-style long-iso"))
-         ((equal -sort-by "Dir") (setq -arg "-Ahl --si --time-style long-iso --group-directories-first"))
-         (t (error "Logic error 09535" )))
-        (dired-sort-other -arg )
-        ;; (dired-listing-switches -arg )
-        (setq dired-listing-switches -arg)))
-     ((equal -hidden "No")
-      (progn
-        (message -hidden)
-        (cond
-         ((equal -sort-by "Name") (setq -arg "-hl --si --time-style long-iso "))
-         ((equal -sort-by "Date") (setq -arg "-hlt --si --time-style long-iso"))
-         ((equal -sort-by "Size") (setq -arg "-hlS --si --time-style long-iso"))
-         ((equal -sort-by "Ext") (setq -arg "-hlX --si --time-style long-iso --group-directories-first"))
-         ((equal -sort-by "Name Desc") (setq -arg "-hlr --si --time-style long-iso"))
-         ((equal -sort-by "Date Desc") (setq -arg "-hltr --si --time-style long-iso"))
-         ((equal -sort-by "Size Desc") (setq -arg "-hlSr --si --time-style long-iso"))
-         ((equal -sort-by "Dir") (setq -arg "-hl --si --time-style long-iso --group-directories-first"))
-         (t (error "Logic error 09535" )))
-        (dired-sort-other -arg )
-        (setq dired-listing-switches -arg)))
-     )
-    ))
-
-(map! (:after dired
-       :map dired-mode-map
-       :n "gb" #'light-dired-sort))
-
-#+END_SRC
-**** Vterm not showing my completions
-#+BEGIN_SRC elisp
-(custom-set-faces!
- '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
-#+END_SRC
 *** Mark empty dirs
 
 #+begin_src elisp
@@ -418,6 +353,7 @@ Version 2015-07-30"
     )
   )
 #+end_src
+
 ** Eshell Aliases for Ease of Use
 
 Eshell have some aliases for ease of use.
@@ -6639,3 +6575,69 @@ It fits only on my side monitor then.
   (progn
     (mpdel-embark-setup)))
 #+end_src
+
+** Dired Hide Details by Default
+
+#+begin_src elisp
+(add-hook 'dirvish-mode-hook
+          (lambda ()
+            (dired-hide-details-mode)))
+#+end_src
+
+** Dired Sort
+
+#+BEGIN_SRC elisp
+;; Modified from https://wilkesley.org/~ian/xah/emacs/dired_sort.html
+(defun light-dired-sort ()
+  "Sort dired dir listing in different ways.
+Prompt for a choice.
+URL `http://ergoemacs.org/emacs/dired_sort.html'
+Version 2015-07-30"
+  (interactive)
+  (let (-sort-by -hidden -arg)
+    (setq -sort-by (completing-read "Sort by:" '( "Date" "Size" "Name" "Ext" "Dir" "Date Asc" "Name Desc" "Size Asc")))
+    (setq -hidden (completing-read "Show Hidden Files:" '("Yes" "No")))
+    (cond
+     ((equal -hidden "Yes")
+      (progn
+        (cond
+         ((equal -sort-by "Name") (setq -arg "-Ahl --si --time-style long-iso "))
+         ((equal -sort-by "Date") (setq -arg "-Ahlt --si --time-style long-iso"))
+         ((equal -sort-by "Size") (setq -arg "-AhlS --si --time-style long-iso"))
+         ((equal -sort-by "Ext") (setq -arg "-AhlX --si --time-style long-iso --group-directories-first"))
+         ((equal -sort-by "Name Desc") (setq -arg "-Ahlr --si --time-style long-iso "))
+         ((equal -sort-by "Date Asc") (setq -arg "-Ahltr --si --time-style long-iso"))
+         ((equal -sort-by "Size Asc") (setq -arg "-AhlSr --si --time-style long-iso"))
+         ((equal -sort-by "Dir") (setq -arg "-Ahl --si --time-style long-iso --group-directories-first"))
+         (t (error "Logic error 09535" )))
+        (dired-sort-other -arg )
+        ;; (dired-listing-switches -arg )
+        (setq dired-listing-switches -arg)))
+     ((equal -hidden "No")
+      (progn
+        (message -hidden)
+        (cond
+         ((equal -sort-by "Name") (setq -arg "-hl --si --time-style long-iso "))
+         ((equal -sort-by "Date") (setq -arg "-hlt --si --time-style long-iso"))
+         ((equal -sort-by "Size") (setq -arg "-hlS --si --time-style long-iso"))
+         ((equal -sort-by "Ext") (setq -arg "-hlX --si --time-style long-iso --group-directories-first"))
+         ((equal -sort-by "Name Desc") (setq -arg "-hlr --si --time-style long-iso"))
+         ((equal -sort-by "Date Desc") (setq -arg "-hltr --si --time-style long-iso"))
+         ((equal -sort-by "Size Desc") (setq -arg "-hlSr --si --time-style long-iso"))
+         ((equal -sort-by "Dir") (setq -arg "-hl --si --time-style long-iso --group-directories-first"))
+         (t (error "Logic error 09535" )))
+        (dired-sort-other -arg )
+        (setq dired-listing-switches -arg)))
+     )
+    ))
+
+(map! (:after dired
+       :map dired-mode-map
+       :n "gb" #'light-dired-sort))
+
+#+END_SRC
+*** Vterm not showing my completions
+#+BEGIN_SRC elisp
+(custom-set-faces!
+ '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
+#+END_SRC
