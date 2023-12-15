@@ -2343,6 +2343,14 @@ SCHEDULED: %t
             (lambda () (remove-text-properties
                         (point-min) (point-max) '(mouse-face t))))
   )
+(after! org
+  (require 'org-time-budgets)
+  (setq org-time-budgets '((:title "EHP" :match "+ehp" :budget "60:00" :blocks (workday week))
+                           (:title "Sideprojects" :match "+personal+project" :budget "20:00" :blocks (day week))
+                           (:title "Practice Music" :match "+music+practice" :budget "2:55" :blocks (nil week))
+                           (:title "Exercise" :match "+exercise" :budget "5:15" :blocks (day))
+                           (:title "Language" :match "+lang" :budget "5:15" :blocks (day week))))
+  )
 #+END_SRC
 *** Agenda View
 #+BEGIN_SRC elisp
@@ -2362,6 +2370,7 @@ SCHEDULED: %t
                                       (org-agenda-sorting-strategy '(priority-down effort-down))
                                       (org-agenda-current-span 'day))
                                      )
+                             (org-time-budgets-in-agenda-maybe)
                              (todo "NEXT"
                                    ((org-agenda-overriding-header " PROJECT TASKS\n ===================================================================\n")
                                     ))
@@ -2530,20 +2539,27 @@ SCHEDULED: %t
 ** Org Screenshots
 #+BEGIN_SRC elisp
 (after! org
-  (require 'org-download)
-  (add-hook 'dired-mode-hook 'org-download-enable)
-  (defun my-org-download-screenshot ()
-    "Capture screenshot and insert the resulting file. The screenshot tool is determined by `org-download-screenshot-method'."
-    (interactive)
-    (let ((tmp-file "/tmp/screenshot.png"))
-      (delete-file tmp-file)
-      (call-process-shell-command "flameshot gui -p /tmp/")
-      ;; Because flameshot exit immediately, keep polling to check file existence
-      (while (not (file-exists-p tmp-file))
-        (sleep-for 2))
-      (org-download-image tmp-file)))
-  (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
+  (setq org-download-method 'directory
+        org-download-image-dir "~/Nextcloud/org/org-images/"
+        org-download-heading-lvl nil
+        org-download-delete-image-after-download t
+        org-download-screenshot-method "/usr/share/sway/scripts/grimshot save area %s"
+        org-download-image-org-width 600
+        org-download-annotate-function (lambda (link) "") ;; Don't annotate
+        )
+  ;; org-download-image-dir "~/Nextcloud/org/org-images/"
+  ;; org-download-delete-image-after-download t
+  (setq org-image-actual-width nil)
+  (setq org-download-link-format "[[file:%s]]\n"
+        org-download-abbreviate-filename-function #'file-relative-name)
+  (setq org-download-link-format-function #'org-download-link-format-function-default)
+  (org-download-enable)
+  ;; org-attach method
+  (setq-default org-attach-method 'mv
+                org-attach-auto-tag "attach"
+                org-attach-store-link-p 't)
   )
+(global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 #+END_SRC
 ** Org Roam
 *** V2 Node Display
