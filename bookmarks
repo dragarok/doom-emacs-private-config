@@ -43,10 +43,11 @@
  (rear-context-string . "aS&rank=1\n:END:\n")
  (position . 7526))
 ("org-capture-last-stored"
- (filename . "~/Dropbox/org/notes/books.org")
- (front-context-string . "* Life 3.0: Bein")
- (rear-context-string)
- (position . 1))
+ (filename . "~/Dropbox/org/notes/20220717165442-interesting_theories.org")
+ (front-context-string)
+ (rear-context-string . "letags: :draft:\n")
+ (position . 127)
+ (last-modified 25299 60919 560032 0))
 ("zshrc"
  (filename . "~/.zshrc")
  (front-context-string . "# If you come fr")

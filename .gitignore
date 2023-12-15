@@ -2,5 +2,6 @@
 .idea
 *.log
 tmp/
-
 config.el
+bookmarks
+custom.el
