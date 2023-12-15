@@ -3810,21 +3810,80 @@ structure changes."
                      (add-text-properties beg end (list 'line-prefix indent
                                                         'wrap-prefix indent))))))))
 #+end_src
-** Fancy priorities
+** Replace jibberish characters
+
+#+begin_src emacs-lisp
+
+(defun replace-jibberish-chars ()
+  (interactive)
+  (let ((replacements '((?\220 . " ")
+                        (?\221 . "`")
+                        (?\222 . "'")
+                        (?\223 . "\"")
+                        (?\224 . "\"")
+                        (?\225 . "* ")
+                        (?\226 . "--")
+                        (?  . " ")
+                        (?\227 . " -- "))))
+    (save-excursion
+      (dolist (pair replacements)
+        (goto-char (point-min))
+        (while (search-forward (char-to-string (car pair)) nil t)
+          (replace-match (cdr pair) nil t))))))
+#+end_src
+** Time stamp on notes
+
+#+begin_src emacs-lisp
+(require 'time-stamp)
+(add-hook 'write-file-functions 'time-stamp) ; update when saving
+#+end_src
+** Export quote blocks
 
 #+begin_src elisp
-(use-package! org-fancy-priorities
-           :defer 20
-           :config
-           (setq org-fancy-priorities-list
-                 `(
-                   (?A . ,(concat " " (all-the-icons-octicon "pulse" :height 1.2) " "))
-                   (?B . ,(concat " " (all-the-icons-octicon "mortar-board" :height 1.2) " "))
-                   (?C . ,(concat " " (all-the-icons-octicon "flame" :height 1.2) " "))
-                   (?D . ,(concat " " (all-the-icons-octicon "telescope" :height 1.2) " "))
-                   )
-                 )
+;; (after! org
+;; (defun custom-quote-export-filter (text backend info)
+;;   "Custom export filter for quotes with properties."
+;;   (when (org-export-derived-backend-p backend 'md) ; checks if the backend is markdown
+;;     (let ((quote-pattern "^#\\+BEGIN_QUOTE\n\\(.*?\\)\n#\\+END_QUOTE")
+;;           (properties-pattern ":PROPERTIES:\n:PAGE: \\([0-9]+\\)\n:TIMESTAMP: \\(.*?\\)\n:AUTHOR: \\(.*?\\)\n:END:"))
+;;       (if (and (string-match quote-pattern text)
+;;                (string-match properties-pattern text))
+;;           (let ((quote-text (match-string 1 text))
+;;                 (page (match-string 1 text))
+;;                 (timestamp (match-string 2 text))
+;;                 (author (match-string 3 text)))
+;;             (format "<div class='quote'>%s</div><div class='author'>- %s</div><div class='page'>Page: %s</div><div class='timestamp'>%s</div>"
+;;                     quote-text author page timestamp))
+;;         text))))
+;; (add-to-list 'org-export-filter-plain-text-functions
+;;              'custom-quote-export-filter))
+#+end_src
+
+** Fancy Priorities
+
+#+begin_src elisp
+(use-package! org-fancy-priorities ; priority icons
+  :hook (org-mode . org-fancy-priorities-mode)
+  :hook (org-agenda-mode . org-fancy-priorities-mode)
+  :config
+  (setq org-fancy-priorities-list
+        `(
+          (?A ,(concat " " (nerd-icons-mdicon "nf-md-pulse" :height 1.2) " "))
+          (?B ,(concat " " (nerd-icons-mdicon "nf-md-telescope" :height 1.2) " "))
+          (?C ,(concat " " (nerd-icons-mdicon "nf-md-fire" :height 1.2) " "))
+          (?D ,(concat " " (nerd-icons-mdicon "nf-md-database_search_outline" :height 1.2) " "))
+          )
+        )
   )
+#+end_src
+* New Additions
+
+#+begin_src elisp
+(use-package! org-modern
+  :after org
+  :config
+  (global-org-modern-mode)
+)
 #+end_src
 
 * Deprecated
