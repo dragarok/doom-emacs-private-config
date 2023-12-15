@@ -20,13 +20,22 @@
 ** Fonts and Themes
 
 #+begin_src elisp
-(setq doom-font (font-spec :family "Maple Mono SC NF" :size 18)
-      doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 18)
-      ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-      doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 18)
-      ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
-      ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-      doom-big-font (font-spec :family "Maple Mono SC NF" :size 25))
+(if (eq system-type 'darwin)
+    (setq doom-font (font-spec :family "Iosevka Nerd Font" :size 16)
+          doom-variable-pitch-font (font-spec :family "Overpass Nerd Font" :size 16)
+          ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
+          doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 16)
+          ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
+          ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
+          doom-big-font (font-spec :family "Maple Mono SC NF" :size 20)))
+(if (eq system-type 'gnu/linux)
+    (setq doom-font (font-spec :family "Maple Mono SC NF" :size 18)
+          doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 18)
+          ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
+          doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 18)
+          ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
+          ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
+          doom-big-font (font-spec :family "Maple Mono SC NF" :size 25)))
 
 (load-theme 'modus-operandi 'noconfirm)
 #+end_src
