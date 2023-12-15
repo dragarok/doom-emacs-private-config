@@ -1865,6 +1865,7 @@ ease of use.
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "<f5>" 'powerthesaurus-transient)
 (bind-key "C-M-s-p" 'evil-window-split)
 (bind-key "C-M-s-t" '+my/vterm-run-project)
 (bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
@@ -1887,7 +1888,6 @@ ease of use.
 ;; scroll other window, useful when working with multiple files
 (bind-key "C-M-s-j" 'scroll-other-window-down)
 (bind-key "C-M-s-k" 'scroll-other-window)
-;; (bind-key "<f5>" 'switch-dark-mode)
 (bind-key "C-M-s-:" 'newline-and-indent)
 (bind-key "C-M-s-:" 'newline-and-indent)
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
