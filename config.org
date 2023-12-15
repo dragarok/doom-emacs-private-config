@@ -141,10 +141,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
       '((org-someday-file :maxlevel . 1)
         (org-agenda-files :maxlevel . 3)))
 #+END_SRC
-** Bookmarks
-#+begin_src elisp
-(setq bookmark-default-file "~/.doom.d/bookmarks")
-#+end_src
 ** Buffers
 
 #+BEGIN_SRC elisp
