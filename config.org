@@ -1945,6 +1945,76 @@ TODO Use them only inside org mode
   )
 
 #+end_src
+** Category icons
+#+BEGIN_SRC elisp
+(customize-set-value
+ 'org-agenda-category-icon-alist
+ `(
+   ;; Tasks that are still not classified but will be in the future
+   ("Inbox" ,(list (nerd-icons-mdicon "nf-md-checkbox_blank_badge" :height 1.2)) nil nil :ascent center)
+   ;; Reminders of dates for something important
+   ("Events" ,(list (nerd-icons-mdicon "nf-md-calendar_clock" :height 1.2)) nil nil :ascent center)
+   ;; Long term tasks whose output is not immediately known
+   ("ToTheMoon" ,(list (nerd-icons-mdicon "nf-md-rocket_launch_outline" :height 1.2)) nil nil :ascent center)
+   ;; Short term tasks that show immediate improvements
+   ("ToImprove" ,(list (nerd-icons-mdicon "nf-md-motorbike" :height 1.2)) nil nil :ascent center)
+   ;; Something I do just for the sake of doing it
+   ("Hobby" ,(list (nerd-icons-mdicon "nf-md-spa" :height 1.2)) nil nil :ascent center)
+   ;; Health related tasks
+   ("Fitness" ,(list (nerd-icons-faicon "nf-fa-heartbeat" :height 1.2)) nil nil :ascent center)
+   ;; Tasks that don't fall into any category
+   ("Normal" ,(list (nerd-icons-mdicon "nf-md-laptop" :height 1.2)) nil nil :ascent center)
+   ;; Something that is not too valuable in terms of information
+   ("Mundane" ,(list (nerd-icons-mdicon "nf-md-emoticon_sad_outline" :height 1.2)) nil nil :ascent center)
+   ;; Birthdays and Anniversaries
+   ("Celebration" ,(list (nerd-icons-mdicon "nf-md-cake" :height 1.2)) nil nil :ascent center)
+   ;; Birthdays and Anniversaries
+   ("EHP" ,(list (nerd-icons-faicon "nf-fa-key" :height 1.2)) nil nil :ascent center)
+   ;; ("recurring" ,(list (nerd-icons-mdicon "loop" :height 1.2)) nil nil :ascent center)
+   ;; ("someday" ,(list (nerd-icons-mdicon "schedule" :height 1.2)) nil nil :ascent center)
+   ;; ("project" ,(list (nerd-icons-mdicon "stars" :height 1.2)) nil nil :ascent center)
+   ;; ("reading" ,(list (nerd-icons-mdicon "book" :height 1.2)) nil nil :ascent center)
+   ;; ("coding" ,(list (nerd-icons-mdicon "code" :height 1.2)) nil nil :ascent center)
+   ;; Based on purpose
+   ;; ("hobby" ,(list (nerd-icons-mdicon "gamepad" :height 1.2)) nil nil :ascent center)
+   ;; ("finance" ,(list (nerd-icons-mdicon "attach_money" :height 1.2)) nil nil :ascent center)
+   ;; ("skill" ,(list (nerd-icons-mdicon "directions_bike" :height 1.2)) nil nil :ascent center)
+   ;; ("relax" ,(list (nerd-icons-mdicon "ondemand_video" :height 1.2)) nil nil :ascent center)
+   ;; ("research" ,(list (nerd-icons-mdicon "explore" :height 1.2)) nil nil :ascent center)
+   ;; ("fitness" ,(list (nerd-icons-mdicon "spa" :height 1.2)) nil nil :ascent center)
+   ;; ("daytoday" ,(list (nerd-icons-mdicon "local_grocery_store" :height 1.2)) nil nil :ascent center)
+   ;; ("feedback" ,(list (nerd-icons-mdicon "loop" :height 1.2)) nil nil :ascent center)
+   ;; ;; Things that get excluded from the list of purpose
+   ;; ("events" ,(list (nerd-icons-mdicon "event" :height 1.2)) nil nil :ascent center)
+   ;; ("inbox" ,(list (nerd-icons-mdicon "check_box" :height 1.2)) nil nil :ascent center)
+   ;; ("necessity" ,(list (nerd-icons-mdicon "hourglass_full" :height 1.2)) nil nil :ascent center)
+   ;;
+   ;; ("office" ,(list (nerd-icons-mdicon "work" :height 1.2)) nil nil :ascent center)
+   ;; ("mundane" ,(list (nerd-icons-mdicon "weekend" :height 1.2)) nil nil :ascent center)
+   ;; ("emacs" ,(list (nerd-icons-mdicon "format_paint" :height 1.2)) nil nil :ascent center)
+   ;; ("tinker" ,(list (nerd-icons-mdicon "build" :height 1.2)) nil nil :ascent center)
+   ;; ("freelance" ,(list (nerd-icons-mdicon "redeem" :height 1.2)) nil nil :ascent center)
+   ;; ("book" ,(list (nerd-icons-mdicon "book" :height 1.2)) nil nil :ascent center)
+   ))
+
+(customize-set-value
+ 'org-fancy-priorities-list
+ `(
+   (?A ,(concat " " (nerd-icons-mdicon "nf-md-pulse" :height 1.2) " "))
+   (?B ,(concat " " (nerd-icons-mdicon "nf-md-telescope" :height 1.2) " "))
+   (?C ,(concat " " (nerd-icons-mdicon "nf-md-fire" :height 1.2) " "))
+   (?D ,(concat " " (nerd-icons-mdicon "nf-md-database_search_outline" :height 1.2) " "))
+   ))
+
+(customize-set-value
+ 'org-priority-faces
+ `(
+   (?A . (:foreground "red" :weight bold))
+   (?B . (:foreground "green" :weight bold))
+   (?C . (:foreground "tomato"))
+   (?D . (:foreground "orange"))
+   ))
+#+END_SRC
 
 ** Org Defaults
 All file definitions and defaults go here.
