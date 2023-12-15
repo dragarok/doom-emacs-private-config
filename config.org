@@ -99,7 +99,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
 (setq project-resources-dir (concat nextcloud-dir "projects/"))
 (setq org-directory (expand-file-name "~/Nextcloud/org/"))
-(setq! elfeed-score-file "~/Nextcloud/org/elfeed/elfeed-score.el")
 
 (setq! citar-bibliography '("~/Nextcloud/org/references.bib"))
 (setq! citar-notes-paths '(org-roam-directory))
@@ -142,12 +141,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
       '((org-someday-file :maxlevel . 1)
         (org-agenda-files :maxlevel . 3)))
 #+END_SRC
-** Elfeed Defaults
-
-#+begin_src elisp
-(setq rmh-elfeed-org-files (list "~/Nextcloud/org/elfeed/elfeed.org"))
-#+end_src
-
 ** Bookmarks
 #+begin_src elisp
 (setq bookmark-default-file "~/.doom.d/bookmarks")
@@ -661,36 +654,6 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
   (call-interactively '+vterm/here))
 #+end_src
 
-** Wallabag
-
-#+begin_src elisp
-(use-package wallabag
-  :defer t
-  :config
-  (setq wallabag-host "http://localhost:1702") ;; wallabag server host name
-  (setq wallabag-username "wallabag") ;; username
-  (setq wallabag-password "Onlypeace") ;; password
-  (setq wallabag-clientid "1_i7vxaa7qbc0kkcwcgsos4og8w4kwo8w8w44ooogk8kocc8440") ;; created with API clients management
-  (setq wallabag-secret "1mnsj6pk7fok0oscg8ogk88kco0ks8swc888gso0w0s0k4owg0") ;; created with API clients management
-  )
-;;;###autoload
-(defun copy-link-for-kindle ()
-  (interactive)
-  (elfeed-show-yank)
-  (wallabag-add-entry (car kill-ring) "elfeed")
-  )
-#+end_src
-
-
-*** Get twitter thread to threader and to wallabag
-
-#+begin_src emacs-lisp
-(defun add-thread-to-wallabag()
-  (interactive)
-  (wallabag-add-entry
-   (concat "https://threadreaderapp.com/search?q=" (url-hexify-string (car kill-ring))) "twitterthread"))
-#+end_src
-
 ** Nepali Romanized Layout
 
 #+BEGIN_SRC elisp
@@ -741,58 +704,6 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
                    :height 140
                    :italic t)))
   )
-#+end_src
-** Elfeed
-*** Elfeed Tube
-
-#+begin_src elisp
-(use-package elfeed-tube
-  :after elfeed
-  :demand t
-  :config
-  (elfeed-tube-setup)
-
-  :bind (:map elfeed-show-mode-map
-         ("F" . elfeed-tube-fetch)
-         ([remap save-buffer] . elfeed-tube-save)
-         :map elfeed-search-mode-map
-         ("F" . elfeed-tube-fetch)
-         )
-  )
-
-(use-package elfeed-tube-mpv
-  :after elfeed
-  :bind (:map elfeed-show-mode-map
-              ("C-c m" . elfeed-tube-mpv)
-              ("C-c f" . elfeed-tube-mpv-follow-mode)
-              ("C-c w" . elfeed-tube-mpv-where)))
-#+end_src
-*** Elfeed Note Taking
-
-#+begin_src elisp
-(defun elfeed-link-title (entry)
-  "Copy the entry title and URL as org link to the clipboard."
-  (interactive)
-  (let* ((link (elfeed-entry-link entry))
-         (title (elfeed-entry-title entry))
-         (titlelink (org-make-link-string link title)))
-    (when titlelink
-      (kill-new titlelink)
-      (x-set-selection 'PRIMARY titlelink)
-      (message "Yanked: %s" titlelink))))
-
-(defun elfeed-show-link-title ()
-  "Copy the current entry title and URL as org link to the clipboard."
-  (interactive)
-  (elfeed-link-title elfeed-show-entry))
-
-(defun add-elfeed-show-to-inbox ()
-  "Fastest way to capture entry link to org agenda from elfeed show mode"
-  (interactive)
-  (elfeed-link-title elfeed-show-entry)
-  (org-capture nil "E")
-  (yank)
-  (org-capture-finalize))
 #+end_src
 ** Copilot
 
@@ -1834,31 +1745,32 @@ ease of use.
 #+BEGIN_SRC elisp
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
-(bind-key "H-f" 'evil-window-vsplit)
-(bind-key "H-F" 'evil-window-split)
-(bind-key "H-t" '+my/vterm-run-project)
-(bind-key "H-q" '+workspace/close-window-or-workspace)
-(bind-key "H-w" '+workspace/load)
-(bind-key "H-a" '+vertico/switch-workspace-buffer)
-(bind-key "H-S" 'consult-ripgrep)
-(bind-key "H-d" 'projectile-find-dir-other-window)
-(bind-key "H-s" '+vertico/switch-workspace-buffer-other-window)
-(bind-key "H-z" 'consult-recent-file)
-(bind-key "H-x" 'consult-buffer)
-(bind-key "H-e" 'org-roam-dailies-find-today)
-(bind-key "H-E" 'org-roam-dailies-find-tomorrow)
-;; (bind-key "H-a" '+ivy/switch-workspace-buffer)
-(bind-key "H-1" 'winum-select-window-1)
-(bind-key "H-2" 'winum-select-window-2)
-(bind-key "H-3" 'winum-select-window-3)
-(bind-key "H-4" 'winum-select-window-4)
-(bind-key "H-5" 'winum-select-window-5)
+(bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-F" 'evil-window-split)
+(bind-key "C-M-s-t" '+my/vterm-run-project)
+(bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
+(bind-key "C-M-s-l" '+workspace/load)
+(bind-key "C-M-s-a" '+vertico/switch-workspace-buffer)
+(bind-key "C-M-s-S" 'consult-ripgrep)
+(bind-key "C-M-s-d" 'projectile-find-dir-other-window)
+(bind-key "C-M-s-s" '+vertico/switch-workspace-buffer-other-window)
+(bind-key "C-M-s-z" 'consult-recent-file)
+(bind-key "C-M-s-x" 'consult-buffer)
+(bind-key "C-M-s-e" 'org-roam-dailies-find-today)
+(bind-key "C-M-s-E" 'org-roam-dailies-find-tomorrow)
+(bind-key "C-M-s-SPC" 'insert-org-roam-link)
+;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
+(bind-key "C-M-s-!" 'winum-select-window-1)
+(bind-key "C-M-s-@" 'winum-select-window-2)
+(bind-key "C-M-s-#" 'winum-select-window-3)
+(bind-key "C-M-s-$" 'winum-select-window-4)
+(bind-key "C-M-s-%" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
-(bind-key "H-k" 'scroll-other-window-down)
-(bind-key "H-j" 'scroll-other-window)
+(bind-key "C-M-s-r" 'scroll-other-window-down)
+(bind-key "C-M-s-w" 'scroll-other-window)
 (bind-key "<f5>" 'switch-dark-mode)
-(bind-key "H-<return>" 'newline-and-indent)
-(bind-key "H-c" #'doom/toggle-comment-region-or-line)
+(bind-key "C-M-s-<return>" 'newline-and-indent)
+(bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
 (map! :leader
       :n ">" #'projectile-find-dir
       (:prefix "e"
@@ -2016,79 +1928,6 @@ TODO Use them only inside org mode
       scihub-download-directory "~/pdfs"
       scihub-open-after-download nil)
 #+END_SRC
-** Org heading with elfeedurl to org roam with properties
-
-#+begin_src elisp
-;;;###autoload
-(defun elfeed-inbox-to-org-roam-node ()
-  "Create an Org-roam note from the current headline and jump to it."
-  (interactive)
-  (let ((title "")
-        (url "")
-        (node nil)
-        (elfeedurl "")
-        (filetag ""))
-    (if (org-in-regexp org-link-bracket-re 1)
-        (if (match-end 2)
-            (setq title (match-string-no-properties 2)
-                  url (buffer-substring-no-properties (match-beginning 0) (match-end 0)))
-          (setq title (org-link-unescape (match-string-no-properties 1))
-                url "")))
-    (setq node (org-roam-node-read title))
-    (if (cl-search "youtube.com" url)
-        (setq filetag (list "youtube" "video"))
-      (setq filetag (list "article")))
-    (setq elfeedurl (car (org--property-local-values "ELFEED_URL" nil)) )
-    (if (org-roam-node-file node)
-        (message"Skipping %s, node already exists" title)
-      (org-roam-capture- :node node
-                         :keys "d"
-                         )
-
-      (org-entry-put (point-min) "REF_URL" url)
-      (org-entry-put (point-min) "REF_ELFEED" elfeedurl)
-      (org-roam-tag-add filetag)
-      (org-capture-finalize nil)
-      ;; (kill-whole-line)
-      ;; (org-capture-finalize nil)
-      )))
-#+end_src
-** Elfeed url to org heading without org roam
-
-#+begin_src elisp
-(defun elfeed-inbox-to-org-heading ()
-  "Create an Org-roam note from the current headline and jump to it."
-  (interactive)
-  (let ((title "")
-        (url "")
-        (node nil)
-        (elfeedurl "")
-        (filetag ""))
-    (if (org-in-regexp org-link-bracket-re 1)
-        (if (match-end 2)
-            (setq title (match-string-no-properties 2)
-                  url (match-string-no-properties 1))
-          (setq title (org-link-unescape (match-string-no-properties 1))
-                url "")))
-    (+org/remove-link)
-    (org-set-property "REF_URL" url)
-    (if (cl-search "youtube.com" url)
-        (setq filetag (list "youtube" "video"))
-      (setq filetag (list "article")))
-    (org-copy-subtree)
-    (org-paste-subtree)
-    (org-todo "")
-    (setq noteid (org-id-get-create))
-    (setq notelink (format "[[id:%s][%s]]" noteid title))
-    (org-roam-refile)
-    (org-set-property "REF_ROAM" notelink)
-    ;; (org-entry-put (point-min) "REF_URL" url)
-    ;; (org-entry-put (point-min) "REF_ELFEED" elfeedurl)
-    ;; (org-roam-tag-add filetag)
-    ;; (kill-whole-line)
-    ;; (org-capture-finalize nil)
-    ))
-#+end_src
 * Org Mode
 
 ** Org MRU Clock
@@ -2340,16 +2179,6 @@ the inbox.  Set it as a waiting action and refile to
                          '("l" "Link Capture" entry (file (concat org-directory "extra/links.org"))
                           "* TODO [[%^{link}][%^{description}]]"
                            :immediate-finish t)))
-
-(after! org (add-to-list 'org-capture-templates
-                         '("E" "Elfeed Show Task" entry
-                           (file org-inbox-file)
-                           "* TODO %?
-:PROPERTIES:
-:CREATED:    %U
-:ELFEED_URL: %a
-:END:")))
-
 
 (after! org (add-to-list 'org-capture-templates
                          '("h" "Clip Link Capture" entry (file (concat org-directory "extra/links.org"))
