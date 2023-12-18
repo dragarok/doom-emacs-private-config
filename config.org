@@ -2472,7 +2472,7 @@ SCHEDULED: %t
                            (:title "Ritual" :match "+ritual" :budget "0:40" :blocks (day week))
                            (:title "Entertainment" :match "+entertainment" :budget "10:00" :blocks (day week))
                            (:title "Guitar" :match "+music" :budget "3:00" :blocks (day week))
-                           (:title "Exercise" :match "+exercise" :budget "0:20" :blocks (day))
+                           (:title "Exercise" :match "+exercise" :budget "1:45" :blocks (day week))
                            (:title "Coding" :match "+code" :budget "40:00" :blocks (nil week))
                            (:title "Reading" :match "+book" :budget "3:00" :blocks (nil week))
                            (:title "Yollo" :match "+personal+code" :budget "20:00" :blocks (nil week))
@@ -4034,6 +4034,35 @@ structure changes."
   :config
   (global-org-modern-mode)
 )
+#+end_src
+* Bookmarks
+
+#+begin_src elisp
+;;; Taken from https://xenodium.com/building-your-own-bookmark-launcher/
+;;;###autoload
+(defun browser-bookmarks (org-file)
+  "Return all links from ORG-FILE."
+  (with-temp-buffer
+    (let (links)
+      (insert-file-contents org-file)
+      (org-mode)
+      (org-element-map (org-element-parse-buffer) 'link
+        (lambda (link)
+          (let* ((raw-link (org-element-property :raw-link link))
+                 (content (org-element-contents link))
+                 (title (substring-no-properties (or (seq-first content) raw-link))))
+            (push (concat title
+                          "\n\n"
+                          (propertize raw-link 'face 'whitespace-space)
+                          "\n\n")
+                  links)))
+        nil nil 'link)
+      (seq-sort 'string-greaterp links))))
+
+;;;###autoload
+(defun open-bookmark ()
+  (interactive)
+  (browse-url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 1)))
 #+end_src
 
 * Deprecated
