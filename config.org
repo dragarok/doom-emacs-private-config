@@ -4026,6 +4026,37 @@ structure changes."
         )
   )
 #+end_src
+* Speedy note taking
+
+** Copy quote with title into the quote
+
+#+begin_src emacs-lisp
+(defun my-org-append-title-to-quote-at-point-and-copy ()
+  "Append the Org file title within the quote block at point and copy it to clipboard."
+  (interactive)
+  ;; Find the beginning and end of the quote block at the current point
+  (let ((begin-quote (save-excursion
+                       (and (re-search-backward "^#\\+begin_quote" nil t)
+                            (match-beginning 0))))
+        (end-quote (save-excursion
+                     (and (re-search-forward "^#\\+end_quote" nil t)
+                          (match-end 0)))))
+    ;; Ensure the point is within a quote block
+    (when (and begin-quote end-quote (> end-quote (point)))
+      ;; Find and store the title of the Org file
+      (let* (title
+             (quote-block (buffer-substring-no-properties begin-quote end-quote)))
+        (save-excursion
+          (goto-char (point-min))
+          (setq title (if (re-search-forward "^#\\+title: \\(.*\\)$" nil t)
+                          (match-string 1)
+                        "Untitled")))
+        ;; Insert the title inside the quote block
+        (setq quote-block (replace-regexp-in-string "^#\\+end_quote" (concat "-- " title "\n#+end_quote") quote-block))
+        ;; Copy to clipboard
+        (kill-new quote-block)
+        (message "Quote with title copied to clipboard")))))
+#+end_src
 * New Additions
 
 #+begin_src elisp
