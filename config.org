@@ -1901,6 +1901,8 @@ ease of use.
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
+(bind-key "C-M-s-h" 'evil-avy-goto-char-2)
 (bind-key "C-M-s-v" 'consult-flymake)
 (bind-key "<f5>" 'powerthesaurus-transient)
 (bind-key "C-M-s-p" 'evil-window-split)
@@ -2006,6 +2008,8 @@ ease of use.
        :n "d" #'scimax-dired/body)
       )
 #+END_SRC
+
+
 ** Jupyter Ob Keybindings
 #+BEGIN_SRC elisp
 (after! org
