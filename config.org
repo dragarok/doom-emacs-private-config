@@ -683,7 +683,55 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
 
 #+begin_src elisp
 (after! org
-  (require 'org-books))
+  (require 'org-books)
+  (setq org-books-file-depth 0)
+  (setq org-books-genre-tag-associations '(("Fiction" . "Fiction")
+                                           ("Nonfiction" . "Nonfiction")
+                                           ("Science Fiction" . "Scifi")
+                                           ("Classics" . "Classics")
+                                           ("Poetry" . "Poetry")
+                                           ("Drama" . "Drama")
+                                           ("Comedy" . "Comedy")
+                                           ("Action" . "Action")
+                                           ("Adventure" . "Adventure")
+                                           ("Computer Science" . "ComputerScience")
+                                           ("Engineering" . "Engineering")
+                                           ("Fantasy" . "Fantasy")
+                                           ("Mystery" . "Mystery")
+                                           ("Thriller" . "Thriller")
+                                           ("Design" . "Design")
+                                           ("Business" . "Business")
+                                           ("Productivity" . "Productivity")
+                                           ("Adult" . "Adult")
+                                           ("Horror" . "Horror")
+                                           ("Romance" . "Romance")
+                                           ("Historical" . "Historical")
+                                           ("Reference" . "Reference")
+                                           ("Writing" . "Writing")
+                                           ("Biography" . "Biography")
+                                           ("Autobiography" . "Autobiography")
+                                           ("Memoir" . "Memoir")
+                                           ("History" . "History")
+                                           ("Science" . "Science")
+                                           ("Self Help" . "SelfHelp")
+                                           ("Business" . "Business")
+                                           ("Psychology" . "Psychology")
+                                           ("Philosophy" . "Philosophy")
+                                           ("Religion" . "Religion")
+                                           ("Politics" . "Politics")
+                                           ("Economics" . "Economics")
+                                           ("Art" . "Art")
+                                           ("Music" . "Music")
+                                           ("Cooking" . "Cooking")
+                                           ("Travel" . "Travel")
+                                           ("Humor" . "Humor")
+                                           ("Poetry" . "Poetry")
+                                           ("Short Stories" . "ShortStories")
+                                           ("Comics" . "Comics")
+                                           ("Graphic Novels" . "GraphicNovels")
+                                           ("Children's" . "Children")
+                                           ("Young Adult" . "YoungAdult")
+                                           ("Other" . "Other"))))
 #+end_src
 ** Org Transclusion
 
@@ -1266,6 +1314,37 @@ See `pdf-links-action-perform' for the interface."
 #+begin_src elisp
 (after! org
   (setq org-hugo-base-dir "~/workspace/personalblog/"))
+#+end_src
+** Book set tags
+
+#+begin_src elisp
+;; (setq my-book-genres '("Fantasy" "Science Fiction" "Mystery" "Thriller"
+;;                        "Romance" "Historical" "Non-Fiction" "Biography"
+;;                        "Self-Help" "Children's" "Young Adult"))
+
+;; Assuming `org-books-genre-tag-associations` is defined as you provided
+
+(defun set-book-genres ()
+  "Set book genre tags on the current Org-mode heading."
+  (interactive)
+  ;; Ensure we are in an Org buffer
+  (unless (derived-mode-p 'org-mode)
+    (error "Not in an Org-mode buffer"))
+
+  ;; Extract just the keys (genres) from the association list
+  (let* ((genre-keys (mapcar 'car org-books-genre-tag-associations))
+         (selected-genres (completing-read-multiple
+                           "Select genres (use comma to separate): "
+                           genre-keys nil t))
+         ;; Look up the full tag for each selected genre
+         (full-tags (mapcar (lambda (genre)
+                              (cdr (assoc genre org-books-genre-tag-associations)))
+                            selected-genres))
+         ;; Join the full tags with colons, as required by `org-set-tags'
+         (genres-str (mapconcat 'identity full-tags ":")))
+
+    ;; Set the genres as tags on the current heading
+    (org-set-tags genres-str)))
 #+end_src
 
 * My own configurations
