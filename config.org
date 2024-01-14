@@ -1419,14 +1419,14 @@ from .dir-locals.el"
 (defun now ()
   "Insert string for the current time formatted like '2:34 PM'."
   (interactive)
-  (insert (format-time-string "%D %-I:%M %p")))
+  (insert (format-time-string "[%D %-I:%M %p]")))
 ;; 04/29/21 3:08 pm
 
 (defun today ()
   "Insert string for today's date nicely formatted in American style,
 e.g. Sunday, September 17, 2000."
   (interactive)
-  (insert (format-time-string "<%Y-%m-%d %a %e>")))
+  (insert (format-time-string "[%Y-%m-%d %a]")))
 ;; Thu, April 29, 2021
 ;; Thursday, April 29, 2021
 ;; <2021-04-29 Thu, April 29>
@@ -1437,11 +1437,11 @@ e.g. Sunday, September 17, 2000."
 
 (defun date-string ()
   (interactive)
-  (format-time-string  "<%Y-%m-%d %a %-H:%M>" nil t))
+  (format-time-string  "[%Y-%m-%d %a %-H:%M]" nil t))
 
 (defun now-string ()
   (interactive)
-  (format-time-string  "%Y-%m-%d %-H:%M|Z" nil t))
+  (format-time-string  "[%Y-%m-%d %-H:%M|Z]" nil t))
 
 #+end_src
 ** Box Comments
@@ -1886,6 +1886,11 @@ selected, then the current line."
     (jethro/bulk-process-entries))
   )
 #+END_SRC
+** Saveplace disable
+#+begin_src emacs-lisp
+(use-package! saveplace-pdf-view
+  :disabled t)
+#+end_src
 
 * Keybindings
 I use Super key to operate any operation that I use more frequently. Also, some
@@ -1896,6 +1901,7 @@ ease of use.
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-v" 'consult-flymake)
 (bind-key "<f5>" 'powerthesaurus-transient)
 (bind-key "C-M-s-p" 'evil-window-split)
 (bind-key "C-M-s-t" '+my/vterm-run-project)
@@ -1923,10 +1929,9 @@ ease of use.
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
 (map! :leader
       :n ">" #'projectile-find-dir
-      (:prefix "e"
-       :n "e" #'ace-window
-       :n "u" #'swiper-all
-       :n "l" #'my/last-captured-org-note)
+      :n "[" #'+vertico/consult-fd
+      :n "]" #'+default/org-notes-search
+      :n "e" #'+default/compile
       (:prefix "o"
        :n "U" #'elfeed
        :n "s" #'org-open-at-point
@@ -2273,9 +2278,9 @@ the inbox.  Set it as a waiting action and refile to
   (setq org-todo-keywords
         '((sequence "TODO(t)" "NEXT(n)" "ACTIVE(a)" "REVISE(y)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
           (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "SUMMARISE(s)" "|" "DONE(d!/!)")
-          (sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
-          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
-          (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
+          (sequence "SOMEDAY(f@/!)" "|" "CANCELED(c@/!)")
+          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELED(c@/!)")
+          (sequence "WAITING(w@/!)" "|" "CANCELED(c@/!)")))
 
   (setq org-log-state-notes-insert-after-drawers nil
         org-log-into-drawer t
@@ -4024,7 +4029,7 @@ structure changes."
                 (format "Prepare local buffer environment for org source block (%s)."
                         (upcase ,lang))))))))
 (defvar org-babel-lang-list
-  '("go" "python" "ipython" "bash" "sh"))
+  '("python" "ipython" "bash" "sh"))
 (dolist (lang org-babel-lang-list)
   (eval `(lsp-org-babel-enable ,lang)))
 #+end_src
