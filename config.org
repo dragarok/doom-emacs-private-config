@@ -4111,6 +4111,51 @@ structure changes."
         )
   )
 #+end_src
+** Energy Log throughout the day
+
+#+begin_src emacs-lisp
+(defvar my-log-energy-active nil
+  "Flag to indicate whether the energy logging prompt is active.")
+
+(defvar my-log-energy-timer nil
+  "Timer for scheduling the energy logging prompt.")
+
+(defun my-log-energy ()
+  "Prompt for an energy level and log it with timestamp to a CSV file."
+  (interactive)
+  ;; Cancel the existing timer
+  (when my-log-energy-timer
+    (cancel-timer my-log-energy-timer)
+    (setq my-log-energy-timer nil))
+  ;; Check if the prompt is already active, if so, exit the function
+  (if my-log-energy-active
+      (message "Energy level prompt already active.")
+    ;; If the prompt is not active, proceed and set the flag to true
+    (setq my-log-energy-active t)
+    (unwind-protect
+        ;; Protected block
+        (let* ((energy-levels '("1" "2" "3" "4" "5" "6" "7" "8" "9" "10"))
+               ;; Prompt the user for an energy level
+               (energy (consult--read energy-levels
+                                      :prompt "What is your energy level? "
+                                      :require-match t))
+               ;; Get the current timestamp
+               (timestamp (format-time-string "%Y-%m-%d %H:%M:%S")))
+          ;; Check if a value was entered
+          (when energy
+            ;; Write to a CSV file
+            (with-temp-buffer
+              (insert (format "%s,%s\n" timestamp energy))
+              ;; Change the path to your desired CSV file location
+              (append-to-file (point-min) (point-max) (concat 'org-lookbacks-directory "emotion_log.csv")))))
+      ;; Cleanup code: Reset the flag and reschedule the timer
+      (setq my-log-energy-active nil)
+      (setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy)))))
+
+;; Initialize the first prompt
+(setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy))
+#+end_src
+
 * Speedy note taking
 
 ** Copy quote with title into the quote
