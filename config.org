@@ -6717,3 +6717,18 @@ Version 2015-07-30"
 (custom-set-faces!
  '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
 #+END_SRC
+
+** Treesitter emacs 30
+
+#+begin_src emacs-lisp
+(setq treesit-extra-load-path '("~/.config/treesitter/"))
+(add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode))
+(add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
+(add-to-list 'major-mode-remap-alist '(sh-mode . bash-ts-mode))
+(add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
+(add-to-list 'major-mode-remap-alist '(yaml-mode . yaml-ts-mode))
+(add-to-list 'major-mode-remap-alist '(toml-mode . toml-ts-mode))
+(add-to-list 'major-mode-remap-alist '(json-mode . json-ts-mode))
+(add-to-list 'major-mode-remap-alist '(html-mode . html-ts-mode))
+(add-to-list 'major-mode-remap-alist '(js-mode . js-ts-mode))
+#+end_src
