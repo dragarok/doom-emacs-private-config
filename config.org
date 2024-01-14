@@ -189,6 +189,9 @@ Set local leader to comma for ease of use.
   (setq evil-ex-substitute-global t
         evil-move-cursor-back nil
         evil-kill-on-visual-paste nil))
+(after! evil-snipe (evil-snipe-mode -1))
+(map! :nv "s" #'evil-avy-goto-char-2)
+
 #+end_src
 ** Set monday as starting date
 
