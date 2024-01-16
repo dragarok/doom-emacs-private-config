@@ -91,12 +91,13 @@
 
        :checkers
        (syntax              ; tasing you for every semicolon you forget
-        +flymake
+        ;; +flymake
         +childframe)
        (spell
-        +enchant
+        +aspell
+        ;; +enchant
         ) ; tasing you for misspelling mispelling
-       grammar           ; tasing grammar mistake every you make
+       ;; grammar           ; tasing grammar mistake every you make
 
        :tools
        ;;ansible
