@@ -189,6 +189,9 @@ Set local leader to comma for ease of use.
   (setq evil-ex-substitute-global t
         evil-move-cursor-back nil
         evil-kill-on-visual-paste nil))
+(after! evil-snipe (evil-snipe-mode -1))
+(map! :nv "s" #'evil-avy-goto-char-2)
+
 #+end_src
 ** Set monday as starting date
 
@@ -683,7 +686,55 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
 
 #+begin_src elisp
 (after! org
-  (require 'org-books))
+  (require 'org-books)
+  (setq org-books-file-depth 0)
+  (setq org-books-genre-tag-associations '(("Fiction" . "Fiction")
+                                           ("Nonfiction" . "Nonfiction")
+                                           ("Science Fiction" . "Scifi")
+                                           ("Classics" . "Classics")
+                                           ("Poetry" . "Poetry")
+                                           ("Drama" . "Drama")
+                                           ("Comedy" . "Comedy")
+                                           ("Action" . "Action")
+                                           ("Adventure" . "Adventure")
+                                           ("Computer Science" . "ComputerScience")
+                                           ("Engineering" . "Engineering")
+                                           ("Fantasy" . "Fantasy")
+                                           ("Mystery" . "Mystery")
+                                           ("Thriller" . "Thriller")
+                                           ("Design" . "Design")
+                                           ("Business" . "Business")
+                                           ("Productivity" . "Productivity")
+                                           ("Adult" . "Adult")
+                                           ("Horror" . "Horror")
+                                           ("Romance" . "Romance")
+                                           ("Historical" . "Historical")
+                                           ("Reference" . "Reference")
+                                           ("Writing" . "Writing")
+                                           ("Biography" . "Biography")
+                                           ("Autobiography" . "Autobiography")
+                                           ("Memoir" . "Memoir")
+                                           ("History" . "History")
+                                           ("Science" . "Science")
+                                           ("Self Help" . "SelfHelp")
+                                           ("Business" . "Business")
+                                           ("Psychology" . "Psychology")
+                                           ("Philosophy" . "Philosophy")
+                                           ("Religion" . "Religion")
+                                           ("Politics" . "Politics")
+                                           ("Economics" . "Economics")
+                                           ("Art" . "Art")
+                                           ("Music" . "Music")
+                                           ("Cooking" . "Cooking")
+                                           ("Travel" . "Travel")
+                                           ("Humor" . "Humor")
+                                           ("Poetry" . "Poetry")
+                                           ("Short Stories" . "ShortStories")
+                                           ("Comics" . "Comics")
+                                           ("Graphic Novels" . "GraphicNovels")
+                                           ("Children's" . "Children")
+                                           ("Young Adult" . "YoungAdult")
+                                           ("Other" . "Other"))))
 #+end_src
 ** Org Transclusion
 
@@ -1267,6 +1318,37 @@ See `pdf-links-action-perform' for the interface."
 (after! org
   (setq org-hugo-base-dir "~/workspace/personalblog/"))
 #+end_src
+** Book set tags
+
+#+begin_src elisp
+;; (setq my-book-genres '("Fantasy" "Science Fiction" "Mystery" "Thriller"
+;;                        "Romance" "Historical" "Non-Fiction" "Biography"
+;;                        "Self-Help" "Children's" "Young Adult"))
+
+;; Assuming `org-books-genre-tag-associations` is defined as you provided
+
+(defun set-book-genres ()
+  "Set book genre tags on the current Org-mode heading."
+  (interactive)
+  ;; Ensure we are in an Org buffer
+  (unless (derived-mode-p 'org-mode)
+    (error "Not in an Org-mode buffer"))
+
+  ;; Extract just the keys (genres) from the association list
+  (let* ((genre-keys (mapcar 'car org-books-genre-tag-associations))
+         (selected-genres (completing-read-multiple
+                           "Select genres (use comma to separate): "
+                           genre-keys nil t))
+         ;; Look up the full tag for each selected genre
+         (full-tags (mapcar (lambda (genre)
+                              (cdr (assoc genre org-books-genre-tag-associations)))
+                            selected-genres))
+         ;; Join the full tags with colons, as required by `org-set-tags'
+         (genres-str (mapconcat 'identity full-tags ":")))
+
+    ;; Set the genres as tags on the current heading
+    (org-set-tags genres-str)))
+#+end_src
 
 * My own configurations
 ** Create ML Projects
@@ -1340,14 +1422,14 @@ from .dir-locals.el"
 (defun now ()
   "Insert string for the current time formatted like '2:34 PM'."
   (interactive)
-  (insert (format-time-string "%D %-I:%M %p")))
+  (insert (format-time-string "[%D %-I:%M %p]")))
 ;; 04/29/21 3:08 pm
 
 (defun today ()
   "Insert string for today's date nicely formatted in American style,
 e.g. Sunday, September 17, 2000."
   (interactive)
-  (insert (format-time-string "<%Y-%m-%d %a %e>")))
+  (insert (format-time-string "[%Y-%m-%d %a]")))
 ;; Thu, April 29, 2021
 ;; Thursday, April 29, 2021
 ;; <2021-04-29 Thu, April 29>
@@ -1358,11 +1440,11 @@ e.g. Sunday, September 17, 2000."
 
 (defun date-string ()
   (interactive)
-  (format-time-string  "<%Y-%m-%d %a %-H:%M>" nil t))
+  (format-time-string  "[%Y-%m-%d %a %-H:%M]" nil t))
 
 (defun now-string ()
   (interactive)
-  (format-time-string  "%Y-%m-%d %-H:%M|Z" nil t))
+  (format-time-string  "[%Y-%m-%d %-H:%M|Z]" nil t))
 
 #+end_src
 ** Box Comments
@@ -1807,6 +1889,11 @@ selected, then the current line."
     (jethro/bulk-process-entries))
   )
 #+END_SRC
+** Saveplace disable
+#+begin_src emacs-lisp
+(use-package! saveplace-pdf-view
+  :disabled t)
+#+end_src
 
 * Keybindings
 I use Super key to operate any operation that I use more frequently. Also, some
@@ -1817,6 +1904,9 @@ ease of use.
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
+(bind-key "C-M-s-h" 'evil-avy-goto-char-2)
+(bind-key "C-M-s-v" 'consult-flymake)
 (bind-key "<f5>" 'powerthesaurus-transient)
 (bind-key "C-M-s-p" 'evil-window-split)
 (bind-key "C-M-s-a" 'open-bookmark)
@@ -1845,10 +1935,9 @@ ease of use.
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
 (map! :leader
       :n ">" #'projectile-find-dir
-      (:prefix "e"
-       :n "e" #'ace-window
-       :n "u" #'swiper-all
-       :n "l" #'my/last-captured-org-note)
+      :n "[" #'+vertico/consult-fd
+      :n "]" #'+default/org-notes-search
+      :n "e" #'+default/compile
       (:prefix "o"
        :n "U" #'elfeed
        :n "s" #'org-open-at-point
@@ -1923,6 +2012,8 @@ ease of use.
        :n "d" #'scimax-dired/body)
       )
 #+END_SRC
+
+
 ** Jupyter Ob Keybindings
 #+BEGIN_SRC elisp
 (after! org
@@ -2195,9 +2286,9 @@ the inbox.  Set it as a waiting action and refile to
   (setq org-todo-keywords
         '((sequence "TODO(t)" "NEXT(n)" "ACTIVE(a)" "REVISE(y)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
           (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "SUMMARISE(s)" "|" "DONE(d!/!)")
-          (sequence "SOMEDAY(f@/!)" "|" "CANCELLED(c@/!)")
-          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELLED(c@/!)")
-          (sequence "WAITING(w@/!)" "|" "CANCELLED(c@/!)")))
+          (sequence "SOMEDAY(f@/!)" "|" "CANCELED(c@/!)")
+          (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELED(c@/!)")
+          (sequence "WAITING(w@/!)" "|" "CANCELED(c@/!)")))
 
   (setq org-log-state-notes-insert-after-drawers nil
         org-log-into-drawer t
@@ -3947,7 +4038,7 @@ structure changes."
                 (format "Prepare local buffer environment for org source block (%s)."
                         (upcase ,lang))))))))
 (defvar org-babel-lang-list
-  '("go" "python" "ipython" "bash" "sh"))
+  '("python" "ipython" "bash" "sh"))
 (dolist (lang org-babel-lang-list)
   (eval `(lsp-org-babel-enable ,lang)))
 #+end_src
@@ -4034,6 +4125,51 @@ structure changes."
         )
   )
 #+end_src
+** Energy Log throughout the day
+
+#+begin_src emacs-lisp
+(defvar my-log-energy-active nil
+  "Flag to indicate whether the energy logging prompt is active.")
+
+(defvar my-log-energy-timer nil
+  "Timer for scheduling the energy logging prompt.")
+
+(defun my-log-energy ()
+  "Prompt for an energy level and log it with timestamp to a CSV file."
+  (interactive)
+  ;; Cancel the existing timer
+  (when my-log-energy-timer
+    (cancel-timer my-log-energy-timer)
+    (setq my-log-energy-timer nil))
+  ;; Check if the prompt is already active, if so, exit the function
+  (if my-log-energy-active
+      (message "Energy level prompt already active.")
+    ;; If the prompt is not active, proceed and set the flag to true
+    (setq my-log-energy-active t)
+    (unwind-protect
+        ;; Protected block
+        (let* ((energy-levels '("1" "2" "3" "4" "5" "6" "7" "8" "9" "10"))
+               ;; Prompt the user for an energy level
+               (energy (consult--read energy-levels
+                                      :prompt "What is your energy level? "
+                                      :require-match t))
+               ;; Get the current timestamp
+               (timestamp (format-time-string "%Y-%m-%d %H:%M:%S")))
+          ;; Check if a value was entered
+          (when energy
+            ;; Write to a CSV file
+            (with-temp-buffer
+              (insert (format "%s,%s\n" timestamp energy))
+              ;; Change the path to your desired CSV file location
+              (append-to-file (point-min) (point-max) (concat 'org-lookbacks-directory "emotion_log.csv")))))
+      ;; Cleanup code: Reset the flag and reschedule the timer
+      (setq my-log-energy-active nil)
+      (setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy)))))
+
+;; Initialize the first prompt
+(setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy))
+#+end_src
+
 * Speedy note taking
 
 ** Copy quote with title into the quote
@@ -6720,3 +6856,18 @@ Version 2015-07-30"
 (custom-set-faces!
  '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
 #+END_SRC
+
+** Treesitter emacs 30
+
+#+begin_src emacs-lisp
+(setq treesit-extra-load-path '("~/.config/treesitter/"))
+(add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode))
+(add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
+(add-to-list 'major-mode-remap-alist '(sh-mode . bash-ts-mode))
+(add-to-list 'major-mode-remap-alist '(rust-mode . rust-ts-mode))
+(add-to-list 'major-mode-remap-alist '(yaml-mode . yaml-ts-mode))
+(add-to-list 'major-mode-remap-alist '(toml-mode . toml-ts-mode))
+(add-to-list 'major-mode-remap-alist '(json-mode . json-ts-mode))
+(add-to-list 'major-mode-remap-alist '(html-mode . html-ts-mode))
+(add-to-list 'major-mode-remap-alist '(js-mode . js-ts-mode))
+#+end_src
