@@ -434,7 +434,7 @@ Irritates you every time you get to search for a module. So, ignore these.
   (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
 
 (after! projectile
-  (add-to-list 'projectile-globally-ignored-directories "^.stversions"))
+  (add-to-list 'projectile-globally-ignored-directories "*.stversions"))
 #+end_src
 
 ** Spray
