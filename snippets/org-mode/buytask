@@ -1,14 +1,14 @@
 # -*- mode: snippet -*-
 # name: projtask
 # uuid: projsubtask
-# key: <pt
+# key: <psu
 # condition: t
 # --
 
 ** TODO $1
 :PROPERTIES:
-:TRIGGER: next-sibling scheduled!("++$2") deadline!("++$3") todo!(NEXT)
+:TRIGGER: next-sibling scheduled!("++$2") todo!(NEXT)
 :BLOCKER:  previous-sibling
-:Effort: $4
+:Effort: $3
 :CREATED: `(today)`
 :END:

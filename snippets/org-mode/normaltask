@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: deepworktask
+# uuid: deepworktask
+# key: <tt
+# condition: t
+# --
+
+** TODO $1 :personal:
+   SCHEDULED: <`(org-read-date nil nil nil)`> DEADLINE: <`(org-read-date nil nil nil)`>
+:PROPERTIES:
+:Effort: $2
+:CATEGORY: <`(org-set-property "CATEGORY" nil)`>
+:CREATED: `(today)`
+:END:
