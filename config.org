@@ -38,7 +38,7 @@
           ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
           doom-big-font (font-spec :family "Maple Mono SC NF" :size 25)))
 
-(load-theme 'modus-operandi 'noconfirm)
+(load-theme 'doom-tokyo-night t)
 #+end_src
 
 ** Emacs 29 Good scroll
@@ -431,7 +431,7 @@ Irritates you every time you get to search for a module. So, ignore these.
   (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
 
 (after! projectile
-  (add-to-list 'projectile-globally-ignored-directories "*.stversions"))
+  (add-to-list 'projectile-globally-ignored-directories "^.stversions"))
 #+end_src
 
 ** Spray
@@ -1819,6 +1819,7 @@ ease of use.
 (bind-key "C-M-s-f" 'evil-window-vsplit)
 (bind-key "<f5>" 'powerthesaurus-transient)
 (bind-key "C-M-s-p" 'evil-window-split)
+(bind-key "C-M-s-a" 'open-bookmark)
 (bind-key "C-M-s-t" '+my/vterm-run-project)
 (bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
 (bind-key "C-M-s-l" '+workspace/load)
@@ -2387,23 +2388,24 @@ SCHEDULED: %t
   (add-to-list 'org-capture-templates
                '("rw" "Weekly Review" entry
                  (file+olp+datetree org-weeklyreview-file)
-                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate.org") :tree-type week)))
+                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate.org") :jump-to-captured t :tree-type week)))
 
 (after! org
   (add-to-list 'org-capture-templates
                '("rm" "Monthly Review" entry
                  (file+olp+datetree org-monthlyreview-file)
-                 (file "~/Nextcloud/org/templates/monthlyreviewtemplate.org") :tree-type month)))
+                 (file "~/Nextcloud/org/templates/monthlyreviewtemplate.org") :jump-to-captured t :tree-type month)))
 
 (after! org
   (add-to-list 'org-capture-templates
                '("rq" "Quarterly Review" entry
                  (file+olp+datetree org-quarterlyreview-file)
-                 (file "~/Nextcloud/org/templates/quarterlyreviewtemplate.org") :tree-type quarter)))
+                 (file "~/Nextcloud/org/templates/quarterlyreviewtemplate.org") :jump-to-captured t :tree-type quarter)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("rd" "Daily Review" entry (file+olp+datetree org-dailyreview-file)
-                           (file "~/Nextcloud/org/templates/dailyreviewtemplate.org"))))
+                           (file "~/Nextcloud/org/templates/dailyreviewtemplate.org")
+                           :jump-to-captured t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        REVIEW TEMPLATES DONE                                                    ;;
@@ -4099,7 +4101,8 @@ structure changes."
 ;;;###autoload
 (defun open-bookmark ()
   (interactive)
-  (browse-url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 1)))
+  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
+    (browse-url-firefox url)))
 #+end_src
 
 * Deprecated
