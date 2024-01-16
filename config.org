@@ -4161,7 +4161,7 @@ structure changes."
             (with-temp-buffer
               (insert (format "%s,%s\n" timestamp energy))
               ;; Change the path to your desired CSV file location
-              (append-to-file (point-min) (point-max) (concat 'org-lookbacks-directory "emotion_log.csv")))))
+              (append-to-file (point-min) (point-max) (concat org-lookbacks-directory "emotion_log.csv")))))
       ;; Cleanup code: Reset the flag and reschedule the timer
       (setq my-log-energy-active nil)
       (setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy)))))
