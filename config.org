@@ -4210,6 +4210,20 @@ structure changes."
   (global-org-modern-mode)
 )
 #+end_src
+* Gptel
+
+#+begin_src emacs-lisp
+(use-package! gptel
+  :config
+  (gptel-make-ollama
+   "Ollama"                               ;Any name of your choosing
+   :host "localhost:11434"                ;Where it's running
+   :models '("codellama:latest")            ;Installed models
+   :stream t)                             ;Stream responses
+  )
+
+#+end_src
+
 * Bookmarks
 
 #+begin_src elisp
