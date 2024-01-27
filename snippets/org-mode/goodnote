@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: deepworktask
+# uuid: deepworktask
+# key: gnote
+# condition: t
+# --
+
+* Questions
+** Why do I want to save the idea?
+$1
+** Where did I get the idea from?
+$2
+** What did it provoke in me as a thought?
+$3
+** Where does it relate to what I already have?
+$4
+** Is this a complete thought by itself?
+$5
