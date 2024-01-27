@@ -4210,6 +4210,107 @@ structure changes."
   (global-org-modern-mode)
 )
 #+end_src
+* Additional Functionalities
+
+#+begin_src emacs-lisp
+(defun my/delete-image-and-next ()
+  "Move to the next image and delete the previous one."
+  (interactive)
+  (let ((previous-file (buffer-file-name)))
+    ;; First, check if we are in image mode and there is a next image.
+    (if (and (eq major-mode 'image-mode) (image-next-file 1))
+        (progn
+          ;; After moving to next image, delete the previous file.
+          (when previous-file
+            (delete-file previous-file)
+            (message "Deleted file %s" previous-file)))
+      (message "No next image found, or not in image mode."))))
+
+(defun my/read-filename-and-tags ()
+  "Read new filename and tags from the user."
+  (let ((filename (read-string "Enter new filename: "))
+        (tags (read-string "Enter tags (comma-separated): ")))
+    (list filename tags)))
+
+
+(defvar my-image-index-file (concat org-directory "imageindex.csv"))
+(defvar my-image-processed-dir "~/PicturesShared/Processed/")
+
+(setq my-image-tags '("personal" "work" "meditation" "books" "research"
+                      "learningnote" "todo" "meme" "dance" "music" "movie"
+                      "wise" "quote" "money" "health" "food" "travel" "nature"
+                      "design" "art" "gif" "funny" "tech" "reference" "favorite"
+                      "strange" "party" "qr" "raw" "wallpaper" "memory" ))
+
+
+(defun set-image-tags-and-rename-and-next ()
+  "Set tags for the current image, rename the file using the first tag, move it to the processed directory, save details to an image index file, and then move to the next unprocessed image."
+  (interactive)
+  ;; Ensure we are in an image buffer
+  (unless (eq major-mode 'image-mode)
+    (error "Not in an image-mode buffer"))
+
+  (let* ((file (buffer-file-name))
+         (selected-tags (completing-read-multiple
+                         "Select tags (use comma to separate): "
+                         my-image-tags nil t))
+         (extension (file-name-extension file))
+         (first-tag (car selected-tags))
+         (new-base-name (replace-regexp-in-string " " "_" (file-name-base file)))
+         (new-name (concat (if first-tag
+                               (concat first-tag "--" new-base-name)
+                             new-base-name)
+                           "." extension))
+         (processed-path (expand-file-name new-name my-image-processed-dir))
+         (index-entry (format "%s,%s\n" processed-path (string-join selected-tags ","))))
+
+    ;; Perform the rename operation
+    (when file
+      (evil-save file t)
+      (rename-file file processed-path)
+      ;; Add entry to the image index file
+      (with-temp-buffer
+        (insert index-entry)
+        (append-to-file (point-min) (point-max) my-image-index-file))
+      (message "Moved and renamed file to %s and updated index with tags: %s" processed-path (string-join selected-tags ", ")))
+
+    ;; Move to the next image
+    (my/delete-image-and-next)))
+
+
+(defun my/crop-save-tags-rename-and-next ()
+  "Crop the current image, save it with the same name, set tags, rename the file using the first tag, move it to the processed directory, save details to an image index file, and then move to the next unprocessed image."
+  (interactive)
+  ;; Ensure we are in an image buffer
+  (unless (eq major-mode 'image-mode)
+    (error "Not in an image-mode buffer"))
+
+  ;; Crop the image
+  (image-crop)
+
+  ;; for some reason image save cannot happen without few escapes
+  (execute-kbd-macro (kbd "ESC ESC ESC"))
+  ;; Save the cropped image using the same filename
+  (let ((file (buffer-file-name)))
+    (when file
+      (my/save-cropped-image file)))
+  (revert-buffer t t)
+  ;; Set tags, rename and move to the processed directory
+  (set-image-tags-and-rename-and-next))
+
+(defun my/save-cropped-image (filename)
+  "Save the current buffer's image to FILENAME."
+  (interactive "F")
+  (let ((image (image-get-display-property)))
+    (when image
+      (let ((data (plist-get (cdr image) :data)))
+        (unless data
+          (error "No image data available"))
+        (with-temp-file filename
+          (insert data))
+        (message "Image saved to %s" filename)))))
+#+end_src
+
 * Gptel
 
 #+begin_src emacs-lisp
