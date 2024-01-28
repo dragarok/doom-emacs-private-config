@@ -1724,12 +1724,6 @@ Otherwise, it begins with ## and is indented accordingly."
 
 #+end_src
 
-** Kill image after viewing it
-
-#+begin_src emacs-lisp
-(map! :map image-mode-map
-      :nvm "q" #'image-kill-buffer)
-#+end_src
 * Independent Functions
 ** SmartParens Go to Matching Paren
 
@@ -4213,6 +4207,7 @@ structure changes."
 * Additional Functionalities
 
 #+begin_src emacs-lisp
+
 (defun my/delete-image-and-next ()
   "Move to the next image and delete the previous one."
   (interactive)
@@ -4242,6 +4237,26 @@ structure changes."
                       "design" "art" "gif" "funny" "tech" "reference" "favorite"
                       "strange" "party" "qr" "raw" "wallpaper" "memory" ))
 
+(defun read-tags-from-csv (csv-file)
+  "Read tags from a CSV file, print them with counts to the message buffer, and return a frequency-sorted list of tags."
+  (let ((tag-counts (make-hash-table :test 'equal)))
+    (with-temp-buffer
+      (insert-file-contents csv-file)
+      (while (not (eobp))
+        (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+               (elements (split-string line "," t))
+               (tags (cdr elements)))  ; Skip the first element (filename)
+          (dolist (tag tags)
+            (puthash tag (1+ (gethash tag tag-counts 0)) tag-counts)))
+        (forward-line 1)))
+    (let ((sorted-tags (sort (hash-table-keys tag-counts)
+                             (lambda (a b) (> (gethash a tag-counts) (gethash b tag-counts))))))
+      ;; ;; Print tags and counts
+      ;; (maphash (lambda (key value)
+      ;;            (message "%s: %d" key value))
+      ;;          tag-counts)
+      ;; Return the sorted tags list
+      (append sorted-tags my-image-tags))))
 
 (defun set-image-tags-and-rename-and-next ()
   "Set tags for the current image, rename the file using the first tag, move it to the processed directory, save details to an image index file, and then move to the next unprocessed image."
@@ -4251,18 +4266,19 @@ structure changes."
     (error "Not in an image-mode buffer"))
 
   (let* ((file (buffer-file-name))
+         (all-tags (read-tags-from-csv my-image-index-file))
          (selected-tags (completing-read-multiple
                          "Select tags (use comma to separate): "
-                         my-image-tags nil t))
+                         all-tags nil t))
          (extension (file-name-extension file))
          (first-tag (car selected-tags))
-         (new-base-name (replace-regexp-in-string " " "_" (file-name-base file)))
+         (new-base-name (replace-regexp-in-string "[ ,]" "_" (file-name-base file)))
          (new-name (concat (if first-tag
                                (concat first-tag "--" new-base-name)
                              new-base-name)
                            "." extension))
          (processed-path (expand-file-name new-name my-image-processed-dir))
-         (index-entry (format "%s,%s\n" processed-path (string-join selected-tags ","))))
+         (index-entry (format "%s,%s\n" processed-path (string-join selected-tags ", "))))
 
     ;; Perform the rename operation
     (when file
@@ -4276,7 +4292,6 @@ structure changes."
 
     ;; Move to the next image
     (my/delete-image-and-next)))
-
 
 (defun my/crop-save-tags-rename-and-next ()
   "Crop the current image, save it with the same name, set tags, rename the file using the first tag, move it to the processed directory, save details to an image index file, and then move to the next unprocessed image."
@@ -4309,6 +4324,17 @@ structure changes."
         (with-temp-file filename
           (insert data))
         (message "Image saved to %s" filename)))))
+
+(map! :map image-mode-map
+      :nvm "q" #'image-kill-buffer
+      :nvm "c" #'my/crop-save-tags-rename-and-next
+      :nvm "d" #'my/delete-image-and-next
+      :nvm "e" #'set-image-tags-and-rename-and-next
+      :nvm "C-j" #'image-next-line
+      :nvm "C-k" #'image-previous-line
+      :nvm "j" #'image-next-file
+      :nvm "k" #'image-previous-file
+      )
 #+end_src
 
 * Gptel
