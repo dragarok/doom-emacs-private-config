@@ -73,6 +73,7 @@
 
        :emacs
        (dired             ; making dired pretty [functional]
+        ;; +ranger
         +dirvish
         )
        electric          ; smarter, keyword-based electric-indent
