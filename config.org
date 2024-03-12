@@ -148,8 +148,8 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
     )
 
 (setq org-refile-targets
-      '((org-someday-file :maxlevel . 1)
-        (org-agenda-files :maxlevel . 3)))
+      '((org-agenda-files :maxlevel . 3)
+        (org-someday-file :maxlevel . 1)))
 #+END_SRC
 ** Buffers
 
