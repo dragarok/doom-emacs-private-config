@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: inbox
+# uuid: inbox-new-task
+# key: <ii
+# condition: t
+# --
+* TODO ${1:taskname}
+:PROPERTIES:
+:CREATED:    `(format-time-string "[%Y-%m-%d %a %H:%M]")`
+:END:
+$0
