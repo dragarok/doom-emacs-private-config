@@ -1832,6 +1832,18 @@ selected, then the current line."
   (add-hook 'org-after-todo-state-change-hook #'log-todo-next-creation-date)
 
 ;;;###autoload
+(defun process-inbox-item ()
+  (interactive "")
+  (org-set-tags-command)
+  (org-set-property "CATEGORY" nil)
+  (org-priority)
+  (call-interactively 'org-schedule)
+  (call-interactively 'org-deadline)
+  (org-set-property "Effort" nil)
+  (call-interactively 'org-refile)
+  )
+
+;;;###autoload
   (defun jethro/org-agenda-process-inbox-item ()
     "Process a single item in the org-agenda."
     (org-with-wide-buffer
@@ -1898,7 +1910,10 @@ ease of use.
 (global-set-key (kbd "C-c o") 'bh/make-org-scratch)
 (global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
 (bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-b" 'consult-yank-from-kill-ring)
+(bind-key "C-M-s-s" 'my/org-roam-dailies-goto-start-of-week)
 (bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
+(bind-key "C-M-s-w" 'process-inbox-item)
 (bind-key "C-M-s-h" 'evil-avy-goto-char-2)
 (bind-key "C-M-s-v" 'consult-flymake)
 (bind-key "<f5>" 'powerthesaurus-transient)
@@ -2095,7 +2110,8 @@ TODO Use them only inside org mode
 (use-package! org-mru-clock
   :after org
   :config
-  (setq org-mru-clock-how-many 40)
+  (require 'embark)
+  (setq org-mru-clock-how-many 20)
   (add-hook 'minibuffer-setup-hook #'org-mru-clock-embark-minibuffer-hook)
   )
 
@@ -2169,7 +2185,33 @@ TODO Use them only inside org mode
    (?C . (:foreground "tomato"))
    (?D . (:foreground "orange"))
    ))
+
+(after! org
+  (setq my-org-categories '("Inbox" "Events" "ToTheMoon" "ToImprove" "Hobby" "Fitness" "Normal" "Mundane" "Celebration" "EHP"))
+  (defun my-select-org-category (&rest args)
+    (completing-read "CATEGORY value: " my-org-categories))
+  (add-to-list 'org-property-set-functions-alist
+               '("CATEGORY" . my-select-org-category))
+  )
 #+END_SRC
+
+** Set default for categories and effort estimates
+
+#+begin_src emacs-lisp
+
+(after! org
+  (setq my-org-categories '("Inbox" "Events" "ToTheMoon" "ToImprove" "Hobby" "Fitness" "Normal" "Mundane" "Celebration" "EHP"))
+  (defun my-select-org-category (&rest args)
+    (completing-read "CATEGORY value: " my-org-categories))
+  (defun my-select-org-effort (&rest args)
+    (completing-read "Effort value: " '("0:10" "0:15" "0:30" "0:45" "1:00" "1:30" "2:00" "3:00" "5:00" "10:00")))
+  (add-to-list 'org-property-set-functions-alist
+               '("CATEGORY" . my-select-org-category))
+  (add-to-list 'org-property-set-functions-alist
+               '("Effort" . my-select-org-effort))
+  )
+
+#+end_src
 
 ** Org Defaults
 All file definitions and defaults go here.
@@ -2341,6 +2383,13 @@ the inbox.  Set it as a waiting action and refile to
                         ;; ("listen" . ?L)
                         (:endgroup . nil)
 
+                        ;; place context
+                        (:startgroup . nil)
+                        ("Desk". ?d)
+                        ("Couch". ?b)
+                        ("Outdoors". ?o)
+                        (:endgroup . nil)
+
                         ;; Difficulty of work
                         (:startgroup . nil)
                         ("Challenge" . ?1)
@@ -2353,13 +2402,14 @@ the inbox.  Set it as a waiting action and refile to
                         ("Morning" . ?4)
                         ("Day" . ?5)
                         ("Evening" . ?6)
+                        ("Anytime" .?7)
                         (:endgroup . nil)
 
                         ;; Motivation required for this work
                         (:startgroup . nil)
-                        ("Lazy" . ?7)
-                        ("ModeratelyLazy" . ?8)
-                        ("Energetic" . ?9)
+                        ("Lazy" . ?8)
+                        ("ModeratelyLazy" . ?9)
+                        ("Energetic" . ?0)
                         (:endgroup . nil)
                         ))
 
@@ -3130,6 +3180,22 @@ the second element is the other tags."
   )
 
 #+END_SRC
+
+*** Org roam dailies goto start of week
+
+#+begin_src emacs-lisp
+(after! org
+  (defun my/org-roam-dailies-goto-start-of-week ()
+    "Go to the Org-roam daily for the first day (Monday) of the current week."
+    (interactive)
+    (let* ((today (current-time))
+           (weekday (format-time-string "%u" today)) ; %u is day of week [1,7] where Monday is 1
+           (days-to-subtract (% (- (string-to-number weekday) 1) 7))
+           (start-of-week (time-subtract today (days-to-time days-to-subtract))))
+      (org-roam-dailies--capture start-of-week t)))
+  )
+
+#+end_src
 
 *** Org Roam UI
 #+begin_src elisp
