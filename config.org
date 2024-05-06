@@ -4195,12 +4195,12 @@ structure changes."
   :config
 
   (setq org-modern-priority-faces '(
-                                    (?A . (:foreground "OrangeRed3" :background "" :weight bold))
-                                    (?B . (:foreground "red" :background "" :weight bold))
-                                    (?C . (:foreground "tomato" :background "" :weight bold ))
-                                    (?D . (:foreground "DarkCyan" :background "" :weight bold ))
-                                    (?E . (:foreground "SeaGreen1" :background "" :weight bold ))
-                                    (?F . (:foreground "green" :background "" :weight bold ))))
+                                    (?A . (:foreground "white" :background "red" :weight bold))
+                                    (?B . (:foreground "white" :background "OrangeRed3" :weight bold))
+                                    (?C . (:foreground "white" :background "tomato" :weight bold))
+                                    (?D . (:foreground "black" :background "yellow3" :weight bold ))
+                                    (?E . (:foreground "white" :background "green4" :weight bold ))
+                                    (?F . (:foreground "black" :background "green" :weight bold ))))
   (global-org-modern-mode)
   )
 #+end_src
