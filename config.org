@@ -138,15 +138,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-yearlyreview-file (concat org-lookbacks-directory "yearlyreview.org"))
 (setq org-roam-logs-file (concat org-logs-directory "notes_log.txt"))
 
-(setq org-download-method 'directory
-    org-download-image-dir "~/Nextcloud/org/org-images/"
-    org-download-heading-lvl nil
-    org-download-delete-image-after-download t
-    org-download-screenshot-method "/usr/share/sway/scripts/grimshot save area %s"
-    org-download-image-org-width 600
-    org-download-annotate-function (lambda (link) "") ;; Don't annotate
-    )
-
 (setq org-refile-targets
       '((org-someday-file :maxlevel . 1)
         (org-agenda-files :maxlevel . 3)))
@@ -2764,7 +2755,7 @@ SCHEDULED: %t
         org-download-image-dir "~/Nextcloud/org/org-images/"
         org-download-heading-lvl nil
         org-download-delete-image-after-download t
-        org-download-screenshot-method "/usr/share/sway/scripts/grimshot save area %s"
+        org-download-screenshot-method "grimshot save area %s"
         org-download-image-org-width 600
         org-download-annotate-function (lambda (link) "") ;; Don't annotate
         )
@@ -2774,7 +2765,7 @@ SCHEDULED: %t
   (setq org-download-link-format "[[file:%s]]\n"
         org-download-abbreviate-filename-function #'file-relative-name)
   (setq org-download-link-format-function #'org-download-link-format-function-default)
-  (org-download-enable)
+  ;; (org-download-enable)
   ;; org-attach method
   (setq-default org-attach-method 'mv
                 org-attach-auto-tag "attach"
@@ -2782,6 +2773,8 @@ SCHEDULED: %t
   )
 (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 #+END_SRC
+
+
 ** Org Roam
 *** V2 Node Display
 
@@ -4155,7 +4148,6 @@ structure changes."
 ;; Initialize the first prompt
 (setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy))
 #+end_src
-
 * Speedy note taking
 
 ** Copy quote with title into the quote
