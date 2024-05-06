@@ -727,41 +727,6 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
                                            ("Young Adult" . "YoungAdult")
                                            ("Other" . "Other"))))
 #+end_src
-** Org Transclusion
-
-#+begin_src emacs-lisp
-(use-package! org-transclusion
-              :after org
-              :init
-              (map!
-               :map global-map "<f8>" #'org-transclusion-add
-               :leader
-               :prefix "n"
-               :desc "Org Transclusion Mode" "T" #'org-transclusion-mode))
-#+end_src
-** Org Remark
-
-#+begin_src emacs-lisp
-(after! org
-  (org-remark-global-tracking-mode +1)
-
-  ;; Optional if you would like to highlight websites via eww-mode
-  (with-eval-after-load 'eww
-    (org-remark-eww-mode +1))
-  ;; Key-bind `org-remark-mark' to global-map so that you can call it
-  ;; globally before the library is loaded.
-
-  (define-key global-map (kbd "C-c n m") #'org-remark-mark)
-
-  ;; The rest of keybidings are done only on loading `org-remark'
-  (with-eval-after-load 'org-remark
-    (define-key org-remark-mode-map (kbd "C-c n o") #'org-remark-open)
-    (define-key org-remark-mode-map (kbd "C-c n ]") #'org-remark-view-next)
-    (define-key org-remark-mode-map (kbd "C-c n [") #'org-remark-view-prev)
-    (define-key org-remark-mode-map (kbd "C-c n r") #'org-remark-remove))
-  )
-#+end_src
-
 ** Org Noter
 
 #+begin_src elisp
@@ -2138,16 +2103,6 @@ TODO Use them only inside org mode
          ))
 
 
-;; (setq! org-fancy-priorities-list
-;;        `(
-;;          (?A ,(concat " " (nerd-icons-mdicon "nf-md-alpha_a_box_outline" :height 1.2) " "))
-;;          (?B ,(concat " " (nerd-icons-mdicon "nf-md-alpha_b_box_outline" :height 1.2) " "))
-;;          (?C ,(concat " " (nerd-icons-mdicon "nf-md-alpha_c_box_outline" :height 1.2) " "))
-;;          (?D ,(concat " " (nerd-icons-mdicon "nf-md-alpha_d_box_outline" :height 1.2) " "))
-;;          (?E ,(concat " " (nerd-icons-mdicon "nf-md-alpha_e_box_outline" :height 1.2) " "))
-;;          (?F ,(concat " " (nerd-icons-mdicon "nf-md-alpha_f_box_outline" :height 1.2) " "))
-;;          ))
-
 ;; (customize-set-value
 ;;  'org-priority-faces
 ;;  `(
@@ -2885,7 +2840,7 @@ the second element is the other tags."
                             (concat
                              (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'nerd-icons-dgreen :v-adjust 0.02)) " "
                              (propertize (string-join othertags ", ") 'face 'nerd-icons-dgreen)))))
-      (format " %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str ""))))
+      (format " %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str ""))))
 
   (setq org-roam-node-display-template
         (concat  "${fullformat}"))
@@ -2906,9 +2861,6 @@ the second element is the other tags."
           :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
   )
 #+end_src
-
-#+RESULTS:
-: org-roam-alias-remove
 
 *** Org Roam Buffer Sections
 
@@ -6927,5 +6879,40 @@ Version 2015-07-30"
   (setq org-priority-default 69
         org-priority-highest 65
         org-priority-lowest 70)
+  )
+#+end_src
+
+** Org Transclusion
+
+#+begin_src emacs-lisp
+(use-package! org-transclusion
+              :after org
+              :init
+              (map!
+               :map global-map "<f8>" #'org-transclusion-add
+               :leader
+               :prefix "n"
+               :desc "Org Transclusion Mode" "T" #'org-transclusion-mode))
+#+end_src
+** Org Remark
+
+#+begin_src emacs-lisp
+(after! org
+  (org-remark-global-tracking-mode +1)
+
+  ;; Optional if you would like to highlight websites via eww-mode
+  (with-eval-after-load 'eww
+    (org-remark-eww-mode +1))
+  ;; Key-bind `org-remark-mark' to global-map so that you can call it
+  ;; globally before the library is loaded.
+
+  (define-key global-map (kbd "C-c n m") #'org-remark-mark)
+
+  ;; The rest of keybidings are done only on loading `org-remark'
+  (with-eval-after-load 'org-remark
+    (define-key org-remark-mode-map (kbd "C-c n o") #'org-remark-open)
+    (define-key org-remark-mode-map (kbd "C-c n ]") #'org-remark-view-next)
+    (define-key org-remark-mode-map (kbd "C-c n [") #'org-remark-view-prev)
+    (define-key org-remark-mode-map (kbd "C-c n r") #'org-remark-remove))
   )
 #+end_src
