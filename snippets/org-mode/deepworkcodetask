@@ -1,15 +1,14 @@
 # -*- mode: snippet -*-
-# name: deepworktask
-# uuid: deepworktask
+# name: deepworkcodetask
+# uuid: deepworkcodetask
 # key: <dc
 # condition: t
 # --
 
-** TODO $1 :deepwork:code:work:Active:Day:Energetic:
+* TODO $1 :deepwork:code:work:Active:Day:Energetic:
    SCHEDULED: <`(org-read-date nil nil nil)`>
 :PROPERTIES:
-:TRIGGER: next-sibling scheduled!("++$2") deadline!("++$3") todo!(NEXT)
-:BLOCKER:  previous-sibling
 :Effort: $4
 :CREATED: `(today)`
+:CATEGORY: `(org-set-property "CATEGORY" nil)`
 :END:

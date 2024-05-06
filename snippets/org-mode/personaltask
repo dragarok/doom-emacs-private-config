@@ -1,11 +1,10 @@
 # -*- mode: snippet -*-
-# name: deepworktask
-# uuid: deepworktask
-# key: <tt
+# name: personaltask
+# uuid: personaltask
+# key: <pt
 # condition: t
 # --
-
-** TODO $1 :personal:
+* TODO $1 :personal:
    SCHEDULED: <`(org-read-date nil nil nil)`> DEADLINE: <`(org-read-date nil nil nil)`>
 :PROPERTIES:
 :Effort: $2
