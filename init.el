@@ -30,6 +30,9 @@
        (vertico
         +childframe
         +icons)        ; the search engine of the future
+       (corfu
+        +icons
+        +orderless)
 
        :ui
        ;;deft              ; notational velocity for Emacs
@@ -76,6 +79,7 @@
 
        :emacs
        (dired             ; making dired pretty [functional]
+        ;; +ranger
         +dirvish
         )
        electric          ; smarter, keyword-based electric-indent
