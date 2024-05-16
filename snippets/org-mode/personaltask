@@ -4,7 +4,7 @@
 # key: <pt
 # condition: t
 # --
-* TODO $1 :personal:
+* TODO $1 :plain:personal:Active:Average:Day:ModeratelyLazy:
    SCHEDULED: <`(org-read-date nil nil nil)`> DEADLINE: <`(org-read-date nil nil nil)`>
 :PROPERTIES:
 :CATEGORY: <`(org-set-property "CATEGORY" nil)`>

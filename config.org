@@ -1269,7 +1269,7 @@ See `pdf-links-action-perform' for the interface."
 
 #+begin_src elisp
 (after! org
-  (setq org-hugo-base-dir "~/workspace/personalblog/"))
+  (setq org-hugo-base-dir "~/workspace/personal/personalblog/"))
 #+end_src
 ** Book set tags
 

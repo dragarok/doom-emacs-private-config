@@ -5,10 +5,10 @@
 # condition: t
 # --
 
-* TODO $1 :deepwork:code:work:Active:Day:Energetic:
-   SCHEDULED: <`(org-read-date nil nil nil)`>
+* TODO $1 :deepwork:code:work:Active:Average:Day:ModeratelyLazy:
+   SCHEDULED: <`(org-read-date nil nil nil)`> DEADLINE: <`(org-read-date nil nil nil)`>
 :PROPERTIES:
 :Effort: $4
 :CREATED: `(today)`
-:CATEGORY: `(org-set-property "CATEGORY" nil)`
+:CATEGORY: <`(org-set-property "CATEGORY" nil)`>
 :END:

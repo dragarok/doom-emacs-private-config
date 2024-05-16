@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: ehpcodetask
+# uuid: ehpcodetask
+# key: <et
+# condition: t
+# --
+
+* TODO $1 :code:work:Average:Active:Day:ModeratelyLazy:
+   SCHEDULED: <`(org-read-date nil nil nil)`> DEADLINE: <`(org-read-date nil nil nil)`>
+:PROPERTIES:
+:Effort: $2
+:CREATED: `(today)`
+:CATEGORY: EHP
+:END:

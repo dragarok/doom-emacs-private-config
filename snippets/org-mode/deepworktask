@@ -5,7 +5,7 @@
 # condition: t
 # --
 
-* TODO $1 :deepwork:work:Active:Day:Energetic:
+* TODO $1 :deepwork:plain:work:Active:Average:Day:ModeratelyLazy:
    SCHEDULED: `(today)`
 :PROPERTIES:
 :Effort: $2

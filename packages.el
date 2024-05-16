@@ -213,3 +213,4 @@
   :recipe (:host github :repo "dragarok/org-time-budgets" :branch "cl-lib")) ;; budgeting on tasks
 (package! orgmdb)
 (package! gptel)
+(unpin! org)
