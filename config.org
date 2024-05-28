@@ -1492,11 +1492,20 @@ Otherwise, it begins with ## and is indented accordingly."
 
 (setq org-roam-autoread-max-words 500)
 (setq org-roam-autoread-enabled t)
+
 (defun org-roam-autoread-mode-check ()
-  (if (and org-roam-autoread-enabled (eq major-mode 'org-mode) (string-prefix-p org-roam-directory buffer-file-name) (< org-roam-autoread-max-words (buffer-count-words)))
+  (if (and org-roam-autoread-enabled
+           (eq major-mode 'org-mode)
+           (string-prefix-p org-roam-directory buffer-file-name)
+           (< org-roam-autoread-max-words (buffer-count-words))
+           (not (or (string-prefix-p "ln_" (file-name-nondirectory buffer-file-name))
+                    (string-prefix-p "br_" (file-name-nondirectory buffer-file-name))
+                    (string-prefix-p "private_" (file-name-nondirectory buffer-file-name)))))
       (read-only-mode)))
+
 (add-hook 'after-save-hook #'org-roam-autoread-mode-check)
 #+end_src
+
 ** Org roam set tags
 
 #+begin_src elisp
