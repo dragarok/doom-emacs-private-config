@@ -1494,11 +1494,20 @@ Otherwise, it begins with ## and is indented accordingly."
 
 (setq org-roam-autoread-max-words 500)
 (setq org-roam-autoread-enabled t)
+
 (defun org-roam-autoread-mode-check ()
-  (if (and org-roam-autoread-enabled (eq major-mode 'org-mode) (string-prefix-p org-roam-directory buffer-file-name) (< org-roam-autoread-max-words (buffer-count-words)))
+  (if (and org-roam-autoread-enabled
+           (eq major-mode 'org-mode)
+           (string-prefix-p org-roam-directory buffer-file-name)
+           (< org-roam-autoread-max-words (buffer-count-words))
+           (not (or (string-prefix-p "ln_" (file-name-nondirectory buffer-file-name))
+                    (string-prefix-p "br_" (file-name-nondirectory buffer-file-name))
+                    (string-prefix-p "private_" (file-name-nondirectory buffer-file-name)))))
       (read-only-mode)))
+
 (add-hook 'after-save-hook #'org-roam-autoread-mode-check)
 #+end_src
+
 ** Org roam set tags
 
 #+begin_src elisp
@@ -2513,17 +2522,17 @@ SCHEDULED: %t
   )
 (after! org
   (require 'org-time-budgets)
-  (setq org-time-budgets '((:title "EHP" :match "+work" :budget "40:00" :blocks (workday week))
+  (setq org-time-budgets '((:title "EHP" :match "+work" :budget "30:00" :blocks (workday week))
                            (:title "EHP Deep Work" :match "+work+deepwork" :budget "13:00" :blocks (workday week))
-                           (:title "Meditation" :match "+meditation" :budget "10:00" :blocks (day week))
-                           (:title "Review" :match "+review" :budget "1:00" :blocks (day week))
-                           (:title "Ritual" :match "+ritual" :budget "0:40" :blocks (day week))
+                           (:title "Meditation" :match "+meditation" :budget "5:00" :blocks (day week))
+                           (:title "Review" :match "+review" :budget "0:30" :blocks (day week))
+                           (:title "Ritual" :match "+ritual" :budget "0:30" :blocks (day week))
                            (:title "Entertainment" :match "+entertainment" :budget "10:00" :blocks (day week))
-                           (:title "Guitar" :match "+music" :budget "3:00" :blocks (day week))
+                           (:title "Guitar" :match "+music" :budget "6:00" :blocks (day week))
                            (:title "Exercise" :match "+exercise" :budget "1:45" :blocks (day week))
                            (:title "Coding" :match "+code" :budget "40:00" :blocks (nil week))
-                           (:title "Reading" :match "+book" :budget "3:00" :blocks (nil week))
-                           (:title "Yollo" :match "+personal+code" :budget "20:00" :blocks (nil week))
+                           (:title "Reading" :match "+book" :budget "4:00" :blocks (nil week))
+                           ;; (:title "Yollo" :match "+personal+code" :budget "20:00" :blocks (nil week))
                            ))
   )
 #+END_SRC
