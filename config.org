@@ -854,6 +854,8 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
         org-priority-default 69
         org-priority-highest 65
         org-priority-lowest 70
+        ;; org-habit-show-habits nil
+        +org-habit-min-width 180
         )
 
   ;; (global-org-modern-mode)
