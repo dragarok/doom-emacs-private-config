@@ -357,6 +357,17 @@ Set local leader to comma for ease of use.
     )
   )
 #+end_src
+*** Dired listing switch map
+
+#+begin_src emacs-lisp
+;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
+;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
+;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
+(map! (:after dirvish
+       :map dirvish-mode-map
+       :n "p" #'dirvish-ls-switches-menu
+       :n "P" #'dired-mark-empty-dirs))
+#+end_src
 
 ** Eshell Aliases for Ease of Use
 
