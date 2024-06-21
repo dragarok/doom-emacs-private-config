@@ -30,10 +30,10 @@
           doom-big-font (font-spec :family "mononoki" :size 20))
   )
 (if IS-LINUX
-    (setq doom-font (font-spec :family "Maple Mono SC NF" :size 18)
-          doom-variable-pitch-font (font-spec :family "FantasqueSansMono Nerd Font" :size 18)
+    (setq doom-font (font-spec :family "Maple Mono SC NF" :size 19)
+          doom-variable-pitch-font (font-spec :family "RobotoMono Nerd Font" :size 19)
           ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-          doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 18)
+          doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 19)
           ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
           ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
           doom-big-font (font-spec :family "Maple Mono SC NF" :size 25)))
@@ -145,7 +145,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ** Buffers
 
 #+BEGIN_SRC elisp
-(setq doom-scratch-buffer-major-mode t)
 (setq show-trailing-whitespace t)
 #+END_SRC
 
@@ -1780,21 +1779,6 @@ selected, then the current line."
     (while (outline-previous-heading)
       (when (org-entry-is-done-p)))))
 #+END_SRC
-** Make org scratch buffer
-
-#+BEGIN_SRC elisp
-;;;###autoload
-(defun bh/make-org-scratch ()
-  (interactive)
-  (find-file "/tmp/publish/scratch.org")
-  (gnus-make-directory "/tmp/publish"))
-
-;;;###autoload
-(defun bh/switch-to-scratch ()
-  (interactive)
-  (switch-to-buffer "*scratch*"))
-#+END_SRC
-
 ** Jethro Kuan's Agenda Specific Code
 
 #+BEGIN_SRC elisp
@@ -1870,37 +1854,41 @@ keybindings are used such that they were previously not used by doom emacs for
 ease of use.
 ** General
 #+BEGIN_SRC elisp
-(global-set-key (kbd "C-c o") 'bh/make-org-scratch)
-(global-set-key (kbd "C-c s") 'bh/switch-to-scratch)
-(bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-t" 'org-roam-dailies-find-today)
+(bind-key "C-M-s-y" 'org-roam-dailies-find-yesterday)
+(bind-key "C-M-s-u" 'org-roam-dailies-find-tomorrow)
+;; (bind-key "C-M-s-{" 'org-roam-dailies-find-today)
+;; (bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
+;; (bind-key "C-M-s-t" '+my/vterm-run-project)
+;; (bind-key "C-M-s-a" 'open-bookmark)
 (bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
 (bind-key "C-M-s-h" 'evil-avy-goto-char-2)
-(bind-key "C-M-s-v" 'consult-flymake)
+(bind-key "C-M-s-v" 'consult-flycheck)
 (bind-key "<f5>" 'powerthesaurus-transient)
-(bind-key "C-M-s-p" 'evil-window-split)
-(bind-key "C-M-s-a" 'open-bookmark)
-(bind-key "C-M-s-t" '+my/vterm-run-project)
-(bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
-(bind-key "C-M-s-l" '+workspace/load)
-(bind-key "C-M-s-<tab>" '+vertico/switch-workspace-buffer)
-(bind-key "C-M-s-/" 'consult-ripgrep)
-(bind-key "C-M-s-d" 'projectile-find-dir-other-window)
 (bind-key "C-M-s-<return>" '+vertico/switch-workspace-buffer-other-window)
+(bind-key "C-M-s-<iso-lefttab>" '+vertico/switch-workspace-buffer)
+(bind-key "C-M-s-<tab>" '+vertico/switch-workspace-buffer)
+(bind-key "C-M-s-d" 'projectile-find-dir-other-window)
+(bind-key "C-M-s-f" 'evil-window-vsplit)
+(bind-key "C-M-s-p" 'evil-window-split)
+(bind-key "C-M-s-q" 'doom/kill-other-buffers)
+(bind-key "C-M-s-b" 'delete-other-windows)
+(bind-key "C-M-s-l" '+workspace/load)
+(bind-key "C-M-s-/" 'consult-ripgrep)
 (bind-key "C-M-s-z" 'consult-recent-file)
 (bind-key "C-M-s-x" 'consult-buffer)
-(bind-key "C-M-s-{" 'org-roam-dailies-find-today)
-(bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
 (bind-key "C-M-s-!" 'winum-select-window-1)
 (bind-key "C-M-s-@" 'winum-select-window-2)
 (bind-key "C-M-s-#" 'winum-select-window-3)
-(bind-key "C-M-s-$" 'winum-select-window-4)
-(bind-key "C-M-s-%" 'winum-select-window-5)
+;; (bind-key "C-M-s-$" 'winum-select-window-4)
+;; (bind-key "C-M-s-%" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
 (bind-key "C-M-s-j" 'scroll-other-window-down)
 (bind-key "C-M-s-k" 'scroll-other-window)
 (bind-key "C-M-s-:" 'newline-and-indent)
+(bind-key "C-M-s-w" 'basic-save-buffer)
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
 (map! :leader
       :n ">" #'projectile-find-dir
@@ -1981,6 +1969,9 @@ ease of use.
        :n "d" #'scimax-dired/body)
       )
 #+END_SRC
+
+#+RESULTS:
+: scimax-dired/body
 
 
 ** Jupyter Ob Keybindings
@@ -6970,3 +6961,18 @@ Version 2015-07-30"
     (define-key org-remark-mode-map (kbd "C-c n r") #'org-remark-remove))
   )
 #+end_src
+
+** Make org scratch buffer
+
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun bh/make-org-scratch ()
+  (interactive)
+  (find-file "/tmp/publish/scratch.org")
+  (gnus-make-directory "/tmp/publish"))
+
+;;;###autoload
+(defun bh/switch-to-scratch ()
+  (interactive)
+  (switch-to-buffer "*scratch*"))
+#+END_SRC
