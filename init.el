@@ -41,7 +41,7 @@
        ;; doom-quit         ; DOOM quit-message prompts when you quit Emacs
        (emoji +unicode)  ; 🙂
        hl-todo           ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
-       hydra
+       ;; hydra
        indent-guides     ; highlighted indent columns
        (ligatures)
        ;;  +iosevka)
@@ -130,11 +130,11 @@
        pass              ; password manager for nerds
        pdf               ; pdf enhancements
        ;;prodigy           ; FIXME managing external services & code builders
-       rgb               ; creating color strings
+       ;; rgb               ; creating color strings
        ;;taskrunner        ; taskrunner for all your projects
        terraform         ; infrastructure as code
        ;;tmux              ; an API for interacting with tmux
-       tree-sitter
+       ;; tree-sitter
        upload            ; map local to remote projects via ssh/ftp
 
        :os
@@ -174,7 +174,7 @@
        (json)              ; At least it ain't XML
        ;;(java +meghanada) ; the poster child for carpal tunnel syndrome
        (javascript        ; all(hope(abandon(ye(who(enter(here))))))
-        +tree-sitter
+        ;; +tree-sitter
         +lsp)
        ;; (julia             ; a better, faster MATLAB
        ;;  +lsp)
@@ -207,7 +207,7 @@
        ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
-        +tree-sitter
+        ;; +tree-sitter
         +lsp
         +pyright
         +pyenv)
@@ -230,7 +230,7 @@
        ;;swift             ; who asked for emoji variables?
        ;;terra             ; Earth and Moon in alignment for performance.
        (web               ; the tubes
-        +tree-sitter
+        ;; +tree-sitter
         +lsp)
        (yaml              ; JSON, but readable
         +lsp)

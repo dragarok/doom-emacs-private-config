@@ -30,15 +30,15 @@
           doom-big-font (font-spec :family "mononoki" :size 20))
   )
 (if IS-LINUX
-    (setq doom-font (font-spec :family "Maple Mono SC NF" :size 19)
-          doom-variable-pitch-font (font-spec :family "RobotoMono Nerd Font" :size 19)
+    (setq doom-font (font-spec :family "Maple Mono SC NF" :size 13)
+          doom-variable-pitch-font (font-spec :family "Iosevka" :size 13)
           ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-          doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 19)
+          doom-serif-font (font-spec :family "Noto Serif" :size 13)
           ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
           ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-          doom-big-font (font-spec :family "Maple Mono SC NF" :size 25)))
+          doom-big-font (font-spec :family "Maple Mono SC NF" :size 22)))
 
-(load-theme 'doom-tokyo-night t)
+(setq doom-theme 'doom-tokyo-night)
 #+end_src
 
 ** Emacs 29 Good scroll
@@ -356,6 +356,30 @@ Set local leader to comma for ease of use.
     )
   )
 #+end_src
+*** Dired listing switch map
+
+#+begin_src emacs-lisp
+;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
+;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
+;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
+(map! (:after dirvish
+       :map dirvish-mode-map
+       :n "p" #'dirvish-ls-switches-menu
+       :n "P" #'dired-mark-empty-dirs))
+#+end_src
+
+*** Dired listing switch map
+
+#+begin_src emacs-lisp
+;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
+;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
+;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
+(map! (:after dirvish
+       :map dirvish-mode-map
+       :n "p" #'dirvish-ls-switches-menu
+       :n "P" #'dired-mark-empty-dirs))
+#+end_src
+
 *** Dired listing switch map
 
 #+begin_src emacs-lisp
@@ -1877,6 +1901,17 @@ ease of use.
 (bind-key "C-M-s-/" 'consult-ripgrep)
 (bind-key "C-M-s-z" 'consult-recent-file)
 (bind-key "C-M-s-x" 'consult-buffer)
+(bind-key "C-M-s-a" 'open-bookmark)
+(bind-key "C-M-s-t" '+my/vterm-run-project)
+(bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
+(bind-key "C-M-s-l" '+workspace/load)
+(bind-key "C-M-s-/" 'consult-ripgrep)
+(bind-key "C-M-s-d" 'projectile-find-dir-other-window)
+(bind-key "C-M-s-z" 'consult-recent-file)
+(bind-key "C-M-s-x" 'consult-buffer)
+(bind-key "C-M-s-{" 'org-roam-dailies-find-today)
+(bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
+(bind-key "C-M-s-r" 'org-roam-node-find)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
 (bind-key "C-M-s-!" 'winum-select-window-1)
@@ -1885,8 +1920,8 @@ ease of use.
 ;; (bind-key "C-M-s-$" 'winum-select-window-4)
 ;; (bind-key "C-M-s-%" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
-(bind-key "C-M-s-j" 'scroll-other-window-down)
-(bind-key "C-M-s-k" 'scroll-other-window)
+(bind-key "C-M-s-n" 'scroll-other-window-down)
+(bind-key "C-M-s-e" 'scroll-other-window)
 (bind-key "C-M-s-:" 'newline-and-indent)
 (bind-key "C-M-s-w" 'basic-save-buffer)
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
@@ -2207,6 +2242,7 @@ the inbox.  Set it as a waiting action and refile to
 #+BEGIN_SRC elisp
 (after! org
   (setq org-agenda-tags-column 40)
+  (setq org-agenda-buffer-name "kai-agenda")
   (setq org-tags-column 40)
   (setq org-agenda-start-with-log-mode t)
   (setq org-columns-default-format "%40ITEM(Task) %Effort(EE){:} %CLOCKSUM(Time Spent) %SCHEDULED(Scheduled) %DEADLINE(Deadline) %TAGS")
@@ -2533,7 +2569,7 @@ SCHEDULED: %t
                            (:title "Guitar" :match "+music" :budget "6:00" :blocks (day week))
                            (:title "Exercise" :match "+exercise" :budget "1:45" :blocks (day week))
                            (:title "Coding" :match "+code" :budget "40:00" :blocks (nil week))
-                           (:title "Reading" :match "+book" :budget "4:00" :blocks (nil week))
+                           (:title "Reading" :match "+book" :budget "3:00" :blocks (nil week))
                            ;; (:title "Yollo" :match "+personal+code" :budget "20:00" :blocks (nil week))
                            ))
   )
@@ -4369,6 +4405,11 @@ structure changes."
   (interactive)
   (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
     (browse-url-firefox url)))
+#+end_src
+* Treesitter for 29+ on macos
+
+#+begin_src elisp
+(setq! tree-sitter-langs-grammar-dir "~/.tree-sitter/")
 #+end_src
 
 * Deprecated
