@@ -1606,6 +1606,17 @@ Otherwise, it begins with ## and is indented accordingly."
     )
   )
 #+end_src
+
+** Org agenda utility function for keymap
+
+#+begin_src emacs-lisp
+(defun open-main-agenda ()
+  "Opens my main agenda which is at key k"
+  (interactive)
+  (org-agenda "" "k")
+  )
+#+end_src
+
 ** Advanced Project Management ( Reference Note, Resources Dir, Reference URLs )
 :PROPERTIES:
 :ID:       d9aafebf-54c6-4fb6-83ef-0dfd7a108532
@@ -1881,6 +1892,7 @@ ease of use.
 (bind-key "C-M-s-t" 'org-roam-dailies-find-today)
 (bind-key "C-M-s-y" 'org-roam-dailies-find-yesterday)
 (bind-key "C-M-s-u" 'org-roam-dailies-find-tomorrow)
+(bind-key "C-M-s-s" 'open-main-agenda)
 ;; (bind-key "C-M-s-{" 'org-roam-dailies-find-today)
 ;; (bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
 ;; (bind-key "C-M-s-t" '+my/vterm-run-project)
