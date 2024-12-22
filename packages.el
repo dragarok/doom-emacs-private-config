@@ -1,5 +1,6 @@
 ;; Must Have packages
 ;; (package! helm-org-rifle)
+(unpin! magit)
 (package! org-ql)
 (package! org-noter-pdftools)
 ;; useful for parsing web pages
@@ -64,6 +65,7 @@
 (package! org-appear)
 (package! copilot
   :recipe (:host github :repo "zerolfx/copilot.el" :files ("*.el" "dist")))
+(package! copilot-chat)
 ;; (package! elfeed-tube
 ;;   :recipe (:host github :repo "karthink/elfeed-tube"))
 ;; (package! elfeed-tube-mpv
@@ -213,3 +215,29 @@
   :recipe (:host github :repo "dragarok/org-time-budgets" :branch "cl-lib")) ;; budgeting on tasks
 (package! orgmdb)
 (package! gptel)
+;; (package! md-roam
+;;   :recipe (:host github :repo "nobiot/md-roam"))
+;; (package! eat
+;;   :recipe (:host codeberg
+;;            :repo "akib/emacs-eat"
+;;            :files ("*.el" ("term" "term/*.el") "*.texi"
+;;                    "*.ti" ("terminfo/e" "terminfo/e/*")
+;;                    ("terminfo/65" "terminfo/65/*")
+;;                    ("integration" "integration/*")
+;;                    (:exclude ".dir-locals.el" "*-tests.el"))))
+
+;; (package! org-roam-ui :recipe (:host github :repo "org-roam/org-roam-ui" :files ("*.el" "out")))
+
+;; (package! org-node)
+;; (package! org-node-fakeroam)
+;; (package! code-cells)
+(package! hackernews)
+(package! consult-gh)
+(package! consult-gh-embark)
+(package! consult-gh-forge)
+(package! elysium)
+(package! evedel
+  :recipe (:host github :repo "daedsidog/evedel"))
+(package! consult-web
+  :recipe (:host github :repo "armindarvish/consult-web" :files (:defaults "sources/*.el")))
+(package! dwim-shell-command)
