@@ -37,13 +37,34 @@
           ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
           doom-big-font (font-spec :family "Maple Mono SC NF" :size 22)))
 
-(setq doom-theme 'doom-tokyo-night)
+;;; autoload
+(defun my/apply-theme (appearance)
+  "Load theme, taking current system APPEARANCE into consideration."
+  (mapc #'disable-theme custom-enabled-themes)
+  (pcase appearance
+    ('light (load-theme 'doom-tomorrow-day t))
+    ('dark (load-theme 'doom-monokai-pro t))))
+(if IS-MAC
+    (add-hook 'ns-system-appearance-change-functions #'my/apply-theme)
+  (setq doom-theme 'doom-monokai-pro))
 #+end_src
 
 ** Emacs 29 Good scroll
 
 #+begin_src elisp
 (pixel-scroll-precision-mode)
+#+end_src
+
+** Saving text to kill ring emacs even when not pasted anything really
+
+#+begin_src elisp
+(setq save-interprogram-paste-before-kill t)
+#+end_src
+
+** Remove c-i mapped to tab because moving fwd doesn't work when org mode
+For some reason c-i is mapped as tab key so that way org mode will try to use it as org-cycle instead.
+#+begin_src emacs-lisp
+(define-key input-decode-map [?\C-i] [C-i])
 #+end_src
 
 ** Doom Banner
@@ -115,7 +136,7 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 
 (setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
 (setq project-resources-dir (concat nextcloud-dir "projects/"))
-(setq org-roam-directory (concat org-directory "notes"))
+(setq org-roam-directory "~/Nextcloud/org/notes/")
 (setq org-logs-directory (concat org-directory "logs/"))
 (setq org-agenda-directory (concat org-directory "agenda/"))
 (setq org-templates-directory (concat org-directory "templates/"))
@@ -145,6 +166,7 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 
 #+BEGIN_SRC elisp
 (setq show-trailing-whitespace t)
+;; (setq frame-title-format '("Kaimacs - %b\n\n"))
 #+END_SRC
 
 ** Line Numbering
@@ -187,6 +209,14 @@ Set local leader to comma for ease of use.
 #+begin_src emacs-lisp
 (setq calendar-week-start-day 1) ; 0:Sunday, 1:Monday
 #+end_src
+** Dont create new workspace on new client
+
+#+begin_src emacs-lisp
+(after! persp-mode
+  (setq! persp-emacsclient-init-frame-behaviour-override "main")
+  (setq persp-add-buffer-on-after-change-major-mode t)
+  )
+#+end_src
 
 * Popup Rules
 
@@ -211,7 +241,13 @@ Set local leader to comma for ease of use.
 ;;   (set-popup-rule! "*Org clock budget report*" :side 'bottom :size .40 :select t :hslot 2 :ttl 3)
 ;;   (set-popup-rule! "*Python:ob-ipython-py*" :side 'right :size .25 :select t)
 ;;   )
+(after! popup
+  (set-popup-rule! "^\\*Python*" :side 'bottom :height 0.3 :quit nil)
+  (set-popup-rule! "*WordNut*" :side 'bottom :size .40 :select t :vslot 2 :ttl 3)
+  (set-popup-rule! "*Org QL View:*" :side 'right :size 0.3 :select t :quit nil)
+  )
 #+END_SRC
+
 
 * Tools
 
@@ -236,161 +272,6 @@ Set local leader to comma for ease of use.
   (setq counsel-dash-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas"))
   (setq dash-docs-docsets '("Numpy" "SciPy" "R" "Julia" "Python 3" "Matplotlib" "Typescript" "Pandas")))
 #+END_SRC
-** Dired
-*** Mark empty dirs
-
-#+begin_src elisp
-;;;###autoload
-(defun dired-mark-empty-dirs ()
-  "Interactively mark all empty directories in current Dired buffer."
-  (interactive)
-  (when (equal major-mode 'dired-mode)
-    (save-excursion
-      (dired-goto-first)
-      (while (not (eobp))
-        (ignore-errors
-          (when (directory-empty-p (dired-get-filename))
-            (dired-mark 1)
-            (dired-previous-line 1)))
-        (dired-next-line 1)))))
-#+end_src
-
-*** Kill all dired buffers
-
-#+begin_src elisp
-;;;###autoload
-(defun kill-dired-buffers ()
-  (interactive)
-  (mapc (lambda (buffer)
-          (when (eq 'dired-mode (buffer-local-value 'major-mode buffer))
-            (kill-buffer buffer)))
-        (buffer-list)))
-
-#+end_src
-*** Open a playlist in vlc
-#+begin_src elisp
-(require 'dired-aux)
-(defvar dired-filelist-cmd
-  '(("vlc" "-L")))
-(defun dired-start-process (cmd &optional file-list)
-  (interactive
-   (let ((files (dired-get-marked-files
-                 t current-prefix-arg)))
-     (list
-      (dired-read-shell-command "& on %s: "
-                                current-prefix-arg files)
-      files)))
-  (let (list-switch)
-    (start-process
-     cmd nil shell-file-name
-     shell-command-switch
-     (format
-      "nohup 1>
-/dev/null 2>/dev/null %s \"%s\""
-      (if (and (> (length file-list) 1)
-               (setq list-switch
-                     (cadr (assoc cmd dired-filelist-cmd))))
-          (format "%s %s" cmd list-switch)
-        cmd)
-      (mapconcat #'expand-file-name file-list "\" \"")))))
-(define-key dired-mode-map "r" 'dired-start-process)
-
-
-#+end_src
-*** Enter Key
-
-#+begin_src elisp
-(defun dired-find-file-or-do-async-shell-command ()
-  "If there is a default command defined for this file type,
- run it asynchronously.If not, open it in Emacs."
-  (interactive)
-  (let (
-        ;; get the default for the file type,
-        ;; putting the string into a list because dired-guess-default throws an error otherwise.
-        (default (dired-guess-default (cons (dired-get-filename) '())))
-        ;; put the file name into a list so dired-shell-stuff-it will accept it
-        (file-list (cons (dired-get-filename) '())))
-    (if (null default)
-        ;; if no default found for file, open in Emacs
-        (dired-find-file)
-      ;; if default is found for file, run command asynchronously
-      (dired-run-shell-command (dired-shell-stuff-it (concat default " &") file-list nil)))))
-;; This function is bound to the Return key in dired-mode to replace the default behavior on Return
-(define-key dired-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
-;; For added convenience: Don't open a new Async Shell Command window
-(add-to-list 'display-buffer-alist(cons "\\*Async Shell Command\\*.*" (cons #'display-buffer-no-window nil)))
-;; Always open a new buffer if default is occupied.
-;; (setq async-shell-command-buffer 'new-buffer)
-#+end_src
-
-*** Dired Send File using Kdeconnect
-#+begin_src elisp
-;;;###autoload
-(defun dired-send-kdeconnect ()
-  "This function is used to mark and send file to kdeconnect device"
-  (interactive)
-  (let ((device-names (shell-command-to-string "kdeconnect-cli -a --id-name-only")))
-    (if (equal device-names "0 devices found")
-        (message "No devices found. Cannot send the file")
-      (let ((device-to-send (consult--read
-                             (delete "" (split-string device-names "\n"))
-                             :prompt "Select device to send:  "
-                             :history 'consult-kdeconnect-history
-                             :require-match t
-                             )))
-        (let ((filenames (if (eq (dired-get-marked-files) nil)
-                             ;; since filenames with spaces will have errors, enclose them with quotes
-                             (mapconcat (lambda (x) (concat "\"" x "\"")) (dired-get-filename) " ")
-                           (mapconcat (lambda (x) (concat "\"" x "\"")) (dired-get-marked-files) " "))))
-          (message filenames)
-          (shell-command (concat "kdeconnect-cli -d"
-                                 (car (split-string device-to-send))
-                                 " --share "
-                                 filenames
-                                 )
-                         )
-          )
-        )
-      )
-    )
-  )
-#+end_src
-*** Dired listing switch map
-
-#+begin_src emacs-lisp
-;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
-;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
-;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
-(map! (:after dirvish
-       :map dirvish-mode-map
-       :n "p" #'dirvish-ls-switches-menu
-       :n "P" #'dired-mark-empty-dirs))
-#+end_src
-
-*** Dired listing switch map
-
-#+begin_src emacs-lisp
-;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
-;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
-;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
-(map! (:after dirvish
-       :map dirvish-mode-map
-       :n "p" #'dirvish-ls-switches-menu
-       :n "P" #'dired-mark-empty-dirs))
-#+end_src
-
-*** Dired listing switch map
-
-#+begin_src emacs-lisp
-;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
-;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
-;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
-(map! (:after dirvish
-       :map dirvish-mode-map
-       :n "p" #'dirvish-ls-switches-menu
-       :n "P" #'dired-mark-empty-dirs))
-#+end_src
-
 ** Eshell Aliases for Ease of Use
 
 Eshell have some aliases for ease of use.
@@ -440,19 +321,12 @@ Eshell have some aliases for ease of use.
     :hook (after-init . hydra-posframe-mode)))
 #+END_SRC
 
-** Orch Toggle
-
-Tool for sending my notes from Samsung note 3 into org mode directly.
-#+BEGIN_SRC elisp
-(after! org
-  (autoload 'orch-toggle "orch" nil t))
-#+END_SRC
-
 ** Projectile Ignored Directories
 
 Irritates you every time you get to search for a module. So, ignore these.
 #+begin_src elisp
-(setq projectile-ignored-projects '("~/" "/tmp" "~/.emacs.d/.local/straight/repos/"))
+(setq doom-projectile-cache-blacklist '("~" "/tmp" "/" "/Users/alokregmi/"))
+(setq projectile-ignored-projects '("Users/alokregmi" "~/" "/tmp" "~/.emacs.d/.local/straight/repos/"))
 (defun projectile-ignored-project-function (filepath)
   "Return t if FILEPATH is within any of `projectile-ignored-projects'"
   (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
@@ -460,24 +334,6 @@ Irritates you every time you get to search for a module. So, ignore these.
 (after! projectile
   (add-to-list 'projectile-globally-ignored-directories "*.stversions"))
 #+end_src
-
-** Spray
-
-For faster reading when bored. It helps me focus on one hand and if I am already focused to sprint through the text faster.
-#+BEGIN_SRC elisp
-(global-set-key (kbd "<f6>") 'spray-mode)
-(use-package spray
-  ;; :commands (spray-faster spray-slower)
-  :defer t
-  :config
-  :bind (:map spray-mode-map
-         ("M-f" . spray-faster)
-         ("M-S-f" . spray-slower)
-         ("M-s" . spray-start/stop)
-         ("M-q" . spray-quit)
-         )
-  )
-#+END_SRC
 
 ** Smerge on each magit diff
 
@@ -537,85 +393,9 @@ Very large files often break emacs. And this way, we only see a portion.
 (setq writeroom-extra-line-spacing 0.3
       writeroom-width 100)
 
-(add-hook 'writeroom-mode-hook #'mixed-pitch-mode)
+;; (add-hook 'writeroom-mode-hook #'mixed-pitch-mode)
 #+end_src
 ** Vterm
-*** Vterm Execute Current Line
-#+begin_src elisp
-(defun my/vterm-execute-current-line ()
-  "Insert text of current line in vterm and execute."
-  (interactive)
-  (require 'vterm)
-  (let ((command (buffer-substring
-                  (save-excursion
-                    (beginning-of-line)
-                    (point))
-                  (save-excursion
-                    (end-of-line)
-                    (point)))))
-    (let ((buf (current-buffer)))
-      (unless (get-buffer vterm-buffer-name)
-        (vterm))
-      (display-buffer vterm-buffer-name t)
-      (switch-to-buffer-other-window vterm-buffer-name)
-      (vterm--goto-line -1)
-      (message command)
-      (vterm-send-string command)
-      (vterm-send-return)
-      (switch-to-buffer-other-window buf)
-      )))
-#+end_src
-
-*** Vterm Named Terminal
-
-Named terminal with vterm/here
-
-#+begin_src elisp
-;;;###autoload
-(defun +vterm--change-directory-if-remote ()
-  "When `default-directory` is remote, use the corresponding
-method to prepare vterm at the corresponding remote directory."
-  (when (and (featurep 'tramp)
-             (tramp-tramp-file-p default-directory))
-    (message "default-directory is %s" default-directory)
-    (with-parsed-tramp-file-name default-directory path
-      (let ((method (cadr (assoc `tramp-login-program
-                                 (assoc path-method tramp-methods)))))
-        (vterm-send-string
-         (concat method " "
-                 (when path-user (concat path-user "@")) path-host))
-        (vterm-send-return)
-        (vterm-send-string
-         (concat "cd " path-localname))
-        (vterm-send-return)))))
-
-;;;###autoload
-(defun +vterm/here (arg)
-  "Open a terminal buffer in the current window at project root.
-
-If prefix ARG is non-nil, cd into `default-directory' instead of project root."
-  (interactive "P")
-  (unless (fboundp 'module-load)
-    (user-error "Your build of Emacs lacks dynamic modules support and cannot load vterm"))
-  (require 'vterm)
-  ;; This hack forces vterm to redraw, fixing strange artefacting in the tty.
-  (save-window-excursion
-    (pop-to-buffer "*scratch*"))
-  (let* ((project-root (or (doom-project-root) default-directory))
-         (default-directory
-           (if arg
-               default-directory
-             project-root))
-         display-buffer-alist)
-    (setenv "PROOT" project-root)
-    (setq my-proj-name (concat "vterm-" (nth 0 (reverse (s-split "/" project-root 'omit-nulls)))))
-    (if (get-buffer my-proj-name)
-        (switch-to-buffer my-proj-name)
-      (vterm my-proj-name))
-    ;; (vterm my-proj-name)
-    (+vterm--change-directory-if-remote)))
-#+end_src
-
 *** Vterm for projects
 
 #+begin_src elisp
@@ -623,7 +403,7 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
   (interactive)
   (+evil-window-vsplit-a)
   (+evil-window-split-a)
-  (call-interactively '+vterm/here))
+  (call-interactively '+vterm/toggle))
 #+end_src
 
 ** Nepali Romanized Layout
@@ -711,7 +491,7 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
 #+begin_src elisp
 (after! org
   (require 'org-books)
-  (setq org-books-file-depth 0)
+  (setq org-books-file-depth 1)
   (setq org-books-genre-tag-associations '(("Fiction" . "Fiction")
                                            ("Nonfiction" . "Nonfiction")
                                            ("Science Fiction" . "Scifi")
@@ -798,7 +578,165 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
   (with-eval-after-load 'pdf-annot
     (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
 #+end_src
+** Debugger
 
+#+begin_src emacs-lisp
+(after! dap-mode
+  (setq dap-python-debugger 'debugpy)
+  (setq dap-python-terminal "vterm")
+  (setq dap-auto-configure-features '(sessions locals expressions repl tooltip))
+  (dap-register-debug-template
+   "Python :: Run with workspace folder to pythonpath"
+   (list :type "python"
+         :args ""
+         :cwd "${workspaceFolder}"
+         :module nil
+         :program nil
+         :request "launch"
+         :env (list :PYTHONPATH "${workspaceFolder}")))
+  (setq dap-ui-buffer-configurations
+        `((,dap-ui--locals-buffer . ((side . left) (slot . 1) (window-height . 0.7)))
+          (,dap-ui--expressions-buffer . ((side . left) (slot . 2) (window-height . 0.3)))
+          (,dap-ui--breakpoints-buffer . ((side . left) (slot . 3) (window-height . 0.20)))
+          (,dap-ui--sessions-buffer . ((side . left) (slot . 4) (window-height . 0.05)))
+          (,dap-ui--debug-window-buffer . ((side . bottom) (slot . 1) (window-width . 0.5)))
+          (,dap-ui--repl-buffer . ((side . bottom) (slot . 2) (window-height . 0.5)(window-width . 0.5))))))
+#+end_src
+
+** EIN [ Emacs Ipython Notebook ]
+#+BEGIN_SRC elisp
+(after! ein-notebook
+  (defun +ein-buffer-p (buf)
+    (or (memq buf (ein:notebook-opened-buffers))
+        (memq buf (mapcar #'ein:notebooklist-get-buffer (ein:notebooklist-keys)))))
+  (add-to-list 'doom-real-buffer-functions #'+ein-buffer-p nil #'eq)
+
+  (defun spacemacs/ein:worksheet-merge-cell-next ()
+    (interactive)
+    (ein:worksheet-merge-cell (ein:worksheet--get-ws-or-error) (ein:worksheet-get-current-cell) t t))
+
+  ;; (set-popup-rule! "^\\*ein" :ignore t)
+  ;; keybindings mirror ipython web interface behavior
+  (evil-define-key 'normal  ein:markdown-mode-map
+    ;; keybindings mirror ipython web interface behavior
+    "go" 'ein:worksheet-goto-next-input-km
+    "gO" 'ein:worksheet-goto-prev-input-km)
+
+  (evil-define-key 'insert ein:notebook-mode-map
+    ;; keybindings mirror ipython web interface behavior
+    "<C-return>" 'ein:worksheet-execute-cell-km
+    "<C-H-return>" 'ein:worksheet-execute-cell-and-goto-next-km)
+
+  ;; ein show images in there
+  (setq ein:output-area-inlined-images t)
+
+  (map! :map ein:notebook-mode-map
+        ;; Insert new cell, Execute cells
+        ;; Merge, Split, Remove or Move cells
+        "C-s-<return>" 'ein:worksheet-execute-cell-and-goto-next-km
+        "C-s-<tab>" 'ein:worksheet-execute-cell-km
+        "C-s-o" 'ein:worksheet-insert-cell-below-km
+        "C-s-O" 'ein:worksheet-insert-cell-above-km
+        "C-s-c" 'ein:worksheet-change-cell-type-km
+        "C-s-b" 'ein:worksheet-split-cell-at-point-km
+        "C-s-k" 'ein:worksheet-move-cell-up-km
+        "C-s-j" 'ein:worksheet-move-cell-down-km
+        "C-s-k" 'ein:worksheet-merge-cell-km
+        "C-s-j" 'spacemacs/ein:worksheet-merge-cell-next
+        "C-s-y" 'ein:worksheet-copy-cell-km
+        "C-s-t" 'ein:worksheet-toggle-output-km
+        "C-s-p" 'ein:worksheet-yank-cell-km
+        "C-s-d" 'ein:worksheet-kill-cell-km
+        "C-s-m" 'ein:notebook-scratchsheet-open-km
+        ;; Output
+        "C-s-z" 'ein:worksheet-toggle-output-km
+        "C-s-x" 'ein:worksheet-clear-output-km
+        "C-s-;" 'ein:worksheet-clear-all-output-km
+        ;; Notebook Opening and closing
+        "C-s-s" 'ein:notebook-save-notebook-command-km
+        "C-s-r" 'ein:notebook-rename-command-km
+        "C-s-q" 'ein:notebook-close-km
+        "C-S-s-<return>" 'ein:worksheet-execute-cell-and-goto-next-km
+        "C-S-s-<tab>" 'ein:worksheet-execute-cell-km
+        "C-S-s-o" 'ein:worksheet-insert-cell-below-km
+        "C-S-s-O" 'ein:worksheet-insert-cell-above-km
+        "C-S-s-c" 'ein:worksheet-change-cell-type-km
+        "C-S-s-b" 'ein:worksheet-split-cell-at-point-km
+        "C-S-s-k" 'ein:worksheet-move-cell-up-km
+        "C-S-s-j" 'ein:worksheet-move-cell-down-km
+        "C-S-s-k" 'ein:worksheet-merge-cell-km
+        "C-S-s-j" 'spacemacs/ein:worksheet-merge-cell-next
+        "C-S-s-y" 'ein:worksheet-copy-cell-km
+        "C-S-s-t" 'ein:worksheet-toggle-output-km
+        "C-S-s-p" 'ein:worksheet-yank-cell-km
+        "C-S-s-d" 'ein:worksheet-kill-cell-km
+        "C-S-s-m" 'ein:notebook-scratchsheet-open-km
+        ;; Output
+        "C-S-s-z" 'ein:worksheet-toggle-output-km
+        "C-S-s-x" 'ein:worksheet-clear-output-km
+        "C-S-s-;" 'ein:worksheet-clear-all-output-km
+        ;; Notebook Opening and closing
+        "C-S-s-s" 'ein:notebook-save-notebook-command-km
+        "C-S-s-r" 'ein:notebook-rename-command-km
+        "C-S-s-q" 'ein:notebook-close-km
+        :map ein:notebooklist-mode-map
+        :nv "O" 'ein:notebook-open-km
+        :nv "o" 'ace-link-custom)
+
+  (map!  :localleader
+         :map ein:notebook-mode-map
+         :desc "Show Hydra" :n "?" #'+ein/hydra/body
+         :desc "Change cell type" :n "c" #'ein:worksheet-change-cell-type-km
+         :desc "Execute and step" :n "RET" #'ein:worksheet-execute-cell-and-goto-next
+         :desc "Yank cell" :n "y" #'ein:worksheet-copy-cell
+         :desc "Paste cell" :n "p" #'ein:worksheet-yank-cell
+         :desc "Delete cell" :n "d" #'ein:worksheet-kill-cell
+         :desc "Insert cell below" :n "o" #'ein:worksheet-insert-cell-below
+         :desc "Insert cell above" :n "O" #'ein:worksheet-insert-cell-above
+         :desc "Next cell" :n "j" #'ein:worksheet-goto-next-input
+         :desc "Previous cell" :n "k" #'ein:worksheet-goto-prev-input
+         :desc "Save notebook" :n "fs" #'ein:notebook-save-notebook-command)
+
+  ;;(add-hook 'ein:notebook-mode-hook #'virtual-auto-fill-mode)
+  ;;(add-hook 'ein:markdown-mode-hook #'virtual-auto-fill-mode)
+  ;; (add-hook 'ein:ipdb-mode-hook #'virtual-auto-fill-mode)
+  ;; (add-hook 'ein:shared-output-mode-hook #'virtual-auto-fill-mode)
+  )
+(defun my-preview-latex ()
+  "Preview LaTeX from the current cell in a separate buffer.
+
+Handles only markdown and code cells, but both in a bit different
+ways: on the former, its input is being rendered, while on the
+latter - its output."
+  (interactive)
+  (let* ((cell (ein:worksheet-get-current-cell))
+	 (text-to-render
+	  (cond ((ein:markdowncell-p cell) (slot-value cell :input))
+		((ein:codecell-p cell)
+		 (plist-get (car (cl-remove-if-not
+				  (lambda (e) (string= (plist-get e :name) "stdout"))
+				  (slot-value cell :outputs)))
+			    :text))
+		(t (error "Unsupported cell type"))))
+	 (buffer (get-buffer-create " *ein: LaTeX preview*")))
+    (with-current-buffer buffer
+      (when buffer-read-only
+	(toggle-read-only))
+      (unless (= (point-min) (point-max))
+	(delete-region (point-min) (point-max)))
+      (insert text-to-render)
+      (goto-char (point-min))
+      (org-mode)
+      (org-toggle-latex-fragment 16)
+      (special-mode)
+      (unless buffer-read-only
+	(toggle-read-only))
+      (display-buffer
+       buffer
+       '((display-buffer-below-selected display-buffer-at-bottom)
+         (inhibit-same-window . t)))
+      (fit-window-to-buffer (window-in-direction 'below)))))
+#+END_SRC
 * Languages
 ** Elisp
 
@@ -810,7 +748,7 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
 *** Set shortcuts to send command to shell when in windows
 
 #+begin_src elisp
-(when (eq system-type 'windows-nt)
+(after! python
   (map! :localleader
         :map python-mode-map
         :nvm "r" #'+python/open-repl
@@ -821,7 +759,9 @@ If prefix ARG is non-nil, cd into `default-directory' instead of project root."
         :n "z" #'python-shell-send-statement
         :n "F" #'python-shell-send-file
         :nvm "h" #'scimax-python-mode/body
-        ))
+        :nvm "/" #'hydra-posframe-mode
+        :nvm "D" #'dap-debug)
+  )
 #+end_src
 *** Debugging in python
 
@@ -1888,12 +1828,12 @@ keybindings are used such that they were previously not used by doom emacs for
 ease of use.
 ** General
 #+BEGIN_SRC elisp
-(bind-key "C-M-s-t" 'org-roam-dailies-find-today)
-(bind-key "C-M-s-y" 'org-roam-dailies-find-yesterday)
-(bind-key "C-M-s-u" 'org-roam-dailies-find-tomorrow)
+;;(bind-key "C-M-s-u" 'org-roam-dailies-find-tomorrow)
 (bind-key "C-M-s-s" 'open-main-agenda)
-;; (bind-key "C-M-s-{" 'org-roam-dailies-find-today)
-;; (bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
+(bind-key "C-M-s-~" '+python/open-ipython-repl)
+(bind-key "C-s-~" '+popup/toggle)
+(bind-key "C-s-t" '+vterm/here)
+(bind-key "C-M-s-t" '+vterm/toggle)
 ;; (bind-key "C-M-s-t" '+my/vterm-run-project)
 ;; (bind-key "C-M-s-a" 'open-bookmark)
 (bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
@@ -1913,7 +1853,8 @@ ease of use.
 (bind-key "C-M-s-z" 'consult-recent-file)
 (bind-key "C-M-s-x" 'consult-buffer)
 (bind-key "C-M-s-a" 'open-bookmark)
-(bind-key "C-M-s-t" '+my/vterm-run-project)
+(bind-key "C-s-a" 'open-random-bookmark)
+;; (bind-key "C-M-s-t" '+my/vterm-run-project)
 (bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
 (bind-key "C-M-s-l" '+workspace/load)
 (bind-key "C-M-s-/" 'consult-ripgrep)
@@ -1922,12 +1863,14 @@ ease of use.
 (bind-key "C-M-s-x" 'consult-buffer)
 (bind-key "C-M-s-{" 'org-roam-dailies-find-today)
 (bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
+(bind-key "C-M-s-y" 'org-roam-dailies-find-yesterday)
 (bind-key "C-M-s-r" 'org-roam-node-find)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
 (bind-key "C-M-s-!" 'winum-select-window-1)
 (bind-key "C-M-s-@" 'winum-select-window-2)
 (bind-key "C-M-s-#" 'winum-select-window-3)
+(bind-key "C-s-v" 'yank-from-kill-ring)
 ;; (bind-key "C-M-s-$" 'winum-select-window-4)
 ;; (bind-key "C-M-s-%" 'winum-select-window-5)
 ;; scroll other window, useful when working with multiple files
@@ -1936,6 +1879,15 @@ ease of use.
 (bind-key "C-M-s-:" 'newline-and-indent)
 (bind-key "C-M-s-w" 'basic-save-buffer)
 (bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
+;; doing dap very efficiently
+(bind-key "C-s-n" #'dap-next)
+(bind-key "C-s-k" #'dap-step-out)
+(bind-key "C-s-o" #'dap-step-in)
+(bind-key "C-s-c" #'dap-continue)
+(bind-key "C-s-e" #'dap-ui-expressions-add)
+(bind-key "C-s-<return>" #'better-jumper-set-jump)
+(bind-key "C-s-r" #'dap-ui-repl)
+(bind-key "C-s->" #'dap-eval-region)
 (map! :leader
       :n ">" #'projectile-find-dir
       :n "[" #'+vertico/consult-fd
@@ -1952,6 +1904,17 @@ ease of use.
        :n "q" #'org-ql-search
        :n "a" #'consult-org-agenda
        :n "w" #'consult-org-heading)
+      (:prefix "k"
+       :n "t" #'dap-breakpoint-toggle
+       :n "c" #'dap-continue
+       :n "n" #'dap-next
+       :n "i" #'dap-step-in
+       :n "o" #'dap-step-out
+       :n "e" #'dap-ui-expressions-add
+       :n "f" #'dap-ui-expressions-remove
+       :n "g" #'dap-ui-expressions-add-prompt
+       :n "x" #'dap-ui-hide-many-windows
+       :n "z" #'dap-ui-show-many-windows)
       (:prefix "v"
        :n "i" #'(lambda ()
                   (interactive)
@@ -2015,9 +1978,6 @@ ease of use.
        :n "d" #'scimax-dired/body)
       )
 #+END_SRC
-
-#+RESULTS:
-: scimax-dired/body
 
 
 ** Jupyter Ob Keybindings
@@ -2179,7 +2139,8 @@ All file definitions and defaults go here.
 #+BEGIN_SRC elisp
 (after! org
   ;; (add-hook 'org-mode-hook #'auto-fill-mode)
-  (setq org-attach-id-dir (concat org-directory ".attach/")
+  (setq org-attach-id-dir (concat org-directory "attachments/org-attach/")
+        org-attach-auto-tag nil
         ;; show images instead of links to images
         org-startup-with-inline-images t
         org-archive-mark-done t
@@ -2585,6 +2546,23 @@ SCHEDULED: %t
                            ))
   )
 #+END_SRC
+
+*** Remove quit and enter on org agenda because I want to keep it open permanently
+
+#+begin_src emacs-lisp
+(after! evil-org-agenda
+  (evil-define-key* 'motion evil-org-agenda-mode-map
+    "q" nil
+    (kbd "RET") nil
+    (kbd "<return>") nil))
+
+(after! org-agenda
+  (define-key org-agenda-keymap "q" nil)
+  (define-key org-agenda-keymap (kbd "RET") nil)
+  (define-key org-agenda-mode-map "q" nil)
+  (define-key org-agenda-mode-map (kbd "RET") nil))
+#+end_src
+
 *** Agenda View
 #+BEGIN_SRC elisp
 ;;;###autoload
@@ -2789,520 +2767,6 @@ SCHEDULED: %t
 (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
 #+END_SRC
 
-
-** Org Roam
-*** V2 Node Display
-
-#+begin_src elisp
-(after! org
-  (setq org-roam-directory (file-truename (concat org-directory "notes"))
-        org-roam-dailies-directory "daily/")
-
-  (org-roam-setup)
-
-  ;; Attachments removed from org-roam db
-  (setq org-roam-db-node-include-function
-        (lambda ()
-          (or
-           (not (cdr  (assoc "NOTER_PAGE" (org-entry-properties))))
-           (not (member "ATTACH" (org-get-tags)))
-           )))
-
-  ;; Org-roam interface
-  (cl-defmethod org-roam-node-hierarchy ((node org-roam-node))
-    "Return the node's TITLE, as well as it's HIERACHY."
-    (let* ((title (org-roam-node-title node))
-           (olp (mapcar (lambda (s) (if (> (length s) 30) (concat (substring s 0 30)  "...") s)) (org-roam-node-olp node)))
-           (level (org-roam-node-level node))
-           (filetitle (org-roam-get-keyword "TITLE" (org-roam-node-file node)))
-           (shortentitle (if (> (length filetitle) 30) (concat (substring filetitle 0 30)  "...") filetitle))
-           (separator (concat " " (nerd-fonts-insert-faicon "nf-fa-chevron_right") " ")))
-      (cond
-       ((= level 1) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-green)) " "
-                            (propertize shortentitle 'face 'org-roam-dim) separator title))
-       ((= level 2) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-dpurple)) " "
-                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
-       ((> level 2) (concat (propertize (format "=level:%d=" level) 'display (all-the-icons-material "list" :face 'all-the-icons-dsilver)) " "
-                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
-       (t (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "list" :face 'all-the-icons-yellow)) " " title)))))
-
-  (defconst my/org-roam-special-tags
-    '("bibnote" "bookreview" "literaturenote" "default" "abstract" "blog" "person" "creativewriting")
-    "Special tags that are unique to each file to represent the note's function.")
-
-  (defconst my/frg-roam-generalnote-tags
-    '("beautiful" "idgi" "seed" "readmore" "talkabout" "tmi" "research")
-    "Special tags that are unique to each file to represent the note's function.")
-
-  (defconst my/org-roam-ignored-tags
-    '("ATTACH")
-    "Tags that are ignored when displaying function and other tags.")
-
-  (defun my/org-roam-filtered-tags (node)
-    "Return the tags of NODE after filtering out ignored tags."
-    (seq-remove (lambda (tag)
-                  (member tag my/org-roam-ignored-tags))
-                (org-roam-node-tags node)))
-
-  (cl-defmethod org-roam-node-functiontag ((node org-roam-node))
-    "Return the FUNCTION TAG for each node."
-    (let* ((tags (my/org-roam-filtered-tags node))
-           (functiontag (seq-intersection my/org-roam-special-tags tags 'string=)))
-      (concat
-       (if functiontag
-           (propertize "=has:functions=" 'display (nerd-icons-faicon "nf-fa-gear" :face 'all-the-icons-silver :v-adjust 0.02))
-         (propertize "=not-functions=" 'display (nerd-icons-faicon "nf-fa-gear" :face 'org-roam-dim :v-adjust 0.02)))
-       " " (string-join functiontag ", "))))
-
-  (cl-defmethod org-roam-node-othertags ((node org-roam-node))
-    "Return the OTHER TAGS of each notes."
-    (let* ((tags (my/org-roam-filtered-tags node))
-           (othertags (seq-difference tags my/org-roam-special-tags 'string=)))
-      (when othertags
-        (concat
-         (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'all-the-icons-dgreen :v-adjust 0.02)) " "
-         (propertize (string-join othertags ", ") 'face 'all-the-icons-dgreen)))))
-
-  (cl-defmethod org-roam-node-backlinkscount ((node org-roam-node))
-    (let* ((count (caar (org-roam-db-query
-                         [:select (funcall count source)
-                          :from links
-                          :where (= dest $s1)
-                          :and (= type "id")]
-                         (org-roam-node-id node)))))
-      (if (> count 0)
-          (concat (propertize "=has:backlinks=" 'display (nerd-icons-insert-octicon "nf-oct-link" :face 'all-the-icons-dblue)) (format "%d" count))
-        (concat (propertize "=not-backlinks=" 'display (nerd-icons-insert-octicon "nf-oct-link" :face 'org-roam-dim))  " "))))
-
-  (defun my/org-roam-compute-tags (node)
-    "Compute the function tags and other tags for the given NODE.
-Return a list where the first element is the function tags and
-the second element is the other tags."
-    (let* ((tags (seq-remove (lambda (tag)
-                               (member tag my/org-roam-ignored-tags))
-                             (org-roam-node-tags node)))
-           (functiontags (seq-intersection my/org-roam-special-tags tags 'string=))
-           (othertags (seq-difference tags my/org-roam-special-tags 'string=)))
-      (list functiontags othertags)))
-
-  (defun org-roam-node-fullformat (node)
-    "Return a formatted string containing the title and computed tags for the NODE."
-    (let* ((tags (my/org-roam-compute-tags node))
-           (functiontag (car tags))
-           (othertags (cadr tags))
-           (functiontag-str (format "%-15s"
-                                    (concat
-                                     ;; (if functiontag
-                                     ;;     (propertize "=has:functions=" 'display (all-the-icons-octicon "gear" :face 'all-the-icons-silver :v-adjust 0.02))
-                                     ;;   (propertize "=not-functions=" 'display (all-the-icons-octicon "gear" :face 'org-roam-dim :v-adjust 0.02)))
-                                     " " (string-join functiontag ", "))))
-           (othertags-str (when othertags
-                            (concat
-                             (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'nerd-icons-dgreen :v-adjust 0.02)) " "
-                             (propertize (string-join othertags ", ") 'face 'nerd-icons-dgreen)))))
-      (format " %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str ""))))
-
-  (setq org-roam-node-display-template
-        (concat  "${fullformat}"))
-
-  ;; (setq org-roam-node-display-template
-  ;;       (concat  "${functiontag:27} ${title} ${othertags}"))
-
-
-
-  ;; ;; Keys binding
-  (map! :leader
-        :prefix "n"
-        (:prefix ("r" . "Org-roam")
-         :desc "Toggle roam buffer"            "t" #'org-roam-buffer-toggle
-         :desc "Refile"                        "r" #'org-roam-refile
-         (:prefix ("l" . "Roam Alias")
-          :desc "Add alias"                    "a" #'org-roam-alias-add
-          :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
-  )
-#+end_src
-
-*** Org Roam Buffer Sections
-
-#+begin_src elisp
-(after! org-roam
-  (defun my/org-roam--backlink-files (node)
-    "Get the list of files that are already backlinking to NODE."
-    (seq-map
-     (lambda (backlink)
-       (org-roam-node-file (org-roam-backlink-source-node backlink)))
-     (org-roam-backlinks-get node)))
-
-  (defun org-roam-unique-unlinked-references-section (node)
-    "The unlinked references section for NODE.
-   References from files that are already backlinking to NODE are excluded."
-    (when (and (executable-find "rg")
-               (org-roam-node-title node)
-               (not (string-match "PCRE2 is not available"
-                                  (shell-command-to-string "rg --pcre2-version"))))
-      (let* ((titles (cons (org-roam-node-title node)
-                           (org-roam-node-aliases node)))
-             (rg-command (concat "rg -L -o --vimgrep -P -i "
-                                 (mapconcat (lambda (glob) (concat "-g " glob))
-                                            (org-roam--list-files-search-globs org-roam-file-extensions)
-                                            " ")
-                                 (format " '\\[([^[]]++|(?R))*\\]%s' "
-                                         (mapconcat (lambda (title)
-                                                      (format "|(\\b%s\\b)" (shell-quote-argument title)))
-                                                    titles ""))
-                                 org-roam-directory))
-             (results (split-string (shell-command-to-string rg-command) "\n"))
-             (backlink-files (my/org-roam--backlink-files node))
-             f row col match)
-        (magit-insert-section (unlinked-references)
-          (magit-insert-heading "Unlinked References:")
-          (dolist (line results)
-            (save-match-data
-              (when (string-match org-roam-unlinked-references-result-re line)
-                (setq f (match-string 1 line)
-                      row (string-to-number (match-string 2 line))
-                      col (string-to-number (match-string 3 line))
-                      match (match-string 4 line))
-                (when (and match
-                           (not (file-equal-p (org-roam-node-file node) f))
-                           (member (downcase match) (mapcar #'downcase titles))
-                           (not (member f backlink-files)))  ; Skip files that are already backlinking
-                  (magit-insert-section section (org-roam-grep-section)
-                    (oset section file f)
-                    (oset section row row)
-                    (oset section col col)
-                    (insert (propertize (format "%s:%s:%s"
-                                                (truncate-string-to-width (file-name-base f) 15 nil nil t)
-                                                row col) 'font-lock-face 'org-roam-dim)
-                            " "
-                            (org-roam-fontify-like-in-org-mode
-                             (org-roam-unlinked-references-preview-line f row))
-                            "\n"))))))
-          (insert ?\n)))))
-
-  (setq org-roam-mode-sections
-        (list #'org-roam-backlinks-section
-              #'org-roam-reflinks-section
-              #'org-roam-unique-unlinked-references-section
-              ))
-  )
-#+end_src
-*** Org Roam Log Notes Saving
-
-#+begin_src elisp
-(defun log-org-roam-file-save ()
-  "Log the saving of an Org-roam file."
-  (when (and (eq major-mode 'org-mode)
-             (string-prefix-p (expand-file-name org-roam-directory) (expand-file-name buffer-file-name)))
-    (let ((log-file org-roam-logs-file)
-          (current-time (format-time-string "[%Y-%m-%d %H:%M:%S]"))
-          (file-name (buffer-file-name)))
-      (with-temp-buffer
-        (insert (format "%s Saved file: %s\n" current-time file-name))
-        (append-to-file (point-min) (point-max) log-file)))))
-
-(add-hook 'after-save-hook #'log-org-roam-file-save)
-#+end_src
-
-*** Capture Templates
-#+BEGIN_SRC elisp
-(after! org-roam
-  (setq org-roam-capture-templates
-        '(("d" "Default" plain "%?"
-   :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: :default:
-")
-           :immediate-finish t)
-
-          ("r" "Default but open buffer" plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS:
-")
-           :unnarrowed t)
-
-          ("t" "Tagged" plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: %^G
-")
-           :unnarrowed t)
-
-          ("o" "Abstract ON Note " plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: :abstract:
-")
-           :unnarrowed t)
-
-          ("l" "Literature Note " plain "%?"
-           :if-new (file+head "ln_${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: :literaturenote:%^{definition|theory|course|video|article|library|subject|chapter|topic|research}:%^G
-,#+REF_URL:
-")
-           :unnarrowed t)
-
-          ("b" "Book Review " plain "%?"
-           :if-new (file+head "ln_${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: :bookreview:
-")
-           :unnarrowed t)
-
-          ("c" "Composition" plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: :composition:
-")
-           :unnarrowed t)
-
-          ;; TODO Manage it later
-          ;;           ("m" "Meeting Notes" plain "%?"
-          ;;            :if-new (file+head "meet_${slug}.org"
-          ;;                               "#+TITLE: ${title}
-          ;; #+CREATED_DATE: %T
-          ;; #+filetags: :meeting:
-          ;; #+ATTENDEES: %^{Attendees}
-          ;; #+LOCATION: %^{Location}
-          ;; #+START_TIME: %^{Start Time}
-          ;; #+END_TIME: %^{End Time}
-          ;; ")
-          ;;            :unnarrowed t)
-
-          ("p" "Person" plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}
-,#+FILETAGS: :person:
-")
-           :unnarrowed t)
-
-          ;; Org roam bibtex template
-          ("r" "Bibliography Reference" plain
-           (file (concat org-templates-directory "orbreftemplate.org"))
-           :if-new
-           (file+head "papers/${citekey}.org"
-                      "#+title: ${title}
-,#+FILETAGS: :bibnote:
-")
-           :unnarrowed t)
-
-          ;; Use this field if necessary #+EXPORT_FILE_NAME: %^{export name}
-          ("h" "Blog Post" plain
-           "%?"
-           :if-new (file+head "blogs/%<%Y%m%d%H%M%S>-${slug}.org" "#+SETUPFILE:../hugo_in_setup.org
-,#+HUGO_SECTION: ${ai|emacs|neuroscience}
-,#+HUGO_SLUG: ${slug}
-,#+HUGO_TAGS:
-,#+HUGO_CATEGORIES:
-,#+HUGO_DRAFT: false\n
-,#+AUTHOR: Alok Regmi
-,#+FILETAGS: :blog:${filetags}\n
-,#+TITLE: ${title}
-")
-           :unnarrowed t)
-
-          ;;           ("j" "paper-description" plain "* Main Contribution \n\n* Your description of significance \n\n* New algorithm or principles\n\n* Simulation Results and Comparisons\n\n* Solid Conclusion"
-          ;;            :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-          ;;                               "#+title: ${title}\n#+filetags: paper")
-          ;;            :unnarrowed t)
-
-          ;;           ("e" "ref" plain "%?"
-          ;;            :if-new (file+head "websites/${slug}.org" "#+SETUPFILE:./hugo_in_setup.org
-          ;; ,#+ROAM_KEY: ${ref}#+TITLE: ${title}\n- source :: ${ref}")
-          ;;            :unnarrowed t)
-
-          ("k" "private" plain
-           "%?" :if-new (file+head "private-${slug}.org"
-                                   "#+TITLE: ${title}\n
-,#+FILETAGS: %^G
-")
-           :unnarrowed t)
-
-          ("w" "webref" entry "* ${title} ([[${ref}][${hostname}]])\n%?"
-           :if-new
-           (file+head (concat org-roam-dailies-directory "%<%Y-%m-%d>.org")
-                      "#+title: %<%Y-%m-%d %a>
-,#+FILETAGS: journal
-,#+STARTUP: overview
-")
-           :unnarrowed t)
-          ))
-
-  (defun my/org-roam-set-created ()
-    "Set a CREATED property in the current Org-roam node."
-    (when (and (org-roam-buffer-p)
-               (not (org-entry-get (point) "CREATED")))
-      (org-set-property "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))))
-
-  (add-hook 'org-roam-capture-new-node-hook #'my/org-roam-set-created)
-  )
-
-#+END_SRC
-
-*** Org Roam UI
-#+begin_src elisp
-(use-package! websocket
-  :after org-roam)
-
-(use-package! org-roam-ui
-  :after org-roam ;; or :after org
-  ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
-  ;;         a hookable mode anymore, you're advised to pick something yourself
-  ;;         if you don't care about startup time, use
-  :hook (org-roam . org-roam-ui-mode)
-  :config
-  (setq org-roam-ui-sync-theme t
-        org-roam-ui-follow t
-        org-roam-ui-update-on-save t
-        org-roam-ui-open-on-start t))
-#+end_src
-
-*** Org Roam v2 Frame Title
-#+begin_src elisp
-(setq frame-title-format
-      '(""
-        (:eval
-         (if (s-contains-p org-roam-directory (or buffer-file-name ""))
-             (replace-regexp-in-string
-              ".*/[0-9]*-?" "☰ "
-              (subst-char-in-string ?_ ?  buffer-file-name))
-           "%b"))
-        (:eval
-         (let ((project-name (projectile-project-name)))
-           (unless (string= "-" project-name)
-             (format (if (buffer-modified-p)  " ◉ %s" "  ●  %s") project-name))))))
-#+end_src
-
-*** Roam File Search
-#+begin_src elisp
-;;;###autoload
-(defun bms/org-roam-rg-search ()
-  "Search org-roam directory using consult-ripgrep. With live-preview."
-  (interactive)
-  (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
-    (consult-ripgrep org-roam-directory)))
-(global-set-key (kbd "C-M-s-o") 'bms/org-roam-rg-search)
-#+end_src
-
-*** Org Export jupyter python blocks to python for hugo
-Rename jupyter-python to python for hugo text block syntax highlighting for python code blocks present in org file.
-#+begin_src elisp
-(after! org
-(defun jupyter-python-to-only-python (text backend info)
-  "Replace jupyter-python src blocks with python blocks."
-  (replace-regexp-in-string "```jupyter-python" "```python" text))
-(add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python))
-#+end_src
-
-
-*** Task to Org Note
-#+begin_src elisp
-(defun my/convert-task-to-org-note ()
-  "Convert a task in a `org-roam' note."
-  (interactive)
-  (let* ((heading (org-get-heading t t t t))
-         (body (org-get-entry))
-         (link (format "[[id:%s][%s]]" (org-id-get-create) heading))
-         (filepath (on/make-filepath heading (current-time))))
-    (on/insert-org-roam-file
-     filepath
-     heading
-     nil
-     (list link)
-     (format "* Note stored from tasks\n%s" body)
-     nil)
-    (find-file filepath)))
-#+end_src
-*** Org Roam Search
-
-#+begin_src emacs-lisp
-(defun my-org-roam-search (phrase)
-  (interactive "sSearch phrase: ")
-  (let* ((cmd (format "rg --with-filename --line-number --column --no-heading --color=never -i '%s' %s"
-                      phrase org-roam-directory))
-         (results (split-string (shell-command-to-string cmd) "\n" t))
-         (current-file nil)
-         (buffer-name (generate-new-buffer-name "*org-roam-search*")))
-    (with-current-buffer (get-buffer-create buffer-name)
-      (erase-buffer)
-      (dolist (line results)
-        (let* ((parts (split-string line ":"))
-               (file (nth 0 parts))
-               (linum (string-to-number (nth 1 parts)))
-               (content (string-join (nthcdr 3 parts) ":"))
-               (id (with-temp-buffer
-                     (insert-file-contents file)
-                     (goto-char (point-min))
-                     (when (re-search-forward "^:ID:[ \t]+\\(.*\\)" nil t)
-                       (match-string-no-properties 1)))))
-          (when (and id (not (equal current-file file)))
-            (setq current-file file)
-            (insert (format "\n* File: [[id:%s][%s]]\n" id (file-name-nondirectory file)))
-            (insert (make-string (+ 9 (length (file-name-nondirectory file))) ?-))
-            (insert "\n"))
-          (when id
-            (insert (format "- [[file:%s::%d][%4d]]: %s\n" file linum linum content)))))
-      (switch-to-buffer-other-window buffer-name)
-      (goto-char (point-min))
-      (org-mode)
-      (read-only-mode 1))))
-
-(defun my-org-open-at-point-in-right-split ()
-  (interactive)
-  (let ((path (get-text-property (point) 'path))
-        (type (get-text-property (point) 'type)))
-    (when (string-equal type "file")
-      (let* ((file (file-truename (car path)))
-             (line (string-to-number (cadr path))))
-        (split-window-right)
-        (other-window 1)
-        (find-file file)
-        (goto-char (point-min))
-        (forward-line (1- line))))))
-
-#+end_src
-
-#+RESULTS:
-: my-org-open-at-point-in-right-split
-*** Org Roam Quick Insert Link
-
-#+begin_src emacs-lisp
-(defun insert-org-roam-link ()
-  "Insert a Roam link and place the cursor next to the colon.
-   If in Evil normal mode, switch to insert mode."
-  (interactive)
-  (if (and (bound-and-true-p evil-mode)
-           (eq evil-state 'normal))
-      (evil-insert-state)) ; Switch to insert mode if in normal mode
-  (insert "[[roam:")
-  (save-excursion
-    (insert "]]")))
-#+end_src
-** Email Mu4e
-#+begin_src elisp
-(set-email-account! "campus"
-                    '((mu4e-sent-folder       . "/pulchowk/Sent Mail")
-                      (mu4e-drafts-folder     . "/pulchowk/Drafts")
-                      (mu4e-trash-folder      . "/pulchowk/Trash")
-                      (mu4e-refile-folder     . "/pulchowk/All Mail")
-                      (smtpmail-smtp-user     . "072bex403.alok@pcampus.edu.np")
-                      (user-mail-address      . "072bex403.alok@pcampus.edu.np")
-                      (mu4e-compose-signature . "---\nAlok Regmi\n Pulchowk Campus, Lalitpur, Nepal"))
-                    t)
-
-(set-email-account! "personal"
-                    '((mu4e-sent-folder       . "/personal/Sent Mail")
-                      (mu4e-drafts-folder     . "/personal/Drafts")
-                      (mu4e-trash-folder      . "/personal/Trash")
-                      (mu4e-refile-folder     . "/personal/All Mail")
-                      (smtpmail-smtp-user     . "sagar.r.alok@gmail.com")
-                      (user-mail-address      . "sagar.r.alok@gmail.com")
-                      (mu4e-compose-signature . "---\nAlok Regmi"))
-                    t)
-(add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
-#+end_src
 
 ** Org Regions Markup [Scimax]
 #+BEGIN_SRC elisp
@@ -4119,46 +3583,33 @@ structure changes."
 ** Energy Log throughout the day
 
 #+begin_src emacs-lisp
-(defvar my-log-energy-active nil
-  "Flag to indicate whether the energy logging prompt is active.")
-
-(defvar my-log-energy-timer nil
-  "Timer for scheduling the energy logging prompt.")
-
 (defun my-log-energy ()
   "Prompt for an energy level and log it with timestamp to a CSV file."
   (interactive)
-  ;; Cancel the existing timer
-  (when my-log-energy-timer
-    (cancel-timer my-log-energy-timer)
-    (setq my-log-energy-timer nil))
-  ;; Check if the prompt is already active, if so, exit the function
-  (if my-log-energy-active
-      (message "Energy level prompt already active.")
-    ;; If the prompt is not active, proceed and set the flag to true
-    (setq my-log-energy-active t)
-    (unwind-protect
-        ;; Protected block
-        (let* ((energy-levels '("1" "2" "3" "4" "5" "6" "7" "8" "9" "10"))
-               ;; Prompt the user for an energy level
-               (energy (consult--read energy-levels
-                                      :prompt "What is your energy level? "
-                                      :require-match t))
-               ;; Get the current timestamp
-               (timestamp (format-time-string "%Y-%m-%d %H:%M:%S")))
-          ;; Check if a value was entered
-          (when energy
-            ;; Write to a CSV file
-            (with-temp-buffer
-              (insert (format "%s,%s\n" timestamp energy))
-              ;; Change the path to your desired CSV file location
-              (append-to-file (point-min) (point-max) (concat org-lookbacks-directory "energy_log.csv")))))
-      ;; Cleanup code: Reset the flag and reschedule the timer
-      (setq my-log-energy-active nil)
-      (setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy)))))
+  (let* ((energy-levels '("1" "2" "3" "4" "5" "6" "7" "8" "9" "10"))
+         (timeout-timer
+          (run-at-time "30 sec" nil
+                       (lambda ()
+                         (minibuffer-keyboard-quit)
+                         (run-at-time "10 minutes" nil 'my-log-energy))))
+         (energy (consult--read energy-levels
+                                :prompt "What is your energy level? "
+                                :require-match t)))
+    ;; Cancel timeout timer if a selection is made
+    (when timeout-timer
+      (cancel-timer timeout-timer))
 
-;; Initialize the first prompt
-(setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy))
+    ;; Log energy if selected
+    (when energy
+      (let ((timestamp (format-time-string "%Y-%m-%d %H:%M:%S")))
+        (with-temp-buffer
+          (insert (format "%s,%s\n" timestamp energy))
+          (append-to-file (point-min) (point-max)
+                          (concat org-lookbacks-directory "energy_log.csv")))
+        (run-at-time "30 minutes" nil 'my-log-energy))))
+
+  ;; Initial timer at 10 mins, cancel on 30 sec if not selected, 30 mins after if entered
+  (run-at-time "10 minutes" nil 'my-log-energy))
 #+end_src
 * Speedy note taking
 
@@ -4378,11 +3829,16 @@ structure changes."
 #+begin_src emacs-lisp
 (use-package! gptel
   :config
+  (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
   (gptel-make-ollama
-   "Ollama"                               ;Any name of your choosing
-   :host "localhost:11434"                ;Where it's running
-   :models '("codellama:latest")            ;Installed models
-   :stream t)                             ;Stream responses
+      "Ollama"                               ;Any name of your choosing
+    :host "localhost:11434"                ;Where it's running
+    :models '("codellama:latest")            ;Installed models
+    :stream t)                             ;Stream responses
+  (gptel-make-anthropic "Claude"
+    :stream t
+    :key (auth-source-pick-first-password :user "anthroapi")
+    )
   )
 
 #+end_src
@@ -4416,11 +3872,872 @@ structure changes."
   (interactive)
   (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
     (browse-url-firefox url)))
+
+(defun open-random-bookmark ()
+  "Open a random bookmark from the bookmarks file."
+  (interactive)
+  (let* ((bookmarks (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org"))
+         (random-bookmark (when bookmarks
+                            (seq-random-elt bookmarks))))
+    (if random-bookmark
+        (let ((url (seq-elt (split-string random-bookmark "\n") 2)))
+          (browse-url-firefox url))
+      (message "No bookmarks found!"))))
 #+end_src
 * Treesitter for 29+ on macos
 
 #+begin_src elisp
 (setq! tree-sitter-langs-grammar-dir "~/.tree-sitter/")
+#+end_src
+
+* Org Roam
+** V2 Node Display
+
+#+begin_src elisp
+(after! org
+  (setq org-roam-dailies-directory "daily/")
+
+  (org-roam-setup)
+
+  ;; Attachments removed from org-roam db
+  (setq org-roam-db-node-include-function
+        (lambda ()
+          (or
+           (not (cdr  (assoc "NOTER_PAGE" (org-entry-properties))))
+           (not (member "ATTACH" (org-get-tags)))
+           )))
+
+  ;; Org-roam interface
+  (cl-defmethod org-roam-node-hierarchy ((node org-roam-node))
+    "Return the node's TITLE, as well as it's HIERACHY."
+    (let* ((title (org-roam-node-title node))
+           (olp (mapcar (lambda (s) (if (> (length s) 30) (concat (substring s 0 30)  "...") s)) (org-roam-node-olp node)))
+           (level (org-roam-node-level node))
+           (filetitle (org-roam-get-keyword "TITLE" (org-roam-node-file node)))
+           (shortentitle (if (> (length filetitle) 30) (concat (substring filetitle 0 30)  "...") filetitle))
+           (separator (concat " " (nerd-fonts-insert-faicon "nf-fa-chevron_right") " ")))
+      (cond
+       ((= level 1) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-green)) " "
+                            (propertize shortentitle 'face 'org-roam-dim) separator title))
+       ((= level 2) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-dpurple)) " "
+                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
+       ((> level 2) (concat (propertize (format "=level:%d=" level) 'display (all-the-icons-material "list" :face 'all-the-icons-dsilver)) " "
+                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
+       (t (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "list" :face 'all-the-icons-yellow)) " " title)))))
+
+  (defconst my/org-roam-special-tags
+    '("bibnote" "bookreview" "literaturenote" "default" "abstract" "blog" "person" "creativewriting")
+    "Special tags that are unique to each file to represent the note's function.")
+
+  (defconst my/frg-roam-generalnote-tags
+    '("beautiful" "idgi" "seed" "readmore" "talkabout" "tmi" "research")
+    "Special tags that are unique to each file to represent the note's function.")
+
+  (defconst my/org-roam-ignored-tags
+    '("ATTACH")
+    "Tags that are ignored when displaying function and other tags.")
+
+  (defun my/org-roam-filtered-tags (node)
+    "Return the tags of NODE after filtering out ignored tags."
+    (seq-remove (lambda (tag)
+                  (member tag my/org-roam-ignored-tags))
+                (org-roam-node-tags node)))
+
+  (cl-defmethod org-roam-node-functiontag ((node org-roam-node))
+    "Return the FUNCTION TAG for each node."
+    (let* ((tags (my/org-roam-filtered-tags node))
+           (functiontag (seq-intersection my/org-roam-special-tags tags 'string=)))
+      (concat
+       (if functiontag
+           (propertize "=has:functions=" 'display (nerd-icons-faicon "nf-fa-gear" :face 'all-the-icons-silver :v-adjust 0.02))
+         (propertize "=not-functions=" 'display (nerd-icons-faicon "nf-fa-gear" :face 'org-roam-dim :v-adjust 0.02)))
+       " " (string-join functiontag ", "))))
+
+  (cl-defmethod org-roam-node-othertags ((node org-roam-node))
+    "Return the OTHER TAGS of each notes."
+    (let* ((tags (my/org-roam-filtered-tags node))
+           (othertags (seq-difference tags my/org-roam-special-tags 'string=)))
+      (when othertags
+        (concat
+         (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'all-the-icons-dgreen :v-adjust 0.02)) " "
+         (propertize (string-join othertags ", ") 'face 'all-the-icons-dgreen)))))
+
+  (cl-defmethod org-roam-node-backlinkscount ((node org-roam-node))
+    (let* ((count (caar (org-roam-db-query
+                         [:select (funcall count source)
+                          :from links
+                          :where (= dest $s1)
+                          :and (= type "id")]
+                         (org-roam-node-id node)))))
+      (if (> count 0)
+          (concat (propertize "=has:backlinks=" 'display (nerd-icons-insert-octicon "nf-oct-link" :face 'all-the-icons-dblue)) (format "%d" count))
+        (concat (propertize "=not-backlinks=" 'display (nerd-icons-insert-octicon "nf-oct-link" :face 'org-roam-dim))  " "))))
+
+  (defun my/org-roam-compute-tags (node)
+    "Compute the function tags and other tags for the given NODE.
+Return a list where the first element is the function tags and
+the second element is the other tags."
+    (let* ((tags (seq-remove (lambda (tag)
+                               (member tag my/org-roam-ignored-tags))
+                             (org-roam-node-tags node)))
+           (functiontags (seq-intersection my/org-roam-special-tags tags 'string=))
+           (othertags (seq-difference tags my/org-roam-special-tags 'string=)))
+      (list functiontags othertags)))
+
+  (defun org-roam-node-fullformat (node)
+    "Return a formatted string containing the title and computed tags for the NODE."
+    (let* ((tags (my/org-roam-compute-tags node))
+           (functiontag (car tags))
+           (othertags (cadr tags))
+           (functiontag-str (format "%-15s"
+                                    (concat
+                                     ;; (if functiontag
+                                     ;;     (propertize "=has:functions=" 'display (all-the-icons-octicon "gear" :face 'all-the-icons-silver :v-adjust 0.02))
+                                     ;;   (propertize "=not-functions=" 'display (all-the-icons-octicon "gear" :face 'org-roam-dim :v-adjust 0.02)))
+                                     " " (string-join functiontag ", "))))
+           (othertags-str (when othertags
+                            (concat
+                             (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'nerd-icons-dgreen :v-adjust 0.02)) " "
+                             (propertize (string-join othertags ", ") 'face 'nerd-icons-dgreen)))))
+      (format " %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str ""))))
+
+  (setq org-roam-node-display-template
+        (concat  "${fullformat}"))
+
+  ;; (setq org-roam-node-display-template
+  ;;       (concat  "${functiontag:27} ${title} ${othertags}"))
+
+
+
+  ;; ;; Keys binding
+  (map! :leader
+        :prefix "n"
+        (:prefix ("r" . "Org-roam")
+         :desc "Toggle roam buffer"            "t" #'org-roam-buffer-toggle
+         :desc "Refile"                        "r" #'org-roam-refile
+         (:prefix ("l" . "Roam Alias")
+          :desc "Add alias"                    "a" #'org-roam-alias-add
+          :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
+  )
+#+end_src
+
+** Org Roam Buffer Sections
+
+#+begin_src elisp
+(after! org-roam
+  (defun my/org-roam--backlink-files (node)
+    "Get the list of files that are already backlinking to NODE."
+    (seq-map
+     (lambda (backlink)
+       (org-roam-node-file (org-roam-backlink-source-node backlink)))
+     (org-roam-backlinks-get node)))
+
+  (defun org-roam-unique-unlinked-references-section (node)
+    "The unlinked references section for NODE.
+   References from files that are already backlinking to NODE are excluded."
+    (when (and (executable-find "rg")
+               (org-roam-node-title node)
+               (not (string-match "PCRE2 is not available"
+                                  (shell-command-to-string "rg --pcre2-version"))))
+      (let* ((titles (cons (org-roam-node-title node)
+                           (org-roam-node-aliases node)))
+             (rg-command (concat "rg -L -o --vimgrep -P -i "
+                                 (mapconcat (lambda (glob) (concat "-g " glob))
+                                            (org-roam--list-files-search-globs org-roam-file-extensions)
+                                            " ")
+                                 (format " '\\[([^[]]++|(?R))*\\]%s' "
+                                         (mapconcat (lambda (title)
+                                                      (format "|(\\b%s\\b)" (shell-quote-argument title)))
+                                                    titles ""))
+                                 org-roam-directory))
+             (results (split-string (shell-command-to-string rg-command) "\n"))
+             (backlink-files (my/org-roam--backlink-files node))
+             f row col match)
+        (magit-insert-section (unlinked-references)
+          (magit-insert-heading "Unlinked References:")
+          (dolist (line results)
+            (save-match-data
+              (when (string-match org-roam-unlinked-references-result-re line)
+                (setq f (match-string 1 line)
+                      row (string-to-number (match-string 2 line))
+                      col (string-to-number (match-string 3 line))
+                      match (match-string 4 line))
+                (when (and match
+                           (not (file-equal-p (org-roam-node-file node) f))
+                           (member (downcase match) (mapcar #'downcase titles))
+                           (not (member f backlink-files)))  ; Skip files that are already backlinking
+                  (magit-insert-section section (org-roam-grep-section)
+                    (oset section file f)
+                    (oset section row row)
+                    (oset section col col)
+                    (insert (propertize (format "%s:%s:%s"
+                                                (truncate-string-to-width (file-name-base f) 15 nil nil t)
+                                                row col) 'font-lock-face 'org-roam-dim)
+                            " "
+                            (org-roam-fontify-like-in-org-mode
+                             (org-roam-unlinked-references-preview-line f row))
+                            "\n"))))))
+          (insert ?\n)))))
+
+  (setq org-roam-mode-sections
+        (list #'org-roam-backlinks-section
+              #'org-roam-reflinks-section
+              #'org-roam-unique-unlinked-references-section
+              ))
+  )
+#+end_src
+** Org Roam Log Notes Saving
+
+#+begin_src elisp
+(defun log-org-roam-file-save ()
+  "Log the saving of an Org-roam file."
+  (when (and (eq major-mode 'org-mode)
+             (string-prefix-p (expand-file-name org-roam-directory) (expand-file-name buffer-file-name)))
+    (let ((log-file org-roam-logs-file)
+          (current-time (format-time-string "[%Y-%m-%d %H:%M:%S]"))
+          (file-name (buffer-file-name)))
+      (with-temp-buffer
+        (insert (format "%s Saved file: %s\n" current-time file-name))
+        (append-to-file (point-min) (point-max) log-file)))))
+
+(add-hook 'after-save-hook #'log-org-roam-file-save)
+#+end_src
+
+** Capture Templates
+#+BEGIN_SRC elisp
+(after! org-roam
+  (setq org-roam-capture-templates
+        '(("d" "Default" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :default:
+")
+           :immediate-finish t)
+
+          ("r" "Default but open buffer" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS:
+")
+           :unnarrowed t)
+
+          ("t" "Tagged" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: %^G
+")
+           :unnarrowed t)
+
+          ("o" "Abstract ON Note " plain "%?"
+           :if-new (file+head "on_${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :abstract:
+")
+           :unnarrowed t)
+
+          ("l" "Literature Note " plain "%?"
+           :if-new (file+head "ln_${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :literaturenote:%^{definition|theory|course|video|article|library|subject|chapter|topic|research}:%^G
+,#+REF_URL:
+")
+           :unnarrowed t)
+
+          ("e" "EHP Note" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :ehp:%^{type|ultra|dragonfly|architecture}:%^G
+,#+REF_URL:
+")
+           :unnarrowed t)
+
+          ("b" "Book Review " plain "%?"
+           :if-new (file+head "ln_${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :bookreview:
+")
+           :unnarrowed t)
+
+          ("c" "Composition" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :composition:
+")
+           :unnarrowed t)
+
+          ;; TODO Manage it later
+          ;;           ("m" "Meeting Notes" plain "%?"
+          ;;            :if-new (file+head "meet_${slug}.org"
+          ;;                               "#+TITLE: ${title}
+          ;; #+CREATED_DATE: %T
+          ;; #+filetags: :meeting:
+          ;; #+ATTENDEES: %^{Attendees}
+          ;; #+LOCATION: %^{Location}
+          ;; #+START_TIME: %^{Start Time}
+          ;; #+END_TIME: %^{End Time}
+          ;; ")
+          ;;            :unnarrowed t)
+
+          ("p" "Person" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+TITLE: ${title}
+,#+FILETAGS: :person:
+")
+           :unnarrowed t)
+
+          ;; Org roam bibtex template
+          ("r" "Bibliography Reference" plain
+           (file (concat org-templates-directory "orbreftemplate.org"))
+           :if-new
+           (file+head "papers/${citekey}.org"
+                      "#+title: ${title}
+,#+FILETAGS: :bibnote:
+")
+           :unnarrowed t)
+
+          ;; Use this field if necessary #+EXPORT_FILE_NAME: %^{export name}
+          ("h" "Blog Post" plain
+           "%?"
+           :if-new (file+head "blogs/%<%Y%m%d%H%M%S>-${slug}.org" "#+SETUPFILE:../hugo_in_setup.org
+,#+HUGO_SECTION: ${ai|emacs|neuroscience}
+,#+HUGO_SLUG: ${slug}
+,#+HUGO_TAGS:
+,#+HUGO_CATEGORIES:
+,#+HUGO_DRAFT: false\n
+,#+AUTHOR: Alok Regmi
+,#+FILETAGS: :blog:${filetags}\n
+,#+TITLE: ${title}
+")
+           :unnarrowed t)
+
+          ;;           ("j" "paper-description" plain "* Main Contribution \n\n* Your description of significance \n\n* New algorithm or principles\n\n* Simulation Results and Comparisons\n\n* Solid Conclusion"
+          ;;            :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+          ;;                               "#+title: ${title}\n#+filetags: paper")
+          ;;            :unnarrowed t)
+
+          ;;           ("e" "ref" plain "%?"
+          ;;            :if-new (file+head "websites/${slug}.org" "#+SETUPFILE:./hugo_in_setup.org
+          ;; ,#+ROAM_KEY: ${ref}#+TITLE: ${title}\n- source :: ${ref}")
+          ;;            :unnarrowed t)
+
+          ("k" "private" plain
+           "%?" :if-new (file+head "private-${slug}.org"
+                                   "#+TITLE: ${title}\n
+,#+FILETAGS: %^G
+")
+           :unnarrowed t)
+
+          ("w" "webref" entry "* ${title} ([[${ref}][${hostname}]])\n%?"
+           :if-new
+           (file+head (concat org-roam-dailies-directory "%<%Y-%m-%d>.org")
+                      "#+title: %<%Y-%m-%d %a>
+,#+FILETAGS: journal
+,#+STARTUP: overview
+")
+           :unnarrowed t)
+          ))
+
+  (defun my/org-roam-set-created ()
+    "Set a CREATED property in the current Org-roam node."
+    (when (and (org-roam-buffer-p)
+               (not (org-entry-get (point) "CREATED")))
+      (org-set-property "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))))
+
+  (add-hook 'org-roam-capture-new-node-hook #'my/org-roam-set-created)
+  )
+
+#+END_SRC
+
+** Org Roam UI
+#+begin_src elisp
+(use-package! websocket
+  :after org-roam)
+
+(use-package! org-roam-ui
+  :after org-roam ;; or :after org
+  ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
+  ;;         a hookable mode anymore, you're advised to pick something yourself
+  ;;         if you don't care about startup time, use
+  :hook (org-roam . org-roam-ui-mode)
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start t))
+#+end_src
+
+** Roam File Search
+#+begin_src elisp
+;;;###autoload
+(defun bms/org-roam-rg-search ()
+  "Search org-roam directory using consult-ripgrep. With live-preview."
+  (interactive)
+  (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
+    (consult-ripgrep org-roam-directory)))
+(global-set-key (kbd "C-M-s-o") 'bms/org-roam-rg-search)
+#+end_src
+
+** Org Export jupyter python blocks to python for hugo
+Rename jupyter-python to python for hugo text block syntax highlighting for python code blocks present in org file.
+#+begin_src elisp
+(after! org
+(defun jupyter-python-to-only-python (text backend info)
+  "Replace jupyter-python src blocks with python blocks."
+  (replace-regexp-in-string "```jupyter-python" "```python" text))
+(add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python))
+#+end_src
+
+** Task to Org Note
+#+begin_src elisp
+(defun my/convert-task-to-org-note ()
+  "Convert a task in a `org-roam' note."
+  (interactive)
+  (let* ((heading (org-get-heading t t t t))
+         (body (org-get-entry))
+         (link (format "[[id:%s][%s]]" (org-id-get-create) heading))
+         (filepath (on/make-filepath heading (current-time))))
+    (on/insert-org-roam-file
+     filepath
+     heading
+     nil
+     (list link)
+     (format "* Note stored from tasks\n%s" body)
+     nil)
+    (find-file filepath)))
+#+end_src
+** Org Roam Search
+
+#+begin_src emacs-lisp
+(defun my-org-roam-search (phrase)
+  (interactive "sSearch phrase: ")
+  (let* ((cmd (format "rg --with-filename --line-number --column --no-heading --color=never -i '%s' %s"
+                      phrase org-roam-directory))
+         (results (split-string (shell-command-to-string cmd) "\n" t))
+         (current-file nil)
+         (buffer-name (generate-new-buffer-name "*org-roam-search*")))
+    (with-current-buffer (get-buffer-create buffer-name)
+      (erase-buffer)
+      (dolist (line results)
+        (let* ((parts (split-string line ":"))
+               (file (nth 0 parts))
+               (linum (string-to-number (nth 1 parts)))
+               (content (string-join (nthcdr 3 parts) ":"))
+               (id (with-temp-buffer
+                     (insert-file-contents file)
+                     (goto-char (point-min))
+                     (when (re-search-forward "^:ID:[ \t]+\\(.*\\)" nil t)
+                       (match-string-no-properties 1)))))
+          (when (and id (not (equal current-file file)))
+            (setq current-file file)
+            (insert (format "\n* File: [[id:%s][%s]]\n" id (file-name-nondirectory file)))
+            (insert (make-string (+ 9 (length (file-name-nondirectory file))) ?-))
+            (insert "\n"))
+          (when id
+            (insert (format "- [[file:%s::%d][%4d]]: %s\n" file linum linum content)))))
+      (switch-to-buffer-other-window buffer-name)
+      (goto-char (point-min))
+      (org-mode)
+      (read-only-mode 1))))
+
+(defun my-org-open-at-point-in-right-split ()
+  (interactive)
+  (let ((path (get-text-property (point) 'path))
+        (type (get-text-property (point) 'type)))
+    (when (string-equal type "file")
+      (let* ((file (file-truename (car path)))
+             (line (string-to-number (cadr path))))
+        (split-window-right)
+        (other-window 1)
+        (find-file file)
+        (goto-char (point-min))
+        (forward-line (1- line))))))
+
+#+end_src
+
+#+RESULTS:
+: my-org-open-at-point-in-right-split
+** Org Roam Quick Insert Link
+
+#+begin_src emacs-lisp
+(defun insert-org-roam-link ()
+  "Insert a Roam link and place the cursor next to the colon.
+   If in Evil normal mode, switch to insert mode."
+  (interactive)
+  (if (and (bound-and-true-p evil-mode)
+           (eq evil-state 'normal))
+      (evil-insert-state)) ; Switch to insert mode if in normal mode
+  (insert "[[roam:")
+  (save-excursion
+    (insert "]]")))
+#+end_src
+
+* Popup frames
+
+#+begin_src emacs-lisp
+
+(defun popup-frame-delete (&rest _)
+  "Kill selected frame if it has parameter `popup-frame'."
+  (when (frame-parameter nil 'popup-frame))
+  (delete-frame))
+
+(defmacro popup-frame-define (command title &optional delete-frame)
+  "Define interactive function to call COMMAND in frame with TITLE."
+  `(defun ,(intern (format "popup-frame-%s" command)) ()
+     (interactive)
+     (let* ((display-buffer-alist '(("")
+                                    (display-buffer-full-frame)))
+            (frame (make-frame
+                    '((title . ,title)
+                      (window-system . ns)
+                      (popup-frame . t)))))
+       (select-frame frame)
+       ;; (switch-to-buffer " popup-frame-hidden-buffer")
+       (condition-case nil
+           (progn
+             (call-interactively ',command)
+             (delete-other-windows))
+         (error (delete-frame frame)))
+       (when ,delete-frame
+         (sit-for 0.2)
+         (delete-frame frame)))))
+
+
+(defun my-org-agenda (&optional p)
+  (interactive "P")
+  (org-agenda "" "k")
+  (org-agenda-redo-all))
+
+(defun my-scratch (&optional p)
+  (interactive "P")
+  (doom/switch-to-scratch-buffer))
+
+(popup-frame-define my-org-agenda "large-popup")
+(popup-frame-define my-scratch "large-popup")
+
+#+end_src
+* Screenshot Easying
+
+#+begin_src emacs-lisp
+(defun screenshot-as-file-link ()
+  (interactive)
+  (org-download-clipboard)
+  (cpb/convert-attachment-to-file))
+
+(defun my/org-attach-attach-and-link (file)
+  (interactive "fFile to attach: ")
+  (let ((filename (file-name-nondirectory file)))
+    (org-attach-attach file)
+    (insert (format "[[attachment:%s]]" filename))))
+(defun my/org-copy-line-as-file-link ()
+  "Copy the current line as an org-mode file link with the line content as the search."
+  (interactive)
+  (let* ((file-path (buffer-file-name))
+         (line-content (string-trim (thing-at-point 'line t)))
+         ;; Replace [ with \[ and ] with \]
+         (escaped-content (replace-regexp-in-string "\\[" "\\\\["
+                                                    (replace-regexp-in-string "\\]" "\\\\]" line-content)))
+         (org-link (format "[[file:%s::%s]]"
+                           (abbreviate-file-name file-path)
+                           escaped-content)))
+    (kill-new org-link)
+    (message "Copied org link: %s" org-link)))
+
+(map! :map org-mode-map
+      :after org
+      :localleader
+      :desc "Attach file with link" "l a" #'my/org-attach-attach-and-link)
+#+end_src
+
+
+* Dired
+** Mark empty dirs
+
+#+begin_src elisp
+;;;###autoload
+(defun dired-mark-empty-dirs ()
+  "Interactively mark all empty directories in current Dired buffer."
+  (interactive)
+  (when (equal major-mode 'dired-mode)
+    (save-excursion
+      (dired-goto-first)
+      (while (not (eobp))
+        (ignore-errors
+          (when (directory-empty-p (dired-get-filename))
+            (dired-mark 1)
+            (dired-previous-line 1)))
+        (dired-next-line 1)))))
+#+end_src
+
+** Open a playlist in vlc
+#+begin_src elisp
+(require 'dired-aux)
+(defvar dired-filelist-cmd
+  '(("vlc" "-L")))
+(defun dired-start-process (cmd &optional file-list)
+  (interactive
+   (let ((files (dired-get-marked-files
+                 t current-prefix-arg)))
+     (list
+      (dired-read-shell-command "& on %s: "
+                                current-prefix-arg files)
+      files)))
+  (let (list-switch)
+    (start-process
+     cmd nil shell-file-name
+     shell-command-switch
+     (format
+      "nohup 1>
+/dev/null 2>/dev/null %s \"%s\""
+      (if (and (> (length file-list) 1)
+               (setq list-switch
+                     (cadr (assoc cmd dired-filelist-cmd))))
+          (format "%s %s" cmd list-switch)
+        cmd)
+      (mapconcat #'expand-file-name file-list "\" \"")))))
+(define-key dired-mode-map "r" 'dired-start-process)
+
+
+#+end_src
+** Enter Key
+
+#+begin_src elisp
+(defun dired-find-file-or-do-async-shell-command ()
+  "If there is a default command defined for this file type,
+ run it asynchronously.If not, open it in Emacs."
+  (interactive)
+  (let (
+        ;; get the default for the file type,
+        ;; putting the string into a list because dired-guess-default throws an error otherwise.
+        (default (dired-guess-default (cons (dired-get-filename) '())))
+        ;; put the file name into a list so dired-shell-stuff-it will accept it
+        (file-list (cons (dired-get-filename) '())))
+    (if (null default)
+        ;; if no default found for file, open in Emacs
+        (dired-find-file)
+      ;; if default is found for file, run command asynchronously
+      (dired-run-shell-command (dired-shell-stuff-it (concat default " &") file-list nil)))))
+;; This function is bound to the Return key in dired-mode to replace the default behavior on Return
+(define-key dired-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
+;; For added convenience: Don't open a new Async Shell Command window
+(add-to-list 'display-buffer-alist(cons "\\*Async Shell Command\\*.*" (cons #'display-buffer-no-window nil)))
+;; Always open a new buffer if default is occupied.
+;; (setq async-shell-command-buffer 'new-buffer)
+#+end_src
+
+** Dired Send File using Kdeconnect
+#+begin_src elisp
+;;;###autoload
+(defun dired-send-kdeconnect ()
+  "This function is used to mark and send file to kdeconnect device"
+  (interactive)
+  (let ((device-names (shell-command-to-string "kdeconnect-cli -a --id-name-only")))
+    (if (equal device-names "0 devices found")
+        (message "No devices found. Cannot send the file")
+      (let ((device-to-send (consult--read
+                             (delete "" (split-string device-names "\n"))
+                             :prompt "Select device to send:  "
+                             :history 'consult-kdeconnect-history
+                             :require-match t
+                             )))
+        (let ((filenames (if (eq (dired-get-marked-files) nil)
+                             ;; since filenames with spaces will have errors, enclose them with quotes
+                             (mapconcat (lambda (x) (concat "\"" x "\"")) (dired-get-filename) " ")
+                           (mapconcat (lambda (x) (concat "\"" x "\"")) (dired-get-marked-files) " "))))
+          (message filenames)
+          (shell-command (concat "kdeconnect-cli -d"
+                                 (car (split-string device-to-send))
+                                 " --share "
+                                 filenames
+                                 )
+                         )
+          )
+        )
+      )
+    )
+  )
+#+end_src
+** Dired listing switch map
+
+#+begin_src emacs-lisp
+;; (define-key dirvish-mode-map (kbd "y") #'dirvish-ls-switches-menu)
+;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
+;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
+(after! dirvish
+  (map! (:after dirvish
+        :map dirvish-mode-map
+        :n "p" #'dirvish-ls-switches-menu
+        :n "P" #'dired-mark-empty-dirs))
+  (map! :map dired-mode-map
+        :localleader
+        "b" #'dirvish-history-go-backward
+        "f" #'dirvish-history-go-forward
+        "n" #'dirvish-narrow
+        "m" #'dirvish-mark-menu
+        "s" #'dirvish-setup-menu
+        "e" #'dirvish-emerge-menu
+        "q" #'+dired/quit-all
+        "v" #'dirvish-vc-menu
+        "f" #'dirvish-fd-menu
+        "r" #'dirvish-renaming-menu
+        "l" #'dirvish-layout-switch)
+  (add-to-list 'dirvish-preview-disabled-exts "parquet")
+  (add-to-list 'dirvish-preview-disabled-exts "ipynb")
+  (add-to-list 'dirvish-preview-disabled-exts "dmg"))
+#+end_src
+
+** Dirvish quick access entries
+
+#+begin_src elisp
+(after! dirvish
+  (setq dirvish-hide-details t)
+  (setq! dirvish-quick-access-entries
+         `(("h" "~/"                          "Home")
+           ("m" ,user-emacs-directory         "Emacs user directory")
+           ("e" "~/workspace/EHP/EHP/"        "EHP")
+           ("d" "~/Downloads/"                "Downloads")
+           ("t" "~/EHPTemp/"                  "Mounted drives")
+           ("u" "~/workspace/EHP/Ultra/"      "Ultra")
+           ("a" "~/workspace/EHP/Ultra/notebooks/UltraTemp/ModelArtifacts/"       "Ultra Model Artifacts")
+           ("o" "~/workspace/EHP/OptAPI/"       "OptAPI")
+           )))
+#+end_src
+
+* Named workspace prioritize before unnamed
+
+#+begin_src elisp
+(map! (:when (modulep! :ui workspaces)
+        :n "s-t"   #'+workspace/new-named
+        (:when (featurep :system 'macos)
+          :g "s-t"   #'+workspace/new-named)))
+(map! :leader
+      (:when (modulep! :ui workspaces)
+        (:prefix-map ("TAB" . "workspace")
+         :desc "New named workspace"       "n"   #'+workspace/new-named
+         :desc "New workspace"             "N"   #'+workspace/new)))
+#+end_src
+
+* Hackernews
+
+#+begin_src emacs-lisp
+(use-package! hackernews
+  :defer t)
+#+end_src
+
+* Consult gh
+
+#+begin_src elisp
+(use-package consult-gh
+  :after consult
+  :custom
+  (consult-gh-default-clone-directory "~/workspace")
+  (consult-gh-show-preview t)
+  (consult-gh-preview-key "C-o")
+  (consult-gh-repo-action #'consult-gh--repo-browse-files-action)
+  (consult-gh-issue-action #'consult-gh--issue-view-action)
+  (consult-gh-pr-action #'consult-gh--pr-view-action)
+  (consult-gh-code-action #'consult-gh--code-view-action)
+  (consult-gh-file-action #'consult-gh--files-view-action)
+  (consult-gh-notifications-action #'consult-gh--notifications-action)
+  (consult-gh-dashboard-action #'consult-gh--dashboard-action)
+  (consult-gh-large-file-warning-threshold 2500000)
+  (consult-gh-prioritize-local-folder 'suggest)
+  :config
+  (setq consult-gh-default-orgs-list (consult-gh--get-current-orgs t))
+
+  ;; Add a hook to change default organizations when the account is switched
+  (add-hook 'consult-gh-auth-post-switch-hook (lambda (&rest args) (setq consult-gh-default-orgs-list (consult-gh--get-current-orgs t)))))
+
+  ;; Remember visited orgs and repos across sessions
+  ;; (add-to-list 'savehist-additional-variables 'consult-gh--known-orgs-list)
+  ;; (add-to-list 'savehist-additional-variables 'consult-gh--known-repos-list))
+
+
+;; Install `consult-gh-embark' for embark actions
+(use-package consult-gh-embark
+  :after consult-gh
+  :config
+  (consult-gh-embark-mode +1))
+
+
+;; Install `consult-gh-forge' for forge actions
+(use-package consult-gh-forge
+  :after consult-gh
+    :config
+    (consult-gh-forge-mode +1)
+    (setq consult-gh-forge-timeout-seconds 20))
+#+end_src
+* Elysium
+
+#+begin_src elisp
+(use-package elysium
+  :defer t
+  :custom
+  ;; Below are the default values
+  (elysium-window-size 0.33) ; The elysium buffer will be 1/3 your screen
+  (elysium-window-style 'vertical)) ; Can be customized to horizontal
+#+end_src
+* Winner undo and redo shortcuts
+
+#+begin_src emacs-lisp
+(map! :g "s-[" #'winner-undo
+      :g "s-]" #'winner-redo)
+#+end_src
+* Evedel
+
+#+begin_src elisp
+(use-package! evedel
+  :after gptel)
+#+end_src
+* Copilot chat
+
+#+begin_src elisp
+(use-package! copilot-chat)
+#+end_src
+
+* Prodigy
+#+BEGIN_SRC elisp
+(after! prodigy
+  (prodigy-define-service
+    :name "Hugo server"
+    :tags '(personal)
+    :port 5000
+    :command "hugo"
+    :args '("server" "-t")
+    :cwd "~/workspace/personal/personalblog/"
+    :stop-signal 'sigkill
+    :kill-process-buffer-on-stop t)
+
+  (prodigy-define-service
+    :name "FastAPI Uvicorn with Direnv"
+    :tags '(work)
+    :command "sh"
+    :args '("-c" "direnv exec . uvicorn src.optfastapi.main:app --host 0.0.0.0 --port 8080 --reload")
+    :cwd "~/workspace/EHP/OptAPI/"
+    :port 8080
+    ;; Using this way envrc-reload was only available after opening some code or project, so not using init
+    ;; :command "uvicorn"  ; Use shell to run the command
+    ;; :args '("src.optfastapi.main:app" "--host" "0.0.0.0" "--port" "8080" "--reload")
+    ;; :init (lambda () (envrc-reload))
+    )
+
+  (prodigy-define-service
+    :name "Jarvisapi"
+    :tags '(work)
+    :command "sh"
+    :args '("-c" "direnv exec . uvicorn src.jarvisfastapi.main:app --host 0.0.0.0 --port 9000 --reload")
+    :cwd "~/workspace/EHP/JarvisAPI/"
+    :port 9000
+    ;; :command "uvicorn"  ; Use shell to run the command
+    ;; :args '("src.jarvisfastapi.main:app" "--host" "0.0.0.0" "--port" "9000" "--reload")
+    ;; :init (lambda () (envrc-reload))
+    )
+  )
+#+END_SRC
+* Dwim shell command
+
+#+begin_src elisp
+(use-package dwim-shell-command
+  :ensure t)
 #+end_src
 
 * Deprecated
@@ -4506,22 +4823,6 @@ DEPRECATED Part of code
 (when EMACS28+
   (add-hook 'latex-mode-hook #'TeX-latex-mode))
 #+end_src
-** Dark Mode Switcher
-#+BEGIN_SRC elisp
-;;;###autoload
-(defun switch-dark-mode()
-  "Switch to dark mode with a key"
-  (interactive)
-  (if (equal doom-theme 'doom-solarized-light)
-      (progn
-        (message "Dark theme enabled")
-        (load-theme 'doom-tomorrow-night 'noconfirm)
-        (doom/reload-theme))
-    (progn
-      (message "Light theme enabled")
-      (load-theme 'doom-solarized-light 'noconfirm)
-      (doom/reload-theme))))
-#+END_SRC
 ** Lsp restart after changing env
 #+BEGIN_SRC elisp
 (defun change-env-and-restart-lsp()
@@ -4667,40 +4968,6 @@ I use ivy when splitting buffer to choose buffer to go to.
     (+ivy/project-search)))
 #+END_SRC
 
-** Prodigy
-#+BEGIN_SRC elisp
-(after! prodigy
-  (prodigy-define-tag
-    :name 'webpack
-    :ready-message "Compiled successfully!")
-
-  (prodigy-define-tag
-    :name 'hugook
-    :ready-message "Hugo service started")
-
-  (prodigy-define-tag
-    :name 'serve
-    :ready-message "Serving!")
-  (prodigy-define-service
-    :name "Python app"
-    :command "python"
-    :args '("-m" "SimpleHTTPServer" "6001")
-    :cwd "~/"
-    :tags '(work)
-    :stop-signal 'sigkill
-    :kill-process-buffer-on-stop t)
-
-  (prodigy-define-service
-    :name "Hugo server"
-    :port 5000
-    :command "hugo"
-    :args '("server" "-t")
-    :cwd "~/OneDrive/OrgMode/org/blogging/"
-    :stop-signal 'sigkill
-    :tags '(hugook)
-    :kill-process-buffer-on-stop t))
-
-#+END_SRC
 ** Evil
 #+begin_src elisp
 (setq evil-vsplit-window-right t
@@ -4885,117 +5152,6 @@ With \\[universal-argument] produce a new buffer."
   (setq browse-url-browser-function 'eww-browse-url))
 #+END_SRC
 
-** EIN [ Emacs Ipython Notebook ]
-#+BEGIN_SRC elisp
-(after! ein-notebook
-  (defun +ein-buffer-p (buf)
-    (or (memq buf (ein:notebook-opened-buffers))
-        (memq buf (mapcar #'ein:notebooklist-get-buffer (ein:notebooklist-keys)))))
-  (add-to-list 'doom-real-buffer-functions #'+ein-buffer-p nil #'eq)
-
-  (defun spacemacs/ein:worksheet-merge-cell-next ()
-    (interactive)
-    (ein:worksheet-merge-cell (ein:worksheet--get-ws-or-error) (ein:worksheet-get-current-cell) t t))
-
-  ;; (set-popup-rule! "^\\*ein" :ignore t)
-  ;; keybindings mirror ipython web interface behavior
-  (evil-define-key 'normal  ein:markdown-mode-map
-    ;; keybindings mirror ipython web interface behavior
-    "go" 'ein:worksheet-goto-next-input-km
-    "gO" 'ein:worksheet-goto-prev-input-km)
-
-  (evil-define-key 'insert ein:notebook-mode-map
-    ;; keybindings mirror ipython web interface behavior
-    "<C-return>" 'ein:worksheet-execute-cell-km
-    "<C-H-return>" 'ein:worksheet-execute-cell-and-goto-next-km)
-
-  ;; ein show images in there
-  (setq ein:output-area-inlined-images t)
-
-  (map! :map ein:notebook-mode-map
-        ;; Insert new cell, Execute cells
-        ;; Merge, Split, Remove or Move cells
-        "<C-H-return>" 'ein:worksheet-execute-cell-km
-        "<H-return>" 'ein:worksheet-execute-cell-and-goto-next-km
-        "H-o" 'ein:worksheet-insert-cell-below-km
-        "H-O" 'ein:worksheet-insert-cell-above-km
-        "H-c" 'ein:worksheet-change-cell-type-km
-        "H-b" 'ein:worksheet-split-cell-at-point-km
-        "H-k" 'ein:worksheet-move-cell-up-km
-        "H-j" 'ein:worksheet-move-cell-down-km
-        "C-H-k" 'ein:worksheet-merge-cell-km
-        "C-H-j" 'spacemacs/ein:worksheet-merge-cell-next
-        "H-y" 'ein:worksheet-copy-cell-km
-        "H-t" 'ein:worksheet-toggle-output-km
-        "H-p" 'ein:worksheet-yank-cell-km
-        "H-d" 'ein:worksheet-kill-cell-km
-        "H-;" 'ein:notebook-scratchsheet-open-km
-        ;; Output
-        "C-H-o" 'ein:worksheet-toggle-output-km
-        "C-l" 'ein:worksheet-clear-output-km
-        "C-H-l" 'ein:worksheet-clear-all-output-km
-        ;; Notebook Opening and closing
-        "C-H-s" 'ein:notebook-save-notebook-command-km
-        "C-H-r" 'ein:notebook-rename-command-km
-        "C-H-x" 'ein:notebook-close-km
-        :map ein:notebooklist-mode-map
-        :nv "O" 'ein:notebook-open-km
-        :nv "o" 'ace-link-custom)
-
-  (map!  :localleader
-         :map ein:notebook-mode-map
-         :desc "Show Hydra" :n "?" #'+ein/hydra/body
-         :desc "Change cell type" :n "c" #'ein:worksheet-change-cell-type-km
-         :desc "Execute and step" :n "RET" #'ein:worksheet-execute-cell-and-goto-next
-         :desc "Yank cell" :n "y" #'ein:worksheet-copy-cell
-         :desc "Paste cell" :n "p" #'ein:worksheet-yank-cell
-         :desc "Delete cell" :n "d" #'ein:worksheet-kill-cell
-         :desc "Insert cell below" :n "o" #'ein:worksheet-insert-cell-below
-         :desc "Insert cell above" :n "O" #'ein:worksheet-insert-cell-above
-         :desc "Next cell" :n "j" #'ein:worksheet-goto-next-input
-         :desc "Previous cell" :n "k" #'ein:worksheet-goto-prev-input
-         :desc "Save notebook" :n "fs" #'ein:notebook-save-notebook-command)
-
-  (add-hook 'ein:notebook-mode-hook #'virtual-auto-fill-mode)
-  (add-hook 'ein:markdown-mode-hook #'virtual-auto-fill-mode)
-  ;; (add-hook 'ein:ipdb-mode-hook #'virtual-auto-fill-mode)
-  ;; (add-hook 'ein:shared-output-mode-hook #'virtual-auto-fill-mode)
-  )
-(defun my-preview-latex ()
-  "Preview LaTeX from the current cell in a separate buffer.
-
-Handles only markdown and code cells, but both in a bit different
-ways: on the former, its input is being rendered, while on the
-latter - its output."
-  (interactive)
-  (let* ((cell (ein:worksheet-get-current-cell))
-	 (text-to-render
-	  (cond ((ein:markdowncell-p cell) (slot-value cell :input))
-		((ein:codecell-p cell)
-		 (plist-get (car (cl-remove-if-not
-				  (lambda (e) (string= (plist-get e :name) "stdout"))
-				  (slot-value cell :outputs)))
-			    :text))
-		(t (error "Unsupported cell type"))))
-	 (buffer (get-buffer-create " *ein: LaTeX preview*")))
-    (with-current-buffer buffer
-      (when buffer-read-only
-	(toggle-read-only))
-      (unless (= (point-min) (point-max))
-	(delete-region (point-min) (point-max)))
-      (insert text-to-render)
-      (goto-char (point-min))
-      (org-mode)
-      (org-toggle-latex-fragment 16)
-      (special-mode)
-      (unless buffer-read-only
-	(toggle-read-only))
-      (display-buffer
-       buffer
-       '((display-buffer-below-selected display-buffer-at-bottom)
-         (inhibit-same-window . t)))
-      (fit-window-to-buffer (window-in-direction 'below)))))
-#+END_SRC
 ** Flutter
 *** Dart Setup
 #+BEGIN_SRC elisp
@@ -6870,14 +7026,6 @@ It fits only on my side monitor then.
     (mpdel-embark-setup)))
 #+end_src
 
-** Dired Hide Details by Default
-
-#+begin_src elisp
-(add-hook 'dirvish-mode-hook
-          (lambda ()
-            (dired-hide-details-mode)))
-#+end_src
-
 ** Dired Sort
 
 #+BEGIN_SRC elisp
@@ -7028,3 +7176,487 @@ Version 2015-07-30"
   (interactive)
   (switch-to-buffer "*scratch*"))
 #+END_SRC
+
+** Obsidian el for emacs
+
+#+begin_src emacs-lisp
+(use-package obsidian
+  :ensure t
+  :demand t
+  :config
+  (obsidian-specify-path "~/Obsidian/MinimalNotes")
+  (global-obsidian-mode t)
+  :custom
+  ;; This directory will be used for `obsidian-capture' if set.
+  (obsidian-inbox-directory "02-Fleeting Notes")
+  ;; Create missing files in inbox? - when clicking on a wiki link
+  ;; t: in inbox, nil: next to the file with the link
+  ;; default: t
+  ;(obsidian-wiki-link-create-file-in-inbox nil)
+  ;; The directory for daily notes (file name is YYYY-MM-DD.md)
+  (obsidian-daily-notes-directory "05-Journal")
+  ;; Directory of note templates, unset (nil) by default
+  (obsidian-templates-directory "99-Meta/Templates")
+  ;; Daily Note template name - requires a template directory. Default: Daily Note Template.md
+  ;(obsidian-daily-note-template "Daily Note Template.md")
+  :bind (:map obsidian-mode-map
+  ;; Replace C-c C-o with Obsidian.el's implementation. It's ok to use another key binding.
+  ("C-c C-o" . obsidian-follow-link-at-point)
+  ;; Jump to backlinks
+  ("C-c C-b" . obsidian-backlink-jump)
+  ;; If you prefer you can use `obsidian-insert-link'
+  ("C-c C-l" . obsidian-insert-wikilink)))
+#+end_src
+
+** Org md roam
+
+*** Setup
+#+begin_src emacs-lisp
+(use-package! md-roam
+  :after org-roam
+  :config
+  (set-company-backend! 'markdown-mode 'company-capf) ; add company-capf as company backend in markdown buffers
+  (setq org-roam-file-extensions '("org" "md")) ; enable Org-roam for a markdown files
+  (md-roam-mode 1) ; md-roam-mode needs to be active before org-roam-db-sync
+  (org-roam-db-autosync-mode 1)
+  (map! :map doom-leader-map
+    "n r o" (λ! (let* ((full-path (buffer-file-name))
+                        (pattern "/MinimalNotes/\\(.*?\\)\\.md$")
+                        (vault-name "MinimalNotes")
+                        obsidian-uri match)
+                    (when (and full-path (string-match pattern full-path))
+                    (setq match (match-string 1 full-path))
+                    (setq obsidian-uri (format "obsidian://open?vault=%s&file=%s" vault-name match))
+                    (start-process "open-obsidian" nil "open" obsidian-uri)))))
+)
+#+end_src
+*** Org roam ui
+#+begin_src elisp
+(use-package! websocket
+  :after org-roam)
+
+(use-package! org-roam-ui
+  :after org-roam ;; or :after org
+  ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
+  ;;         a hookable mode anymore, you're advised to pick something yourself
+  ;;         if you don't care about startup time, use
+  :hook (org-roam . org-roam-ui-mode)
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start t))
+#+end_src
+
+
+**** Org Roam Quick Insert Link
+
+#+begin_src emacs-lisp
+(defun insert-org-roam-link ()
+  "Insert a Roam link and place the cursor next to the colon.
+   If in Evil normal mode, switch to insert mode."
+  (interactive)
+  (if (and (bound-and-true-p evil-mode)
+           (eq evil-state 'normal))
+      (evil-insert-state)) ; Switch to insert mode if in normal mode
+  (insert "[[roam:")
+  (save-excursion
+    (insert "]]")))
+#+end_src
+
+**** Roam File Search
+#+begin_src elisp
+;;;###autoload
+(defun bms/org-roam-rg-search ()
+  "Search org-roam directory using consult-ripgrep. With live-preview."
+  (interactive)
+  (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
+    (consult-ripgrep org-roam-directory)))
+(global-set-key (kbd "C-M-s-o") 'bms/org-roam-rg-search)
+#+end_src
+** Theme switch
+
+#+begin_src elisp
+(defun toggle-dark-mode ()
+  (interactive)
+  (if (eq (doom-theme 'doom-monokai-spectrum))
+      (consult-theme 'doom-tommorrow-day)
+    (consult-theme 'doom-monokai-spectrum)))
+#+end_src
+
+
+
+** Paste second to last copied info
+No need for this. Using ctrl + n can switch to other yanks.
+evil-paste-pop and evil-paste-pop-next
+#+begin_src emacs-lisp
+(defun paste-second-to-last-kill ()
+  "Insert the second to last entry in the kill ring."
+  (interactive)
+  (let ((second-to-last (nth 1 kill-ring)))
+    (if second-to-last
+        (insert second-to-last)
+      (message "No second to last kill available."))))
+
+#+end_src
+
+** Eat terminal
+
+#+begin_src emacs-lisp
+;; eat: Emulate A Terminal (https://codeberg.org/akib/emacs-eat)
+(use-package eat
+    :preface
+    (defun my--eat-open (file)
+        "Helper function to open files from eat terminal."
+        (interactive)
+        (if (file-exists-p file)
+                (find-file-other-window file t)
+            (warn "File doesn't exist")))
+    ;; :init
+    ;; (add-to-list 'project-switch-commands '(eat-project "Eat terminal") t)
+    ;; (add-to-list 'project-switch-commands '(eat-project-other-window "Eat terminal other window") t)
+    ;; (add-to-list 'project-kill-buffer-conditions '(major-mode . eat-mode))
+    :config
+    (add-to-list 'eat-message-handler-alist (cons "open" 'my--eat-open))
+    (setq process-adaptive-read-buffering nil) ; makes EAT a lot quicker!
+    (setq eat-term-name "xterm-256color") ; https://codeberg.org/akib/emacs-eat/issues/119"
+    (setq eat-kill-buffer-on-exit t)
+    (setq eat-shell-prompt-annotation-failure-margin-indicator "")
+    (setq eat-shell-prompt-annotation-running-margin-indicator "")
+    (setq eat-shell-prompt-annotation-success-margin-indicator ""))
+
+;; (with-eval-after-load 'eat
+;;     (global-set-key (kbd "C-c o t") 'eat)
+;;     (global-set-key (kbd "C-c o T") 'eat-other-window)
+;;     (define-key project-prefix-map (kbd "t") 'eat-project)
+;;     (define-key project-prefix-map (kbd "T") 'eat-project-other-window)
+#+end_src
+
+** Org node for faster org roam
+
+#+begin_src emacs-lisp
+(use-package org-node
+  :after org
+  :config (org-node-cache-mode))
+
+(use-package org-node-fakeroam
+  :defer)
+
+(after! org
+  (setq org-node-extra-id-dirs '("~/Nextcloud/org"))
+  (setq org-node-creation-fn #'org-node-fakeroam-new-via-roam-capture)
+  (setq org-node-slug-fn #'org-node-fakeroam-slugify-via-roam)
+  (setq org-node-datestamp-format "%Y%m%d%H%M%S-")
+  (setq org-roam-db-update-on-save nil) ;; don't update DB on save, not needed
+  (setq org-roam-link-auto-replace nil) ;; don't look for "roam:" links on save
+  (org-node-fakeroam-redisplay-mode) ;; autorefresh the Roam buffer
+  (org-node-fakeroam-db-feed-mode) ;; keep Roam DB up to date
+  (org-node-fakeroam-jit-backlinks-mode) ;; skip DB for Roam buffer
+  )
+
+#+end_src
+
+** Consult web
+
+#+begin_src elisp
+(use-package consult-web
+  :after consult
+  :custom
+  (consult-web-show-preview t) ;;; show previews
+  (consult-web-preview-key "C-o") ;;; set the preview key to C-o
+  (consult-web-highlight-matches t) ;;; highlight matches in minibuffer
+  (consult-web-default-count 5) ;;; set default count
+  (consult-web-default-page 0) ;;; set the default page (default is 0 for the first page)
+
+  (consult-web-dynamic-input-debounce 0.8)
+  (consult-web-dynamic-input-throttle 1.6)
+  (consult-web-dynamic-refresh-delay 0.8)
+
+  :config
+  (setq consult-web-default-autosuggest-command #'consult-web-dynamic-google-autosuggest)
+  (setq consult-web-sources-modules-to-load '(consult-web-google consult-web-wikipedia consult-web-duckduckgo))
+  (require 'consult-web-sources)
+  (require 'consult-web-google-autosuggest)
+  )
+#+end_src
+
+*** Org Roam v2 Frame Title
+#+begin_src elisp
+(setq frame-title-format
+      '(""
+        (:eval
+         (if (s-contains-p org-roam-directory (or buffer-file-name ""))
+             (replace-regexp-in-string
+              ".*/[0-9]*-?" "☰ "
+              (subst-char-in-string ?_ ?  buffer-file-name))
+           "%b"))
+        (:eval
+         (let ((project-name (projectile-project-name)))
+           (unless (string= "-" project-name)
+             (format (if (buffer-modified-p)  " ◉ %s" "  ●  %s") project-name))))))
+#+end_src
+
+*** Vterm Named Terminal
+
+Named terminal with vterm/here
+
+#+begin_src elisp
+;;;###autoload
+(defun +vterm--change-directory-if-remote ()
+  "When `default-directory` is remote, use the corresponding
+method to prepare vterm at the corresponding remote directory."
+  (when (and (featurep 'tramp)
+             (tramp-tramp-file-p default-directory))
+    (message "default-directory is %s" default-directory)
+    (with-parsed-tramp-file-name default-directory path
+      (let ((method (cadr (assoc `tramp-login-program
+                                 (assoc path-method tramp-methods)))))
+        (vterm-send-string
+         (concat method " "
+                 (when path-user (concat path-user "@")) path-host))
+        (vterm-send-return)
+        (vterm-send-string
+         (concat "cd " path-localname))
+        (vterm-send-return)))))
+
+;;;###autoload
+(defun +vterm/here (arg)
+  "Open a terminal buffer in the current window at project root.
+
+If prefix ARG is non-nil, cd into `default-directory' instead of project root."
+  (interactive "P")
+  (unless (fboundp 'module-load)
+    (user-error "Your build of Emacs lacks dynamic modules support and cannot load vterm"))
+  (require 'vterm)
+  ;; This hack forces vterm to redraw, fixing strange artefacting in the tty.
+  (save-window-excursion
+    (pop-to-buffer "*scratch*"))
+  (let* ((project-root (or (doom-project-root) default-directory))
+         (default-directory
+           (if arg
+               default-directory
+             project-root))
+         display-buffer-alist)
+    (setenv "PROOT" project-root)
+    (setq my-proj-name (concat "vterm-" (nth 0 (reverse (s-split "/" project-root 'omit-nulls)))))
+    (if (get-buffer my-proj-name)
+        (switch-to-buffer my-proj-name)
+      (vterm my-proj-name))
+    ;; (vterm my-proj-name)
+    (+vterm--change-directory-if-remote)))
+#+end_src
+
+*** Vterm Execute Current Line
+#+begin_src elisp
+(defun my/vterm-execute-current-line ()
+  "Insert text of current line in vterm and execute."
+  (interactive)
+  (require 'vterm)
+  (let ((command (buffer-substring
+                  (save-excursion
+                    (beginning-of-line)
+                    (point))
+                  (save-excursion
+                    (end-of-line)
+                    (point)))))
+    (let ((buf (current-buffer)))
+      (unless (get-buffer vterm-buffer-name)
+        (vterm))
+      (display-buffer vterm-buffer-name t)
+      (switch-to-buffer-other-window vterm-buffer-name)
+      (vterm--goto-line -1)
+      (message command)
+      (vterm-send-string command)
+      (vterm-send-return)
+      (switch-to-buffer-other-window buf)
+      )))
+#+end_src
+
+*** Spray
+
+For faster reading when bored. It helps me focus on one hand and if I am already focused to sprint through the text faster.
+#+BEGIN_SRC elisp
+(global-set-key (kbd "<f6>") 'spray-mode)
+(use-package spray
+  ;; :commands (spray-faster spray-slower)
+  :defer t
+  :config
+  :bind (:map spray-mode-map
+         ("M-f" . spray-faster)
+         ("M-S-f" . spray-slower)
+         ("M-s" . spray-start/stop)
+         ("M-q" . spray-quit)
+         )
+  )
+#+END_SRC
+
+*** Orch Toggle
+
+Tool for sending my notes from Samsung note 3 into org mode directly.
+#+BEGIN_SRC elisp
+(after! org
+  (autoload 'orch-toggle "orch" nil t))
+#+END_SRC
+
+*** Dark Mode Switcher
+#+BEGIN_SRC elisp
+;;;###autoload
+(defun switch-dark-mode()
+  "Switch to dark mode with a key"
+  (interactive)
+  (if (equal doom-theme 'doom-tomorrow-day)
+      (progn
+        (message "Dark theme enabled")
+        (load-theme 'doom-monokai-pro 'noconfirm)
+        (doom/reload-theme))
+    (progn
+      (message "Light theme enabled")
+      (load-theme 'doom-tomorrow-day 'noconfirm)
+      (doom/reload-theme))))
+
+(global-set-key (kbd "<f5>") 'switch-dark-mode)
+#+END_SRC
+
+*** Energy Log throughout the day
+
+#+begin_src emacs-lisp
+(defvar my-log-energy-active nil
+  "Flag to indicate whether the energy logging prompt is active.")
+
+(defvar my-log-energy-timer nil
+  "Timer for scheduling the energy logging prompt.")
+
+(defun my-log-energy ()
+  "Prompt for an energy level and log it with timestamp to a CSV file."
+  (interactive)
+  ;; Cancel the existing timer
+  (when my-log-energy-timer
+    (cancel-timer my-log-energy-timer)
+    (setq my-log-energy-timer nil))
+  ;; Check if the prompt is already active, if so, exit the function
+  (if my-log-energy-active
+      (message "Energy level prompt already active.")
+    ;; If the prompt is not active, proceed and set the flag to true
+    (setq my-log-energy-active t)
+    (unwind-protect
+        ;; Protected block
+        (let* ((energy-levels '("1" "2" "3" "4" "5" "6" "7" "8" "9" "10"))
+               ;; Prompt the user for an energy level
+               (energy (consult--read energy-levels
+                                      :prompt "What is your energy level? "
+                                      :require-match t))
+               ;; Get the current timestamp
+               (timestamp (format-time-string "%Y-%m-%d %H:%M:%S")))
+          ;; Check if a value was entered
+          (when energy
+            ;; Write to a CSV file
+            (with-temp-buffer
+              (insert (format "%s,%s\n" timestamp energy))
+              ;; Change the path to your desired CSV file location
+              (append-to-file (point-min) (point-max) (concat org-lookbacks-directory "energy_log.csv")))))
+      ;; Cleanup code: Reset the flag and reschedule the timer
+      (setq my-log-energy-active nil)
+      (setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy)))))
+
+;; Initialize the first prompt
+(setq my-log-energy-timer (run-at-time "30 minutes" nil 'my-log-energy))
+#+end_src
+
+*** Passthrough emacs keys if mac os
+
+#+begin_src emacs-lisp
+;; (defun yabai-move-on-error (direction move-fn)
+;;   (interactive)
+;;   (condition-case nil
+;;       (funcall move-fn)
+;;     (user-error (start-process "yabai" nil "yabai" "-m" "window" "--focus" direction))))
+
+
+(defun yabai-execute-commands (&rest commands)
+  "Execute yabai commands sequentially until one succeeds."
+  (let ((output-buffer (generate-new-buffer "*yabai-output*")))
+    (unwind-protect
+        (progn
+          (while commands
+            (let* ((command (car commands))
+                   (full-command (concat "yabai -m " command))
+                   (process (start-process-shell-command "yabai" output-buffer full-command)))
+              ;; (message "Executing yabai command: %s" full-command)
+              (set-process-sentinel
+               process
+               (lambda (proc event)
+                 (when (string= event "finished\n")
+                   ;; (message "Yabai command output: %s"
+                   ;;          (with-current-buffer output-buffer
+                   ;;            (buffer-string)))
+                   (setq commands nil))))
+              (while (process-live-p process)
+                (sit-for 0.05))
+              (unless (= 0 (process-exit-status process))
+                (setq commands (cdr commands))))))
+          ;; (message "All yabai commands completed."))
+      (kill-buffer output-buffer))))
+
+(defun yabai-move-on-error (direction move-fn)
+  (interactive)
+  (condition-case nil
+      (funcall move-fn)
+    (error
+     (let ((commands
+            (pcase direction
+              ("west"  '("window --focus west"
+                         "display --focus west"
+                         "window --focus stack.prev"
+                         "window --grid 1:2:0:0:1:1"))
+              ("east"  '("window --focus east"
+                         "display --focus east"
+                         "window --focus stack.next"
+                         "window --grid 1:2:1:0:1:1"))
+              ("north" '("window --focus north"
+                         "display --focus north"
+                         "window --focus stack.next"
+                         "window --grid 1:1:0:0:1:1"))
+              ("south" '("window --focus south"
+                         "display --focus south"
+                         "window --focus stack.prev"
+                         "window --grid 4:4:1:1:2:2")))))
+       ;; (message "Trying to move window with yabai")
+       (apply #'yabai-execute-commands commands)))))
+
+(defun yabai-window-left ()
+  (interactive)
+  (yabai-move-on-error "west" #'windmove-left))
+
+(defun yabai-window-right ()
+  (interactive)
+  (yabai-move-on-error "east" #'windmove-right))
+
+(defun yabai-window-up ()
+  (interactive)
+  (yabai-move-on-error "north" #'windmove-up))
+
+(defun yabai-window-down ()
+  (interactive)
+  (yabai-move-on-error "south" #'windmove-down))
+
+
+(after! org
+  (map!
+   :after evil-org
+   :map evil-org-mode-map
+   :nvm "M-h" #'yabai-window-left
+   :nvm "M-l" #'yabai-window-right
+   :nvm "M-k" #'yabai-window-up
+   :nvm "M-j" #'yabai-window-down)
+  )
+
+(after! org
+  (evil-define-key '(normal insert visual motion) 'global
+    (kbd "M-h") 'yabai-window-left
+    (kbd "M-l") 'yabai-window-right
+    (kbd "M-k") 'yabai-window-up
+    (kbd "M-j") 'yabai-window-down)
+  )
+#+end_src
+
+#+RESULTS:
