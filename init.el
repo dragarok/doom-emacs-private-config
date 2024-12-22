@@ -14,6 +14,8 @@
 ;;      Alternatively, press 'gd' (or 'C-c c d') on a module to browse its
 ;;      directory (for easy access to its source code).
 
+;; (add-to-list 'default-frame-alist '(undecorated-round . t))
+
 (doom! :input
        ;;chinese
        ;;japanese
@@ -51,7 +53,7 @@
        ;;neotree           ; a project drawer, like NERDTree for vim
        ophints           ; highlight the region an operation acts on
        (popup
-        +all
+        ;; +all
         +defaults)   ; tame sudden yet inevitable temporary windows
        ;; tabs              ; a tab bar for Emacs
        treemacs          ; a project drawer, like neotree but cooler
@@ -81,6 +83,7 @@
        (dired             ; making dired pretty [functional]
         ;; +ranger
         +dirvish
+        ;; +icons
         )
        electric          ; smarter, keyword-based electric-indent
        (ibuffer         ; interactive buffer management
@@ -123,13 +126,12 @@
         +docsets)
        (lsp               ; M-x vscode
         +peek)
-       (magit)             ; a git porcelain for Emacs
-       ;;  ;; +forge
-       ;;  )
+       (magit             ; a git porcelain for Emacs
+        +forge)
        ;;make              ; run make tasks from Emacs
        pass              ; password manager for nerds
        pdf               ; pdf enhancements
-       ;;prodigy           ; FIXME managing external services & code builders
+       prodigy           ; FIXME managing external services & code builders
        ;; rgb               ; creating color strings
        ;;taskrunner        ; taskrunner for all your projects
        terraform         ; infrastructure as code
@@ -227,7 +229,9 @@
         +lsp)
        ;;sml
        ;;solidity          ; do you need a blockchain? No.
-       ;;swift             ; who asked for emoji variables?
+       (swift             ; who asked for emoji variables?
+        +lsp
+        +tree-sitter)
        ;;terra             ; Earth and Moon in alignment for performance.
        (web               ; the tubes
         ;; +tree-sitter
