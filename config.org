@@ -7658,5 +7658,3 @@ Tool for sending my notes from Samsung note 3 into org mode directly.
     (kbd "M-j") 'yabai-window-down)
   )
 #+end_src
-
-#+RESULTS:
