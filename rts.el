@@ -42,6 +42,31 @@
   "Check if TAGS contains any tag from TAG-LIST."
   (seq-some (lambda (tag) (member tag tags)) tag-list))
 
+(defun rts--is-future-time-today-p (task-tags current-time)
+  "Check if task has a future time tag for today.
+Returns t if task is scheduled for later today and should be excluded."
+  (let ((has-time-tag (rts--has-any-tag-p task-tags rts-time-tags)))
+    (when has-time-tag
+      (cond
+       ;; If it's Morning now, exclude Day and Evening tasks
+       ((string= current-time "Morning")
+        (or (rts--has-tag-p task-tags "Day")
+            (rts--has-tag-p task-tags "Evening")))
+       ;; If it's Day now, exclude Evening tasks
+       ((string= current-time "Day")
+        (rts--has-tag-p task-tags "Evening"))
+       ;; If it's Evening now, don't exclude any time-tagged tasks
+       (t nil)))))
+
+(defun rts--filter-out-future-today-tasks (tasks)
+  "Filter out tasks scheduled for later today."
+  (let ((current-time (rts--get-current-time-of-day)))
+    (seq-filter
+     (lambda (task)
+       (let ((tags (rts--get-task-tags task)))
+         (not (rts--is-future-time-today-p tags current-time))))
+     tasks)))
+
 (defun rts--filter-by-difficulty-energy (tasks difficulty energy)
   "Filter TASKS by DIFFICULTY and ENERGY tags."
   (seq-filter
@@ -127,25 +152,6 @@
       (let* ((heading (org-element-property :raw-value task))
              (priority (rts--get-task-priority task))
              (tags (rts--get-task-tags task))
-             (file (org-element-property :file task))
-             (pos (org-element-property :begin task)))
-        (message "Selected task: %s %s [%s] %s "
-                 heading
-                 (or priority "No priority")
-                 (or file "No filename")
-                 (if tags (format ":%s:" (string-join tags ":")) ""))
-        ;; Jump to the task
-        (find-file file)
-        (goto-char pos)
-        (org-show-context))
-    (message "No tasks found matching criteria.")))
-
-(defun rts--display-selected-task (task)
-  "Display the selected TASK."
-  (if task
-      (let* ((heading (org-element-property :raw-value task))
-             (priority (rts--get-task-priority task))
-             (tags (rts--get-task-tags task))
              (marker (org-element-property :org-marker task)) ; Get the marker
              (file (when marker (buffer-file-name (marker-buffer marker)))) ; Get file from marker
              (pos (org-element-property :begin task)))
@@ -168,12 +174,14 @@
 With PREFIX-ARG, prompt for difficulty and energy filtering."
   (interactive "P")
   (let* ((base-tasks (rts--get-base-tasks))
+         ;; Filter out future today tasks first
+         (time-filtered-tasks (rts--filter-out-future-today-tasks base-tasks))
          (filtered-tasks
           (if prefix-arg
               (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
                      (energy (consult--read "Energy: " rts-energy-tags)))
-                (rts--filter-by-difficulty-energy base-tasks difficulty energy))
-            base-tasks)))
+                (rts--filter-by-difficulty-energy time-filtered-tasks difficulty energy))
+            time-filtered-tasks)))
     (when filtered-tasks
       (let ((selected-task (nth (random (length filtered-tasks)) filtered-tasks)))
         (rts--display-selected-task selected-task)))))
@@ -183,7 +191,9 @@ With PREFIX-ARG, prompt for difficulty and energy filtering."
 With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
   (interactive "P")
   (let* ((base-tasks (rts--get-base-tasks))
-         (priority-a-tasks (rts--get-priority-tasks base-tasks))
+         ;; Filter out future today tasks first
+         (time-filtered-base (rts--filter-out-future-today-tasks base-tasks))
+         (priority-a-tasks (rts--get-priority-tasks time-filtered-base))
          (current-time (rts--get-current-time-of-day)))
 
     (if priority-a-tasks
@@ -206,7 +216,7 @@ With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
            (nth (random (length same-time-tasks)) same-time-tasks)))
 
       ;; Handle lower priority tasks
-      (let* ((lower-tasks (rts--get-lower-priority-tasks base-tasks))
+      (let* ((lower-tasks (rts--get-lower-priority-tasks time-filtered-base))
              (time-filtered (rts--filter-by-time-of-day lower-tasks current-time))
              (final-tasks (if (null time-filtered) lower-tasks time-filtered))
              (final-filtered
