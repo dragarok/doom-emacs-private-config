@@ -37,13 +37,18 @@
           ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
           doom-big-font (font-spec :family "Maple Mono SC NF" :size 25)))
 
-;;; autoload
+;;;###autoload
 (defun my/apply-theme (appearance)
-  "Load theme, taking current system APPEARANCE into consideration."
+  "Load theme and set `doom-theme` based on system APPEARANCE."
   (mapc #'disable-theme custom-enabled-themes)
   (pcase appearance
-    ('light (load-theme 'doom-tomorrow-day t))
-    ('dark (load-theme 'doom-monokai-pro t))))
+    ('light
+     (setq doom-theme 'doom-tomorrow-day)
+     (load-theme 'doom-tomorrow-day t))
+    ('dark
+     (setq doom-theme 'doom-monokai-pro)
+     (load-theme 'doom-monokai-pro t))))
+
 (if IS-MAC
     (add-hook 'ns-system-appearance-change-functions #'my/apply-theme)
   (setq doom-theme 'doom-monokai-pro))
@@ -251,20 +256,6 @@ Set local leader to comma for ease of use.
 
 * Tools
 
-** Ace Link
-
-#+BEGIN_SRC elisp
-(use-package! ace-link
-  :commands (ace-link))
-(after! avy
-  (setq avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\;)))
-(after! ace-window
-  (setq aw-keys '(?f ?d ?s ?r ?e ?w)
-        aw-scope 'frame
-        aw-ignore-current t
-        aw-background nil))
-#+END_SRC
-
 ** Dash Docsets
 
 #+BEGIN_SRC elisp
@@ -456,35 +447,6 @@ Very large files often break emacs. And this way, we only see a portion.
                    :height 140
                    :italic t)))
   )
-#+end_src
-** Copilot
-
-#+begin_src elisp
-;; accept completion from copilot and fallback to company
-(use-package! copilot
-  :hook (prog-mode . copilot-mode)
-  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
-         ("C-<tab>" . 'copilot-accept-completion-by-word)
-         :map copilot-completion-map
-         ("<tab>" . 'copilot-accept-completion)
-         ("<right>". 'copilot-accept-completion)
-         ("C-f". 'copilot-accept-completion)
-         ("M-f". 'copilot-accept-completion-by-word)
-         ("C-e". 'copilot-accept-completion-by-line)
-         ("<end>". 'copilot-accept-completion-by-line)
-         ("TAB" . 'copilot-accept-completion))
-  :config
-  (advice-add #'indent-for-tab-command :before #'copilot-complete)
-  )
-
-#+end_src
-
-
-*** For copilot disable smartparens
-
-#+begin_src elisp
-(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
-;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
 #+end_src
 ** Org Books
 
@@ -1830,16 +1792,15 @@ ease of use.
 #+BEGIN_SRC elisp
 ;;(bind-key "C-M-s-u" 'org-roam-dailies-find-tomorrow)
 (bind-key "C-M-s-s" 'open-main-agenda)
+(bind-key "C-M-s-j" 'scroll-other-window-down)
+(bind-key "C-M-s-k" 'scroll-other-window)
 (bind-key "C-M-s-~" '+python/open-ipython-repl)
 (bind-key "C-s-~" '+popup/toggle)
 (bind-key "C-s-t" '+vterm/here)
 (bind-key "C-M-s-t" '+vterm/toggle)
-;; (bind-key "C-M-s-t" '+my/vterm-run-project)
-;; (bind-key "C-M-s-a" 'open-bookmark)
 (bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
 (bind-key "C-M-s-h" 'evil-avy-goto-char-2)
 (bind-key "C-M-s-v" 'consult-flycheck)
-(bind-key "<f5>" 'powerthesaurus-transient)
 (bind-key "C-M-s-<return>" '+vertico/switch-workspace-buffer-other-window)
 (bind-key "C-M-s-<iso-lefttab>" '+vertico/switch-workspace-buffer)
 (bind-key "C-M-s-<tab>" '+vertico/switch-workspace-buffer)
@@ -1854,6 +1815,15 @@ ease of use.
 (bind-key "C-M-s-x" 'consult-buffer)
 (bind-key "C-M-s-a" 'open-bookmark)
 (bind-key "C-s-a" 'open-random-bookmark)
+(bind-key "C-s-u" 'today)
+(bind-key "C-s-w" '+workspace/display)
+(bind-key "C-s-{" '+workspace/switch-left)
+(bind-key "C-s-}" '+workspace/switch-right)
+(bind-key "C-s-!"
+          (lambda ()
+            (interactive)
+            (org-save-all-org-buffers)
+            (org-agenda-redo)))
 ;; (bind-key "C-M-s-t" '+my/vterm-run-project)
 (bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
 (bind-key "C-M-s-l" '+workspace/load)
@@ -1878,7 +1848,7 @@ ease of use.
 (bind-key "C-M-s-e" 'scroll-other-window)
 (bind-key "C-M-s-:" 'newline-and-indent)
 (bind-key "C-M-s-w" 'basic-save-buffer)
-(bind-key "C-M-s-c" #'doom/toggle-comment-region-or-line)
+(bind-key "C-M-s-c" 'screenshot-as-file-link)
 ;; doing dap very efficiently
 (bind-key "C-s-n" #'dap-next)
 (bind-key "C-s-k" #'dap-step-out)
@@ -1887,16 +1857,16 @@ ease of use.
 (bind-key "C-s-e" #'dap-ui-expressions-add)
 (bind-key "C-s-<return>" #'better-jumper-set-jump)
 (bind-key "C-s-r" #'dap-ui-repl)
-(bind-key "C-s->" #'dap-eval-region)
+(bind-key "C-s-\"" #'dap-eval-region)
 (map! :leader
       :n ">" #'projectile-find-dir
-      :n "[" #'+vertico/consult-fd
+      :n "[" #'+vertico/consult-fd-or-find
       :n "]" #'+default/org-notes-search
       :n "e" #'+default/compile
       (:prefix "o"
-       :n "U" #'elfeed
+       ;; :n "U" #'elfeed
        :n "s" #'org-open-at-point
-       :n "u" #'elfeed-update
+       ;; :n "u" #'elfeed-update
        ;; EXPERIMENTAL HACK
        ;; :n "p" #'dired-sidebar-toggle-sidebar
        :n "o" #'dired-jump)
@@ -1949,17 +1919,12 @@ ease of use.
        :n "a" #'unpackaged/iedit-or-flyspell
        :n "s" #'create-new-ml-project
        :n "w" #'change-env-and-restart-lsp
-       :n "l" #'unpackaged/lorem-ipsum-overlay
        :n "h" #'unpackaged/org-outline-numbers
-       :n "g" #'unpackaged/magit-status
-       :n "u" #'unpackaged/flex-fill-paragraph
        :n "i" #'org-mru-clock-in
        :n "f" #'auto-fill-mode
-       :n "z" #'zoom-mode
        :n "y" #'jethro/bulk-process-entries
        :n "j" #'grab-x-link-firefox-insert-org-link
-       :n "b" #'grab-x-link-brave-insert-org-link
-       :n "d" #'unpackaged/org-refile-to-datetree-using-ts-in-entry)
+       :n "b" #'grab-x-link-brave-insert-org-link)
       (:prefix "d"
        :n "h" #'org-ref-bibtex-hydra/body
        :n "w" #'+hydra/window-nav/body
@@ -2744,8 +2709,7 @@ SCHEDULED: %t
 ** Org Screenshots
 #+BEGIN_SRC elisp
 (after! org
-  (setq org-download-method 'directory
-        org-download-image-dir "~/Nextcloud/org/org-images/"
+  (setq org-download-image-dir "~/Nextcloud/org/org-images/"
         org-download-heading-lvl nil
         org-download-delete-image-after-download t
         org-download-screenshot-method "grimshot save area %s"
@@ -3476,6 +3440,17 @@ structure changes."
                 (delete-region link-begin link-end)
                 ;; replace with file: link and file: description
                 (insert (format "[[file:%s][file:%s]]" relpath relpath)))))))))
+
+(defun open-file-link-in-dired ()
+  "Open the directory of the file link at point in Dired."
+  (interactive)
+  (let* ((context (org-element-context))
+         (type (org-element-type context))
+         (link (when (eq type 'link) context))
+         (path (when link (org-element-property :path link))))
+    (if (and path (string-prefix-p "file:" (org-element-property :raw-link link)))
+        (dired (file-name-directory (expand-file-name path)))
+      (user-error "No valid file link at point"))))
 #+end_src
 ** Latex pdf process
 
@@ -3642,23 +3617,6 @@ structure changes."
         (kill-new quote-block)
         (message "Quote with title copied to clipboard")))))
 #+end_src
-* New Additions
-
-#+begin_src elisp
-(use-package! org-modern
-  :after org
-  :config
-
-  (setq org-modern-priority-faces '(
-                                    (?A . (:foreground "white" :background "red" :weight bold))
-                                    (?B . (:foreground "white" :background "OrangeRed3" :weight bold))
-                                    (?C . (:foreground "white" :background "tomato" :weight bold))
-                                    (?D . (:foreground "black" :background "yellow3" :weight bold ))
-                                    (?E . (:foreground "white" :background "green4" :weight bold ))
-                                    (?F . (:foreground "black" :background "green" :weight bold ))))
-  (global-org-modern-mode)
-  )
-#+end_src
 * Additional Functionalities
 
 #+begin_src emacs-lisp
@@ -3791,56 +3749,78 @@ structure changes."
       :nvm "k" #'image-previous-file
       )
 #+end_src
-* Lsp booster
-
-#+begin_src emacs-lisp
-(defun lsp-booster--advice-json-parse (old-fn &rest args)
-  "Try to parse bytecode instead of json."
-  (or
-   (when (equal (following-char) ?#)
-     (let ((bytecode (read (current-buffer))))
-       (when (byte-code-function-p bytecode)
-         (funcall bytecode))))
-   (apply old-fn args)))
-(advice-add (if (progn (require 'json)
-                       (fboundp 'json-parse-buffer))
-                'json-parse-buffer
-              'json-read)
-            :around
-            #'lsp-booster--advice-json-parse)
-
-(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-  "Prepend emacs-lsp-booster command to lsp CMD."
-  (let ((orig-result (funcall old-fn cmd test?)))
-    (if (and (not test?)                             ;; for check lsp-server-present?
-             (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-             lsp-use-plists
-             (not (functionp 'json-rpc-connection))  ;; native json-rpc
-             (executable-find "emacs-lsp-booster"))
-        (progn
-          (message "Using emacs-lsp-booster for %s!" orig-result)
-          (cons "emacs-lsp-booster" orig-result))
-      orig-result)))
-(advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
-#+end_src
-
 * Gptel
 
 #+begin_src emacs-lisp
 (use-package! gptel
   :config
+  (setq gptel-display-buffer-action nil)  ; if user changes this, popup manager will bow out
+  (set-popup-rule!
+    (lambda (bname _action)
+      (and (null gptel-display-buffer-action)
+           (buffer-local-value 'gptel-mode (get-buffer bname))))
+    :select t
+    :size 0.3
+    :quit nil
+    :ttl nil)
   (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
   (gptel-make-ollama
-      "Ollama"                               ;Any name of your choosing
+      "Ollama"                             ;Any name of your choosing
     :host "localhost:11434"                ;Where it's running
-    :models '("codellama:latest")            ;Installed models
+    :models '("gemma3:latest")             ;Installed models
     :stream t)                             ;Stream responses
   (gptel-make-anthropic "Claude"
     :stream t
     :key (auth-source-pick-first-password :user "anthroapi")
     )
+  (gptel-make-gemini "Gemini"
+    :stream t
+    :key (auth-source-pick-first-password :user "geminiapi")
+    )
+  (gptel-make-gh-copilot "Copilot")
+
+  (map! :leader
+        (:prefix ("l" . "llm")
+         :desc "Add text to context"        "a" #'gptel-add
+         :desc "Explain"                    "e" #'gptel-quick
+         :desc "Add file to context"        "f" #'gptel-add-file
+         :desc "Open gptel"                 "l" #'gptel
+         :desc "Send to gptel"              "s" #'gptel-send
+         :desc "Open gptel menu"            "m" #'gptel-menu
+         :desc "Rewrite"                    "r" #'gptel-rewrite
+         :desc "Org: set topic"             "o" #'gptel-org-set-topic
+         :desc "Org: set properties"        "O" #'gptel-org-set-properties))
+  )
+#+end_src
+* Mcpel with gptel
+
+#+begin_src emacs-lisp
+;; (require 'gptel-integrations)
+;; (require 'mcp-hub)
+;; (setq mcp-hub-servers
+;;       '(("maitreyamcp" .
+;;          (:command "/Users/alokregmi/.pyenv/versions/mcp/bin/python"
+;;           :args ("/Users/alokregmi/workspace/personal/maitreyamcp_stable/modules/maitreyamcp_python/python_server.py")))))
+
+(use-package! mcp-hub
+  :init
+  (setq mcp-hub-servers
+        '(("maitreyamcp" .
+           (:command "/Users/alokregmi/.pyenv/versions/mcpdev/bin/python"
+            :args ("/Users/alokregmi/workspace/personal/maitreyamcp_dev/modules/maitreyamcp_python/python_server.py")))))
+  ;; (add-hook! 'after-init-hook #'mcp-hub-start-all-served
   )
 
+(use-package! gptel-integrations
+  :after (gptel mcp-hub))
+#+end_src
+
+* Gptel Magit
+
+#+begin_src emacs-lisp
+(use-package! gptel-magit
+  :when (modulep! :tools magit)
+  :hook (magit-mode . gptel-magit-install))
 #+end_src
 
 * Bookmarks
@@ -3884,12 +3864,6 @@ structure changes."
           (browse-url-firefox url))
       (message "No bookmarks found!"))))
 #+end_src
-* Treesitter for 29+ on macos
-
-#+begin_src elisp
-(setq! tree-sitter-langs-grammar-dir "~/.tree-sitter/")
-#+end_src
-
 * Org Roam
 ** V2 Node Display
 
@@ -4403,6 +4377,7 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 
 
 (defun my-org-agenda (&optional p)
+  (+workspace/new-named "agenda")
   (interactive "P")
   (org-agenda "" "k")
   (org-agenda-redo-all))
@@ -4421,7 +4396,10 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 (defun screenshot-as-file-link ()
   (interactive)
   (org-download-clipboard)
-  (cpb/convert-attachment-to-file))
+  (run-at-time "0.1 sec" nil
+               (lambda ()
+                 (forward-line -1)
+                 (cpb/convert-attachment-to-file))))
 
 (defun my/org-attach-attach-and-link (file)
   (interactive "fFile to attach: ")
@@ -4639,12 +4617,6 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 (map! :g "s-[" #'winner-undo
       :g "s-]" #'winner-redo)
 #+end_src
-* Evedel
-
-#+begin_src elisp
-(use-package! evedel
-  :after gptel)
-#+end_src
 * Copilot chat
 
 #+begin_src elisp
@@ -4695,6 +4667,407 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 #+begin_src elisp
 (use-package dwim-shell-command
   :ensure t)
+#+end_src
+* Random task selector
+
+#+begin_src emacs-lisp
+;;; Configuration
+(defvar rts-debug-mode t
+  "When non-nil, show debug information about task selection and scoring.")
+
+(defvar rts-difficulty-tags '("Challenge" "Average" "Easy")
+  "List of difficulty tags.")
+
+(defvar rts-energy-tags '("Lazy" "ModeratelyLazy" "Energetic")
+  "List of energy level tags.")
+
+(defvar rts-time-tags '("Morning" "Day" "Evening")
+  "List of time of day tags.")
+
+(defvar rts-priority-points
+  '(("A" . 10) ("B" . 6) ("C" . 4) ("D" . 3) ("E" . 2))
+  "Points assigned to each priority level for probability calculation.")
+
+;;; Helper Functions
+
+(defun rts--get-current-time-of-day ()
+  "Return current time of day tag based on current time."
+  (let ((hour (string-to-number (format-time-string "%H"))))
+    (cond
+     ((<= hour 11) "Morning")
+     ((<= hour 17) "Day")
+     (t "Evening"))))
+
+(defun rts--get-task-priority (element)
+  "Get priority from org element."
+  (let ((priority (org-element-property :priority element)))
+    (when priority
+      (char-to-string priority))))
+
+(defun rts--get-task-tags (element)
+  "Get tags from org element."
+  (org-element-property :tags element))
+
+(defun rts--has-tag-p (tags target-tag)
+  "Check if TAGS list contains TARGET-TAG."
+  (member target-tag tags))
+
+(defun rts--has-any-tag-p (tags tag-list)
+  "Check if TAGS contains any tag from TAG-LIST."
+  (seq-some (lambda (tag) (member tag tags)) tag-list))
+
+(defun rts--is-future-time-today-p (task-tags current-time)
+  "Check if task has a future time tag for today.
+Returns t if task is scheduled for later today and should be excluded."
+  (let ((has-time-tag (rts--has-any-tag-p task-tags rts-time-tags)))
+    (when has-time-tag
+      (cond
+       ;; If it's Morning now, exclude Day and Evening tasks
+       ((string= current-time "Morning")
+        (or (rts--has-tag-p task-tags "Day")
+            (rts--has-tag-p task-tags "Evening")))
+       ;; If it's Day now, exclude Evening tasks
+       ((string= current-time "Day")
+        (rts--has-tag-p task-tags "Evening"))
+       ;; If it's Evening now, don't exclude any time-tagged tasks
+       (t nil)))))
+
+(defun rts--filter-out-future-today-tasks (tasks)
+  "Filter out tasks scheduled for later today."
+  (let ((current-time (rts--get-current-time-of-day)))
+    (seq-filter
+     (lambda (task)
+       (let ((tags (rts--get-task-tags task)))
+         (not (rts--is-future-time-today-p tags current-time))))
+     tasks)))
+
+(defun rts--filter-by-difficulty-energy (tasks difficulty energy)
+  "Filter TASKS by DIFFICULTY and ENERGY tags."
+  (seq-filter
+   (lambda (task)
+     (let ((tags (rts--get-task-tags task)))
+       (and (rts--has-tag-p tags difficulty)
+            (rts--has-tag-p tags energy))))
+   tasks))
+
+(defun rts--filter-by-time-of-day (tasks time-tag)
+  "Filter TASKS by TIME-TAG."
+  (seq-filter
+   (lambda (task)
+     (rts--has-tag-p (rts--get-task-tags task) time-tag))
+   tasks))
+
+(defun rts--sort-by-time-priority (tasks)
+  "Sort tasks by time of day priority (Morning -> Day -> Evening)."
+  (sort tasks
+        (lambda (a b)
+          (let ((tags-a (rts--get-task-tags a))
+                (tags-b (rts--get-task-tags b)))
+            (cond
+             ((and (rts--has-tag-p tags-a "Morning")
+                   (not (rts--has-tag-p tags-b "Morning"))) t)
+             ((and (rts--has-tag-p tags-a "Day")
+                   (rts--has-tag-p tags-b "Evening")) t)
+             (t nil))))))
+
+(defun rts--get-priority-tasks (tasks)
+  "Get tasks with priority A."
+  (seq-filter
+   (lambda (task)
+     (string= (rts--get-task-priority task) "A"))
+   tasks))
+
+(defun rts--get-lower-priority-tasks (tasks)
+  "Get tasks with priority B and below."
+  (seq-filter
+   (lambda (task)
+     (let ((priority (rts--get-task-priority task)))
+       (and priority (not (string= priority "A")))))
+   tasks))
+
+(defun rts--calculate-task-points (task)
+  "Calculate points for a task based on its priority."
+  (let* ((priority (rts--get-task-priority task))
+         (points (cdr (assoc priority rts-priority-points))))
+    (or points 1))) ; Default to 1 point for unrecognized priorities
+
+(defun rts--debug-log (format-string &rest args)
+  "Log debug message if debug mode is enabled."
+  (when rts-debug-mode
+    (let ((debug-buffer (get-buffer-create "*RTS Debug*"))
+          (message (apply #'format format-string args)))
+      (with-current-buffer debug-buffer
+        (goto-char (point-max))
+        (insert (format "%s [RTS DEBUG] %s\n"
+                        (format-time-string "%H:%M:%S") message))
+        (goto-char (point-max)))
+      ;; Also send to messages for backup
+      (message "[RTS DEBUG] %s" message))))
+
+(defun rts--show-debug-childframe ()
+  "Show debug buffer in a childframe."
+  (when rts-debug-mode
+    (let ((debug-buffer (get-buffer-create "*RTS Debug*")))
+      (when (get-buffer-window debug-buffer)
+        (delete-window (get-buffer-window debug-buffer)))
+
+      (let ((frame (make-frame
+                    `((parent-frame . ,(selected-frame))
+                      (no-accept-focus . t)
+                      (min-width . 80)
+                      (min-height . 15)
+                      (border-width . 2)
+                      (internal-border-width . 10)
+                      (left . 0.7)
+                      (top . 0.1)
+                      (width . 100)
+                      (height . 20)
+                      (no-other-frame . t)
+                      (no-delete-other-windows . t)
+                      (unsplittable . t)
+                      (undecorated . t)
+                      (background-color . "#2d2d2d")
+                      (foreground-color . "#ffffff")))))
+        (with-selected-frame frame
+          (switch-to-buffer debug-buffer)
+          (with-current-buffer debug-buffer
+            (setq buffer-read-only nil)
+            (goto-char (point-max))
+            (setq buffer-read-only t))
+          ;; Auto-close after 8 seconds
+          (run-with-timer 8 nil
+                          (lambda (frame)
+                            (when (frame-live-p frame)
+                              (delete-frame frame)))
+                          frame))))))
+
+(defun rts--select-by-probability (tasks)
+  "Select a task from TASKS based on probability weights."
+  (if (= (length tasks) 1)
+      (progn
+        (when rts-debug-mode
+          (let* ((task (car tasks))
+                 (heading (org-element-property :raw-value task))
+                 (points (rts--calculate-task-points task)))
+            (rts--debug-log "Single task selected: '%s' (Score: %d)" heading points)))
+        (car tasks))
+    (let* ((task-points (mapcar (lambda (task)
+                                  (cons task (rts--calculate-task-points task)))
+                                tasks))
+           (total-points (apply #'+ (mapcar #'cdr task-points)))
+           (random-point (random total-points))
+           (current-sum 0))
+
+      ;; Debug log all candidate tasks and their scores
+      (when rts-debug-mode
+        (rts--debug-log "=== PROBABILITY SELECTION ===")
+        (rts--debug-log "Candidates: %d tasks | Total points: %d | Random point: %d"
+                        (length tasks) total-points random-point)
+        (dolist (task-point task-points)
+          (let* ((task (car task-point))
+                 (points (cdr task-point))
+                 (heading (org-element-property :raw-value task))
+                 (priority (rts--get-task-priority task)))
+            (rts--debug-log "  • '%s' [%s] = %d points"
+                            heading (or priority "None") points))))
+
+      (catch 'selected
+        (dolist (task-point task-points)
+          (setq current-sum (+ current-sum (cdr task-point)))
+          (when (>= current-sum random-point)
+            (when rts-debug-mode
+              (let* ((selected-task (car task-point))
+                     (heading (org-element-property :raw-value selected-task))
+                     (points (cdr task-point)))
+                (rts--debug-log "🎯 WINNER: '%s' (Score: %d)" heading points)))
+            (throw 'selected (car task-point))))
+        ;; Fallback (shouldn't happen)
+        (when rts-debug-mode
+          (rts--debug-log "⚠️  WARNING: Fallback selection used"))
+        (caar task-points)))))
+
+(defun rts--get-base-tasks ()
+  "Get base tasks that meet initial filtering criteria."
+  (org-ql-select
+    (org-agenda-files)
+    '(and (todo)
+          (or (scheduled :to 0)
+              (deadline :to 7)))
+    :action 'element-with-markers
+    :sort '(priority)
+    ))
+
+(defun rts--get-task-todo-keyword (task)
+  "Get the TODO keyword from a task element."
+  (org-element-property :todo-keyword task))
+
+(defun rts--determine-next-status (current-todo)
+  "Determine the next status based on current TODO keyword."
+  (cond
+   ((string= current-todo "TODO") "NEXT")
+   ((string= current-todo "TOREAD") "READING")
+   ((string= current-todo "TOWATCH") "WATCHING")
+   ;; For HABIT and PROJECT, no change
+   ((or (string= current-todo "HABIT")
+        (string= current-todo "PROJECT")) current-todo)
+   ;; Default case - keep current status
+   (t current-todo)))
+
+(defun rts--show-task-announcement (message)
+  "Show temporary announcement in the middle of screen for 2 seconds."
+  (let ((buffer (get-buffer-create "*Task Announcement ChildFrame*")))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert message)
+      (center-line)
+      (setq buffer-read-only t))
+    ;; Display the buffer temporarily
+    (let ((window (display-buffer buffer
+                                  '((display-buffer-at-bottom)
+                                    (window-height . 3)))))
+      (run-with-timer 2 nil
+                      (lambda ()
+                        (when (window-live-p window)
+                          (delete-window window))
+                        (kill-buffer buffer))))
+
+    ;; Show debug info in childframe if enabled
+    (rts--show-debug-childframe)))
+
+(defun rts--display-selected-task (task)
+  "Process the selected TASK: change status, clock in, and announce."
+  (if task
+      (let* ((heading (org-element-property :raw-value task))
+             (priority (rts--get-task-priority task))
+             (tags (rts--get-task-tags task))
+             (marker (org-element-property :org-marker task))
+             (current-todo (rts--get-task-todo-keyword task))
+             (new-status (rts--determine-next-status current-todo)))
+
+        (when marker
+          (with-current-buffer (marker-buffer marker)
+            (save-excursion
+              (goto-char marker)
+
+              ;; Change status if needed
+              (unless (string= current-todo new-status)
+                (org-todo new-status))
+
+              ;; Clock in to the task
+              (org-clock-in))))
+
+        ;; Show announcement
+        (let ((announcement (format "🎯 SELECTED: %s [%s]%s"
+                                    heading
+                                    (or priority "No priority")
+                                    (if tags (format " :%s:" (string-join tags ":")) ""))))
+          (rts--show-task-announcement announcement)))
+
+    (message "No tasks found matching criteria.")))
+
+;;; Main Functions
+
+(defun random-task-select (&optional prefix-arg)
+  "Select a random task from filtered list.
+With PREFIX-ARG, prompt for difficulty and energy filtering."
+  (interactive "P")
+  (let* ((base-tasks (rts--get-base-tasks))
+         ;; Filter out future today tasks first
+         (time-filtered-tasks (rts--filter-out-future-today-tasks base-tasks))
+         (filtered-tasks
+          (if prefix-arg
+              (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
+                     (energy (consult--read "Energy: " rts-energy-tags)))
+                (rts--filter-by-difficulty-energy time-filtered-tasks difficulty energy))
+            time-filtered-tasks)))
+    (when filtered-tasks
+      (let ((selected-task (nth (random (length filtered-tasks)) filtered-tasks)))
+        (when rts-debug-mode
+          (let* ((heading (org-element-property :raw-value selected-task))
+                 (priority (rts--get-task-priority selected-task)))
+            (rts--debug-log "=== RANDOM SELECTION ===")
+            (rts--debug-log "Selected from %d filtered tasks: '%s' [%s]"
+                            (length filtered-tasks) heading (or priority "None"))))
+        (rts--display-selected-task selected-task)))))
+
+(defun priority-time-task-select (&optional prefix-arg)
+  "Select a task based on priority and time of day logic.
+With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
+  (interactive "P")
+  (let* ((base-tasks (rts--get-base-tasks))
+         ;; Filter out future today tasks first
+         (time-filtered-base (rts--filter-out-future-today-tasks base-tasks))
+         (priority-a-tasks (rts--get-priority-tasks time-filtered-base))
+         (current-time (rts--get-current-time-of-day)))
+
+    (if priority-a-tasks
+        ;; Handle priority A tasks
+        (let* ((sorted-tasks (rts--sort-by-time-priority priority-a-tasks))
+               ;; Get tasks from the earliest time group
+               (first-task (car sorted-tasks))
+               (first-time-tags (rts--get-task-tags first-task))
+               (current-time-group
+                (cond
+                 ((rts--has-tag-p first-time-tags "Morning") "Morning")
+                 ((rts--has-tag-p first-time-tags "Day") "Day")
+                 (t "Evening")))
+               (same-time-tasks
+                (seq-filter
+                 (lambda (task)
+                   (rts--has-tag-p (rts--get-task-tags task) current-time-group))
+                 sorted-tasks)))
+          (let ((selected-task (nth (random (length same-time-tasks)) same-time-tasks)))
+            (when rts-debug-mode
+              (let* ((heading (org-element-property :raw-value selected-task))
+                     (priority (rts--get-task-priority selected-task)))
+                (rts--debug-log "=== PRIORITY A SELECTION ===")
+                (rts--debug-log "Selected from %d tasks in %s group: '%s' [%s]"
+                                (length same-time-tasks) current-time-group heading (or priority "None"))))
+            (rts--display-selected-task selected-task)))
+
+      ;; Handle lower priority tasks
+      (let* ((lower-tasks (rts--get-lower-priority-tasks time-filtered-base))
+             (time-filtered (rts--filter-by-time-of-day lower-tasks current-time))
+             (final-tasks (if (null time-filtered) lower-tasks time-filtered))
+             (final-filtered
+              (if prefix-arg
+                  (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
+                         (energy (consult--read "Energy: " rts-energy-tags)))
+                    (rts--filter-by-difficulty-energy final-tasks difficulty energy))
+                final-tasks)))
+        (when final-filtered
+          (rts--display-selected-task
+           )
+#+end_src
+
+* Copilot
+
+#+begin_src elisp
+;; accept completion from copilot and fallback to company
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
+         ("C-<tab>" . 'copilot-accept-completion-by-word)
+         :map copilot-completion-map
+         ("<tab>" . 'copilot-accept-completion)
+         ("<right>". 'copilot-accept-completion)
+         ("C-f". 'copilot-accept-completion)
+         ("M-f". 'copilot-accept-completion-by-word)
+         ("C-e". 'copilot-accept-completion-by-line)
+         ("<end>". 'copilot-accept-completion-by-line)
+         ("TAB" . 'copilot-accept-completion))
+  :config
+  (advice-add #'indent-for-tab-command :before #'copilot-complete)
+  )
+
+#+end_src
+
+
+** For copilot disable smartparens
+
+#+begin_src elisp
+(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
+;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
 #+end_src
 
 * Deprecated
@@ -4780,15 +5153,6 @@ DEPRECATED Part of code
 (when EMACS28+
   (add-hook 'latex-mode-hook #'TeX-latex-mode))
 #+end_src
-** Lsp restart after changing env
-#+BEGIN_SRC elisp
-(defun change-env-and-restart-lsp()
-  "Changes the python environment and
-restart lsp based on that environment"
-  (interactive)
-  (conda-env-activate)
-  (lsp-restart-workspace))
-#+END_SRC
 ** Fix Modeline Overflow
 #+BEGIN_SRC elisp
 (after! doom-modeline
@@ -7242,7 +7606,6 @@ Version 2015-07-30"
 #+end_src
 
 
-
 ** Paste second to last copied info
 No need for this. Using ctrl + n can switch to other yanks.
 evil-paste-pop and evil-paste-pop-next
@@ -7255,38 +7618,6 @@ evil-paste-pop and evil-paste-pop-next
         (insert second-to-last)
       (message "No second to last kill available."))))
 
-#+end_src
-
-** Eat terminal
-
-#+begin_src emacs-lisp
-;; eat: Emulate A Terminal (https://codeberg.org/akib/emacs-eat)
-(use-package eat
-    :preface
-    (defun my--eat-open (file)
-        "Helper function to open files from eat terminal."
-        (interactive)
-        (if (file-exists-p file)
-                (find-file-other-window file t)
-            (warn "File doesn't exist")))
-    ;; :init
-    ;; (add-to-list 'project-switch-commands '(eat-project "Eat terminal") t)
-    ;; (add-to-list 'project-switch-commands '(eat-project-other-window "Eat terminal other window") t)
-    ;; (add-to-list 'project-kill-buffer-conditions '(major-mode . eat-mode))
-    :config
-    (add-to-list 'eat-message-handler-alist (cons "open" 'my--eat-open))
-    (setq process-adaptive-read-buffering nil) ; makes EAT a lot quicker!
-    (setq eat-term-name "xterm-256color") ; https://codeberg.org/akib/emacs-eat/issues/119"
-    (setq eat-kill-buffer-on-exit t)
-    (setq eat-shell-prompt-annotation-failure-margin-indicator "")
-    (setq eat-shell-prompt-annotation-running-margin-indicator "")
-    (setq eat-shell-prompt-annotation-success-margin-indicator ""))
-
-;; (with-eval-after-load 'eat
-;;     (global-set-key (kbd "C-c o t") 'eat)
-;;     (global-set-key (kbd "C-c o T") 'eat-other-window)
-;;     (define-key project-prefix-map (kbd "t") 'eat-project)
-;;     (define-key project-prefix-map (kbd "T") 'eat-project-other-window)
 #+end_src
 
 ** Org node for faster org roam
@@ -7658,4 +7989,174 @@ Tool for sending my notes from Samsung note 3 into org mode directly.
     :config
     (consult-gh-forge-mode +1)
     (setq consult-gh-forge-timeout-seconds 20))
+#+end_src
+
+** Lsp booster
+
+#+begin_src emacs-lisp
+(defun lsp-booster--advice-json-parse (old-fn &rest args)
+  "Try to parse bytecode instead of json."
+  (or
+   (when (equal (following-char) ?#)
+     (let ((bytecode (read (current-buffer))))
+       (when (byte-code-function-p bytecode)
+         (funcall bytecode))))
+   (apply old-fn args)))
+(advice-add (if (progn (require 'json)
+                       (fboundp 'json-parse-buffer))
+                'json-parse-buffer
+              'json-read)
+            :around
+            #'lsp-booster--advice-json-parse)
+
+(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+  "Prepend emacs-lsp-booster command to lsp CMD."
+  (let ((orig-result (funcall old-fn cmd test?)))
+    (if (and (not test?)                             ;; for check lsp-server-present?
+             (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
+             lsp-use-plists
+             (not (functionp 'json-rpc-connection))  ;; native json-rpc
+             (executable-find "emacs-lsp-booster"))
+        (progn
+          (message "Using emacs-lsp-booster for %s!" orig-result)
+          (cons "emacs-lsp-booster" orig-result))
+      orig-result)))
+(advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
+#+end_src
+** Eat terminal
+
+#+begin_src emacs-lisp
+;; eat: Emulate A Terminal (https://codeberg.org/akib/emacs-eat)
+(use-package eat
+    :preface
+    (defun my--eat-open (file)
+        "Helper function to open files from eat terminal."
+        (interactive)
+        (if (file-exists-p file)
+                (find-file-other-window file t)
+            (warn "File doesn't exist")))
+    :init
+    (add-to-list 'project-switch-commands '(eat-project "Eat terminal") t)
+    (add-to-list 'project-switch-commands '(eat-project-other-window "Eat terminal other window") t)
+    (add-to-list 'project-kill-buffer-conditions '(major-mode . eat-mode))
+    :config
+    (add-to-list 'eat-message-handler-alist (cons "open" 'my--eat-open))
+    ;; (setq process-adaptive-read-buffering nil) ; makes EAT a lot quicker!
+    (setq eat-term-name "xterm-256color") ; https://codeberg.org/akib/emacs-eat/issues/119"
+    ;; (setq eat-kill-buffer-on-exit t)
+    ;; (setq eat-shell-prompt-annotation-failure-margin-indicator "")
+    ;; (setq eat-shell-prompt-annotation-running-margin-indicator "")
+    ;; (setq eat-shell-prompt-annotation-success-margin-indicator "")
+    )
+
+;; (with-eval-after-load 'eat
+;;     (global-set-key (kbd "C-c o t") 'eat)
+;;     (global-set-key (kbd "C-c o T") 'eat-other-window)
+;;     (define-key project-prefix-map (kbd "t") 'eat-project)
+;;     (define-key project-prefix-map (kbd "T") 'eat-project-other-window)
+#+end_src
+
+** Copilot
+
+#+begin_src elisp
+;; accept completion from copilot and fallback to company
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
+         ("C-<tab>" . 'copilot-accept-completion-by-word)
+         :map copilot-completion-map
+         ("<tab>" . 'copilot-accept-completion)
+         ("<right>". 'copilot-accept-completion)
+         ("C-f". 'copilot-accept-completion)
+         ("M-f". 'copilot-accept-completion-by-word)
+         ("C-e". 'copilot-accept-completion-by-line)
+         ("<end>". 'copilot-accept-completion-by-line)
+         ("TAB" . 'copilot-accept-completion))
+  :config
+  (advice-add #'indent-for-tab-command :before #'copilot-complete)
+  )
+
+#+end_src
+
+
+*** For copilot disable smartparens
+
+#+begin_src elisp
+(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
+;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
+#+end_src
+
+** Lsp bridge
+
+#+begin_src elisp
+(use-package! lsp-bridge
+  :config
+  (setq lsp-bridge-enable-log nil)
+  (setq acm-enable-yas nil
+        acm-enable-copilot t
+        acm-enable-codeium nil
+        )
+  (global-lsp-bridge-mode)
+  (after! lsp-bridge
+    (push 'lsp-bridge-find-def        +lookup-definition-functions)
+    (push 'lsp-bridge-find-type-def   +lookup-type-definition-functions)
+    (push 'lsp-bridge-find-impl       +lookup-implementations-functions)
+    (push 'lsp-bridge-find-references +lookup-references-functions)
+    (push 'lsp-bridge-popup-documentation +lookup-documentation-functions))
+  )
+#+end_src
+
+** Lsp restart after changing env
+#+BEGIN_SRC elisp
+(defun change-env-and-restart-lsp()
+  "Changes the python environment and
+restart lsp based on that environment"
+  (interactive)
+  (conda-env-activate)
+  (lsp-restart-workspace))
+#+END_SRC
+
+** New Additions
+
+#+begin_src elisp
+(use-package! org-modern
+  :after org
+  :config
+
+  (setq org-modern-priority-faces '(
+                                    (?A . (:foreground "white" :background "red" :weight bold))
+                                    (?B . (:foreground "white" :background "OrangeRed3" :weight bold))
+                                    (?C . (:foreground "white" :background "tomato" :weight bold))
+                                    (?D . (:foreground "black" :background "yellow3" :weight bold ))
+                                    (?E . (:foreground "white" :background "green4" :weight bold ))
+                                    (?F . (:foreground "black" :background "green" :weight bold ))))
+  (global-org-modern-mode)
+  )
+#+end_src
+
+** Ace Link
+
+#+BEGIN_SRC elisp
+(use-package! ace-link
+  :commands (ace-link))
+(after! avy
+  (setq avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\;)))
+(after! ace-window
+  (setq aw-keys '(?f ?d ?s ?r ?e ?w)
+        aw-scope 'frame
+        aw-ignore-current t
+        aw-background nil))
+#+END_SRC
+
+** Treesitter for 29+ on macos
+
+#+begin_src elisp
+(setq! tree-sitter-langs-grammar-dir "~/.tree-sitter/")
+#+end_src
+
+** Evedel
+
+#+begin_src elisp
+(use-package! evedel
+  :after gptel)
 #+end_src
