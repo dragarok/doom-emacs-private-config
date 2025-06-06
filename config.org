@@ -2541,13 +2541,11 @@ SCHEDULED: %t
                                       (org-deadline-warning-days 7)
                                       (org-agenda-start-day
                                        (org-today))
-                                      (org-agenda-tag-filter-preset
-                                       '("-daytoday"))
                                       (org-agenda-sorting-strategy '(priority-down effort-down))
                                       (org-agenda-current-span 'day))
                                      )
                              (org-time-budgets-in-agenda-maybe)
-                             (todo "READING|SUMMARISING"
+                             (todo "SUMMARISING"
                                    ((org-agenda-overriding-header "Books I am currently reading and summarizing\n ======================================================\n")))
                              )
                             nil)
@@ -4845,7 +4843,7 @@ Returns t if task is scheduled for later today and should be excluded."
                    :accept-focus nil)
 
     ;; Auto-close after 5 seconds
-    (run-with-timer 15 nil
+    (run-with-timer 5 nil
                     (lambda (buf)
                       (posframe-delete buf))
                     buffer)))
@@ -4900,7 +4898,7 @@ Returns t if task is scheduled for later today and should be excluded."
   (org-ql-select
     (org-agenda-files)
     '(and (todo)
-          (or (scheduled :to 0)
+          (or (scheduled :to today)
               (deadline :to 7)))
     :action 'element-with-markers
     :sort '(priority)
@@ -4940,6 +4938,38 @@ Returns t if task is scheduled for later today and should be excluded."
                           (delete-window window))
                         (kill-buffer buffer))))))
 
+;; Updated helper functions to properly handle habits and projects
+
+(defun rts--is-habit-p (task)
+  "Check if TASK is a habit by looking for style: habit property."
+  (let ((style (org-element-property :STYLE task)))
+    (and style (string= (downcase style) "habit"))))
+
+(defun rts--is-project-p (task)
+  "Check if TASK is a project by looking for 'proj' tag."
+  (let ((tags (rts--get-task-tags task)))
+    (rts--has-tag-p tags "proj")))
+
+(defun rts--should-change-status-p (task)
+  "Determine if we should change the TODO status of TASK.
+Returns nil for habits and projects, t for other tasks."
+  (not (or (rts--is-habit-p task)
+           (rts--is-project-p task))))
+
+(defun rts--determine-next-status (current-todo task)
+  "Determine the next status based on current TODO keyword and task type.
+Takes both CURRENT-TODO keyword and TASK element as parameters."
+  ;; Don't change status for habits and projects
+  (if (not (rts--should-change-status-p task))
+      current-todo
+    ;; Normal status progression for other tasks
+    (cond
+     ((string= current-todo "TODO") "NEXT")
+     ((string= current-todo "TOREAD") "READING")
+     ((string= current-todo "TOWATCH") "WATCHING")
+     ;; Default case - keep current status
+     (t current-todo))))
+
 (defun rts--display-selected-task (task)
   "Process the selected TASK: change status, clock in, and announce."
   (if task
@@ -4948,18 +4978,21 @@ Returns t if task is scheduled for later today and should be excluded."
              (tags (rts--get-task-tags task))
              (marker (org-element-property :org-marker task))
              (current-todo (rts--get-task-todo-keyword task))
-             (new-status (rts--determine-next-status current-todo)))
+             (new-status (rts--determine-next-status current-todo task)))
 
         (when marker
           (with-current-buffer (marker-buffer marker)
             (save-excursion
               (goto-char marker)
 
-              ;; Change status if needed
-              (unless (string= current-todo new-status)
-                (org-todo new-status))
+              ;; Change status only if it should be changed
+              (when (and (rts--should-change-status-p task)
+                         (not (string= current-todo new-status)))
+                (org-todo new-status)
+                (when rts-debug-mode
+                  (rts--debug-log "Changed status: '%s' -> '%s'" current-todo new-status)))
 
-              ;; Clock in to the task
+              ;; Always clock in to the task
               (org-clock-in))))
 
         ;; Show task in posframe
@@ -5036,6 +5069,7 @@ With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
                   (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
                          (energy (consult--read "Energy: " rts-energy-tags)))
                     (rts--filter-by-difficulty-energy final-tasks difficulty energy))
+
                 final-tasks)))
         (when final-filtered
           (rts--display-selected-task
@@ -5043,8 +5077,6 @@ With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
 
 #+end_src
 
-#+RESULTS:
-: priority-time-task-select
 
 * Copilot
 
