@@ -32,9 +32,6 @@
        (vertico
         +childframe
         +icons)        ; the search engine of the future
-       (corfu
-        +icons
-        +orderless)
 
        :ui
        ;;deft              ; notational velocity for Emacs
