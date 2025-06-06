@@ -5076,7 +5076,169 @@ With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
            (rts--select-by-probability final-filtered)))))))
 
 #+end_src
+* Random book selector
 
+#+begin_src elisp
+;;; Book Selection Configuration
+(defvar rts-book-status-points
+  '(("SUMMARIZING" . 5) ("READING" . 3) ("REREADING" . 2) ("TOREAD" . 1))
+  "Points assigned to each book status for probability calculation.")
+
+;;; Book Helper Functions
+
+(defun rts--get-book-base-tasks ()
+  "Get base book tasks that have 'book' and 'Booxactive' tags."
+  (org-ql-select
+    (org-agenda-files)
+    '(and (todo)
+          (tags "book")
+          (tags "Booxactive"))
+    :action 'element-with-markers
+    :sort '(priority)))
+
+(defun rts--calculate-book-points (book-task)
+  "Calculate points for a book task based on its TODO status."
+  (let* ((status (rts--get-task-todo-keyword book-task))
+         (points (cdr (assoc status rts-book-status-points))))
+    (or points 1))) ; Default to 1 point for unrecognized statuses
+
+(defun rts--select-book-by-probability (books)
+  "Select a book from BOOKS based on probability weights."
+  (if (= (length books) 1)
+      (progn
+        (when rts-debug-mode
+          (let* ((book (car books))
+                 (heading (org-element-property :raw-value book))
+                 (status (rts--get-task-todo-keyword book))
+                 (points (rts--calculate-book-points book)))
+            (rts--debug-log "Single book selected: '%s' [%s] (Score: %d)"
+                            heading status points)))
+        (car books))
+    (let* ((book-points (mapcar (lambda (book)
+                                  (cons book (rts--calculate-book-points book)))
+                                books))
+           (total-points (apply #'+ (mapcar #'cdr book-points)))
+           (random-point (random total-points))
+           (current-sum 0))
+
+      ;; Debug log all candidate books and their scores
+      (when rts-debug-mode
+        (rts--debug-log "=== BOOK PROBABILITY SELECTION ===")
+        (rts--debug-log "Book candidates: %d books | Total points: %d | Random point: %d"
+                        (length books) total-points random-point)
+        (dolist (book-point book-points)
+          (let* ((book (car book-point))
+                 (points (cdr book-point))
+                 (heading (org-element-property :raw-value book))
+                 (status (rts--get-task-todo-keyword book)))
+            (rts--debug-log "  • '%s' [%s] = %d points"
+                            heading status points))))
+
+      (catch 'selected
+        (dolist (book-point book-points)
+          (setq current-sum (+ current-sum (cdr book-point)))
+          (when (>= current-sum random-point)
+            (when rts-debug-mode
+              (let* ((selected-book (car book-point))
+                     (heading (org-element-property :raw-value selected-book))
+                     (status (rts--get-task-todo-keyword selected-book))
+                     (points (cdr book-point)))
+                (rts--debug-log "📚 BOOK WINNER: '%s' [%s] (Score: %d)"
+                                heading status points)))
+            (throw 'selected (car book-point))))
+        ;; Fallback (shouldn't happen)
+        (when rts-debug-mode
+          (rts--debug-log "⚠️  WARNING: Book fallback selection used"))
+        (caar book-points)))))
+
+(defun rts--display-selected-book (book)
+  "Process the selected BOOK: clock in and announce."
+  (if book
+      (let* ((heading (org-element-property :raw-value book))
+             (priority (rts--get-task-priority book))
+             (tags (rts--get-task-tags book))
+             (marker (org-element-property :org-marker book))
+             (status (rts--get-task-todo-keyword book)))
+
+        (when marker
+          (with-current-buffer (marker-buffer marker)
+            (save-excursion
+              (goto-char marker)
+              ;; Clock in to the book (no status change for books)
+              (org-clock-in))))
+
+        ;; Show book in posframe with book-specific styling
+        (rts--show-book-posframe heading priority tags status))
+
+    (message "No books found matching criteria.")))
+
+(defun rts--show-book-posframe (heading priority tags status)
+  "Show selected book in a posframe childframe."
+  (require 'posframe)
+  (let* ((buffer (get-buffer-create "*Book Selected*"))
+         (parent-frame (selected-frame))
+         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 6 lines)
+         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
+         (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
+         ;; Calculate centered position
+         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
+         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
+         (center-position (cons center-x center-y)))
+
+    ;; Clear the buffer and add book content
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert (propertize "📚 BOOK SELECTED" 'face 'font-lock-keyword-face))
+      (center-line)
+      (insert "\n\n")
+      (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
+      (center-line)
+      (insert "\n")
+      (insert (propertize (format "Status: %s | Priority: %s"
+                                  (or status "No status")
+                                  (or priority "No priority"))
+                          'face 'font-lock-variable-name-face))
+      (center-line)
+      (insert "\n")
+      (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) ""))
+                          'face 'font-lock-comment-face))
+      (center-line)
+      (setq buffer-read-only t)
+      ;; Set larger font size for the buffer
+      (set (make-local-variable 'face-remapping-alist)
+           '((default (:height 200) default))))
+    ;; Use posframe to display the childframe, centered
+    (posframe-show buffer
+                   :position center-position
+                   :width 80
+                   :height 10
+                   :border-width 2
+                   :border-color "blue"  ; Different color for books
+                   :accept-focus nil)
+
+    ;; Auto-close after 5 seconds
+    (run-with-timer 5 nil
+                    (lambda (buf)
+                      (posframe-delete buf))
+                    buffer)))
+
+;;; Main Book Selection Function
+
+(defun random-book-select ()
+  "Select a random book from Booxactive books based on status probability."
+  (interactive)
+  (let ((book-tasks (rts--get-book-base-tasks)))
+    (if book-tasks
+        (let ((selected-book (rts--select-book-by-probability book-tasks)))
+          (when rts-debug-mode
+            (let* ((heading (org-element-property :raw-value selected-book))
+                   (status (rts--get-task-todo-keyword selected-book)))
+              (rts--debug-log "=== RANDOM BOOK SELECTION ===")
+              (rts--debug-log "Selected from %d books: '%s' [%s]"
+                              (length book-tasks) heading status)))
+          (rts--display-selected-book selected-book))
+      (message "No active books found with 'book' and 'Booxactive' tags."))))
+#+end_src
 
 * Copilot
 
