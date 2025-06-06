@@ -149,7 +149,7 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-agenda-files '("~/Nextcloud/org/agenda/"))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
-(setq org-bookslog-file (concat org-agenda-directory "books_log.org"))
+(setq org-bookslog-file (concat org-agenda-directory "log_books.org"))
 (setq org-books-file org-bookslog-file)
 (setq org-projects-file (concat org-agenda-directory "projects.org"))
 (setq org-tasks-file (concat org-agenda-directory "tasks.org"))
@@ -5238,6 +5238,235 @@ With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
                               (length book-tasks) heading status)))
           (rts--display-selected-book selected-book))
       (message "No active books found with 'book' and 'Booxactive' tags."))))
+#+end_src
+* Random guitar song to practice selector
+
+#+begin_src elisp
+;;; Music Practice Configuration
+(defvar rts-music-status-points
+  '(("SUMMARIZING" . 5) ("READING" . 3) ("REREADING" . 2) ("TOREAD" . 1)
+    ("PRACTICING" . 4) ("LEARNING" . 3) ("REVIEWING" . 2) ("TOLEARN" . 1))
+  "Points assigned to each music practice status for probability calculation.")
+
+;;; Music Helper Functions
+
+(defun rts--get-music-base-tasks (instrument-tag)
+  "Get base music tasks that have 'musicactive' and INSTRUMENT-TAG.
+INSTRUMENT-TAG should be 'guitaractive', 'pianoactive', or nil for any."
+  (let ((query (if instrument-tag
+                   `(and (todo)
+                         (tags "musicactive")
+                         (tags ,instrument-tag))
+                 '(and (todo)
+                       (tags "musicactive")
+                       (or (tags "guitaractive")
+                           (tags "pianoactive"))))))
+    (org-ql-select
+      (org-agenda-files)
+      query
+      :action 'element-with-markers
+      :sort '(priority))))
+
+(defun rts--calculate-music-points (music-task)
+  "Calculate points for a music task based on its TODO status."
+  (let* ((status (rts--get-task-todo-keyword music-task))
+         (points (cdr (assoc status rts-music-status-points))))
+    (or points 1))) ; Default to 1 point for unrecognized statuses
+
+(defun rts--get-instrument-from-tags (tags)
+  "Determine instrument type from task tags."
+  (cond
+   ((rts--has-tag-p tags "guitaractive") "Guitar")
+   ((rts--has-tag-p tags "pianoactive") "Piano")
+   (t "Music")))
+
+(defun rts--get-instrument-emoji (instrument)
+  "Get emoji for instrument type."
+  (cond
+   ((string= instrument "Guitar") "🎸")
+   ((string= instrument "Piano") "🎹")
+   (t "🎵")))
+
+(defun rts--select-music-by-probability (music-tasks instrument-name)
+  "Select a music task from MUSIC-TASKS based on probability weights."
+  (if (= (length music-tasks) 1)
+      (progn
+        (when rts-debug-mode
+          (let* ((task (car music-tasks))
+                 (heading (org-element-property :raw-value task))
+                 (status (rts--get-task-todo-keyword task))
+                 (points (rts--calculate-music-points task)))
+            (rts--debug-log "Single %s task selected: '%s' [%s] (Score: %d)"
+                            instrument-name heading status points)))
+        (car music-tasks))
+    (let* ((task-points (mapcar (lambda (task)
+                                  (cons task (rts--calculate-music-points task)))
+                                music-tasks))
+           (total-points (apply #'+ (mapcar #'cdr task-points)))
+           (random-point (random total-points))
+           (current-sum 0))
+
+      ;; Debug log all candidate tasks and their scores
+      (when rts-debug-mode
+        (rts--debug-log "=== %s PROBABILITY SELECTION ===" (upcase instrument-name))
+        (rts--debug-log "%s candidates: %d tasks | Total points: %d | Random point: %d"
+                        instrument-name (length music-tasks) total-points random-point)
+        (dolist (task-point task-points)
+          (let* ((task (car task-point))
+                 (points (cdr task-point))
+                 (heading (org-element-property :raw-value task))
+                 (status (rts--get-task-todo-keyword task))
+                 (tags (rts--get-task-tags task))
+                 (task-instrument (rts--get-instrument-from-tags tags)))
+            (rts--debug-log "  • '%s' [%s] (%s) = %d points"
+                            heading status task-instrument points))))
+
+      (catch 'selected
+        (dolist (task-point task-points)
+          (setq current-sum (+ current-sum (cdr task-point)))
+          (when (>= current-sum random-point)
+            (when rts-debug-mode
+              (let* ((selected-task (car task-point))
+                     (heading (org-element-property :raw-value selected-task))
+                     (status (rts--get-task-todo-keyword selected-task))
+                     (points (cdr task-point))
+                     (tags (rts--get-task-tags selected-task))
+                     (task-instrument (rts--get-instrument-from-tags tags))
+                     (emoji (rts--get-instrument-emoji task-instrument)))
+                (rts--debug-log "%s %s WINNER: '%s' [%s] (Score: %d)"
+                                emoji task-instrument heading status points)))
+            (throw 'selected (car task-point))))
+        ;; Fallback (shouldn't happen)
+        (when rts-debug-mode
+          (rts--debug-log "⚠️  WARNING: %s fallback selection used" instrument-name))
+        (caar task-points)))))
+
+(defun rts--display-selected-music (music-task instrument-name)
+  "Process the selected MUSIC-TASK: clock in and announce."
+  (if music-task
+      (let* ((heading (org-element-property :raw-value music-task))
+             (priority (rts--get-task-priority music-task))
+             (tags (rts--get-task-tags music-task))
+             (marker (org-element-property :org-marker music-task))
+             (status (rts--get-task-todo-keyword music-task))
+             (actual-instrument (rts--get-instrument-from-tags tags)))
+
+        (when marker
+          (with-current-buffer (marker-buffer marker)
+            (save-excursion
+              (goto-char marker)
+              ;; Clock in to the music task (no status change for music)
+              (org-clock-in))))
+
+        ;; Show music task in posframe with music-specific styling
+        (rts--show-music-posframe heading priority tags status actual-instrument))
+
+    (message "No %s practice tasks found." instrument-name)))
+
+(defun rts--show-music-posframe (heading priority tags status instrument)
+  "Show selected music task in a posframe childframe."
+  (require 'posframe)
+  (let* ((buffer (get-buffer-create "*Music Selected*"))
+         (parent-frame (selected-frame))
+         (emoji (rts--get-instrument-emoji instrument))
+         (border-color (cond
+                        ((string= instrument "Guitar") "orange")
+                        ((string= instrument "Piano") "purple")
+                        (t "green")))
+         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 6 lines)
+         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
+         (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
+         ;; Calculate centered position
+         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
+         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
+         (center-position (cons center-x center-y)))
+
+    ;; Clear the buffer and add music content
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert (propertize (format "%s %s PRACTICE SELECTED" emoji (upcase instrument))
+                          'face 'font-lock-keyword-face))
+      (center-line)
+      (insert "\n\n")
+      (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
+      (center-line)
+      (insert "\n")
+      (insert (propertize (format "Status: %s | Priority: %s"
+                                  (or status "No status")
+                                  (or priority "No priority"))
+                          'face 'font-lock-variable-name-face))
+      (center-line)
+      (insert "\n")
+      (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) ""))
+                          'face 'font-lock-comment-face))
+      (center-line)
+      (setq buffer-read-only t)
+      ;; Set larger font size for the buffer
+      (set (make-local-variable 'face-remapping-alist)
+           '((default (:height 200) default))))
+    ;; Use posframe to display the childframe, centered
+    (posframe-show buffer
+                   :position center-position
+                   :width 80
+                   :height 10
+                   :border-width 2
+                   :border-color border-color
+                   :accept-focus nil)
+
+    ;; Auto-close after 5 seconds
+    (run-with-timer 5 nil
+                    (lambda (buf)
+                      (posframe-delete buf))
+                    buffer)))
+
+;;; Main Music Selection Functions
+
+(defun random-guitar-select ()
+  "Select a random guitar practice task from guitaractive tasks."
+  (interactive)
+  (let ((guitar-tasks (rts--get-music-base-tasks "guitaractive")))
+    (if guitar-tasks
+        (let ((selected-task (rts--select-music-by-probability guitar-tasks "Guitar")))
+          (when rts-debug-mode
+            (let* ((heading (org-element-property :raw-value selected-task))
+                   (status (rts--get-task-todo-keyword selected-task)))
+              (rts--debug-log "=== RANDOM GUITAR SELECTION ===")
+              (rts--debug-log "Selected from %d guitar tasks: '%s' [%s]"
+                              (length guitar-tasks) heading status)))
+          (rts--display-selected-music selected-task "Guitar"))
+      (message "No active guitar practice tasks found with 'musicactive' and 'guitaractive' tags."))))
+
+(defun random-piano-select ()
+  "Select a random piano practice task from pianoactive tasks."
+  (interactive)
+  (let ((piano-tasks (rts--get-music-base-tasks "pianoactive")))
+    (if piano-tasks
+        (let ((selected-task (rts--select-music-by-probability piano-tasks "Piano")))
+          (when rts-debug-mode
+            (let* ((heading (org-element-property :raw-value selected-task))
+                   (status (rts--get-task-todo-keyword selected-task)))
+              (rts--debug-log "=== RANDOM PIANO SELECTION ===")
+              (rts--debug-log "Selected from %d piano tasks: '%s' [%s]"
+                              (length piano-tasks) heading status)))
+          (rts--display-selected-music selected-task "Piano"))
+      (message "No active piano practice tasks found with 'musicactive' and 'pianoactive' tags."))))
+
+(defun random-music-select ()
+  "Select a random music practice task from any instrument (guitar or piano)."
+  (interactive)
+  (let ((music-tasks (rts--get-music-base-tasks nil))) ; nil means any instrument
+    (if music-tasks
+        (let ((selected-task (rts--select-music-by-probability music-tasks "Music")))
+          (when rts-debug-mode
+            (let* ((heading (org-element-property :raw-value selected-task))
+                   (status (rts--get-task-todo-keyword selected-task))
+                   (tags (rts--get-task-tags selected-task))
+                   (instrument (rts--get-instrument-from-tags tags)))
+              (rts--debug-log "=== RANDOM MUSIC SELECTION ===")
+              (rts--debug-log "Selected from %d music tasks: '%s' [%s] (%s)"
+                              (length music-tasks) heading status instrument)))
+          (rts--display-selected-music selected-task "Music"))
+      (message "No active music practice tasks found with 'musicactive' tag."))))
 #+end_src
 
 * Copilot
