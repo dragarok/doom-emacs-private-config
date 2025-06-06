@@ -4804,42 +4804,51 @@ Returns t if task is scheduled for later today and should be excluded."
       ;; Also send to messages for backup
       (message "[RTS DEBUG] %s" message))))
 
-(defun rts--show-debug-childframe ()
-  "Show debug buffer in a childframe."
-  (when rts-debug-mode
-    (let ((debug-buffer (get-buffer-create "*RTS Debug*")))
-      (when (get-buffer-window debug-buffer)
-        (delete-window (get-buffer-window debug-buffer)))
+(defun rts--show-task-posframe (heading priority tags)
+  "Show selected task in a posframe childframe."
+  (require 'posframe)
+  (let* ((buffer (get-buffer-create "*Task Selected*"))
+         (parent-frame (selected-frame))
+         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 6 lines)
+         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
+         (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
+         ;; Calculate centered position
+         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
+         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
+         (center-position (cons center-x center-y)))
 
-      (let ((frame (make-frame
-                    `((parent-frame . ,(selected-frame))
-                      (no-accept-focus . t)
-                      (min-width . 80)
-                      (min-height . 15)
-                      (border-width . 2)
-                      (internal-border-width . 10)
-                      (left . 0.7)
-                      (top . 0.1)
-                      (width . 100)
-                      (height . 20)
-                      (no-other-frame . t)
-                      (no-delete-other-windows . t)
-                      (unsplittable . t)
-                      (undecorated . t)
-                      (background-color . "#2d2d2d")
-                      (foreground-color . "#ffffff")))))
-        (with-selected-frame frame
-          (switch-to-buffer debug-buffer)
-          (with-current-buffer debug-buffer
-            (setq buffer-read-only nil)
-            (goto-char (point-max))
-            (setq buffer-read-only t))
-          ;; Auto-close after 8 seconds
-          (run-with-timer 8 nil
-                          (lambda (frame)
-                            (when (frame-live-p frame)
-                              (delete-frame frame)))
-                          frame))))))
+    ;; Clear the buffer and add task content
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert (propertize "🎯 TASK SELECTED" 'face 'font-lock-keyword-face))
+      (center-line)
+      (insert "\n\n")
+      (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
+      (center-line)
+      (insert "\n")
+      (insert (propertize (format "Priority: %s" (or priority "No priority")) 'face 'font-lock-variable-name-face))
+      (center-line)
+      (insert "\n")
+      (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) "")) 'face 'font-lock-comment-face))
+      (center-line)
+      (setq buffer-read-only t)
+      ;; Set larger font size for the buffer
+      (set (make-local-variable 'face-remapping-alist)
+           '((default (:height 200) default))))
+    ;; Use posframe to display the childframe, centered
+    (posframe-show buffer
+                   :position center-position
+                   :width 80
+                   :height 10
+                   :border-width 2
+                   :border-color "gray"
+                   :accept-focus nil)
+
+    ;; Auto-close after 5 seconds
+    (run-with-timer 15 nil
+                    (lambda (buf)
+                      (posframe-delete buf))
+                    buffer)))
 
 (defun rts--select-by-probability (tasks)
   "Select a task from TASKS based on probability weights."
@@ -4915,7 +4924,7 @@ Returns t if task is scheduled for later today and should be excluded."
 
 (defun rts--show-task-announcement (message)
   "Show temporary announcement in the middle of screen for 2 seconds."
-  (let ((buffer (get-buffer-create "*Task Announcement ChildFrame*")))
+  (let ((buffer (get-buffer-create "*Task Announcement*")))
     (with-current-buffer buffer
       (erase-buffer)
       (insert message)
@@ -4929,10 +4938,7 @@ Returns t if task is scheduled for later today and should be excluded."
                       (lambda ()
                         (when (window-live-p window)
                           (delete-window window))
-                        (kill-buffer buffer))))
-
-    ;; Show debug info in childframe if enabled
-    (rts--show-debug-childframe)))
+                        (kill-buffer buffer))))))
 
 (defun rts--display-selected-task (task)
   "Process the selected TASK: change status, clock in, and announce."
@@ -4956,12 +4962,8 @@ Returns t if task is scheduled for later today and should be excluded."
               ;; Clock in to the task
               (org-clock-in))))
 
-        ;; Show announcement
-        (let ((announcement (format "🎯 SELECTED: %s [%s]%s"
-                                    heading
-                                    (or priority "No priority")
-                                    (if tags (format " :%s:" (string-join tags ":")) ""))))
-          (rts--show-task-announcement announcement)))
+        ;; Show task in posframe
+        (rts--show-task-posframe heading priority tags))
 
     (message "No tasks found matching criteria.")))
 
@@ -5037,8 +5039,12 @@ With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
                 final-tasks)))
         (when final-filtered
           (rts--display-selected-task
-           )
+           (rts--select-by-probability final-filtered)))))))
+
 #+end_src
+
+#+RESULTS:
+: priority-time-task-select
 
 * Copilot
 
@@ -8159,4 +8165,43 @@ restart lsp based on that environment"
 #+begin_src elisp
 (use-package! evedel
   :after gptel)
+#+end_src
+
+#+begin_src emacs-lisp
+
+(defun test-childframe ()
+  "Create and display a Vertico-style childframe with larger text using posframe, centered in the Emacs frame."
+  (require 'posframe)
+  (let* ((buffer (get-buffer-create "*Test Childframe*"))
+         (parent-frame (selected-frame))
+         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 10 lines)
+         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
+         (childframe-pixel-height (* 10 (frame-char-height parent-frame)))
+         ;; Calculate centered position
+         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
+         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
+         (center-position (cons center-x center-y)))
+    ;; Clear the buffer and add test content
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert "This is a test childframe.\nDisplayed at: " (format-time-string "%H:%M:%S"))
+      (setq buffer-read-only t)
+      ;; Set a larger font size for the buffer
+      (set (make-local-variable 'face-remapping-alist)
+           '((default (:height 200) default))))
+    ;; Use posframe to display the childframe, centered
+    (posframe-show buffer
+                   :position center-position
+                   :width 80
+                   :height 10
+                   :border-width 2
+                   :border-color "gray"
+                   :background-color "#1e1e1e"
+                   :foreground-color "#ffffff"
+                   :accept-focus nil)
+    ;; Auto-close after 10 seconds
+    (run-with-timer 10 nil
+                    (lambda (buf)
+                      (posframe-delete buf))
+                    buffer)))
 #+end_src
