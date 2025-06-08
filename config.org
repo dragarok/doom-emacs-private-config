@@ -1634,6 +1634,29 @@ Otherwise, it begins with ## and is indented accordingly."
 
 #+end_src
 
+** Clock out todo and mark it done in one go
+
+#+begin_src elisp
+(defun clock-out-and-mark-current-todo-done ()
+  "Clock out the currently active todo and mark it as DONE."
+  (interactive)
+  (if (org-clocking-p)
+      (let ((clocked-buffer (marker-buffer org-clock-marker))
+            (clocked-position (marker-position org-clock-marker)))
+        ;; Clock out first
+        (org-clock-out)
+
+        ;; Go to the clocked item and mark as DONE
+        (when (and clocked-buffer clocked-position)
+          (with-current-buffer clocked-buffer
+            (save-excursion
+              (goto-char clocked-position)
+              (org-back-to-heading t)
+              (org-todo "DONE")
+              (message "Clocked out and marked todo as DONE")))))
+    (message "No active clock to clock out")))
+#+end_src
+
 * Independent Functions
 ** SmartParens Go to Matching Paren
 
@@ -2199,11 +2222,20 @@ the inbox.  Set it as a waiting action and refile to
   (setq org-todo-keyword-faces
         '(("TODO" :foreground "DeepSkyBlue4" :weight bold)
           ("TOREAD" :foreground "DeepSkyBlue4" :weight bold)
+          ("TOWATCH" :foreground "DeepSkyBlue4" :weight bold)
+          ("TOSTUDY" :foreground "DeepSkyBlue4" :weight bold)
+          ("TOPRACTICE" :foreground "DeepSkyBlue4" :weight bold)
           ("WAITING" :foreground "light sea green" :weight bold)
           ("READING" :foreground "light sea green" :weight bold)
+          ("STUDYING" :foreground "light sea green" :weight bold)
+          ("WATCHING" :foreground "light sea green" :weight bold)
+          ("PRACTICING" :foreground "light sea green" :weight bold)
           ("SOMEDAY" :foreground "chocolate3" :weight bold)
-          ("REVISE" :foreground "firebrick" :weight bold)
-          ("SUMMARISE" :foreground "firebrick" :weight bold)
+          ("REVISING" :foreground "firebrick" :weight bold)
+          ("REREADING" :foreground "firebrick" :weight bold)
+          ("REPRACTICING" :foreground "firebrick" :weight bold)
+          ("REWATCH" :foreground "firebrick" :weight bold)
+          ("SUMMARISING" :foreground "Gold" :weight bold)
           ("DELEGATED" :foreground "Gold" :weight bold)
           ("NEXT" :foreground "red1" :weight bold)
           ("ACTIVE" :background "DimGray" :foreground "gold1" :weight bold)
@@ -2211,7 +2243,12 @@ the inbox.  Set it as a waiting action and refile to
 
   (setq org-todo-keywords
         '((sequence "TODO(t)" "NEXT(n)" "ACTIVE(a)" "REVISE(y)" "REVIEW(r@/!)" "|" "DONE(d!/!)")
-          (sequence "TOREAD(z)" "READING(x)" "REVIEW(r@/!)" "SUMMARISE(s)" "|" "DONE(d!/!)")
+          ;; (sequence "TOREAD(t)" "READING(r!)" "SUMMARISING(s!)" "|" "DONE(d!/!)")
+          ;; (sequence "REREADING(w!)" "SUMMARISING(s!)" "|" "DONE(d!/!)")
+          ;; (sequence "TOWATCH(t)" "WATCHING(w!)"  "|" "WATCHED(W!)" "WATCHEDTWICE(T!)" "WATCHEDTHRICE(H!)" "ALWAYSWATCHING(A!)")
+          ;; (sequence "REWATCH(r/!)" "WATCHING(w!)"  "|" "WATCHEDTWICE(T!)" "WATCHEDTHRICE(H!)" "ALWAYSWATCHING(A!)")
+          ;; (sequence "TOSTUDY(t)" "STUDYING(s!)" "REVISING(r!)" "|" "DONE(d!/!)")
+          ;; (sequence "TOPRACTICE(t)" "PRACTICING(s!)" "REPRACTICING(r!)" "|" "DONE(d!/!)")
           (sequence "SOMEDAY(f@/!)" "|" "CANCELED(c@/!)")
           (sequence "PROJ(p)" "|" "DONE(d!/!)" "CANCELED(c@/!)")
           (sequence "WAITING(w@/!)" "|" "CANCELED(c@/!)")))
@@ -3433,11 +3470,13 @@ structure changes."
                      ;; then make it relative to the directory of this org file
                      (current-dir (file-name-directory (or default-directory
                                                            buffer-file-name)))
-                     (relpath (file-relative-name fullpath current-dir)))
+                     (relpath (file-relative-name fullpath current-dir))
+                     ;; extract just the filename for the description
+                     (filename (file-name-nondirectory relpath)))
                 ;; delete the existing link
                 (delete-region link-begin link-end)
-                ;; replace with file: link and file: description
-                (insert (format "[[file:%s][file:%s]]" relpath relpath)))))))))
+                ;; replace with file: link and just filename as description
+                (insert (format "[[file:%s][%s]]" relpath filename)))))))))
 
 (defun open-file-link-in-dired ()
   "Open the directory of the file link at point in Dired."
@@ -3821,47 +3860,6 @@ structure changes."
   :hook (magit-mode . gptel-magit-install))
 #+end_src
 
-* Bookmarks
-
-#+begin_src elisp
-;;; Taken from https://xenodium.com/building-your-own-bookmark-launcher/
-;;;###autoload
-(defun browser-bookmarks (org-file)
-  "Return all links from ORG-FILE."
-  (with-temp-buffer
-    (let (links)
-      (insert-file-contents org-file)
-      (org-mode)
-      (org-element-map (org-element-parse-buffer) 'link
-        (lambda (link)
-          (let* ((raw-link (org-element-property :raw-link link))
-                 (content (org-element-contents link))
-                 (title (substring-no-properties (or (seq-first content) raw-link))))
-            (push (concat title
-                          "\n\n"
-                          (propertize raw-link 'face 'whitespace-space)
-                          "\n\n")
-                  links)))
-        nil nil 'link)
-      (seq-sort 'string-greaterp links))))
-
-;;;###autoload
-(defun open-bookmark ()
-  (interactive)
-  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
-    (browse-url-firefox url)))
-
-(defun open-random-bookmark ()
-  "Open a random bookmark from the bookmarks file."
-  (interactive)
-  (let* ((bookmarks (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org"))
-         (random-bookmark (when bookmarks
-                            (seq-random-elt bookmarks))))
-    (if random-bookmark
-        (let ((url (seq-elt (split-string random-bookmark "\n") 2)))
-          (browse-url-firefox url))
-      (message "No bookmarks found!"))))
-#+end_src
 * Org Roam
 ** V2 Node Display
 
@@ -4062,10 +4060,10 @@ the second element is the other tags."
 
 #+begin_src elisp
 (defun log-org-roam-file-save ()
-  "Log the saving of an Org-roam file."
+  "Log the saving of an Org-roam file to a device-specific log file."
   (when (and (eq major-mode 'org-mode)
              (string-prefix-p (expand-file-name org-roam-directory) (expand-file-name buffer-file-name)))
-    (let ((log-file org-roam-logs-file)
+    (let ((log-file (concat org-logs-directory "notes_log_" (system-name) ".txt"))
           (current-time (format-time-string "[%Y-%m-%d %H:%M:%S]"))
           (file-name (buffer-file-name)))
       (with-temp-buffer
@@ -4666,10 +4664,10 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 (use-package dwim-shell-command
   :ensure t)
 #+end_src
-* Random task selector
+* Random Task Selection and Clocking In
 
-#+begin_src emacs-lisp
-;;; Configuration
+#+begin_src elisp
+;;; Unified Selector Configuration
 (defvar rts-debug-mode t
   "When non-nil, show debug information about task selection and scoring.")
 
@@ -4686,7 +4684,13 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
   '(("A" . 10) ("B" . 6) ("C" . 4) ("D" . 3) ("E" . 2))
   "Points assigned to each priority level for probability calculation.")
 
-;;; Helper Functions
+(defvar rts-leisure-status-points
+  '(("SUMMARIZING" . 5) ("READING" . 3) ("REREADING" . 2) ("TOREAD" . 1)
+    ("PRACTICING" . 5) ("REPRACTICING" . 3) ("TOPRACTICE" . 1)
+    ("STUDYING" . 5) ("REVISING" . 3) ("TOSTUDY" . 1))
+  "Points assigned to each leisure status for probability calculation.")
+
+;;; Core Helper Functions
 
 (defun rts--get-current-time-of-day ()
   "Return current time of day tag based on current time."
@@ -4706,6 +4710,10 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
   "Get tags from org element."
   (org-element-property :tags element))
 
+(defun rts--get-task-todo-keyword (task)
+  "Get the TODO keyword from a task element."
+  (org-element-property :todo-keyword task))
+
 (defun rts--has-tag-p (tags target-tag)
   "Check if TAGS list contains TARGET-TAG."
   (member target-tag tags))
@@ -4714,20 +4722,31 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
   "Check if TAGS contains any tag from TAG-LIST."
   (seq-some (lambda (tag) (member tag tags)) tag-list))
 
+(defun rts--debug-log (format-string &rest args)
+  "Log debug message if debug mode is enabled."
+  (when rts-debug-mode
+    (let ((debug-buffer (get-buffer-create "*RTS Debug*"))
+          (message (apply #'format format-string args)))
+      (with-current-buffer debug-buffer
+        (goto-char (point-max))
+        (insert (format "%s [RTS DEBUG] %s\n"
+                        (format-time-string "%H:%M:%S") message))
+        (goto-char (point-max)))
+      ;; Also send to messages for backup
+      (message "[RTS DEBUG] %s" message))))
+
+;;; Task-specific Helper Functions (for scheduled/deadline tasks)
+
 (defun rts--is-future-time-today-p (task-tags current-time)
-  "Check if task has a future time tag for today.
-Returns t if task is scheduled for later today and should be excluded."
+  "Check if task has a future time tag for today."
   (let ((has-time-tag (rts--has-any-tag-p task-tags rts-time-tags)))
     (when has-time-tag
       (cond
-       ;; If it's Morning now, exclude Day and Evening tasks
        ((string= current-time "Morning")
         (or (rts--has-tag-p task-tags "Day")
             (rts--has-tag-p task-tags "Evening")))
-       ;; If it's Day now, exclude Evening tasks
        ((string= current-time "Day")
         (rts--has-tag-p task-tags "Evening"))
-       ;; If it's Evening now, don't exclude any time-tagged tasks
        (t nil)))))
 
 (defun rts--filter-out-future-today-tasks (tasks)
@@ -4787,158 +4806,7 @@ Returns t if task is scheduled for later today and should be excluded."
   "Calculate points for a task based on its priority."
   (let* ((priority (rts--get-task-priority task))
          (points (cdr (assoc priority rts-priority-points))))
-    (or points 1))) ; Default to 1 point for unrecognized priorities
-
-(defun rts--debug-log (format-string &rest args)
-  "Log debug message if debug mode is enabled."
-  (when rts-debug-mode
-    (let ((debug-buffer (get-buffer-create "*RTS Debug*"))
-          (message (apply #'format format-string args)))
-      (with-current-buffer debug-buffer
-        (goto-char (point-max))
-        (insert (format "%s [RTS DEBUG] %s\n"
-                        (format-time-string "%H:%M:%S") message))
-        (goto-char (point-max)))
-      ;; Also send to messages for backup
-      (message "[RTS DEBUG] %s" message))))
-
-(defun rts--show-task-posframe (heading priority tags)
-  "Show selected task in a posframe childframe."
-  (require 'posframe)
-  (let* ((buffer (get-buffer-create "*Task Selected*"))
-         (parent-frame (selected-frame))
-         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 6 lines)
-         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
-         (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
-         ;; Calculate centered position
-         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
-         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
-         (center-position (cons center-x center-y)))
-
-    ;; Clear the buffer and add task content
-    (with-current-buffer buffer
-      (erase-buffer)
-      (insert (propertize "🎯 TASK SELECTED" 'face 'font-lock-keyword-face))
-      (center-line)
-      (insert "\n\n")
-      (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
-      (center-line)
-      (insert "\n")
-      (insert (propertize (format "Priority: %s" (or priority "No priority")) 'face 'font-lock-variable-name-face))
-      (center-line)
-      (insert "\n")
-      (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) "")) 'face 'font-lock-comment-face))
-      (center-line)
-      (setq buffer-read-only t)
-      ;; Set larger font size for the buffer
-      (set (make-local-variable 'face-remapping-alist)
-           '((default (:height 200) default))))
-    ;; Use posframe to display the childframe, centered
-    (posframe-show buffer
-                   :position center-position
-                   :width 80
-                   :height 10
-                   :border-width 2
-                   :border-color "gray"
-                   :accept-focus nil)
-
-    ;; Auto-close after 5 seconds
-    (run-with-timer 5 nil
-                    (lambda (buf)
-                      (posframe-delete buf))
-                    buffer)))
-
-(defun rts--select-by-probability (tasks)
-  "Select a task from TASKS based on probability weights."
-  (if (= (length tasks) 1)
-      (progn
-        (when rts-debug-mode
-          (let* ((task (car tasks))
-                 (heading (org-element-property :raw-value task))
-                 (points (rts--calculate-task-points task)))
-            (rts--debug-log "Single task selected: '%s' (Score: %d)" heading points)))
-        (car tasks))
-    (let* ((task-points (mapcar (lambda (task)
-                                  (cons task (rts--calculate-task-points task)))
-                                tasks))
-           (total-points (apply #'+ (mapcar #'cdr task-points)))
-           (random-point (random total-points))
-           (current-sum 0))
-
-      ;; Debug log all candidate tasks and their scores
-      (when rts-debug-mode
-        (rts--debug-log "=== PROBABILITY SELECTION ===")
-        (rts--debug-log "Candidates: %d tasks | Total points: %d | Random point: %d"
-                        (length tasks) total-points random-point)
-        (dolist (task-point task-points)
-          (let* ((task (car task-point))
-                 (points (cdr task-point))
-                 (heading (org-element-property :raw-value task))
-                 (priority (rts--get-task-priority task)))
-            (rts--debug-log "  • '%s' [%s] = %d points"
-                            heading (or priority "None") points))))
-
-      (catch 'selected
-        (dolist (task-point task-points)
-          (setq current-sum (+ current-sum (cdr task-point)))
-          (when (>= current-sum random-point)
-            (when rts-debug-mode
-              (let* ((selected-task (car task-point))
-                     (heading (org-element-property :raw-value selected-task))
-                     (points (cdr task-point)))
-                (rts--debug-log "🎯 WINNER: '%s' (Score: %d)" heading points)))
-            (throw 'selected (car task-point))))
-        ;; Fallback (shouldn't happen)
-        (when rts-debug-mode
-          (rts--debug-log "⚠️  WARNING: Fallback selection used"))
-        (caar task-points)))))
-
-(defun rts--get-base-tasks ()
-  "Get base tasks that meet initial filtering criteria."
-  (org-ql-select
-    (org-agenda-files)
-    '(and (todo)
-          (or (scheduled :to today)
-              (deadline :to 7)))
-    :action 'element-with-markers
-    :sort '(priority)
-    ))
-
-(defun rts--get-task-todo-keyword (task)
-  "Get the TODO keyword from a task element."
-  (org-element-property :todo-keyword task))
-
-(defun rts--determine-next-status (current-todo)
-  "Determine the next status based on current TODO keyword."
-  (cond
-   ((string= current-todo "TODO") "NEXT")
-   ((string= current-todo "TOREAD") "READING")
-   ((string= current-todo "TOWATCH") "WATCHING")
-   ;; For HABIT and PROJECT, no change
-   ((or (string= current-todo "HABIT")
-        (string= current-todo "PROJECT")) current-todo)
-   ;; Default case - keep current status
-   (t current-todo)))
-
-(defun rts--show-task-announcement (message)
-  "Show temporary announcement in the middle of screen for 2 seconds."
-  (let ((buffer (get-buffer-create "*Task Announcement*")))
-    (with-current-buffer buffer
-      (erase-buffer)
-      (insert message)
-      (center-line)
-      (setq buffer-read-only t))
-    ;; Display the buffer temporarily
-    (let ((window (display-buffer buffer
-                                  '((display-buffer-at-bottom)
-                                    (window-height . 3)))))
-      (run-with-timer 2 nil
-                      (lambda ()
-                        (when (window-live-p window)
-                          (delete-window window))
-                        (kill-buffer buffer))))))
-
-;; Updated helper functions to properly handle habits and projects
+    (or points 1)))
 
 (defun rts--is-habit-p (task)
   "Check if TASK is a habit by looking for style: habit property."
@@ -4951,14 +4819,14 @@ Returns t if task is scheduled for later today and should be excluded."
     (rts--has-tag-p tags "proj")))
 
 (defun rts--should-change-status-p (task)
-  "Determine if we should change the TODO status of TASK.
-Returns nil for habits and projects, t for other tasks."
+  "Determine if we should change the TODO status of TASK."
   (not (or (rts--is-habit-p task)
            (rts--is-project-p task))))
 
+;;; Status Transition Functions
+
 (defun rts--determine-next-status (current-todo task)
-  "Determine the next status based on current TODO keyword and task type.
-Takes both CURRENT-TODO keyword and TASK element as parameters."
+  "Determine the next status based on current TODO keyword and task type."
   ;; Don't change status for habits and projects
   (if (not (rts--should-change-status-p task))
       current-todo
@@ -4967,424 +4835,268 @@ Takes both CURRENT-TODO keyword and TASK element as parameters."
      ((string= current-todo "TODO") "NEXT")
      ((string= current-todo "TOREAD") "READING")
      ((string= current-todo "TOWATCH") "WATCHING")
+     ((string= current-todo "TOSTUDY") "STUDYING")
+     ((string= current-todo "TOPRACTICE") "PRACTICING")
      ;; Default case - keep current status
      (t current-todo))))
 
-(defun rts--display-selected-task (task)
-  "Process the selected TASK: change status, clock in, and announce."
-  (if task
-      (let* ((heading (org-element-property :raw-value task))
-             (priority (rts--get-task-priority task))
-             (tags (rts--get-task-tags task))
-             (marker (org-element-property :org-marker task))
-             (current-todo (rts--get-task-todo-keyword task))
-             (new-status (rts--determine-next-status current-todo task)))
+(defun rts--should-refile-to-in-progress-p (old-status new-status)
+  "Check if task should be refiled to In Progress based on status change."
+  (and (not (string= old-status new-status))
+       (or (and (string= old-status "TOREAD") (string= new-status "READING"))
+           (and (string= old-status "TOSTUDY") (string= new-status "STUDYING"))
+           (and (string= old-status "TOPRACTICE") (string= new-status "PRACTICING")))))
 
-        (when marker
-          (with-current-buffer (marker-buffer marker)
+(defun rts--find-in-progress-heading (buffer)
+  "Find the 'In Progress' heading in BUFFER. Returns marker or nil."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward "^\\*+ In Progress" nil t)
+        (point-marker)))))
+
+(defun rts--add-state-change-logbook-entry (old-state new-state)
+  "Add a state change entry to the current task's LOGBOOK."
+  (let ((timestamp (format-time-string "[%Y-%m-%d %a %H:%M]")))
+    (org-back-to-heading t)
+    (forward-line 1)
+
+    ;; Look for existing LOGBOOK drawer
+    (let ((logbook-start nil)
+          (logbook-end nil)
+          (properties-end (save-excursion
+                            (when (looking-at "[ \t]*:PROPERTIES:")
+                              (org-get-property-block)))))
+
+      ;; Skip past PROPERTIES drawer if it exists
+      (when properties-end
+        (goto-char (cdr properties-end))
+        (forward-line 1))
+
+      ;; Look for LOGBOOK drawer
+      (when (looking-at "[ \t]*:LOGBOOK:")
+        (setq logbook-start (point))
+        (setq logbook-end (save-excursion
+                            (re-search-forward "^[ \t]*:END:" nil t)
+                            (point))))
+
+      (if logbook-start
+          ;; LOGBOOK exists, add entry at the beginning
+          (progn
+            (goto-char logbook-start)
+            (forward-line 1)
+            (insert (format "- State \"%s\" from \"%s\" %s\n" new-state old-state timestamp)))
+        ;; No LOGBOOK, create one
+        (insert ":LOGBOOK:\n")
+        (insert (format "- State \"%s\" from \"%s\" %s\n" new-state old-state timestamp))
+        (insert ":END:\n"))))
+
+  (when rts-debug-mode
+    (rts--debug-log "Added LOGBOOK entry: %s -> %s" old-state new-state)))
+
+(defun rts--refile-to-in-progress (task-marker)
+  "Refile task at TASK-MARKER to 'In Progress' heading in same file."
+  (when task-marker
+    (let* ((task-buffer (marker-buffer task-marker))
+           (in-progress-marker (rts--find-in-progress-heading task-buffer)))
+
+      (if in-progress-marker
+          (with-current-buffer task-buffer
             (save-excursion
-              (goto-char marker)
+              ;; Get the full task subtree
+              (goto-char task-marker)
+              (org-back-to-heading t)
+              (let* ((task-start (point))
+                     (task-end (save-excursion (org-end-of-subtree t t) (point)))
+                     (task-content (buffer-substring task-start task-end)))
 
-              ;; Change status only if it should be changed
-              (when (and (rts--should-change-status-p task)
-                         (not (string= current-todo new-status)))
-                (org-todo new-status)
+                ;; Delete the task from current location
+                (delete-region task-start task-end)
+
+                ;; Insert under In Progress heading
+                (goto-char in-progress-marker)
+                (org-end-of-subtree t t)
+                (unless (bolp) (insert "\n"))
+                (insert task-content)
+
                 (when rts-debug-mode
-                  (rts--debug-log "Changed status: '%s' -> '%s'" current-todo new-status)))
+                  (rts--debug-log "Refiled task to 'In Progress' heading")))))
 
-              ;; Always clock in to the task
-              (org-clock-in))))
-
-        ;; Show task in posframe
-        (rts--show-task-posframe heading priority tags))
-
-    (message "No tasks found matching criteria.")))
-
-;;; Main Functions
-
-(defun random-task-select (&optional prefix-arg)
-  "Select a random task from filtered list.
-With PREFIX-ARG, prompt for difficulty and energy filtering."
-  (interactive "P")
-  (let* ((base-tasks (rts--get-base-tasks))
-         ;; Filter out future today tasks first
-         (time-filtered-tasks (rts--filter-out-future-today-tasks base-tasks))
-         (filtered-tasks
-          (if prefix-arg
-              (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
-                     (energy (consult--read "Energy: " rts-energy-tags)))
-                (rts--filter-by-difficulty-energy time-filtered-tasks difficulty energy))
-            time-filtered-tasks)))
-    (when filtered-tasks
-      (let ((selected-task (nth (random (length filtered-tasks)) filtered-tasks)))
         (when rts-debug-mode
-          (let* ((heading (org-element-property :raw-value selected-task))
-                 (priority (rts--get-task-priority selected-task)))
-            (rts--debug-log "=== RANDOM SELECTION ===")
-            (rts--debug-log "Selected from %d filtered tasks: '%s' [%s]"
-                            (length filtered-tasks) heading (or priority "None"))))
-        (rts--display-selected-task selected-task)))))
+          (rts--debug-log "⚠️  WARNING: 'In Progress' heading not found in file"))))))
 
-(defun priority-time-task-select (&optional prefix-arg)
-  "Select a task based on priority and time of day logic.
-With PREFIX-ARG, apply difficulty/energy filtering to lower-priority tasks."
-  (interactive "P")
-  (let* ((base-tasks (rts--get-base-tasks))
-         ;; Filter out future today tasks first
-         (time-filtered-base (rts--filter-out-future-today-tasks base-tasks))
-         (priority-a-tasks (rts--get-priority-tasks time-filtered-base))
-         (current-time (rts--get-current-time-of-day)))
 
-    (if priority-a-tasks
-        ;; Handle priority A tasks
-        (let* ((sorted-tasks (rts--sort-by-time-priority priority-a-tasks))
-               ;; Get tasks from the earliest time group
-               (first-task (car sorted-tasks))
-               (first-time-tags (rts--get-task-tags first-task))
-               (current-time-group
-                (cond
-                 ((rts--has-tag-p first-time-tags "Morning") "Morning")
-                 ((rts--has-tag-p first-time-tags "Day") "Day")
-                 (t "Evening")))
-               (same-time-tasks
-                (seq-filter
-                 (lambda (task)
-                   (rts--has-tag-p (rts--get-task-tags task) current-time-group))
-                 sorted-tasks)))
-          (let ((selected-task (nth (random (length same-time-tasks)) same-time-tasks)))
-            (when rts-debug-mode
-              (let* ((heading (org-element-property :raw-value selected-task))
-                     (priority (rts--get-task-priority selected-task)))
-                (rts--debug-log "=== PRIORITY A SELECTION ===")
-                (rts--debug-log "Selected from %d tasks in %s group: '%s' [%s]"
-                                (length same-time-tasks) current-time-group heading (or priority "None"))))
-            (rts--display-selected-task selected-task)))
+;;; Unified Base Task Retrieval
 
-      ;; Handle lower priority tasks
-      (let* ((lower-tasks (rts--get-lower-priority-tasks time-filtered-base))
-             (time-filtered (rts--filter-by-time-of-day lower-tasks current-time))
-             (final-tasks (if (null time-filtered) lower-tasks time-filtered))
-             (final-filtered
-              (if prefix-arg
-                  (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
-                         (energy (consult--read "Energy: " rts-energy-tags)))
-                    (rts--filter-by-difficulty-energy final-tasks difficulty energy))
-
-                final-tasks)))
-        (when final-filtered
-          (rts--display-selected-task
-           (rts--select-by-probability final-filtered)))))))
-
-#+end_src
-* Random book selector
-
-#+begin_src elisp
-;;; Book Selection Configuration
-(defvar rts-book-status-points
-  '(("SUMMARIZING" . 5) ("READING" . 3) ("REREADING" . 2) ("TOREAD" . 1))
-  "Points assigned to each book status for probability calculation.")
-
-;;; Book Helper Functions
-
-(defun rts--get-book-base-tasks ()
-  "Get base book tasks that have 'book' and 'Booxactive' tags."
-  (org-ql-select
-    (org-agenda-files)
-    '(and (todo)
-          (tags "book")
-          (tags "Booxactive"))
-    :action 'element-with-markers
-    :sort '(priority)))
-
-(defun rts--calculate-book-points (book-task)
-  "Calculate points for a book task based on its TODO status."
-  (let* ((status (rts--get-task-todo-keyword book-task))
-         (points (cdr (assoc status rts-book-status-points))))
-    (or points 1))) ; Default to 1 point for unrecognized statuses
-
-(defun rts--select-book-by-probability (books)
-  "Select a book from BOOKS based on probability weights."
-  (if (= (length books) 1)
-      (progn
-        (when rts-debug-mode
-          (let* ((book (car books))
-                 (heading (org-element-property :raw-value book))
-                 (status (rts--get-task-todo-keyword book))
-                 (points (rts--calculate-book-points book)))
-            (rts--debug-log "Single book selected: '%s' [%s] (Score: %d)"
-                            heading status points)))
-        (car books))
-    (let* ((book-points (mapcar (lambda (book)
-                                  (cons book (rts--calculate-book-points book)))
-                                books))
-           (total-points (apply #'+ (mapcar #'cdr book-points)))
-           (random-point (random total-points))
-           (current-sum 0))
-
-      ;; Debug log all candidate books and their scores
-      (when rts-debug-mode
-        (rts--debug-log "=== BOOK PROBABILITY SELECTION ===")
-        (rts--debug-log "Book candidates: %d books | Total points: %d | Random point: %d"
-                        (length books) total-points random-point)
-        (dolist (book-point book-points)
-          (let* ((book (car book-point))
-                 (points (cdr book-point))
-                 (heading (org-element-property :raw-value book))
-                 (status (rts--get-task-todo-keyword book)))
-            (rts--debug-log "  • '%s' [%s] = %d points"
-                            heading status points))))
-
-      (catch 'selected
-        (dolist (book-point book-points)
-          (setq current-sum (+ current-sum (cdr book-point)))
-          (when (>= current-sum random-point)
-            (when rts-debug-mode
-              (let* ((selected-book (car book-point))
-                     (heading (org-element-property :raw-value selected-book))
-                     (status (rts--get-task-todo-keyword selected-book))
-                     (points (cdr book-point)))
-                (rts--debug-log "📚 BOOK WINNER: '%s' [%s] (Score: %d)"
-                                heading status points)))
-            (throw 'selected (car book-point))))
-        ;; Fallback (shouldn't happen)
-        (when rts-debug-mode
-          (rts--debug-log "⚠️  WARNING: Book fallback selection used"))
-        (caar book-points)))))
-
-(defun rts--display-selected-book (book)
-  "Process the selected BOOK: clock in and announce."
-  (if book
-      (let* ((heading (org-element-property :raw-value book))
-             (priority (rts--get-task-priority book))
-             (tags (rts--get-task-tags book))
-             (marker (org-element-property :org-marker book))
-             (status (rts--get-task-todo-keyword book)))
-
-        (when marker
-          (with-current-buffer (marker-buffer marker)
-            (save-excursion
-              (goto-char marker)
-              ;; Clock in to the book (no status change for books)
-              (org-clock-in))))
-
-        ;; Show book in posframe with book-specific styling
-        (rts--show-book-posframe heading priority tags status))
-
-    (message "No books found matching criteria.")))
-
-(defun rts--show-book-posframe (heading priority tags status)
-  "Show selected book in a posframe childframe."
-  (require 'posframe)
-  (let* ((buffer (get-buffer-create "*Book Selected*"))
-         (parent-frame (selected-frame))
-         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 6 lines)
-         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
-         (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
-         ;; Calculate centered position
-         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
-         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
-         (center-position (cons center-x center-y)))
-
-    ;; Clear the buffer and add book content
-    (with-current-buffer buffer
-      (erase-buffer)
-      (insert (propertize "📚 BOOK SELECTED" 'face 'font-lock-keyword-face))
-      (center-line)
-      (insert "\n\n")
-      (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
-      (center-line)
-      (insert "\n")
-      (insert (propertize (format "Status: %s | Priority: %s"
-                                  (or status "No status")
-                                  (or priority "No priority"))
-                          'face 'font-lock-variable-name-face))
-      (center-line)
-      (insert "\n")
-      (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) ""))
-                          'face 'font-lock-comment-face))
-      (center-line)
-      (setq buffer-read-only t)
-      ;; Set larger font size for the buffer
-      (set (make-local-variable 'face-remapping-alist)
-           '((default (:height 200) default))))
-    ;; Use posframe to display the childframe, centered
-    (posframe-show buffer
-                   :position center-position
-                   :width 80
-                   :height 10
-                   :border-width 2
-                   :border-color "blue"  ; Different color for books
-                   :accept-focus nil)
-
-    ;; Auto-close after 5 seconds
-    (run-with-timer 5 nil
-                    (lambda (buf)
-                      (posframe-delete buf))
-                    buffer)))
-
-;;; Main Book Selection Function
-
-(defun random-book-select ()
-  "Select a random book from Booxactive books based on status probability."
-  (interactive)
-  (let ((book-tasks (rts--get-book-base-tasks)))
-    (if book-tasks
-        (let ((selected-book (rts--select-book-by-probability book-tasks)))
-          (when rts-debug-mode
-            (let* ((heading (org-element-property :raw-value selected-book))
-                   (status (rts--get-task-todo-keyword selected-book)))
-              (rts--debug-log "=== RANDOM BOOK SELECTION ===")
-              (rts--debug-log "Selected from %d books: '%s' [%s]"
-                              (length book-tasks) heading status)))
-          (rts--display-selected-book selected-book))
-      (message "No active books found with 'book' and 'Booxactive' tags."))))
-#+end_src
-* Random guitar song to practice selector
-
-#+begin_src elisp
-;;; Music Practice Configuration
-(defvar rts-music-status-points
-  '(("SUMMARIZING" . 5) ("READING" . 3) ("REREADING" . 2) ("TOREAD" . 1)
-    ("PRACTICING" . 4) ("LEARNING" . 3) ("REVIEWING" . 2) ("TOLEARN" . 1))
-  "Points assigned to each music practice status for probability calculation.")
-
-;;; Music Helper Functions
-
-(defun rts--get-music-base-tasks (instrument-tag)
-  "Get base music tasks that have 'musicactive' and INSTRUMENT-TAG.
-INSTRUMENT-TAG should be 'guitaractive', 'pianoactive', or nil for any."
-  (let ((query (if instrument-tag
-                   `(and (todo)
-                         (tags "musicactive")
-                         (tags ,instrument-tag))
+(defun rts--get-base-tasks (selector-type &optional extra-tag)
+  "Get base tasks based on SELECTOR-TYPE and optional EXTRA-TAG.
+SELECTOR-TYPE can be:
+- 'tasks' (scheduled/deadline tasks)
+- 'books' (book + Booxactive tags)
+- 'guitar' (musicactive + guitaractive)
+- 'piano' (musicactive + pianoactive)
+- 'study' (studyactive)
+- 'music' (musicactive - guitar OR piano)
+- 'leisure' (musicactive OR studyactive)
+EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
+  (let ((query (cond
+                ;; Regular scheduled/deadline tasks
+                ((eq selector-type 'tasks)
                  '(and (todo)
-                       (tags "musicactive")
-                       (or (tags "guitaractive")
-                           (tags "pianoactive"))))))
+                       (or (scheduled :to today)
+                           (deadline :to 7))))
+
+                ;; Books
+                ((eq selector-type 'books)
+                 (if extra-tag
+                     `(and (todo) (tags "book") (tags "Booxactive") (tags ,extra-tag))
+                   '(and (todo) (tags "book") (tags "Booxactive"))))
+
+                ;; Individual instruments
+                ((eq selector-type 'guitar)
+                 (if extra-tag
+                     `(and (todo) (tags "musicactive") (tags "guitaractive") (tags ,extra-tag))
+                   '(and (todo) (tags "musicactive") (tags "guitaractive"))))
+
+                ((eq selector-type 'piano)
+                 (if extra-tag
+                     `(and (todo) (tags "musicactive") (tags "pianoactive") (tags ,extra-tag))
+                   '(and (todo) (tags "musicactive") (tags "pianoactive"))))
+
+                ;; Study tasks
+                ((eq selector-type 'study)
+                 (if extra-tag
+                     `(and (todo) (tags "studyactive") (tags ,extra-tag))
+                   '(and (todo) (tags "studyactive"))))
+
+                ;; Combined music selector (guitar OR piano)
+                ((eq selector-type 'music)
+                 (if extra-tag
+                     `(and (todo) (tags "musicactive")
+                           (or (tags "guitaractive") (tags "pianoactive"))
+                           (tags ,extra-tag))
+                   '(and (todo) (tags "musicactive")
+                         (or (tags "guitaractive") (tags "pianoactive")))))
+
+                ;; Combined leisure selector (music OR study)
+                ((eq selector-type 'leisure)
+                 (if extra-tag
+                     `(and (todo)
+                           (or (tags "musicactive") (tags "studyactive"))
+                           (tags ,extra-tag))
+                   '(and (todo)
+                         (or (tags "musicactive") (tags "studyactive")))))
+
+                (t (error "Unknown selector type: %s" selector-type)))))
+
     (org-ql-select
       (org-agenda-files)
       query
       :action 'element-with-markers
       :sort '(priority))))
 
-(defun rts--calculate-music-points (music-task)
-  "Calculate points for a music task based on its TODO status."
-  (let* ((status (rts--get-task-todo-keyword music-task))
-         (points (cdr (assoc status rts-music-status-points))))
-    (or points 1))) ; Default to 1 point for unrecognized statuses
+;;; Unified Point Calculation
 
-(defun rts--get-instrument-from-tags (tags)
-  "Determine instrument type from task tags."
+(defun rts--calculate-points (item selector-type)
+  "Calculate points for ITEM based on SELECTOR-TYPE."
   (cond
-   ((rts--has-tag-p tags "guitaractive") "Guitar")
-   ((rts--has-tag-p tags "pianoactive") "Piano")
-   (t "Music")))
+   ((eq selector-type 'tasks)
+    (rts--calculate-task-points item))
+   ((memq selector-type '(books guitar piano study music leisure))
+    (let* ((status (rts--get-task-todo-keyword item))
+           (points (cdr (assoc status rts-leisure-status-points))))
+      (or points 1)))
+   (t 1)))
 
-(defun rts--get-instrument-emoji (instrument)
-  "Get emoji for instrument type."
-  (cond
-   ((string= instrument "Guitar") "🎸")
-   ((string= instrument "Piano") "🎹")
-   (t "🎵")))
+;;; Unified Selection Functions
 
-(defun rts--select-music-by-probability (music-tasks instrument-name)
-  "Select a music task from MUSIC-TASKS based on probability weights."
-  (if (= (length music-tasks) 1)
+(defun rts--select-by-probability (items selector-type)
+  "Select an item from ITEMS based on probability weights for SELECTOR-TYPE."
+  (if (= (length items) 1)
       (progn
         (when rts-debug-mode
-          (let* ((task (car music-tasks))
-                 (heading (org-element-property :raw-value task))
-                 (status (rts--get-task-todo-keyword task))
-                 (points (rts--calculate-music-points task)))
-            (rts--debug-log "Single %s task selected: '%s' [%s] (Score: %d)"
-                            instrument-name heading status points)))
-        (car music-tasks))
-    (let* ((task-points (mapcar (lambda (task)
-                                  (cons task (rts--calculate-music-points task)))
-                                music-tasks))
-           (total-points (apply #'+ (mapcar #'cdr task-points)))
+          (let* ((item (car items))
+                 (heading (org-element-property :raw-value item))
+                 (points (rts--calculate-points item selector-type)))
+            (rts--debug-log "Single %s selected: '%s' (Score: %d)"
+                            selector-type heading points)))
+        (car items))
+    (let* ((item-points (mapcar (lambda (item)
+                                  (cons item (rts--calculate-points item selector-type)))
+                                items))
+           (total-points (apply #'+ (mapcar #'cdr item-points)))
            (random-point (random total-points))
            (current-sum 0))
 
-      ;; Debug log all candidate tasks and their scores
+      ;; Debug log all candidates and their scores
       (when rts-debug-mode
-        (rts--debug-log "=== %s PROBABILITY SELECTION ===" (upcase instrument-name))
-        (rts--debug-log "%s candidates: %d tasks | Total points: %d | Random point: %d"
-                        instrument-name (length music-tasks) total-points random-point)
-        (dolist (task-point task-points)
-          (let* ((task (car task-point))
-                 (points (cdr task-point))
-                 (heading (org-element-property :raw-value task))
-                 (status (rts--get-task-todo-keyword task))
-                 (tags (rts--get-task-tags task))
-                 (task-instrument (rts--get-instrument-from-tags tags)))
-            (rts--debug-log "  • '%s' [%s] (%s) = %d points"
-                            heading status task-instrument points))))
+        (rts--debug-log "=== %s PROBABILITY SELECTION ===" (upcase (symbol-name selector-type)))
+        (rts--debug-log "Candidates: %d items | Total points: %d | Random point: %d"
+                        (length items) total-points random-point)
+        (dolist (item-point item-points)
+          (let* ((item (car item-point))
+                 (points (cdr item-point))
+                 (heading (org-element-property :raw-value item))
+                 (status (rts--get-task-todo-keyword item)))
+            (rts--debug-log "  • '%s' [%s] = %d points"
+                            heading status points))))
 
       (catch 'selected
-        (dolist (task-point task-points)
-          (setq current-sum (+ current-sum (cdr task-point)))
+        (dolist (item-point item-points)
+          (setq current-sum (+ current-sum (cdr item-point)))
           (when (>= current-sum random-point)
             (when rts-debug-mode
-              (let* ((selected-task (car task-point))
-                     (heading (org-element-property :raw-value selected-task))
-                     (status (rts--get-task-todo-keyword selected-task))
-                     (points (cdr task-point))
-                     (tags (rts--get-task-tags selected-task))
-                     (task-instrument (rts--get-instrument-from-tags tags))
-                     (emoji (rts--get-instrument-emoji task-instrument)))
-                (rts--debug-log "%s %s WINNER: '%s' [%s] (Score: %d)"
-                                emoji task-instrument heading status points)))
-            (throw 'selected (car task-point))))
-        ;; Fallback (shouldn't happen)
+              (let* ((selected-item (car item-point))
+                     (heading (org-element-property :raw-value selected-item))
+                     (status (rts--get-task-todo-keyword selected-item))
+                     (points (cdr item-point)))
+                (rts--debug-log "🎯 %s WINNER: '%s' [%s] (Score: %d)"
+                                (upcase (symbol-name selector-type)) heading status points)))
+            (throw 'selected (car item-point))))
+        ;; Fallback
         (when rts-debug-mode
-          (rts--debug-log "⚠️  WARNING: %s fallback selection used" instrument-name))
-        (caar task-points)))))
+          (rts--debug-log "⚠️  WARNING: %s fallback selection used" selector-type))
+        (caar item-points)))))
 
-(defun rts--display-selected-music (music-task instrument-name)
-  "Process the selected MUSIC-TASK: clock in and announce."
-  (if music-task
-      (let* ((heading (org-element-property :raw-value music-task))
-             (priority (rts--get-task-priority music-task))
-             (tags (rts--get-task-tags music-task))
-             (marker (org-element-property :org-marker music-task))
-             (status (rts--get-task-todo-keyword music-task))
-             (actual-instrument (rts--get-instrument-from-tags tags)))
+;;; Unified Display Functions
 
-        (when marker
-          (with-current-buffer (marker-buffer marker)
-            (save-excursion
-              (goto-char marker)
-              ;; Clock in to the music task (no status change for music)
-              (org-clock-in))))
+(defun rts--get-activity-info (tags selector-type)
+  "Get activity information (name, emoji, color) based on tags and selector-type."
+  (cond
+   ((eq selector-type 'tasks)
+    (list "Task" "🎯" "gray"))
+   ((eq selector-type 'books)
+    (list "Book" "📚" "blue"))
+   ((or (eq selector-type 'guitar) (rts--has-tag-p tags "guitaractive"))
+    (list "Guitar" "🎸" "orange"))
+   ((or (eq selector-type 'piano) (rts--has-tag-p tags "pianoactive"))
+    (list "Piano" "🎹" "purple"))
+   ((or (eq selector-type 'study) (rts--has-tag-p tags "studyactive"))
+    (list "Study" "📚" "blue"))
+   ((eq selector-type 'music)
+    (list "Music" "🎵" "green"))
+   ((eq selector-type 'leisure)
+    (list "Leisure" "🎯" "gold"))
+   (t (list "Activity" "📝" "gray"))))
 
-        ;; Show music task in posframe with music-specific styling
-        (rts--show-music-posframe heading priority tags status actual-instrument))
-
-    (message "No %s practice tasks found." instrument-name)))
-
-(defun rts--show-music-posframe (heading priority tags status instrument)
-  "Show selected music task in a posframe childframe."
+(defun rts--show-unified-posframe (heading priority tags status selector-type)
+  "Show selected item in a posframe with appropriate styling."
   (require 'posframe)
-  (let* ((buffer (get-buffer-create "*Music Selected*"))
+  (let* ((buffer (get-buffer-create "*Item Selected*"))
          (parent-frame (selected-frame))
-         (emoji (rts--get-instrument-emoji instrument))
-         (border-color (cond
-                        ((string= instrument "Guitar") "orange")
-                        ((string= instrument "Piano") "purple")
-                        (t "green")))
-         ;; Estimate childframe dimensions in pixels (width: 80 chars, height: 6 lines)
+         (activity-info (rts--get-activity-info tags selector-type))
+         (activity-name (nth 0 activity-info))
+         (emoji (nth 1 activity-info))
+         (border-color (nth 2 activity-info))
          (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
          (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
-         ;; Calculate centered position
          (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
          (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
          (center-position (cons center-x center-y)))
 
-    ;; Clear the buffer and add music content
     (with-current-buffer buffer
       (erase-buffer)
-      (insert (propertize (format "%s %s PRACTICE SELECTED" emoji (upcase instrument))
+      (insert (propertize (format "%s %s SELECTED" emoji (upcase activity-name))
                           'face 'font-lock-keyword-face))
       (center-line)
       (insert "\n\n")
@@ -5401,10 +5113,9 @@ INSTRUMENT-TAG should be 'guitaractive', 'pianoactive', or nil for any."
                           'face 'font-lock-comment-face))
       (center-line)
       (setq buffer-read-only t)
-      ;; Set larger font size for the buffer
       (set (make-local-variable 'face-remapping-alist)
            '((default (:height 200) default))))
-    ;; Use posframe to display the childframe, centered
+
     (posframe-show buffer
                    :position center-position
                    :width 80
@@ -5413,62 +5124,259 @@ INSTRUMENT-TAG should be 'guitaractive', 'pianoactive', or nil for any."
                    :border-color border-color
                    :accept-focus nil)
 
-    ;; Auto-close after 5 seconds
     (run-with-timer 5 nil
                     (lambda (buf)
                       (posframe-delete buf))
                     buffer)))
 
-;;; Main Music Selection Functions
+(defun rts--display-selected-item (item selector-type)
+  "Process the selected ITEM: change status, clock in, and announce."
+  (if item
+      (let* ((heading (org-element-property :raw-value item))
+             (priority (rts--get-task-priority item))
+             (tags (rts--get-task-tags item))
+             (marker (org-element-property :org-marker item))
+             (current-todo (rts--get-task-todo-keyword item))
+             (new-status (if (eq selector-type 'tasks)
+                             (rts--determine-next-status current-todo item)
+                           (rts--determine-next-status current-todo item)))
+             (should-refile (rts--should-refile-to-in-progress-p current-todo new-status)))
+
+        (when marker
+          (with-current-buffer (marker-buffer marker)
+            (save-excursion
+              (goto-char marker)
+
+              ;; Change status for tasks or leisure items that should change
+              (when (and (or (eq selector-type 'tasks)
+                             (memq selector-type '(books guitar piano study music leisure)))
+                         (not (string= current-todo new-status))
+                         (if (eq selector-type 'tasks)
+                             (rts--should-change-status-p item)
+                           t)) ; Leisure items can always change status
+
+                ;; Change the TODO state
+                (org-todo new-status)
+
+                ;; Add LOGBOOK entry for the state change
+                (rts--add-state-change-logbook-entry current-todo new-status)
+
+                (when rts-debug-mode
+                  (rts--debug-log "Changed status: '%s' -> '%s'" current-todo new-status))
+
+                ;; Refile to In Progress if needed (after status change and logbook entry)
+                (when should-refile
+                  (rts--refile-to-in-progress marker)
+                  (when rts-debug-mode
+                    (rts--debug-log "Refiling '%s' to In Progress due to %s -> %s transition"
+                                    heading current-todo new-status))))
+
+              ;; Always clock in (note: marker might be invalid after refiling, so we find the task again)
+              (if should-refile
+                  ;; After refiling, find the task in In Progress and clock in there
+                  (let ((in-progress-marker (rts--find-in-progress-heading (current-buffer))))
+                    (when in-progress-marker
+                      (goto-char in-progress-marker)
+                      (when (re-search-forward (regexp-quote heading) nil t)
+                        (org-back-to-heading t)
+                        (org-clock-in))))
+                ;; Normal case - task wasn't moved
+                (org-clock-in)))))
+
+        ;; Show item in posframe
+        (rts--show-unified-posframe heading priority tags (or new-status current-todo) selector-type))
+
+    (message "No %s found matching criteria." selector-type)))
+
+;;; Main Selection Functions
+
+;; Task selectors (existing functionality)
+(defun random-task-select (&optional prefix-arg)
+  "Select a random task from filtered list."
+  (interactive "P")
+  (let* ((base-tasks (rts--get-base-tasks 'tasks))
+         (time-filtered-tasks (rts--filter-out-future-today-tasks base-tasks))
+         (filtered-tasks
+          (if prefix-arg
+              (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
+                     (energy (consult--read "Energy: " rts-energy-tags)))
+                (rts--filter-by-difficulty-energy time-filtered-tasks difficulty energy))
+            time-filtered-tasks)))
+    (when filtered-tasks
+      (let ((selected-task (nth (random (length filtered-tasks)) filtered-tasks)))
+        (when rts-debug-mode
+          (rts--debug-log "=== RANDOM TASK SELECTION ===")
+          (rts--debug-log "Selected from %d filtered tasks" (length filtered-tasks)))
+        (rts--display-selected-item selected-task 'tasks)))))
+
+(defun priority-time-task-select (&optional prefix-arg)
+  "Select a task based on priority and time of day logic."
+  (interactive "P")
+  (let* ((base-tasks (rts--get-base-tasks 'tasks))
+         (time-filtered-base (rts--filter-out-future-today-tasks base-tasks))
+         (priority-a-tasks (rts--get-priority-tasks time-filtered-base))
+         (current-time (rts--get-current-time-of-day)))
+
+    (if priority-a-tasks
+        (let* ((sorted-tasks (rts--sort-by-time-priority priority-a-tasks))
+               (first-task (car sorted-tasks))
+               (first-time-tags (rts--get-task-tags first-task))
+               (current-time-group
+                (cond
+                 ((rts--has-tag-p first-time-tags "Morning") "Morning")
+                 ((rts--has-tag-p first-time-tags "Day") "Day")
+                 (t "Evening")))
+               (same-time-tasks
+                (seq-filter
+                 (lambda (task)
+                   (rts--has-tag-p (rts--get-task-tags task) current-time-group))
+                 sorted-tasks)))
+          (let ((selected-task (nth (random (length same-time-tasks)) same-time-tasks)))
+            (when rts-debug-mode
+              (rts--debug-log "=== PRIORITY A SELECTION ===")
+              (rts--debug-log "Selected from %d tasks in %s group" (length same-time-tasks) current-time-group))
+            (rts--display-selected-item selected-task 'tasks)))
+
+      (let* ((lower-tasks (rts--get-lower-priority-tasks time-filtered-base))
+             (time-filtered (rts--filter-by-time-of-day lower-tasks current-time))
+             (final-tasks (if (null time-filtered) lower-tasks time-filtered))
+             (final-filtered
+              (if prefix-arg
+                  (let* ((difficulty (consult--read "Difficulty: " rts-difficulty-tags))
+                         (energy (consult--read "Energy: " rts-energy-tags)))
+                    (rts--filter-by-difficulty-energy final-tasks difficulty energy))
+                final-tasks)))
+        (when final-filtered
+          (rts--display-selected-item
+           (rts--select-by-probability final-filtered 'tasks)))))))
+
+;; Leisure selectors
+(defun random-book-select ()
+  "Select a random book from Booxactive books based on status probability."
+  (interactive)
+  (let ((items (rts--get-base-tasks 'books)))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'books)))
+          (when rts-debug-mode
+            (rts--debug-log "=== RANDOM BOOK SELECTION ===")
+            (rts--debug-log "Selected from %d books" (length items)))
+          (rts--display-selected-item selected-item 'books))
+      (message "No active books found with 'book' and 'Booxactive' tags."))))
 
 (defun random-guitar-select ()
-  "Select a random guitar practice task from guitaractive tasks."
+  "Select a random guitar practice task."
   (interactive)
-  (let ((guitar-tasks (rts--get-music-base-tasks "guitaractive")))
-    (if guitar-tasks
-        (let ((selected-task (rts--select-music-by-probability guitar-tasks "Guitar")))
+  (let ((items (rts--get-base-tasks 'guitar)))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'guitar)))
           (when rts-debug-mode
-            (let* ((heading (org-element-property :raw-value selected-task))
-                   (status (rts--get-task-todo-keyword selected-task)))
-              (rts--debug-log "=== RANDOM GUITAR SELECTION ===")
-              (rts--debug-log "Selected from %d guitar tasks: '%s' [%s]"
-                              (length guitar-tasks) heading status)))
-          (rts--display-selected-music selected-task "Guitar"))
-      (message "No active guitar practice tasks found with 'musicactive' and 'guitaractive' tags."))))
+            (rts--debug-log "=== RANDOM GUITAR SELECTION ===")
+            (rts--debug-log "Selected from %d guitar tasks" (length items)))
+          (rts--display-selected-item selected-item 'guitar))
+      (message "No active guitar practice tasks found."))))
 
 (defun random-piano-select ()
-  "Select a random piano practice task from pianoactive tasks."
+  "Select a random piano practice task."
   (interactive)
-  (let ((piano-tasks (rts--get-music-base-tasks "pianoactive")))
-    (if piano-tasks
-        (let ((selected-task (rts--select-music-by-probability piano-tasks "Piano")))
+  (let ((items (rts--get-base-tasks 'piano)))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'piano)))
           (when rts-debug-mode
-            (let* ((heading (org-element-property :raw-value selected-task))
-                   (status (rts--get-task-todo-keyword selected-task)))
-              (rts--debug-log "=== RANDOM PIANO SELECTION ===")
-              (rts--debug-log "Selected from %d piano tasks: '%s' [%s]"
-                              (length piano-tasks) heading status)))
-          (rts--display-selected-music selected-task "Piano"))
-      (message "No active piano practice tasks found with 'musicactive' and 'pianoactive' tags."))))
+            (rts--debug-log "=== RANDOM PIANO SELECTION ===")
+            (rts--debug-log "Selected from %d piano tasks" (length items)))
+          (rts--display-selected-item selected-item 'piano))
+      (message "No active piano practice tasks found."))))
+
+(defun random-study-select ()
+  "Select a random study task."
+  (interactive)
+  (let ((items (rts--get-base-tasks 'study)))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'study)))
+          (when rts-debug-mode
+            (rts--debug-log "=== RANDOM STUDY SELECTION ===")
+            (rts--debug-log "Selected from %d study tasks" (length items)))
+          (rts--display-selected-item selected-item 'study))
+      (message "No active study tasks found."))))
+
+(defun random-blog-study-select ()
+  "Select a random blog study task."
+  (interactive)
+  (let ((items (rts--get-base-tasks 'study "blog")))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'study)))
+          (when rts-debug-mode
+            (rts--debug-log "=== RANDOM BLOG STUDY SELECTION ===")
+            (rts--debug-log "Selected from %d blog study tasks" (length items)))
+          (rts--display-selected-item selected-item 'study))
+      (message "No active blog study tasks found."))))
 
 (defun random-music-select ()
-  "Select a random music practice task from any instrument (guitar or piano)."
+  "Select a random music practice task (guitar or piano)."
   (interactive)
-  (let ((music-tasks (rts--get-music-base-tasks nil))) ; nil means any instrument
-    (if music-tasks
-        (let ((selected-task (rts--select-music-by-probability music-tasks "Music")))
+  (let ((items (rts--get-base-tasks 'music)))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'music)))
           (when rts-debug-mode
-            (let* ((heading (org-element-property :raw-value selected-task))
-                   (status (rts--get-task-todo-keyword selected-task))
-                   (tags (rts--get-task-tags selected-task))
-                   (instrument (rts--get-instrument-from-tags tags)))
-              (rts--debug-log "=== RANDOM MUSIC SELECTION ===")
-              (rts--debug-log "Selected from %d music tasks: '%s' [%s] (%s)"
-                              (length music-tasks) heading status instrument)))
-          (rts--display-selected-music selected-task "Music"))
-      (message "No active music practice tasks found with 'musicactive' tag."))))
+            (rts--debug-log "=== RANDOM MUSIC SELECTION ===")
+            (rts--debug-log "Selected from %d music tasks" (length items)))
+          (rts--display-selected-item selected-item 'music))
+      (message "No active music practice tasks found."))))
+
+(defun random-leisure-select ()
+  "Select a random leisure task (music or study)."
+  (interactive)
+  (let ((items (rts--get-base-tasks 'leisure)))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'leisure)))
+          (when rts-debug-mode
+            (rts--debug-log "=== RANDOM LEISURE SELECTION ===")
+            (rts--debug-log "Selected from %d leisure tasks" (length items)))
+          (rts--display-selected-item selected-item 'leisure))
+      (message "No active leisure tasks found."))))
 #+end_src
 
+* Random Bookmarks Selection
+
+#+begin_src elisp
+;;; Taken from https://xenodium.com/building-your-own-bookmark-launcher/
+;;;###autoload
+(defun browser-bookmarks (org-file)
+  "Return all links from ORG-FILE."
+  (with-temp-buffer
+    (let (links)
+      (insert-file-contents org-file)
+      (org-mode)
+      (org-element-map (org-element-parse-buffer) 'link
+        (lambda (link)
+          (let* ((raw-link (org-element-property :raw-link link))
+                 (content (org-element-contents link))
+                 (title (substring-no-properties (or (seq-first content) raw-link))))
+            (push (concat title
+                          "\n\n"
+                          (propertize raw-link 'face 'whitespace-space)
+                          "\n\n")
+                  links)))
+        nil nil 'link)
+      (seq-sort 'string-greaterp links))))
+
+;;;###autoload
+(defun open-bookmark ()
+  (interactive)
+  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
+    (browse-url-firefox url)))
+
+(defun open-random-bookmark ()
+  "Open a random bookmark from the bookmarks file."
+  (interactive)
+  (let* ((bookmarks (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org"))
+         (random-bookmark (when bookmarks
+                            (seq-random-elt bookmarks))))
+    (if random-bookmark
+        (let ((url (seq-elt (split-string random-bookmark "\n") 2)))
+          (browse-url-firefox url))
+      (message "No bookmarks found!"))))
+#+end_src
 * Copilot
 
 #+begin_src elisp
@@ -5497,6 +5405,133 @@ INSTRUMENT-TAG should be 'guitaractive', 'pianoactive', or nil for any."
 #+begin_src elisp
 (remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
 ;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
+#+end_src
+* Org transclusion
+
+#+begin_src elisp
+(use-package! org-transclusion
+  :after org
+  :init
+  (map!
+   :map global-map "<f12>" #'org-transclusion-add
+   :leader
+   :prefix "n"
+   :desc "Org Transclusion Mode" "T" #'org-transclusion-mode))
+#+end_src
+* Send to daily highlights
+
+#+begin_src elisp
+(defun send-to-daily-highlights ()
+  "Send selected text to highlights section in today's org-roam daily note with linked subheading."
+  (interactive)
+  (if (use-region-p)
+      (let* ((selected-text-raw (buffer-substring-no-properties (region-beginning) (region-end)))
+             ;; Only strip leading whitespace if first line starts with spaces followed by - or +
+             (selected-text-clean (if (string-match "^\\s-+[-+]" selected-text-raw)
+                                      (replace-regexp-in-string "^\\s-+" "" selected-text-raw)
+                                    selected-text-raw))
+             (current-buffer-name (buffer-name))
+             (is-org-roam (and (derived-mode-p 'org-mode)
+                               (org-roam-file-p)))
+             ;; Get line number of selection start
+             (start-line (line-number-at-pos (region-beginning)))
+             ;; Detect if it's a code file
+             (is-code-file (and buffer-file-name
+                                (not (derived-mode-p 'org-mode))
+                                (or (string-match "\\.[a-zA-Z0-9]+$" buffer-file-name))))
+             (file-extension (when is-code-file
+                               (file-name-extension buffer-file-name)))
+             ;; Map common extensions to language names
+             (language (when file-extension
+                         (cond
+                          ((string= file-extension "el") "elisp")
+                          ((string= file-extension "py") "python")
+                          ((string= file-extension "js") "javascript")
+                          ((string= file-extension "ts") "typescript")
+                          ((string= file-extension "java") "java")
+                          ((string= file-extension "c") "c")
+                          ((string= file-extension "cpp") "cpp")
+                          ((string= file-extension "h") "c")
+                          ((string= file-extension "hpp") "cpp")
+                          ((string= file-extension "sh") "bash")
+                          ((string= file-extension "rb") "ruby")
+                          ((string= file-extension "go") "go")
+                          ((string= file-extension "rs") "rust")
+                          ((string= file-extension "php") "php")
+                          ((string= file-extension "html") "html")
+                          ((string= file-extension "css") "css")
+                          ((string= file-extension "json") "json")
+                          ((string= file-extension "xml") "xml")
+                          ((string= file-extension "yaml") "yaml")
+                          ((string= file-extension "yml") "yaml")
+                          (t file-extension))))
+             ;; Format the text appropriately
+             (formatted-content (cond
+                                 ;; Code file - wrap in src block
+                                 (is-code-file
+                                  (format "\n#+begin_src %s :eval no\n%s\n#+end_src"
+                                          (or language "text")
+                                          selected-text-clean))
+                                 ;; Already starts with bullet point
+                                 ((string-match "^\\s-*[-+]" selected-text-clean)
+                                  selected-text-clean)
+                                 ;; Regular text - add bullet point
+                                 (t (format "- %s" selected-text-clean))))
+             (linked-heading (if is-org-roam
+                                 (let* ((node (org-roam-node-at-point))
+                                        (id (org-roam-node-id node))
+                                        (title (org-roam-node-title node)))
+                                   (format "[[id:%s][%s]]" id title))
+                               ;; For non-org-roam files, include line number
+                               (format "[[file:%s::%d][%s]]"
+                                       (buffer-file-name)
+                                       start-line
+                                       (file-name-sans-extension current-buffer-name))))
+             (heading-display-name (if is-org-roam
+                                       (org-roam-node-title (org-roam-node-at-point))
+                                     (file-name-sans-extension current-buffer-name))))
+
+        ;; Get today's daily note file using the public API
+        (let ((current-buffer (current-buffer)))
+          (org-roam-dailies-goto-today)
+          (let ((daily-buffer (current-buffer)))
+            ;; Go back to original buffer
+            (switch-to-buffer current-buffer)
+
+            ;; Work with daily note in background
+            (with-current-buffer daily-buffer
+              ;; Find or create highlights section
+              (goto-char (point-min))
+              (unless (re-search-forward "^\\* Highlights" nil t)
+                (goto-char (point-max))
+                (insert "\n* Highlights\n"))
+
+              ;; Look for existing subheading
+              (let ((subheading-exists nil))
+                (save-excursion
+                  (when (re-search-forward (format "^\\*\\* .*\\[%s\\]" (regexp-quote heading-display-name)) nil t)
+                    (setq subheading-exists t)))
+
+                ;; Add to existing or create new subheading
+                (if subheading-exists
+                    (progn
+                      (re-search-forward (format "^\\*\\* .*\\[%s\\]" (regexp-quote heading-display-name)) nil t)
+                      (forward-line 1)
+                      ;; Skip to end of this subheading
+                      (while (and (not (eobp))
+                                  (not (looking-at "^\\*\\* "))
+                                  (not (looking-at "^\\* ")))
+                        (forward-line 1))
+                      (backward-char 1)
+                      (insert (format "\n%s" formatted-content)))
+                  ;; Create new subheading with link
+                  (goto-char (point-max))
+                  (insert (format "\n** %s\n%s" linked-heading formatted-content))))
+
+              (save-buffer))))
+
+        (message "Added to daily highlights under '%s'" heading-display-name))
+    (message "No text selected")))
 #+end_src
 
 * Deprecated
