@@ -61,7 +61,7 @@
 ;; (package! org-roam-bibtex)
 (package! powershell)
 (package! evil-escape :disable t)
-(package! org-modern)
+;; (package! org-modern)
 (package! org-appear)
 (package! copilot
   :recipe (:host github :repo "zerolfx/copilot.el" :files ("*.el" "dist")))
@@ -97,7 +97,6 @@
 
 ;; (package! elfeed :pin "362bbe5b38353d033c5299f621fea39e2c75a5e0")
 ;; (package! elfeed-org :pin "77b6bbf222487809813de260447d31c4c59902c9")
-;; (package! org-transclusion :recipe (:host github :repo "nobiot/org-transclusion" :files ("*")))
 
 ;; (package! smudge)
 ;; (unpin! auto-activating-snippets)
@@ -203,28 +202,21 @@
 ;;   :recipe (:host github :repo "orzechowskid/tsi.el"))
 ;;; (pa! org-time-budgets
 ;;   :recipe (:host github :repo "leoc/org-time-budgets" :branch "develop" :no-byte-compile t)) ;; budgeting on tasks
-;; (package! org-transclusion)
 ;; (package! org-remark)
 ;; (unpin! ox-hugo)
-;; (package! gptel)
+(package! gptel)
+(package! gptel-magit)
 ;; (package! org-fancy-priorities)
 
 ;; (unpin! saveplace-pdf-view)
 
 (package! org-time-budgets
   :recipe (:host github :repo "dragarok/org-time-budgets" :branch "cl-lib")) ;; budgeting on tasks
+(package! mcp
+  :recipe (:host github :repo "lizqwerscott/mcp.el"))
 (package! orgmdb)
-(package! gptel)
 ;; (package! md-roam
 ;;   :recipe (:host github :repo "nobiot/md-roam"))
-;; (package! eat
-;;   :recipe (:host codeberg
-;;            :repo "akib/emacs-eat"
-;;            :files ("*.el" ("term" "term/*.el") "*.texi"
-;;                    "*.ti" ("terminfo/e" "terminfo/e/*")
-;;                    ("terminfo/65" "terminfo/65/*")
-;;                    ("integration" "integration/*")
-;;                    (:exclude ".dir-locals.el" "*-tests.el"))))
 
 ;; (package! org-roam-ui :recipe (:host github :repo "org-roam/org-roam-ui" :files ("*.el" "out")))
 
@@ -235,9 +227,49 @@
 (package! consult-gh)
 (package! consult-gh-embark)
 (package! consult-gh-forge)
-(package! elysium)
-(package! evedel
-  :recipe (:host github :repo "daedsidog/evedel"))
+;; (package! elysium)
+;; (package! evedel
+;;   :recipe (:host github :repo "daedsidog/evedel"))
 (package! consult-web
   :recipe (:host github :repo "armindarvish/consult-web" :files (:defaults "sources/*.el")))
 (package! dwim-shell-command)
+;; (when (package! lsp-bridge
+;;         :recipe (:host github
+;;                  :repo "manateelazycat/lsp-bridge"
+;;                  :branch "master"
+;;                  :files ("*.el" "*.py" "acm" "core" "langserver" "multiserver" "resources")
+;;                  ;; do not perform byte compilation or native compilation for lsp-bridge
+;;                  :build (:not compile)))
+;;   (package! markdown-mode)
+;;   (package! yasnippet))
+
+(package! eat
+  :recipe (:host codeberg
+           :repo "akib/emacs-eat"
+           :files ("*.el" ("term" "term/*.el") "*.texi"
+                   "*.ti" ("terminfo/e" "terminfo/e/*")
+                   ("terminfo/65" "terminfo/65/*")
+                   ("integration" "integration/*")
+                   (:exclude ".dir-locals.el" "*-tests.el"))))
+(package! mcp-hub
+  :recipe (:host github :repo "lizqwerscott/mcp.el"))
+;; (package! lsp-tailwindcss :recipe (:host github :repo "merrickluo/lsp-tailwindcss"))
+
+;; (package! org-transclusion)
+
+;; (package! claudemacs
+;;   :recipe (:host github :repo "cpoile/claudemacs"))
+
+(package! gptel-prompts
+  :recipe (:host github :repo "jwiegley/gptel-prompts"))
+
+(package! claude-code-ide
+  :recipe (:host github :repo "manzaltu/claude-code-ide.el")) ; Optionally enable Emacs MCP tools
+;; install claude-code.el:
+(package! claude-code
+  :recipe (:host github :repo "stevemolitor/claude-code.el"
+           :files ("*.el" (:exclude "images/*"))))
+
+;; (unpin! string-inflection)
+;; (package! string-inflection
+;;   :recipe (:host github :repo "akicho8/string-inflection" :branch "main" ))

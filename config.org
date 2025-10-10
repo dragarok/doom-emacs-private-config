@@ -21,13 +21,13 @@
 
 #+begin_src elisp
 (if IS-MAC
-    (setq doom-font (font-spec :family "mononoki" :size 17)
-          doom-variable-pitch-font (font-spec :family "Iosevka Nerd Font" :size 17)
+    (setq doom-font (font-spec :family "mononoki" :size 15)
+          doom-variable-pitch-font (font-spec :family "Iosevka Nerd Font" :size 15)
           ;; doom-variable-pitch-font (font-spec :family "Iosevka Etoile" :size 18)
-          doom-serif-font (font-spec :family "Iosevka Nerd Font" :size 17)
+          doom-serif-font (font-spec :family "Iosevka Nerd Font" :size 15)
           ;; doom-variable-pitch-font (font-spec :family "Source Serif Pro" :size 22)
           ;; doom-serif-font (font-spec :family "Source Serif Pro" :weight 'light)
-          doom-big-font (font-spec :family "mononoki" :size 24)))
+          doom-big-font (font-spec :family "mononoki" :size 22)))
 (if IS-LINUX
     (setq doom-font (font-spec :family "Maple Mono SC NF" :size 19)
           doom-variable-pitch-font (font-spec :family "RobotoMono Nerd Font" :size 19)
@@ -43,15 +43,17 @@
   (mapc #'disable-theme custom-enabled-themes)
   (pcase appearance
     ('light
-     (setq doom-theme 'doom-tomorrow-day)
-     (load-theme 'doom-tomorrow-day t))
+     (setq doom-theme 'doom-gruvbox-light)
+     (load-theme 'doom-gruvbox-light t))
     ('dark
-     (setq doom-theme 'doom-monokai-pro)
-     (load-theme 'doom-monokai-pro t))))
+     (setq doom-theme 'doom-pine)
+     (load-theme 'doom-pine t))))
 
 (if IS-MAC
     (add-hook 'ns-system-appearance-change-functions #'my/apply-theme)
   (setq doom-theme 'doom-monokai-pro))
+
+(setq doom-theme 'doom-gruvbox-light)
 #+end_src
 
 ** Emacs 29 Good scroll
@@ -125,6 +127,13 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ;; ;; add to $DOOMDIR/config.el
 ;; (remove-hook 'org-mode-hook #'+literate-enable-recompile-h)
 #+end_src
+** Trying homebrew git for speedup in emacs
+
+#+begin_src elisp
+(let ((git-path "/applications/xcode.app/contents/developer/usr/bin/git"))
+  (when (file-exists-p git-path)
+    (setq magit-git-executable git-path)))
+#+end_src
 
 * Set Defaults
 
@@ -135,9 +144,9 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq project-resources-dir (concat nextcloud-dir "projects/"))
 (setq org-directory (expand-file-name "~/Nextcloud/org/"))
 
-(setq! citar-bibliography '("~/Nextcloud/org/references.bib"))
+(setq! citar-bibliography '("~/Nextcloud/org/references/articles.bib"))
 (setq! citar-notes-paths '(org-roam-directory))
-(setq! citar-library-paths '(("~/Nextcloud/org/Ref_Library/")))
+(setq! citar-library-paths '("~/Books/Papers/articles/"))
 
 (setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
 (setq project-resources-dir (concat nextcloud-dir "projects/"))
@@ -221,6 +230,34 @@ Set local leader to comma for ease of use.
   (setq! persp-emacsclient-init-frame-behaviour-override "main")
   (setq persp-add-buffer-on-after-change-major-mode t)
   )
+#+end_src
+** Doom scratch default org mode
+
+#+begin_src elisp
+(setq doom-scratch-initial-major-mode 'org-mode)
+#+end_src
+* Macos copy paste
+
+#+begin_src elisp
+(when IS-MAC
+  (defun copy-from-osx ()
+    "Return macOS clipboard contents as string."
+    (shell-command-to-string "pbpaste"))
+
+  (defun paste-to-osx (text &optional push)
+    "Copy TEXT to macOS clipboard."
+    (let ((process-connection-type nil))
+      (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
+        (process-send-string proc text)
+        (process-send-eof proc))))
+
+  (setq interprogram-cut-function 'paste-to-osx)
+  (setq interprogram-paste-function 'copy-from-osx)
+
+  (advice-add 'yank :after
+              (lambda (&rest _)
+                (when (and interprogram-cut-function (current-kill 0 nil))
+                  (funcall interprogram-cut-function (current-kill 0 nil))))))
 #+end_src
 
 * Popup Rules
@@ -1181,6 +1218,28 @@ See `pdf-links-action-perform' for the interface."
 #+begin_src elisp
 (add-hook 'magit-mode-hook (lambda () (magit-delta-mode +1)))
 #+end_src
+** Magit delete branches that are already merged 
+
+#+begin_src elisp
+(defun my-magit/delete-merged-branches ()
+  (interactive)
+  (magit-fetch-all-prune)
+  (let* ((default-branch
+          (read-string "Default branch: " (magit-get-current-branch)))
+         (merged-branches
+          (magit-git-lines "branch"
+                           "--format" "%(refname:short)"
+                           "--merged"
+                           default-branch))
+         (branches-to-delete
+          (remove default-branch merged-branches)))
+    (if branches-to-delete
+        (if (yes-or-no-p (concat "Delete branches? ["
+                                 (mapconcat 'identity branches-to-delete ", ") "]"))
+            (magit-branch-delete branches-to-delete))
+      (message "Nothing to delete"))))
+#+end_src
+
 ** Window Manipulation
 *** Toggle between horizontal and vertical split
 #+begin_src elisp
@@ -1442,6 +1501,79 @@ Otherwise, it begins with ## and is indented accordingly."
 
 (add-hook 'after-save-hook #'org-roam-autoread-mode-check)
 #+end_src
+** Org roam open random note that will have autoread enabled 
+
+#+begin_src elisp
+(defun count-words-in-file (file)
+  "Count the number of words in FILE using the buffer word counting logic."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char 0)
+    (let ((counter 0))
+      (while (< (point) (point-max))
+        (when (re-search-forward "\\w+\\W*" nil t)
+          (setq counter (1+ counter))))
+      counter)))
+
+(defun org-roam-open-large-note-randomly ()
+  "Open a random Org-roam note with more than `org-roam-autoread-max-words` words.
+Ignores files prefixed with 'ln_', 'br_', or 'private_'. Uses Org-roam DB for file list."
+  (interactive)
+  (let* ((all-files (org-roam-list-files))
+         (filtered-files (seq-filter
+                          (lambda (file)
+                            (let ((fname (file-name-nondirectory file)))
+                              (and (not (or (string-prefix-p "ln_" fname)
+                                            (string-prefix-p "br_" fname)
+                                            (string-prefix-p "private_" fname)))
+                                   (> (count-words-in-file file)
+                                      org-roam-autoread-max-words))))
+                          all-files))
+         (num-large (length filtered-files)))
+    (if (zerop num-large)
+        (message "No Org-roam notes exceed %d words after filtering." org-roam-autoread-max-words)
+      (let ((random-file (seq-random-elt filtered-files)))
+        (find-file-other-window random-file)
+        (message "Opened random large note: %s (%d words)" (file-name-nondirectory random-file)
+                 (count-words-in-file random-file))))))
+
+(setq org-roam-autoread-max-bytes (* org-roam-autoread-max-words 6))  ; Rough estimate: ~6 bytes per word
+
+(defun org-roam-open-nth-largest-large-note (&optional n)
+  "Open the Nth largest Org-roam note (by file size) with more than `org-roam-autoread-max-words` estimated words.
+Ignores files prefixed with 'ln_', 'br_', or 'private_'. Uses Org-roam DB for file list and file attributes for size.
+N defaults to 1 (largest)."
+  (interactive "p")
+  (let* ((all-files (org-roam-list-files))
+         (filtered-files (seq-filter
+                          (lambda (file)
+                            (let ((fname (file-name-nondirectory file)))
+                              (not (or (string-prefix-p "ln_" fname)
+                                       (string-prefix-p "br_" fname)
+                                       (string-prefix-p "private_" fname)))))
+                          all-files))
+         (sized-files (seq-map
+                       (lambda (file)
+                         (cons (file-attribute-size (file-attributes file)) file))
+                       filtered-files))
+         (sorted-large-files (seq-filter
+                              (lambda (pair)
+                                (> (car pair) org-roam-autoread-max-bytes))
+                              (seq-sort (lambda (a b) (> (car a) (car b))) sized-files)))
+         (num-large (length sorted-large-files))
+         (effective-n (or n 1)))
+    (if (or (zerop num-large) (> effective-n num-large))
+        (message "No Org-roam notes exceed estimated %d words (%d bytes) after filtering, or N=%d is out of range (max %d)."
+                 org-roam-autoread-max-words org-roam-autoread-max-bytes effective-n num-large)
+      (let* ((nth-pair (seq-elt sorted-large-files (1- effective-n)))
+             (size (car nth-pair))
+             (nth-file (cdr nth-pair)))
+        (find-file-other-window nth-file)
+        (message "Opened %d%s largest large note: %s (~%d words, %d bytes)"
+                 effective-n (if (= effective-n 1) "st" (if (= effective-n 2) "nd" "th"))
+                 (file-name-nondirectory nth-file)
+                 (/ size 6) size)))))
+#+end_src
 
 ** Org roam set tags
 
@@ -1638,7 +1770,8 @@ Otherwise, it begins with ## and is indented accordingly."
 
 #+begin_src elisp
 (defun clock-out-and-mark-current-todo-done ()
-  "Clock out the currently active todo and mark it as DONE."
+  "Clock out the currently active todo and mark it as DONE.
+Additionally, prompt for work mode (normal, focus, deepwork) and add the corresponding tag if not normal."
   (interactive)
   (if (org-clocking-p)
       (let ((clocked-buffer (marker-buffer org-clock-marker))
@@ -1653,8 +1786,12 @@ Otherwise, it begins with ## and is indented accordingly."
               (goto-char clocked-position)
               (org-back-to-heading t)
               (org-todo "DONE")
-              (message "Clocked out and marked todo as DONE")))))
-    (message "No active clock to clock out")))
+              ;; Prompt for work mode and add tag if not normal
+              (let ((mode (completing-read "Work mode (default: normal): " '("normal" "focus" "deepwork") nil t nil nil "normal")))
+                (unless (string= mode "normal")
+                  (org-toggle-tag mode 'on))
+                (message "Clocked out and marked todo as DONE%s" (if (string= mode "normal") "." (format ", and added %s tag" mode)))))))
+        (message "No active clock to clock out"))))
 #+end_src
 
 * Independent Functions
@@ -1814,7 +1951,9 @@ ease of use.
 ** General
 #+BEGIN_SRC elisp
 ;;(bind-key "C-M-s-u" 'org-roam-dailies-find-tomorrow)
-(bind-key "C-M-s-s" 'open-main-agenda)
+
+(bind-key "C-M-s-o" 'bms/org-roam-rg-search)
+(bind-key "C-M-s-s" 'basic-save-buffer)
 (bind-key "C-M-s-j" 'scroll-other-window-down)
 (bind-key "C-M-s-k" 'scroll-other-window)
 (bind-key "C-M-s-~" '+python/open-ipython-repl)
@@ -1856,7 +1995,7 @@ ease of use.
 (bind-key "C-M-s-x" 'consult-buffer)
 (bind-key "C-M-s-{" 'org-roam-dailies-find-today)
 (bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
-(bind-key "C-M-s-y" 'org-roam-dailies-find-yesterday)
+(bind-key "C-M-s-:" 'org-roam-dailies-find-yesterday)
 (bind-key "C-M-s-r" 'org-roam-node-find)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
@@ -1869,18 +2008,37 @@ ease of use.
 ;; scroll other window, useful when working with multiple files
 (bind-key "C-M-s-n" 'scroll-other-window-down)
 (bind-key "C-M-s-e" 'scroll-other-window)
-(bind-key "C-M-s-:" 'newline-and-indent)
-(bind-key "C-M-s-w" 'basic-save-buffer)
+;; (bind-key "C-M-s-:" 'newline-and-indent)
+(bind-key "C-M-s-w" 'toggle-full-screen-window)
 (bind-key "C-M-s-c" 'screenshot-as-file-link)
+;; last set of key bindings
+(bind-key "C-M-s-g" 'clock-out-and-mark-current-todo-done)
 ;; doing dap very efficiently
-(bind-key "C-s-n" #'dap-next)
-(bind-key "C-s-k" #'dap-step-out)
-(bind-key "C-s-o" #'dap-step-in)
-(bind-key "C-s-c" #'dap-continue)
-(bind-key "C-s-e" #'dap-ui-expressions-add)
-(bind-key "C-s-<return>" #'better-jumper-set-jump)
-(bind-key "C-s-r" #'dap-ui-repl)
-(bind-key "C-s-\"" #'dap-eval-region)
+(after! dap-mode
+  (define-key dap-mode-map (kbd "C-s-n") #'dap-next)
+  (define-key dap-mode-map (kbd "C-s-k") #'dap-step-out)
+  (define-key dap-mode-map (kbd "C-s-o") #'dap-step-in)
+  (define-key dap-mode-map (kbd "C-s-c") #'dap-step-continue)
+  (define-key dap-mode-map (kbd "C-s-e") #'dap-ui-expressions-add)
+  (define-key dap-mode-map (kbd "C-s-r") #'dap-ui-repl)
+  (define-key dap-mode-map (kbd "C-s-\"") #'dap-eval-region)
+  )
+
+(define-key global-map (kbd "C-s-n") #'random-task-select)
+(define-key global-map (kbd "C-s-e") #'priority-time-task-select)
+(define-key global-map (kbd "C-s-i") #'send-to-daily-highlights)
+;; (define-key global-map (kbd "C-s-h") #'consult-buffer)
+(define-key global-map (kbd "C-s-u") #'random-piano-select)
+(define-key global-map (kbd "C-s-y") #'random-blog-study-select)
+(define-key global-map (kbd "C-s-j") #'random-guitar-select)
+(define-key global-map (kbd "C-s-k") #'random-study-select)
+(define-key global-map (kbd "C-s-l") #'random-leisure-select)
+(define-key global-map (kbd "C-s-m") #'random-music-select)
+(define-key global-map (kbd "C-s-b") #'random-book-select)
+(define-key global-map (kbd "C-s-?") #'my-org-roam-search)
+
+
+
 (map! :leader
       :n ">" #'projectile-find-dir
       :n "[" #'+vertico/consult-fd-or-find
@@ -1967,6 +2125,9 @@ ease of use.
       )
 #+END_SRC
 
+#+RESULTS:
+: scimax-dired/body
+
 
 ** Jupyter Ob Keybindings
 #+BEGIN_SRC elisp
@@ -2024,11 +2185,12 @@ TODO Use them only inside org mode
   (define-key org-mode-map (kbd "C-M-s-+") 'org-bold-region-or-point)
   (define-key org-mode-map (kbd "C-M-s-_") 'org-verbatim-region-or-point)
   (define-key org-mode-map (kbd "C-M-s-(") 'org-code-region-or-point)
-  (define-key org-mode-map (kbd "C-M-s-)") 'org-superscript-region-or-point)
-  ;; (define-key org-mode-map (kbd "H-u") 'org-underline-region-or-point)
+  (define-key org-mode-map (kbd "C-M-s-)") 'org-underline-region-or-point)
   ;; (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
 )
 #+END_SRC
+
+
 ** Ease in projects
 #+BEGIN_SRC elisp
 ;; (bind-key "H-F" 'evil-window-split)
@@ -2214,6 +2376,7 @@ the inbox.  Set it as a waiting action and refile to
                '("Effort". "0:05 0:15 0:30 1:00 2:00 3:00 4:00"))
   (setq org-agenda-skip-scheduled-if-done t
         org-agenda-skip-deadline-if-done t
+        org-agenda-skip-scheduled-if-deadline-is-shown t
         ;; for showing only recurring task's next entry
         org-agenda-show-future-repeats "next"
         )
@@ -2449,7 +2612,13 @@ SCHEDULED: %t
   (add-to-list 'org-capture-templates
                '("rw" "Weekly Review" entry
                  (file+olp+datetree org-weeklyreview-file)
-                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate.org") :jump-to-captured t :tree-type week)))
+                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate.org") :jump-to-captured t :tree-type week))
+
+  (add-to-list 'org-capture-templates
+               '("rl" "Last Week Weekly Review" entry
+                 (file+olp+datetree org-weeklyreview-file)
+                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate_lastweek.org") :jump-to-captured t :tree-type week))
+  )
 
 (after! org
   (add-to-list 'org-capture-templates
@@ -2468,6 +2637,10 @@ SCHEDULED: %t
                            (file "~/Nextcloud/org/templates/dailyreviewtemplate.org")
                            :jump-to-captured t)))
 
+(after! org (add-to-list 'org-capture-templates
+                         '("ry" "Daily Review Yesterday" entry (file+olp+datetree org-dailyreview-file)
+                           (file "~/Nextcloud/org/templates/dailyreviewtemplate_yesterday.org")
+                           :jump-to-captured t)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        REVIEW TEMPLATES DONE                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3599,29 +3772,29 @@ structure changes."
   "Prompt for an energy level and log it with timestamp to a CSV file."
   (interactive)
   (let* ((energy-levels '("1" "2" "3" "4" "5" "6" "7" "8" "9" "10"))
-         (timeout-timer
-          (run-at-time "30 sec" nil
-                       (lambda ()
-                         (minibuffer-keyboard-quit)
-                         (run-at-time "10 minutes" nil 'my-log-energy))))
-         (energy (consult--read energy-levels
-                                :prompt "What is your energy level? "
-                                :require-match t)))
-    ;; Cancel timeout timer if a selection is made
-    (when timeout-timer
-      (cancel-timer timeout-timer))
-
+         (timer (run-with-timer 30 nil (lambda () (throw 'exit t))))
+         (energy nil))
+    (unwind-protect
+        (condition-case err
+            (setq energy (consult--read energy-levels
+                                        :prompt "What is your energy level? "
+                                        :require-match t))
+          (quit
+           (message "Energy log timed out or aborted. Next prompt in 2 minutes.")))
+      (when (timerp timer)
+        (cancel-timer timer)))
     ;; Log energy if selected
     (when energy
       (let ((timestamp (format-time-string "%Y-%m-%d %H:%M:%S")))
         (with-temp-buffer
           (insert (format "%s,%s\n" timestamp energy))
           (append-to-file (point-min) (point-max)
-                          (concat org-lookbacks-directory "energy_log.csv")))
-        (run-at-time "30 minutes" nil 'my-log-energy))))
+                          (concat org-lookbacks-directory "energy_log.csv")))))
+    ;; Schedule next prompt in 2 minutes
+    (run-at-time "30 minutes" nil 'my-log-energy)))
 
-  ;; Initial timer at 10 mins, cancel on 30 sec if not selected, 30 mins after if entered
-  (run-at-time "10 minutes" nil 'my-log-energy))
+;; To start the logging, call this once:
+(run-at-time "30 minutes" nil 'my-log-energy)
 #+end_src
 * Speedy note taking
 
@@ -3669,7 +3842,7 @@ structure changes."
           (when previous-file
             (delete-file previous-file)
             (message "Deleted file %s" previous-file)))
-      (message "No next image found, or not in image mode."))))
+      )))
 
 (defun my/read-filename-and-tags ()
   "Read new filename and tags from the user."
@@ -3697,16 +3870,13 @@ structure changes."
                (elements (split-string line "," t))
                (tags (cdr elements)))  ; Skip the first element (filename)
           (dolist (tag tags)
-            (puthash tag (1+ (gethash tag tag-counts 0)) tag-counts)))
-        (forward-line 1)))
-    (let ((sorted-tags (sort (hash-table-keys tag-counts)
-                             (lambda (a b) (> (gethash a tag-counts) (gethash b tag-counts))))))
-      ;; ;; Print tags and counts
-      ;; (maphash (lambda (key value)
-      ;;            (message "%s: %d" key value))
-      ;;          tag-counts)
-      ;; Return the sorted tags list
-      (append sorted-tags my-image-tags))))
+            (let ((trimmed-tag (string-trim tag)))  ; Trim whitespace from tag
+              (when (not (string-empty-p trimmed-tag))  ; Only process non-empty tags
+                (puthash trimmed-tag (1+ (gethash trimmed-tag tag-counts 0)) tag-counts))))
+          (forward-line 1)))
+      (let ((sorted-tags (sort (hash-table-keys tag-counts)
+                               (lambda (a b) (> (gethash a tag-counts) (gethash b tag-counts))))))
+        (append sorted-tags my-image-tags)))))
 
 (defun set-image-tags-and-rename-and-next ()
   "Set tags for the current image, rename the file using the first tag, move it to the processed directory, save details to an image index file, and then move to the next unprocessed image."
@@ -3720,15 +3890,19 @@ structure changes."
          (selected-tags (completing-read-multiple
                          "Select tags (use comma to separate): "
                          all-tags nil t))
+         ;; Trim whitespace from selected tags
+         (trimmed-selected-tags (mapcar #'string-trim selected-tags))
+         ;; Filter out empty tags
+         (final-tags (seq-filter (lambda (tag) (not (string-empty-p tag))) trimmed-selected-tags))
          (extension (file-name-extension file))
-         (first-tag (car selected-tags))
+         (first-tag (car final-tags))
          (new-base-name (replace-regexp-in-string "[ ,]" "_" (file-name-base file)))
          (new-name (concat (if first-tag
                                (concat first-tag "--" new-base-name)
                              new-base-name)
                            "." extension))
          (processed-path (expand-file-name new-name my-image-processed-dir))
-         (index-entry (format "%s,%s\n" processed-path (string-join selected-tags ", "))))
+         (index-entry (format "%s,%s\n" processed-path (string-join final-tags ", "))))
 
     ;; Perform the rename operation
     (when file
@@ -3738,7 +3912,7 @@ structure changes."
       (with-temp-buffer
         (insert index-entry)
         (append-to-file (point-min) (point-max) my-image-index-file))
-      (message "Moved and renamed file to %s and updated index with tags: %s" processed-path (string-join selected-tags ", ")))
+      (message "Moved and renamed file to %s and updated index with tags: %s" processed-path (string-join final-tags ", ")))
 
     ;; Move to the next image
     (my/delete-image-and-next)))
@@ -4244,7 +4418,6 @@ the second element is the other tags."
   (interactive)
   (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
     (consult-ripgrep org-roam-directory)))
-(global-set-key (kbd "C-M-s-o") 'bms/org-roam-rg-search)
 #+end_src
 
 ** Org Export jupyter python blocks to python for hugo
@@ -4339,6 +4512,20 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
   (insert "[[roam:")
   (save-excursion
     (insert "]]")))
+#+end_src
+** Org Roam Monday Capture 
+
+#+begin_src elisp
+;;;###autoload
+(defun org-roam-dailies-goto-monday-of-week ()
+  "Find the daily-note for the Monday of the current week, creating it if necessary."
+  (interactive)
+  (let* ((now (current-time))
+         (decoded (decode-time now))
+         (dow (nth 6 decoded))
+         (days-back (if (= dow 0) 6 (- dow 1)))
+         (monday-time (time-add now (* (- days-back) 86400))))
+    (org-roam-dailies--capture monday-time t)))
 #+end_src
 
 * Popup frames
@@ -4681,13 +4868,13 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
   "List of time of day tags.")
 
 (defvar rts-priority-points
-  '(("A" . 10) ("B" . 6) ("C" . 4) ("D" . 3) ("E" . 2))
+  '(("A" . 15) ("B" . 8) ("C" . 4) ("D" . 3) ("E" . 2) ("F" . 1))
   "Points assigned to each priority level for probability calculation.")
 
 (defvar rts-leisure-status-points
-  '(("SUMMARIZING" . 5) ("READING" . 3) ("REREADING" . 2) ("TOREAD" . 1)
-    ("PRACTICING" . 5) ("REPRACTICING" . 3) ("TOPRACTICE" . 1)
-    ("STUDYING" . 5) ("REVISING" . 3) ("TOSTUDY" . 1))
+  '(("SUMMARIZING" . 10) ("READING" . 8) ("REREADING" . 2) ("TOREAD" . 1)
+    ("PRACTICING" . 10) ("REPRACTICING" . 3) ("TOPRACTICE" . 1)
+    ("STUDYING" . 10) ("REVISING" . 3) ("TOSTUDY" . 1))
   "Points assigned to each leisure status for probability calculation.")
 
 ;;; Core Helper Functions
@@ -5335,6 +5522,74 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
           (rts--display-selected-item selected-item 'leisure))
       (message "No active leisure tasks found."))))
 #+end_src
+* Random Lazy Task
+
+#+begin_src emacs-lisp
+;;; Additional Configuration for Lazy Low-Effort Selection
+(defvar rts-effort-points
+  '((:under-15 . 10) (:15-to-30 . 5) (:over-30 . 2))
+  "Points assigned to effort time ranges for probability calculation.")
+
+(defun rts--parse-effort-time (task)
+  "Parse the EFFORT property of TASK into minutes."
+  (let ((effort (org-element-property :EFFORT task)))
+    (when effort
+      (org-duration-to-minutes effort))))
+
+(defun rts--get-effort-category (minutes)
+  "Categorize MINUTES into effort time ranges."
+  (cond
+   ((and minutes (< minutes 15)) :under-15)
+   ((and minutes (<= minutes 30)) :15-to-30)
+   (t :over-30)))
+
+(defun rts--calculate-lazy-effort-points (task)
+  "Calculate points for TASK based on its effort time."
+  (let* ((minutes (rts--parse-effort-time task))
+         (category (rts--get-effort-category minutes))
+         (points (cdr (assoc category rts-effort-points))))
+    (or points 2))) ; Default to 2 points if no effort or invalid
+
+;;; Lazy Low-Effort Task Selection
+(defun random-lazy-low-effort-select ()
+  "Select a random lazy task with probability weighted by effort time."
+  (interactive)
+  (let* ((items (org-ql-select
+                 (org-agenda-files)
+                 '(and (todo) (tags "Lazy"))
+                 :action 'element-with-markers
+                 :sort '(priority))))
+    (if items
+        (let ((selected-item (rts--select-by-probability items 'lazy-low-effort)))
+          (when rts-debug-mode
+            (rts--debug-log "=== RANDOM LAZY LOW-EFFORT SELECTION ===")
+            (rts--debug-log "Selected from %d lazy tasks" (length items))
+            (dolist (item items)
+              (let* ((heading (org-element-property :raw-value item))
+                     (effort (org-element-property :EFFORT item))
+                     (points (rts--calculate-lazy-effort-points item)))
+                (rts--debug-log "  • '%s' [Effort: %s] = %d points"
+                                heading (or effort "None") points))))
+          (rts--display-selected-item selected-item 'lazy-low-effort))
+      (message "No active lazy tasks found with 'Lazy' tag."))))
+
+;;; Modified Display Function for Lazy Low-Effort
+(defun rts--get-activity-info (tags selector-type)
+  "Get activity information (name, emoji, color) based on tags and selector-type."
+  (cond
+   ((eq selector-type 'tasks) (list "Task" "🎯" "gray"))
+   ((eq selector-type 'books) (list "Book" "📚" "blue"))
+   ((or (eq selector-type 'guitar) (rts--has-tag-p tags "guitaractive"))
+    (list "Guitar" "🎸" "orange"))
+   ((or (eq selector-type 'piano) (rts--has-tag-p tags "pianoactive"))
+    (list "Piano" "🎹" "purple"))
+   ((or (eq selector-type 'study) (rts--has-tag-p tags "studyactive"))
+    (list "Study" "📚" "blue"))
+   ((eq selector-type 'music) (list "Music" "🎵" "green"))
+   ((eq selector-type 'leisure) (list "Leisure" "🎯" "gold"))
+   ((eq selector-type 'lazy-low-effort) (list "Lazy Task" "😴" "teal"))
+   (t (list "Activity" "📝" "gray"))))
+#+end_src
 
 * Random Bookmarks Selection
 
@@ -5405,18 +5660,6 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
 #+begin_src elisp
 (remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
 ;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
-#+end_src
-* Org transclusion
-
-#+begin_src elisp
-(use-package! org-transclusion
-  :after org
-  :init
-  (map!
-   :map global-map "<f12>" #'org-transclusion-add
-   :leader
-   :prefix "n"
-   :desc "Org Transclusion Mode" "T" #'org-transclusion-mode))
 #+end_src
 * Send to daily highlights
 
@@ -5532,6 +5775,553 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
 
         (message "Added to daily highlights under '%s'" heading-display-name))
     (message "No text selected")))
+#+end_src
+
+* Gptel prompts
+
+#+begin_src elisp
+(use-package gptel-prompts
+  :after (gptel)
+  :demand t
+  :config
+  (setq gptel-prompts-directory "~/.doom.d/llm-system-prompts")
+  (gptel-prompts-update)
+  ;; Ensure prompts are updated if prompt files change
+  (gptel-prompts-add-update-watchers))
+#+end_src
+* Window split org mode hydra
+
+#+begin_src elisp
+(defhydra my/simple-open-link-hydra (:color blue :hint nil :foreign-keys-run t)
+  "
+
+   Open Link At Point
+
+"
+  ("s" org-open-at-point "Same Window")
+  ("v" (lambda () (interactive) (+evil/window-vsplit-and-follow) (org-open-at-point)) "Vertical Split")
+  ("h" (lambda () (interactive) (+evil/window-split-and-follow) (org-open-at-point)) "Horizontal Split")
+  ("q" nil "Quit"))
+#+end_src
+* Eat semi char mode paste override from evil paste after to eat-yank
+
+#+begin_src elisp
+(with-eval-after-load 'eat
+  (define-key eat-mode-map (kbd "s-p") #'eat-yank)
+  (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank)
+  )
+#+end_src
+* Claude Code
+
+#+begin_src elisp
+(use-package! claude-code
+  :config
+  (defun my-claude-notify (title message)
+    "Display a macOS notification with sound."
+    (call-process "osascript" nil nil nil
+                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
+                                 message title)))
+
+  (setq claude-code-notification-function #'my-claude-notify)
+  (setq claude-code-startup-delay 0.2)
+  (add-hook 'claude-code-start-hook
+          (lambda ()
+            ;; Reduce line spacing to fix vertical bar gaps
+            (setq-local line-spacing 0.1)))
+  )
+#+end_src
+* Claude Code Ide
+
+#+begin_src emacs-lisp
+(use-package claude-code-ide
+  :config
+  ;; (setq claude-code-ide-terminal-backend 'eat)
+  (claude-code-ide-emacs-tools-setup)
+  ;; (define-key vterm-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
+  (define-key prog-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
+  (setq claude-code-ide-use-ide-diff nil)
+  )
+#+end_src
+* Claude code preventing flickers
+
+#+begin_src elisp
+(defun diego--vterm-font-setup ()
+  "Configure font settings specifically for vterm buffers, workaround claude-code."
+
+  ;; Apply ASCII replacements for vterm specifically
+  (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
+    (dolist (pair
+             '((#x273B . ?*) ; ✻ TEARDROP-SPOKED ASTERISK
+               (#x273D . ?*) ; ✽ HEAVY TEARDROP-SPOKED ASTERISK
+               (#x2722 . ?+) ; ✢ FOUR TEARDROP-SPOKED ASTERISK
+               (#x2736 . ?+) ; ✶ SIX-POINTED BLACK STAR
+               (#x2733 . ?*) ; ✳ EIGHT SPOKED ASTERISK
+               ))
+      (aset tbl (car pair) (vector (cdr pair))))))
+
+(add-hook 'vterm-mode-hook #'diego--vterm-font-setup)
+
+(defvar sm-subsitutions
+  '((?⏺ . ?\-)
+    (?· . ?.)
+    (?✢ . ?+)
+    (?✳ . ?*)
+    (?∗ . ?*)
+    (?✻ . ?*)
+    (?✽ . ?*)
+    (?╭ . ?+)
+    (?╮ . ?+)
+    (?╰ . ?+)
+    (?╯ . ?+)
+    (?⎿ . ?|)
+    (?│ . ?|)
+    (?🤖 . ?*)))
+
+(defun sm-replace-problem-chars (args)
+    (let ((terminal (nth 0 args))
+          (output (nth 1 args)))
+      (dolist (sub sm-subsitutions)
+        (setq output (subst-char-in-string (car sub) (cdr sub) output)))
+      (list terminal output)))
+
+
+(advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
+
+
+#+end_src
+
+* Font fallback for mac taken from claudemacs (maybe helps claude code )
+
+#+begin_src elisp
+(defun my/setup-custom-font-fallbacks-mac ()
+  (interactive)
+  "Configure font fallbacks on mac for symbols and emojis.
+  This will need to be called every time you change your font size,
+  to load the new symbol and emoji fonts."
+
+  (setq use-default-font-for-symbols nil)
+
+  ;; --- Configure for 'symbol' script ---
+  ;; We add fonts one by one. Since we use 'prepend',
+  ;; the last one added here will be the first one Emacs tries.
+  ;; So, list them in reverse order of your preference.
+
+  ;; Least preferred among this list for symbols (will be at the end of our preferred list)
+  (set-fontset-font t 'symbol "Hiragino Sans" nil 'prepend)
+  (set-fontset-font t 'symbol "STIX Two Math" nil 'prepend)
+  (set-fontset-font t 'symbol "Zapf Dingbats" nil 'prepend)
+  (set-fontset-font t 'symbol "Monaco" nil 'prepend)
+  (set-fontset-font t 'symbol "Menlo" nil 'prepend)
+  ;; Most preferred for symbols -- use your main font here
+  (set-fontset-font t 'symbol "JetBrainsMono Nerd Font Mono" nil 'prepend)
+
+
+  ;; --- Configure for 'emoji' script ---
+  ;; Add fonts one by one, in reverse order of preference.
+
+  ;; Least preferred among this list for emojis
+  (set-fontset-font t 'emoji "Hiragino Sans" nil 'prepend)
+  (set-fontset-font t 'emoji "STIX Two Math" nil 'prepend)
+  (set-fontset-font t 'emoji "Zapf Dingbats" nil 'prepend)
+  (set-fontset-font t 'emoji "Monaco" nil 'prepend)
+  (set-fontset-font t 'emoji "Menlo" nil 'prepend)
+  ;; (set-fontset-font t 'emoji "Noto Emoji" nil 'prepend) ;; If you install Noto Emoji
+  ;; Most preferred for emojis -- use your main font here
+  )
+
+;; Then, add the fonts after your setup is complete:
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (progn
+              (when (string-equal system-type "darwin")
+                (my/setup-custom-font-fallbacks-mac)))))
+
+#+end_src
+* Firefox bookmarks export
+
+#+begin_src elisp
+(defun firefox--find-places-sqlite ()
+  "Return the first places.sqlite file found in Firefox or Zen Browser profiles."
+  (let ((base-dirs
+         (list
+          ;; macOS
+          ;; "~/Library/Application Support/Firefox/Profiles"
+          "~/Library/Application Support/zen/Profiles"
+          ;; Linux
+          "~/.mozilla/firefox"
+          ;; Windows
+          (substitute-in-file-name "$APPDATA/Mozilla/Firefox/Profiles")
+          (substitute-in-file-name "$USERPROFILE/AppData/Roaming/Mozilla/Firefox/Profiles")))
+        found-files)
+    (dolist (dir base-dirs)
+      (when (file-directory-p (expand-file-name dir))
+        (let ((files (directory-files-recursively (expand-file-name dir) "places\\.sqlite$")))
+          (dolist (file files)
+            (when (file-exists-p file)
+              (push file found-files))))))
+    (if found-files
+        (progn
+          (message "Found places.sqlite files: %s" found-files)
+          (car found-files))
+      (error "No places.sqlite files found in Firefox or Zen Browser profiles"))))
+
+(defun firefox--copy-places-sqlite (bookmark-file)
+  "Copy BOOKMARK-FILE to a temporary location to avoid database lock."
+  (let ((temp-file (make-temp-file "places-sqlite-")))
+    (copy-file bookmark-file temp-file t)
+    (message "Copied %s to %s" bookmark-file temp-file)
+    temp-file))
+
+;;;###autoload
+(defun firefox-bookmarks-insert-as-org ()
+  "Insert Firefox or Zen Browser bookmarks as org-mode headings."
+  (interactive)
+  (require 'org)
+  (let* ((original-file (firefox--find-places-sqlite))
+         (bookmark-file (if original-file
+                            (firefox--copy-places-sqlite original-file)
+                          (error "No places.sqlite file found")))
+         level)
+    (message "Using places.sqlite copy: %s" bookmark-file)
+    (let ((bookmark-data (firefox--get-bookmarks bookmark-file)))
+      (cl-labels ((fn
+                    (item)
+                    (pcase (plist-get item :type)
+                      ("folder"
+                       (insert
+                        (format "%s %s\n"
+                                (make-string level ?*)
+                                (or (plist-get item :title) "")))
+                       (cl-incf level)
+                       (mapc #'fn (plist-get item :children))
+                       (cl-decf level))
+                      ("url"
+                       (when (plist-get item :url)
+                         (insert
+                          (format "%s %s\n"
+                                  (make-string level ?*)
+                                  (org-make-link-string
+                                  (plist-get item :url)
+                                  (or (plist-get item :title) (plist-get item :url))))))))))
+        (setq level 1)
+        (dolist (root (list (plist-get bookmark-data :menu)
+                            (plist-get bookmark-data :toolbar)
+                            (plist-get bookmark-data :unfiled)))
+          (when root
+            (fn root)))))
+    ;; Clean up temporary file
+    (when (file-exists-p bookmark-file)
+      (delete-file bookmark-file))))
+
+(defun firefox--get-bookmarks (bookmark-file)
+  "Retrieve Firefox or Zen Browser bookmarks from BOOKMARK-FILE and return as a plist."
+  (unless bookmark-file
+    (error "No Firefox or Zen Browser places.sqlite file provided"))
+  (let* ((sql-query
+          "SELECT b.id, b.parent, b.type, b.title, b.position, p.url
+           FROM moz_bookmarks b
+           LEFT JOIN moz_places p ON b.fk = p.id
+           WHERE b.type IN (1, 2) AND b.title IS NOT NULL")
+         (temp-file (make-temp-file "firefox-bookmarks-"))
+         (escaped-file (shell-quote-argument (expand-file-name bookmark-file)))
+         (command (format "sqlite3 -json %s %s > %s"
+                          escaped-file
+                          (shell-quote-argument sql-query)
+                          (shell-quote-argument temp-file)))
+         (json-data (progn
+                      (message "Executing command: %s" command)
+                      (let ((exit-code (shell-command command)))
+                        (unless (zerop exit-code)
+                          (error "SQLite command failed with exit code %d: %s"
+                                 exit-code command)))
+                      (with-temp-buffer
+                        (insert-file-contents temp-file)
+                        (if (> (buffer-size) 0)
+                            (json-read-from-string (buffer-string))
+                          (error "No data returned from SQLite query: %s" command)))))
+         (bookmarks (make-hash-table :test 'equal))
+         (root-data (list :menu nil :toolbar nil :unfiled nil)))
+    ;; Build bookmark items (normalize vector → list)
+    (dolist (row (append json-data nil))
+      (let* ((id (alist-get 'id row nil nil #'equal))
+             (parent (alist-get 'parent row nil nil #'equal))
+             (type (alist-get 'type row nil nil #'equal)) ;; 1 = URL, 2 = folder
+             (title (alist-get 'title row nil nil #'equal))
+             (position (alist-get 'position row nil nil #'equal))
+             (url (alist-get 'url row nil nil #'equal))
+             (item (list :id id
+                         :parent parent
+                         :type (if (= type 2) "folder" "url")
+                         :title title
+                         :url url
+                         :position position
+                         :children (when (= type 2) '())
+                         :pending-children (when (= type 2) '()))))
+        (puthash id item bookmarks)))
+    ;; Assign children to folders
+    (maphash
+     (lambda (_id item)
+       (let ((parent (plist-get item :parent)))
+         (when (and parent (gethash parent bookmarks))
+           (let ((p-item (gethash parent bookmarks)))
+             (when (string= (plist-get p-item :type) "folder")
+               (push (cons (or (plist-get item :position) 0) _id)
+                     (plist-get p-item :pending-children)))))))
+     bookmarks)
+    ;; Sort and resolve children
+    (maphash
+     (lambda (_id item)
+       (when (plist-get item :pending-children)
+         (let ((sorted-pending (sort (plist-get item :pending-children)
+                                     (lambda (a b) (< (car a) (car b))))))
+           (setf (plist-get item :children)
+                 (mapcar (lambda (pos-id)
+                           (gethash (cdr pos-id) bookmarks))
+                         sorted-pending))
+           (setf (plist-get item :pending-children) nil))))
+     bookmarks)
+    ;; Identify root folders by fixed IDs
+    (maphash
+     (lambda (_id item)
+       (cond
+        ((= _id 2) (setf (plist-get root-data :menu) item))
+        ((= _id 3) (setf (plist-get root-data :toolbar) item))
+        ((= _id 5) (setf (plist-get root-data :unfiled) item))
+        ((= _id 6) (setf (plist-get root-data :mobile) item)))) ;; add mobile too
+     bookmarks)
+    ;; Clean up temp JSON file
+    (when (file-exists-p temp-file)
+      (delete-file temp-file))
+    root-data))
+#+end_src
+* Daily and Weekly Review Reminders 
+
+** Test for daily and weekly review reminders
+
+#+begin_src elisp
+(defvar daily-review-reminder-timer nil "Timer for daily review reminders")
+(defvar weekly-review-reminder-timer nil "Timer for weekly review reminders")
+
+(defun daily-review-exists-p ()
+  "Check if today's daily review exists in the datetree."
+  (let* ((today (decode-time))
+         (year (format "%04d" (nth 5 today)))
+         (month (format-time-string "%B"))
+         (day (format-time-string "%Y-%m-%d")))
+    (condition-case nil
+        (org-find-olp (list org-dailyreview-file year month day) t)
+      (error nil))))
+
+(defun weekly-review-exists-p ()
+  "Check if this week's weekly review exists."
+  (let* ((week-string (format-time-string "%Y-W%V")))
+    (condition-case nil
+        (with-current-buffer (find-file-noselect org-weeklyreview-file)
+          (goto-char (point-min))
+          (search-forward week-string nil t))
+      (error nil))))
+
+(defun schedule-next-daily-prompt ()
+  "Schedule the next daily review prompt for tomorrow at 8 PM."
+  (let* ((now (decode-time))
+         (hour (nth 2 now))
+         (min (nth 1 now))
+         (sec (nth 0 now))
+         (current-secs (+ (* hour 3600) (* min 60) sec))
+         (secs-to-midnight (- 86400 current-secs))
+         (target-secs-from-midnight (* 20 3600)))
+    (setq daily-review-reminder-timer
+          (run-at-time (+ secs-to-midnight target-secs-from-midnight) nil 'prompt-daily-review))))
+
+(defun schedule-next-weekly-prompt ()
+  "Schedule the next weekly review prompt for next Monday at 8 PM."
+  (let* ((now (decode-time))
+         (dow (nth 6 now))
+         (hour (nth 2 now))
+         (min (nth 1 now))
+         (sec (nth 0 now))
+         (days-to-next-monday (mod (+ (- 1 dow) 7) 7))
+         (current-secs (+ (* hour 3600) (* min 60) sec))
+         (target-secs (* 20 3600))
+         (delta (- target-secs current-secs)))
+    (setq weekly-review-reminder-timer
+          (run-at-time (+ (* days-to-next-monday 86400.0) delta) nil 'prompt-weekly-review))))
+
+(defun prompt-daily-review ()
+  "Prompt for daily review with timeout and auto-reschedule."
+  (interactive)
+  (unless (daily-review-exists-p)
+    (let* ((choices '("Today" "Yesterday" "Skip"))
+           (timeout-timer (run-with-timer 30 nil (lambda () (throw 'exit :timeout))))
+           (choice))
+      (unwind-protect
+          (condition-case err
+              (setq choice (catch 'exit (consult--read choices
+                                                       :prompt "Daily review missing. Create for: "
+                                                       :require-match t)))
+            (quit
+             (message "Daily review reminder aborted. Snoozed for 1 hour.")
+             (setq daily-review-reminder-timer (run-at-time "1 hour" nil 'prompt-daily-review))))
+        (when (timerp timeout-timer)
+          (cancel-timer timeout-timer)))
+      (cond
+       ((eq choice :timeout)
+        (message "Daily review reminder timed out. Snoozed for 1 hour.")
+        (setq daily-review-reminder-timer (run-at-time "1 hour" nil 'prompt-daily-review)))
+       (choice
+        (cond
+         ((string= choice "Today")
+          (org-capture nil "rd"))
+         ((string= choice "Yesterday")
+          (org-capture nil "ry"))
+         ((string= choice "Skip")
+          (message "Daily review skipped for today")))
+        (schedule-next-daily-prompt))))))
+
+(defun prompt-weekly-review ()
+  "Prompt for weekly review with timeout and auto-reschedule."
+  (interactive)
+  (unless (weekly-review-exists-p)
+    (let* ((choices '("This Week" "Last Week" "Skip"))
+           (timeout-timer (run-with-timer 30 nil (lambda () (throw 'exit :timeout))))
+           (choice))
+      (unwind-protect
+          (condition-case err
+              (setq choice (catch 'exit (consult--read choices
+                                                       :prompt "Weekly review missing. Create for: "
+                                                       :require-match t)))
+            (quit
+             (message "Weekly review reminder aborted. Snoozed for 5 hours.")
+             (setq weekly-review-reminder-timer (run-at-time "5 hours" nil 'prompt-weekly-review))))
+        (when (timerp timeout-timer)
+          (cancel-timer timeout-timer)))
+      (cond
+       ((eq choice :timeout)
+        (message "Weekly review reminder timed out. Snoozed for 5 hours.")
+        (setq weekly-review-reminder-timer (run-at-time "5 hours" nil 'prompt-weekly-review)))
+       (choice
+        (cond
+         ((string= choice "This Week")
+          (org-capture nil "rw"))
+         ((string= choice "Last Week")
+          (org-capture nil "rl"))
+         ((string= choice "Skip")
+          (message "Weekly review skipped for this week")))
+        (schedule-next-weekly-prompt))))))
+
+(defun start-daily-review-reminders ()
+  "Start daily review reminder system."
+  (interactive)
+  ;; Cancel existing timer if any
+  (when daily-review-reminder-timer
+    (cancel-timer daily-review-reminder-timer)
+    (setq daily-review-reminder-timer nil))
+
+  ;; Check if we should start reminding today
+  (let* ((now (decode-time))
+         (hour (nth 2 now)))
+    (if (>= hour 20)
+        ;; After 8 PM, schedule for tomorrow
+        (schedule-next-daily-prompt)
+      ;; Before 8 PM, schedule for today 8 PM
+      (let* ((min (nth 1 now))
+             (sec (nth 0 now))
+             (current-secs (+ (* hour 3600) (* min 60) sec))
+             (target-secs (* 20 3600))
+             (secs-to-8pm (- target-secs current-secs)))
+        (setq daily-review-reminder-timer (run-at-time secs-to-8pm nil 'prompt-daily-review))))))
+
+(defun start-weekly-review-reminders ()
+  "Start weekly review reminder system."
+  (interactive)
+  ;; Cancel existing timer if any
+  (when weekly-review-reminder-timer
+    (cancel-timer weekly-review-reminder-timer)
+    (setq weekly-review-reminder-timer nil))
+
+  ;; Schedule for next Monday at 8 PM
+  (schedule-next-weekly-prompt))
+
+;; Auto-start the reminder systems
+(add-hook 'emacs-startup-hook 'start-daily-review-reminders)
+(add-hook 'emacs-startup-hook 'start-weekly-review-reminders)
+
+;; Also check periodically in case timers get lost
+(run-with-idle-timer 3600 t  ; Check every hour when idle
+                     (lambda ()
+                       (unless daily-review-reminder-timer
+                         (start-daily-review-reminders))
+                       (unless weekly-review-reminder-timer
+                         (start-weekly-review-reminders))))
+#+end_src
+* Org time budgets yesterday
+
+#+begin_src elisp
+(defun org-time-budgets-yesterday-range ()
+  "Return the time range (tstart tend) for yesterday from midnight to midnight."
+  (let* ((high (decode-time (current-time)))
+         (high (list 0 0 0 (nth 3 high) (nth 4 high) (nth 5 high)))
+         (high (apply #'encode-time high))
+         (yend high)
+         (ystart (time-subtract yend (days-to-time 1))))
+    (list ystart yend)))
+
+(defun org-time-budgets-format-block-yesterday (block match ystart-s yend-s wstart-s wend-s range-budget)
+  "Format a single block for yesterday table."
+  (if (null block)
+      (make-string 29 ?\s)  ; Approximate width for empty daily column
+    (let* ((is-daily (memq block '(day workday)))
+           (current (org-time-budgets-time (list :match match
+                                                 :tstart (if is-daily ystart-s wstart-s)
+                                                 :tend (if is-daily yend-s wend-s))))
+           (budget (pcase block
+                     ('day (/ range-budget 7))
+                     ('workday (/ range-budget 5))
+                     ('week range-budget)
+                     (_ 0))))
+      (if (and current budget)
+          (format "[%s] %s / %s"
+                  (org-time-budgets-bar 14 current budget)
+                  (org-time-budgets-minutes-to-string current)
+                  (org-time-budgets-minutes-to-string budget))
+        (make-string 29 ?\s)))))
+
+(defun org-time-budgets-table-yesterday ()
+  "List the time budgets in a table, with yesterday for daily blocks and this week for weekly blocks."
+  (let* ((title-column-width (apply #'max
+                                    (mapcar #'(lambda (budget) (string-width (plist-get budget :title)))
+                                            org-time-budgets)))
+         (w-trange (org-clock-special-range 'thisweek))
+         (wstart (nth 0 w-trange))
+         (wend (nth 1 w-trange))
+         (wstart-s (format-time-string "[%Y-%m-%d]" wstart))
+         (wend-s (format-time-string "[%Y-%m-%d]" wend))
+         (y-trange (org-time-budgets-yesterday-range))
+         (ystart (car y-trange))
+         (yend (cadr y-trange))
+         (ystart-s (format-time-string "[%Y-%m-%d]" ystart))
+         (yend-s (format-time-string "[%Y-%m-%d]" yend)))
+    (mapconcat #'(lambda (budget)
+                   (let* ((title (plist-get budget :title))
+                          (match (or (plist-get budget :match)
+                                     (plist-get budget :tags))) ;; support for old :tags syntax
+                          (blocks (or (plist-get budget :blocks)
+                                      (cl-case (plist-get budget :block) ;; support for old :block syntax
+                                        (week '(day week))
+                                        (workweek '(workday week)))
+                                      '(day week)))
+                          (range-budget (org-time-budgets-string-to-minutes (plist-get budget :budget))))
+                     (format "%s  %s"
+                             (concat
+                              title
+                              (make-string (max 0 (- title-column-width (string-width title))) ?\s))
+                             (mapconcat
+                              (lambda (block)
+                                (org-time-budgets-format-block-yesterday block match ystart-s yend-s wstart-s wend-s range-budget))
+                              blocks
+                              "  "))))
+               org-time-budgets
+               "\n")))
 #+end_src
 
 * Deprecated
@@ -6348,33 +7138,6 @@ to choose a different correction."
           (undo))  ; This doesn't move point, which I think may be the problem.
         (flyspell-region (line-beginning-position) (line-end-position))
         (call-interactively 'flyspell-correct-previous-word-generic)))))
-
-#+END_SRC
-
-** Magit Status Buffer in Full Space
-
-#+BEGIN_SRC elisp
-;;;###autoload
-(defun unpackaged/magit-status ()
-  "Open a `magit-status' buffer and close the other window so only Magit is visible.
-If a file was visited in the buffer that was active when this
-command was called, go to its unstaged changes section."
-  (interactive)
-  (let* ((buffer-file-path (when buffer-file-name
-                             (file-relative-name buffer-file-name
-                                                 (locate-dominating-file buffer-file-name ".git"))))
-         (section-ident `((file . ,buffer-file-path) (unstaged) (status))))
-    (call-interactively #'magit-status)
-    (delete-other-windows)
-    (when buffer-file-path
-      (goto-char (point-min))
-      (cl-loop until (when (equal section-ident (magit-section-ident (magit-current-section)))
-                       (magit-section-show (magit-current-section))
-                       (recenter)
-                       t)
-               do (condition-case nil
-                      (magit-section-forward)
-                    (error (cl-return (magit-status-goto-initial-section-1))))))))
 
 #+END_SRC
 
@@ -8057,7 +8820,6 @@ Version 2015-07-30"
   (interactive)
   (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
     (consult-ripgrep org-roam-directory)))
-(global-set-key (kbd "C-M-s-o") 'bms/org-roam-rg-search)
 #+end_src
 ** Theme switch
 
@@ -8492,26 +9254,22 @@ Tool for sending my notes from Samsung note 3 into org mode directly.
 #+begin_src emacs-lisp
 ;; eat: Emulate A Terminal (https://codeberg.org/akib/emacs-eat)
 (use-package eat
-    :preface
-    (defun my--eat-open (file)
-        "Helper function to open files from eat terminal."
-        (interactive)
-        (if (file-exists-p file)
-                (find-file-other-window file t)
-            (warn "File doesn't exist")))
-    :init
-    (add-to-list 'project-switch-commands '(eat-project "Eat terminal") t)
-    (add-to-list 'project-switch-commands '(eat-project-other-window "Eat terminal other window") t)
-    (add-to-list 'project-kill-buffer-conditions '(major-mode . eat-mode))
-    :config
-    (add-to-list 'eat-message-handler-alist (cons "open" 'my--eat-open))
-    ;; (setq process-adaptive-read-buffering nil) ; makes EAT a lot quicker!
-    (setq eat-term-name "xterm-256color") ; https://codeberg.org/akib/emacs-eat/issues/119"
-    ;; (setq eat-kill-buffer-on-exit t)
-    ;; (setq eat-shell-prompt-annotation-failure-margin-indicator "")
-    ;; (setq eat-shell-prompt-annotation-running-margin-indicator "")
-    ;; (setq eat-shell-prompt-annotation-success-margin-indicator "")
-    )
+  :preface
+  :init
+  (add-to-list 'project-switch-commands '(eat-project "Eat terminal") t)
+  (add-to-list 'project-switch-commands '(eat-project-other-window "Eat terminal other window") t)
+  (add-to-list 'project-kill-buffer-conditions '(major-mode . eat-mode))
+  :config
+  (add-to-list 'eat-message-handler-alist (cons "open" 'my--eat-open))
+  ;; (setq process-adaptive-read-buffering nil) ; makes EAT a lot quicker!
+  (setq eat-term-name "xterm-256color") ; https://codeberg.org/akib/emacs-eat/issues/119"
+  (setq eat-enable-yank-to-terminal t
+        eat-enable-kill-from-terminal t)
+  ;; (setq eat-kill-buffer-on-exit t)
+  ;; (setq eat-shell-prompt-annotation-failure-margin-indicator "")
+  ;; (setq eat-shell-prompt-annotation-running-margin-indicator "")
+  ;; (setq eat-shell-prompt-annotation-success-margin-indicator "")
+  )
 
 ;; (with-eval-after-load 'eat
 ;;     (global-set-key (kbd "C-c o t") 'eat)
@@ -8663,3 +9421,97 @@ restart lsp based on that environment"
                       (posframe-delete buf))
                     buffer)))
 #+end_src
+** Org transclusion
+
+#+begin_src elisp
+(use-package! org-transclusion
+  :after org
+  :init
+  (map!
+   :map global-map "<f12>" #'org-transclusion-add
+   :leader
+   :prefix "n"
+   :desc "Org Transclusion Mode" "T" #'org-transclusion-mode))
+#+end_src
+** Claudemacs
+
+#+begin_src elisp
+(use-package! claudemacs
+  :config
+  (define-key prog-mode-map (kbd "s-TAB") #'claudemacs-transient-menu)
+  (define-key emacs-lisp-mode-map (kbd "s-TAB") #'claudemacs-transient-menu)
+  (define-key text-mode-map (kbd "s-TAB") #'claudemacs-transient-menu)
+
+  ;; setting it in line to ehp catalyst and cce
+  ;; (setq claudemacs-program "/Users/alokregmi/workspace/EHP/Catalyst/venv/bin/python")
+  ;; (setq claudemacs-program-switches '("/Users/alokregmi/workspace/EHP/Catalyst/cce/capture_3_0/conversations_3_1/conversation_capture_direct.py" "claude"))
+  (after! python
+    (define-key python-base-mode-map (kbd "s-TAB") #'claudemacs-transient-menu))
+
+  ;; Set a big buffer so we can search our history.
+  (with-eval-after-load 'eat
+    (setq eat-term-scrollback-size 400000))
+  ;; If you want it to pop up as a new buffer. Otherwise, it will use "other buffer."
+  ;; Personally, I use the default "other buffer" style.
+  (add-to-list 'display-buffer-alist
+               '("^\\*claudemacs"
+                 (display-buffer-in-side-window)
+                 (side . right)
+                 (window-width . 0.33)))
+
+  ;; Turn on autorevert because Claude modifies and saves buffers. Make it a habit to save
+  ;; before asking Claude anything, because it uses the file on disk as its source of truth.
+  ;; (And you don't want to lose edits after it modifies and saves the files.)
+  (global-auto-revert-mode t)
+  ;;
+  ;; font insanity for Claudemacs
+  ;;
+  (defun my/setup-custom-font-fallbacks-mac ()
+    (interactive)
+    "Configure font fallbacks on mac for symbols and emojis.
+  This will need to be called every time you change your font size,
+  to load the new symbol and emoji fonts."
+
+    (setq use-default-font-for-symbols nil)
+
+    ;; --- Configure for 'symbol' script ---
+    ;; We add fonts one by one. Since we use 'prepend',
+    ;; the last one added here will be the first one Emacs tries.
+    ;; So, list them in reverse order of your preference.
+
+    ;; Least preferred among this list for symbols (will be at the end of our preferred list)
+    (set-fontset-font t 'symbol "Hiragino Sans" nil 'prepend)
+    (set-fontset-font t 'symbol "STIX Two Math" nil 'prepend)
+    (set-fontset-font t 'symbol "Zapf Dingbats" nil 'prepend)
+    (set-fontset-font t 'symbol "Monaco" nil 'prepend)
+    (set-fontset-font t 'symbol "Menlo" nil 'prepend)
+    ;; Most preferred for symbols -- use your main font here
+    (set-fontset-font t 'symbol "JetBrainsMono Nerd Font Mono" nil 'prepend)
+
+
+    ;; --- Configure for 'emoji' script ---
+    ;; Add fonts one by one, in reverse order of preference.
+
+    ;; Least preferred among this list for emojis
+    (set-fontset-font t 'emoji "Hiragino Sans" nil 'prepend)
+    (set-fontset-font t 'emoji "STIX Two Math" nil 'prepend)
+    (set-fontset-font t 'emoji "Zapf Dingbats" nil 'prepend)
+    (set-fontset-font t 'emoji "Monaco" nil 'prepend)
+    (set-fontset-font t 'emoji "Menlo" nil 'prepend)
+    ;; (set-fontset-font t 'emoji "Noto Emoji" nil 'prepend) ;; If you install Noto Emoji
+    ;; Most preferred for emojis -- use your main font here
+    (set-fontset-font t 'emoji "Iosevka Nerd Font" nil 'prepend))
+
+  ;; to test if you have a font family installed:
+                                        ;   (find-font (font-spec :family "Menlo"))
+
+  ;; Then, add the fonts after your setup is complete:
+  (add-hook 'emacs-startup-hook
+            (lambda ()
+              (progn
+                (when (string-equal system-type "darwin")
+                  (my/setup-custom-font-fallbacks-mac)))))
+
+  )
+#+end_src
+

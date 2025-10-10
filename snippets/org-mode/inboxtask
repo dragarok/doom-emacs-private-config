@@ -1,7 +1,7 @@
 # -*- mode: snippet -*-
 # name: inbox
 # uuid: inbox-new-task
-# key: <ii
+# key: <it
 # condition: t
 # --
 * TODO ${1:taskname}

@@ -37,6 +37,8 @@
        ;;deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
        doom-dashboard    ; a nifty splash screen for Emacs
+       smooth-scroll
+
        ;; doom-quit         ; DOOM quit-message prompts when you quit Emacs
        (emoji +unicode)  ; 🙂
        hl-todo           ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
@@ -53,7 +55,8 @@
         ;; +all
         +defaults)   ; tame sudden yet inevitable temporary windows
        ;; tabs              ; a tab bar for Emacs
-       treemacs          ; a project drawer, like neotree but cooler
+       (treemacs          ; a project drawer, like neotree but cooler
+        +lsp)
        unicode           ; extended unicode support for various languages
        (vc-gutter +pretty)         ; vcs diff in the fringe
        ;; vi-tilde-fringe   ; fringe tildes to mark beyond EOB
@@ -109,8 +112,7 @@
        :tools
        ;;ansible
        biblio            ; Writes a PhD for you (citation needed)
-       (debugger          ; FIXME stepping through code, to help you add bugs
-        +lsp)
+       debugger          ; FIXME stepping through code, to help you add bug
        direnv
        docker
        editorconfig      ; let someone else argue about tabs vs spaces
@@ -122,9 +124,11 @@
         +offline
         +docsets)
        (lsp               ; M-x vscode
-        +peek)
-       (magit             ; a git porcelain for Emacs
-        +forge)
+        +peek
+        +booster)
+       ;; llm
+       magit             ; a git porcelain for Emacs
+       ;; +forge)
        ;;make              ; run make tasks from Emacs
        pass              ; password manager for nerds
        pdf               ; pdf enhancements
@@ -133,7 +137,7 @@
        ;;taskrunner        ; taskrunner for all your projects
        terraform         ; infrastructure as code
        ;;tmux              ; an API for interacting with tmux
-       ;; tree-sitter
+       tree-sitter
        upload            ; map local to remote projects via ssh/ftp
 
        :os
@@ -150,7 +154,7 @@
        ;;coq               ; proofs-as-programs
        ;;crystal           ; ruby at the speed of c
        (csharp            ; unity, .NET, and mono shenanigans
-        ;; +tree-sitter
+        +tree-sitter
         +lsp)
        data              ; config/data formats
        ;;(dart +flutter)   ; paint ui and not much else
@@ -173,11 +177,12 @@
        (json)              ; At least it ain't XML
        ;;(java +meghanada) ; the poster child for carpal tunnel syndrome
        (javascript        ; all(hope(abandon(ye(who(enter(here))))))
-        ;; +tree-sitter
+        +tree-sitter
         +lsp)
        ;; (julia             ; a better, faster MATLAB
        ;;  +lsp)
-       kotlin            ; a better, slicker Java(Script)
+       (kotlin            ; a better, slicker Java(Script)
+        +lsp)
        (latex             ; writing papers in Emacs has never been so fun
         +cdlatex
         +fold
@@ -199,14 +204,14 @@
         +pandoc          ; export-with-pandoc support
         +pomodoro        ; be fruitful with the tomato technique
         +present        ; using org-mode for presentations
-        ;; +pretty
+        +pretty
         +roam2
         )
        ;;php               ; perl's insecure younger brother
        ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        (python            ; beautiful is better than ugly
-        ;; +tree-sitter
+        +tree-sitter
         +lsp
         +pyright
         +pyenv)
@@ -222,7 +227,7 @@
        ;;(scheme +guile)   ; a fully conniving family of lisps
        (sh                ; she sells {ba,z,fi}sh shells on the C xor
         +powershell
-        ;; +tree-sitter
+        +tree-sitter
         +lsp)
        ;;sml
        ;;solidity          ; do you need a blockchain? No.
@@ -231,7 +236,7 @@
         +tree-sitter)
        ;;terra             ; Earth and Moon in alignment for performance.
        (web               ; the tubes
-        ;; +tree-sitter
+        +tree-sitter
         +lsp)
        (yaml              ; JSON, but readable
         +lsp)

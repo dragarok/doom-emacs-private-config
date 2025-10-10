@@ -1,6 +1,0 @@
-# -*- mode: snippet -*-
-# name: date
-# key: <da
-# condition: t
-# --
-#+date: ${1:year}:${2:month}:${3:day}

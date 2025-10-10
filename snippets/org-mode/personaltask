@@ -1,7 +1,7 @@
 # -*- mode: snippet -*-
 # name: personaltask
 # uuid: personaltask
-# key: <pt
+# key: <tt
 # condition: t
 # --
 * TODO $1 :plain:personal:Active:Average:Day:ModeratelyLazy:
