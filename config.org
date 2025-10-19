@@ -157,9 +157,9 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-lookbacks-directory (concat org-directory "lookbacks/"))
 (setq org-agenda-files '("~/Nextcloud/org/agenda/"))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
-(setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-bookslog-file (concat org-agenda-directory "log_books.org"))
 (setq org-books-file org-bookslog-file)
+(setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-projects-file (concat org-agenda-directory "projects.org"))
 (setq org-tasks-file (concat org-agenda-directory "tasks.org"))
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
@@ -2743,7 +2743,7 @@ SCHEDULED: %t
 ;;;###autoload
 (after! org-agenda (setq org-agenda-custom-commands
                          '(
-                           ("k" "Today\'s View"
+                           ("k" "Today's View"
                             ((my-agenda-motto "" nil)
                              (agenda ""
                                      ((org-agenda-overriding-header "Overall Agenda View")
@@ -2788,28 +2788,28 @@ SCHEDULED: %t
                                          (org-agenda-show-log t)))
                              (todo ""
                                    ((org-agenda-files
-                                     '(org-inbox-file))
+                                     (list org-inbox-file))
                                     (org-agenda-overriding-header " Process and refile inbox\n ===================================================================\n")
                                     ))
                              (todo "TOREAD"
                                    ((org-agenda-files
-                                     '(org-bookslog-file))
+                                     (list org-bookslog-file))
                                     (org-agenda-overriding-header " Do you want to read some new book\n ===========================================================\n")
                                     ))
                              (todo "WAITING"
                                    ((org-agenda-files
-                                     '(org-tasks-file))
+                                     (list org-tasks-file))
                                     (org-agenda-overriding-header " Waiting for something else\n ===================================================================\n")
                                     ))
                              (todo ""
                                    ((org-agenda-files
-                                     '(org-projects-file))
+                                     (list org-projects-file))
                                     (org-agenda-overriding-header " Projects Work for Next Week\n ===================================================================\n")
                                     ))
                              (todo ""
                                    ((org-agenda-overriding-header " Process Someday\n ===========================================================\n")
                                     (org-agenda-files
-                                     '(org-someday-file))
+                                     (list org-someday-file))
                                     ))
                              )
                             nil)
@@ -2821,24 +2821,21 @@ SCHEDULED: %t
                                         ; Read when bored
                              (tags-todo "+read"
                                         ((org-agenda-files
-                                          '(org-bookslog-file))
+                                          (list org-bookslog-file))
                                          (org-agenda-overriding-header " Why not read something rather than waste time?"))
                                         )
                                         ; Get entertained
                              (tags-todo "+entertaintment"
                                         ((org-agenda-files
-                                          '(org-inbox-file))
+                                          (list org-inbox-file))
                                          (org-agenda-overriding-header " Enjoy some time doing whatever"))
                                         )
                              ))
-                           ;; ("w" "Office agenda"
-                           ;;              ; Priority A
-                           ;;  ((tags-todo "PRIORITY=\"A\"&+office"
-                           ;;              ((org-agenda-overriding-header "Priority A")))
-                           ;;              ; Due soon
-                           ;;   (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&+office"
-                           ;;              ((org-agenda-overriding-header "Due soon")))
-                           ;;   ))
+                           ("z" "Outdoors"
+                                        ; Priority A
+                            ((tags-todo "+outdoor"
+                                        ((org-agenda-overriding-header "Outdoor Tasks to be done")))
+                             ))
                            ;; ("l" "Home agenda"
                            ;;              ; Priority A
                            ;;  ((tags-todo "PRIORITY=\"A\"&+home"
@@ -4041,7 +4038,7 @@ structure changes."
 (after! org
   (setq org-roam-dailies-directory "daily/")
 
-  (org-roam-setup)
+  ;;(org-roam-setup)
 
   ;; Attachments removed from org-roam db
   (setq org-roam-db-node-include-function
@@ -5435,7 +5432,7 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
                 final-tasks)))
         (when final-filtered
           (rts--display-selected-item
-           (rts--select-by-probability final-filtered 'tasks)))))))
+           (rts--select-by-probability final-filtered 'tasks) 'tasks))))))
 
 ;; Leisure selectors
 (defun random-book-select ()
@@ -5522,6 +5519,7 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
           (rts--display-selected-item selected-item 'leisure))
       (message "No active leisure tasks found."))))
 #+end_src
+
 * Random Lazy Task
 
 #+begin_src emacs-lisp
@@ -5590,6 +5588,829 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
    ((eq selector-type 'lazy-low-effort) (list "Lazy Task" "😴" "teal"))
    (t (list "Activity" "📝" "gray"))))
 #+end_src
+* GTD Cleanup Method
+
+#+begin_src elisp
+;;; ===================================================================
+;;; GTD System Enforcement & Cleanup
+;;; ===================================================================
+
+;;; Configuration Variables
+(defvar rts-gtd-priority-limits
+  '(("B" . 2) ("C" . 4) ("D" . 8) ("E" . 8))
+  "Priority limits for GTD cleanup enforcement.")
+
+(defvar rts-gtd-timeout-rules
+  '(("NEXT" . 2) ("A" . 2) ("B" . 2) ("C" . 4) ("D" . 7))
+  "Days before status/priority times out.")
+
+(defvar rts-gtd-max-next-tasks 5
+  "Maximum number of NEXT tasks allowed.")
+
+(defvar org-tasks-file nil
+  "Path to main tasks org file.")
+
+(defvar org-projects-file nil
+  "Path to projects org file.")
+
+(defvar org-recurring-file nil
+  "Path to recurring/habits org file.")
+
+;;; GTD Helper Functions
+
+(defun rts--gtd-get-activated-date (task)
+  "Parse :ACTIVATED: property from TASK element."
+  (let ((activated (org-element-property :ACTIVATED task)))
+    (when activated
+      (org-time-string-to-time activated))))
+
+(defun rts--gtd-days-since-activation (task)
+  "Calculate days since TASK was activated."
+  (let ((activated-time (rts--gtd-get-activated-date task)))
+    (when activated-time
+      (/ (float-time (time-subtract (current-time) activated-time)) 86400))))
+
+(defun rts--gtd-is-habit-extended (task)
+  "Extended habit check: style property OR in recurring file."
+  (or (rts--is-habit-p task)
+      (let ((marker (org-element-property :org-marker task)))
+        (when marker
+          (string= (buffer-file-name (marker-buffer marker)) org-recurring-file)))))
+
+(defun rts--gtd-has-clock-time (task)
+  "Check if TASK has any clocked time in history."
+  (let ((marker (org-element-property :org-marker task)))
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          (let ((clock-sum (org-clock-sum-current-item)))
+            (> clock-sum 0)))))))
+
+(defun rts--gtd-get-priority-change-date (task priority)
+  "Get date when TASK was changed to PRIORITY from LOGBOOK."
+  (let ((marker (org-element-property :org-marker task)))
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          (when (re-search-forward ":LOGBOOK:" (org-end-of-subtree t t) t)
+            (let ((logbook-end (save-excursion
+                                 (re-search-forward ":END:" nil t))))
+              (when logbook-end
+                (while (re-search-forward (format "State \".*\" from \".*\" \\[\\([^]]+\\)\\]") logbook-end t)
+                  (let ((timestamp-str (match-string 1)))
+                    (when timestamp-str
+                      (condition-case nil
+                          (org-time-string-to-time timestamp-str)
+                        (error nil)))))))))))))
+
+(defun rts--gtd-days-since-priority-change (task priority)
+  "Calculate days since TASK priority was set to PRIORITY."
+  (let ((change-time (rts--gtd-get-priority-change-date task priority)))
+    (when change-time
+      (/ (float-time (time-subtract (current-time) change-time)) 86400))))
+
+;;; Task Collection
+
+(defun rts--gtd-get-all-tasks ()
+  "Get all active TODO tasks from tasks and projects files, excluding habits and dormant tasks."
+  (let ((files (delq nil (list org-tasks-file org-projects-file))))
+    (when files
+      (seq-filter
+       (lambda (task) 
+         (and (not (rts--gtd-is-habit-extended task))
+              (rts--gtd-is-active-task task)))
+       (org-ql-select
+         files
+         '(todo)
+         :action 'element-with-markers
+         :sort '(priority))))))
+
+(defun rts--gtd-is-active-task (task)
+  "Check if TASK is active (scheduled, deadline, or NEXT status)."
+  (let ((todo-keyword (rts--get-task-todo-keyword task))
+        (scheduled (org-element-property :scheduled task))
+        (deadline (org-element-property :deadline task)))
+    (or (string= todo-keyword "NEXT")
+        scheduled
+        deadline)))
+
+;;; Violation Analysis
+
+(defun rts--gtd-analyze-violations (tasks)
+  "Analyze TASKS for GTD rule violations. Returns violation data structure."
+  (let ((priority-counts (make-hash-table :test 'equal))
+        (next-violations nil)
+        (priority-violations nil)
+        (next-tasks nil))
+    
+    ;; Count priorities and collect violations
+    (dolist (task tasks)
+      (let* ((priority (rts--get-task-priority task))
+             (todo-keyword (rts--get-task-todo-keyword task))
+             (days-next (when (string= todo-keyword "NEXT")
+                          (rts--gtd-days-since-activation task)))
+             (days-priority (when priority
+                              (rts--gtd-days-since-priority-change task priority))))
+        
+        ;; Count priorities
+        (when priority
+          (puthash priority (1+ (gethash priority priority-counts 0)) priority-counts))
+        
+        ;; Collect NEXT tasks
+        (when (string= todo-keyword "NEXT")
+          (push task next-tasks))
+        
+        ;; Check NEXT timeout violations
+        (when (and days-next (> days-next 2))
+          (push (list :task task :type "NEXT-timeout" :days days-next) next-violations))
+        
+        ;; Check priority timeout violations
+        (when (and priority days-priority)
+          (let ((timeout-days (cdr (assoc priority rts-gtd-timeout-rules))))
+            (when (and timeout-days (> days-priority timeout-days))
+              (push (list :task task :type "priority-timeout" :priority priority :days days-priority) 
+                    priority-violations))))))
+    
+    ;; Check priority count violations
+    (let ((priority-excess nil))
+      (maphash (lambda (priority count)
+                 (let ((limit (cdr (assoc priority rts-gtd-priority-limits))))
+                   (when (and limit (> count limit))
+                     (push (list :priority priority :current count :limit limit :excess (- count limit))
+                           priority-excess))))
+               priority-counts)
+      
+      ;; Check NEXT count violation
+      (let ((next-excess (when (> (length next-tasks) rts-gtd-max-next-tasks)
+                           (- (length next-tasks) rts-gtd-max-next-tasks))))
+        
+        (list :priority-counts priority-counts
+              :priority-excess priority-excess
+              :next-violations next-violations
+              :priority-violations priority-violations
+              :next-tasks next-tasks
+              :next-excess next-excess)))))
+
+;;; Smart Demotion Logic
+
+(defun rts--gtd-find-demotion-targets (tasks reason)
+  "Find best demotion targets from TASKS based on REASON using smart criteria."
+  (let ((task-scores nil))
+    (dolist (task tasks)
+      (let* ((marker (org-element-property :org-marker task))
+             (file-path (when marker (buffer-file-name (marker-buffer marker))))
+             (is-tasks-file (and file-path (string= file-path org-tasks-file)))
+             (has-clock (rts--gtd-has-clock-time task))
+             (activation-days (or (rts--gtd-days-since-activation task) 0))
+             (score 0))
+        
+        ;; Scoring criteria (higher score = better demotion target)
+        (when is-tasks-file (setq score (+ score 100)))  ; Prefer tasks file
+        (unless has-clock (setq score (+ score 50)))     ; Prefer no clock time
+        (setq score (+ score activation-days))           ; Prefer more recently activated
+        
+        (push (cons task score) task-scores)))
+    
+    ;; Sort by score descending and return tasks
+    (mapcar #'car (sort task-scores (lambda (a b) (> (cdr a) (cdr b)))))))
+
+(defun rts--gtd-find-available-priority (current-priority violations)
+  "Find next available lower priority slot given current VIOLATIONS."
+  (let ((priority-counts (plist-get violations :priority-counts))
+        (priority-order '("D" "E" "F")))
+    (catch 'found
+      (dolist (priority priority-order)
+        (let ((count (gethash priority priority-counts 0))
+              (limit (cdr (assoc priority rts-gtd-priority-limits))))
+          (when (or (not limit) (< count limit))
+            (throw 'found priority))))
+      "F")))  ; Fallback to F if all else fails
+
+;;; Demotion Execution
+
+(defun rts--gtd-demote-task (task new-priority reason)
+  "Demote TASK to NEW-PRIORITY with REASON logged."
+  (let* ((marker (org-element-property :org-marker task))
+         (heading (org-element-property :raw-value task))
+         (old-priority (rts--get-task-priority task)))
+    
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          
+          ;; Change priority
+          (org-priority (string-to-char new-priority))
+          
+          ;; Add LOGBOOK entry with reason
+          (rts--add-state-change-logbook-entry 
+           (format "Priority %s" (or old-priority "None"))
+           (format "Priority %s" new-priority)
+           reason)
+          
+          (rts--debug-log "GTD CLEANUP: Demoted '%s' from %s to %s (%s)" 
+                          heading (or old-priority "None") new-priority reason))))))
+
+(defun rts--gtd-demote-next-to-todo (task reason)
+  "Demote TASK from NEXT to TODO with REASON logged."
+  (let* ((marker (org-element-property :org-marker task))
+         (heading (org-element-property :raw-value task)))
+    
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          
+          ;; Change status
+          (org-todo "TODO")
+          
+          ;; Add LOGBOOK entry with reason
+          (rts--add-state-change-logbook-entry "NEXT" "TODO" reason)
+          
+          (rts--debug-log "GTD CLEANUP: Demoted '%s' from NEXT to TODO (%s)" 
+                          heading reason))))))
+
+;;; Main Cleanup Functions
+
+(defun rts--gtd-apply-demotions (violations)
+  "Apply demotions based on VIOLATIONS analysis."
+  (let ((changes-made 0))
+    
+    ;; Handle priority count violations
+    (dolist (excess (plist-get violations :priority-excess))
+      (let* ((priority (plist-get excess :priority))
+             (excess-count (plist-get excess :excess))
+             (all-tasks (rts--gtd-get-all-tasks))
+             (priority-tasks (seq-filter 
+                              (lambda (task) 
+                                (string= (rts--get-task-priority task) priority))
+                              all-tasks))
+             (targets (rts--gtd-find-demotion-targets 
+                       priority-tasks 
+                       (format "Priority %s limit exceeded" priority))))
+        
+        (dotimes (i excess-count)
+          (when (nth i targets)
+            (let ((new-priority (rts--gtd-find-available-priority priority violations)))
+              (rts--gtd-demote-task (nth i targets) new-priority 
+                                    (format "Priority %s limit exceeded" 
+                                            priority (+ i 1) excess-count))
+              (setq changes-made (1+ changes-made)))))))
+    
+    ;; Handle NEXT timeout violations
+    (dolist (violation (plist-get violations :next-violations))
+      (let ((task (plist-get violation :task))
+            (days (plist-get violation :days)))
+        (rts--gtd-demote-next-to-todo task 
+                                      (format "NEXT timeout: %d days" (round days)))
+        (setq changes-made (1+ changes-made))))
+    
+    ;; Handle priority timeout violations
+    (dolist (violation (plist-get violations :priority-violations))
+      (let* ((task (plist-get violation :task))
+             (priority (plist-get violation :priority))
+             (days (plist-get violation :days))
+             (new-priority (rts--gtd-find-available-priority priority violations)))
+        (rts--gtd-demote-task task new-priority 
+                              (format "Priority %s timeout: %d days" priority (round days)))
+        (setq changes-made (1+ changes-made))))
+    
+    changes-made))
+
+;;; Main Cleanup Function
+
+(defun cleanup-gtd-system ()
+  "Analyze and cleanup GTD system violations automatically."
+  (interactive)
+  (rts--debug-log "=== GTD SYSTEM CLEANUP STARTED ===")
+  
+  (let* ((tasks (rts--gtd-get-all-tasks))
+         (violations (rts--gtd-analyze-violations tasks))
+         (changes-made (rts--gtd-apply-demotions violations)))
+    
+    ;; Generate summary report
+    (rts--debug-log "=== GTD CLEANUP SUMMARY ===")
+    (rts--debug-log "Total tasks analyzed: %d" (length tasks))
+    (rts--debug-log "Priority violations: %d" (length (plist-get violations :priority-excess)))
+    (rts--debug-log "NEXT timeout violations: %d" (length (plist-get violations :next-violations)))
+    (rts--debug-log "Priority timeout violations: %d" (length (plist-get violations :priority-violations)))
+    (rts--debug-log "Total changes made: %d" changes-made)
+    (rts--debug-log "=== GTD CLEANUP COMPLETED ===")
+    
+    ;; User message
+    (message "GTD Cleanup: %d changes made. See *RTS Debug* buffer for details." changes-made)))
+#+end_src
+* Instant Task Creation 
+
+#+begin_src elisp
+;;; ===================================================================
+;;; Instant Task Creation System - Zero Friction Task Entry
+;;; ===================================================================
+
+(defvar rts-instant-task-last-category nil
+  "Remember the last category used for instant tasks.")
+
+(defvar rts-instant-task-categories
+  '("Hobby" "ToImprove" "ToTheMoon" "EHP" "Entertainment" "Normal")
+  "Available categories for instant tasks.")
+
+(defvar rts-instant-task-common-tags 
+  '("Active" "work" "personal" "code" "meeting" "review" "plan" 
+    "Challenge" "Average" "Easy"
+    "Morning" "Day" "Evening"
+    "Energetic" "ModeratelyLazy" "Lazy")
+  "Common tags to suggest for instant tasks.")
+
+(defun rts--parse-tags-input (input)
+  "Parse space-separated INPUT string into a list of tags."
+  (when (and input (not (string-empty-p input)))
+    (split-string input " " t)))
+
+(defun rts--suggest-time-of-day-tag ()
+  "Suggest time of day tag based on current time."
+  (let ((hour (string-to-number (format-time-string "%H"))))
+    (cond
+     ((<= hour 11) "Morning")
+     ((<= hour 17) "Day")
+     (t "Evening"))))
+
+(defun rts--create-instant-task (title priority effort category tags)
+  "Create a new task in org-tasks-file with given parameters.
+Returns the marker for the newly created task."
+  (with-current-buffer (find-file-noselect org-tasks-file)
+    (save-excursion
+      ;; Go to end of file to append
+      (goto-char (point-max))
+      
+      ;; Make sure we're on a new line
+      (unless (bolp) (insert "\n"))
+      
+      ;; Insert the new task
+      (insert (format "* TODO [#%s] %s" priority title))
+      
+      ;; Add tags if provided
+      (when tags
+        (insert " :" (mapconcat 'identity tags ":") ":"))
+      
+      (insert "\n")
+      
+      ;; Add SCHEDULED for today
+      (insert "SCHEDULED: " (format-time-string "<%Y-%m-%d %a>") "\n")
+      
+      ;; Add properties drawer
+      (insert ":PROPERTIES:\n")
+      (insert ":CREATED:  " (format-time-string "[%Y-%m-%d %a]") "\n")
+      (when effort
+        (insert ":EFFORT:   " effort "\n"))
+      (when category
+        (insert ":CATEGORY: " category "\n"))
+      (insert ":ACTIVATED: " (format-time-string "[%Y-%m-%d]") "\n")
+      (insert ":END:\n\n")
+      
+      ;; Return marker at the task heading
+      (forward-line -2)
+      (org-back-to-heading t)
+      (copy-marker (point)))))
+
+(defun consult-activate-instant-task ()
+  "Create and immediately activate a new task in org-tasks-file.
+Prompts for title, priority, effort, category, and tags.
+Schedules for today, sets to NEXT, and clocks in immediately."
+  (interactive)
+  (let* ((title (read-string "Task: "))
+         (priority (consult--read '("A" "B" "C" "D" "E" "F")
+                                  :prompt "Priority: "
+                                  :default "C"))
+         (effort (read-string "Effort (e.g., 2:00): " "1:00"))
+         (category (consult--read rts-instant-task-categories
+                                  :prompt "Category: "
+                                  :default (or rts-instant-task-last-category 
+                                               (car rts-instant-task-categories))))
+         (time-tag (rts--suggest-time-of-day-tag))
+         (tags-input (completing-read-multiple 
+                      "Tags (comma-separated, TAB to complete): "
+                      rts-instant-task-common-tags))
+         (all-tags (append tags-input (list time-tag "Active"))))
+    
+    ;; Remember category for next time
+    (setq rts-instant-task-last-category category)
+    
+    ;; Create the task
+    (let ((task-marker (rts--create-instant-task title priority effort category all-tags)))
+      
+      (when task-marker
+        ;; Change to NEXT status
+        (with-current-buffer (marker-buffer task-marker)
+          (save-excursion
+            (goto-char task-marker)
+            (org-todo "NEXT")
+            
+            ;; Add state change to LOGBOOK
+            (rts--add-state-change-logbook-entry "TODO" "NEXT" "Instant task creation")
+            
+            ;; Clock in
+            (org-clock-in)
+            
+            (rts--debug-log "Created instant task: %s [#%s]" title priority)))
+        
+        ;; Show success posframe
+        (rts--show-unified-posframe
+         title
+         priority
+         all-tags
+         "NEXT"
+         'tasks)
+        
+        (message "Task created and clocked in: %s" title)))))
+#+end_src
+* Instant Project Tasks 
+
+#+begin_src elisp
+;;; ===================================================================
+;;; Project Task Activation System - Ultra Focus Mode
+;;; ===================================================================
+
+(defvar rts-project-task-siblings-limit 5
+  "Number of sibling tasks to show after each NEXT task in projects.")
+
+(defvar rts-project-files (list org-projects-file)
+  "List of org files containing projects.")
+
+(defun rts--get-parent-project-name (marker)
+  "Get the parent project heading name for MARKER if applicable."
+  (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (when (org-up-heading-safe)
+          (org-get-heading t t t t))))))
+
+
+(defun rts--get-project-next-with-siblings ()
+  "Get all NEXT tasks from projects with their following siblings.
+Returns a list of candidates with project context."
+  (let ((candidates nil))
+    (dolist (file rts-project-files)
+      (when (and file (file-exists-p file))
+        (with-current-buffer (find-file-noselect file)
+          (org-element-map (org-element-parse-buffer) 'headline
+            (lambda (element)
+              ;; Check if this is a NEXT task
+              (when (string= (org-element-property :todo-keyword element) "NEXT")
+                (let* ((marker (copy-marker (org-element-property :begin element)))
+                       (project-name (rts--get-parent-project-name marker))
+                       (level (org-element-property :level element)))
+                  
+                  ;; Add the NEXT task itself
+                  (push (list :element (org-element-put-property element :org-marker marker)
+                              :project project-name
+                              :is-next t
+                              :type "NEXT"
+                              :level level)
+                        candidates)
+                  
+                  ;; Collect following siblings
+                  (save-excursion
+                    (goto-char marker)
+                    (let ((sibling-count 0))
+                      (while (and (< sibling-count rts-project-task-siblings-limit)
+                                  (org-forward-heading-same-level 1 t))
+                        (let* ((sibling-el (org-element-at-point))
+                               (sibling-todo (org-element-property :todo-keyword sibling-el))
+                               (sibling-marker (copy-marker (point))))
+                          (when (and sibling-todo
+                                     (not (member sibling-todo '("DONE" "CANCELLED"))))
+                            (push (list :element (org-element-put-property sibling-el :org-marker sibling-marker)
+                                        :project project-name
+                                        :is-next nil
+                                        :type sibling-todo
+                                        :level level)
+                                  candidates)
+                            (setq sibling-count (1+ sibling-count))))))))))))))
+    (nreverse candidates)))
+
+(defun rts--remove-task-constraints (marker)
+  "Remove TRIGGER and BLOCKER properties from task at MARKER."
+  (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (org-back-to-heading t)
+        ;; Remove TRIGGER property
+        (org-delete-property "TRIGGER")
+        ;; Remove BLOCKER property  
+        (org-delete-property "BLOCKER")
+        (rts--debug-log "Removed TRIGGER and BLOCKER constraints from task")))))
+
+(defun rts--ensure-only-last-has-blocker (project-marker)
+  "Ensure only the last TODO task in project has BLOCKER property."
+  (when (and project-marker (markerp project-marker))
+    (with-current-buffer (marker-buffer project-marker)
+      (save-excursion
+        (goto-char project-marker)
+        (org-back-to-heading t)
+        (let ((project-level (org-outline-level))
+              (last-todo-marker nil))
+          
+          ;; Find all TODO tasks in this project
+          (org-map-entries
+           (lambda ()
+             (let ((todo (org-get-todo-state)))
+               (when (and todo (not (member todo '("DONE" "CANCELLED"))))
+                 ;; Remove BLOCKER from all tasks first
+                 (org-delete-property "BLOCKER")
+                 (setq last-todo-marker (point-marker)))))
+           (format "LEVEL=%d" (1+ project-level))
+           'tree)
+          
+          ;; Add BLOCKER only to the last TODO
+          (when last-todo-marker
+            (goto-char last-todo-marker)
+            (org-set-property "BLOCKER" "previous-sibling")
+            (rts--debug-log "Set BLOCKER on last TODO task in project")))))))
+
+(defun rts--get-all-projects ()
+  "Get list of all active projects from project files."
+  (let ((projects nil))
+    (dolist (file rts-project-files)
+      (when (and file (file-exists-p file))
+        (with-current-buffer (find-file-noselect file)
+          (org-element-map (org-element-parse-buffer) 'headline
+            (lambda (element)
+              (when (member "proj" (org-element-property :tags element))
+                (let* ((title (org-element-property :raw-value element))
+                       (marker (copy-marker (org-element-property :begin element))))
+                  (push (cons title marker) projects))))))))
+    (nreverse projects)))
+
+(defun rts--clone-task-structure (template-marker new-title priority)
+  "Clone task structure from TEMPLATE-MARKER with NEW-TITLE and PRIORITY.
+Returns the marker for the newly created task."
+  (when (and template-marker (markerp template-marker))
+    (with-current-buffer (marker-buffer template-marker)
+      (save-excursion
+        (goto-char template-marker)
+        (org-back-to-heading t)
+        (let* ((template-level (org-outline-level))
+               (template-tags (org-get-tags))
+               (template-effort (org-entry-get nil "Effort"))
+               (is-next-task (string= (org-get-todo-state) "NEXT"))
+               (new-heading (format "%s %s"
+                                    (if priority (format "[#%s]" priority) "")
+                                    new-title)))
+          
+          ;; If template is NEXT, insert BEFORE it to avoid trigger chain
+          ;; Otherwise insert after current task
+          (if is-next-task
+              (progn
+                ;; Insert before current NEXT task
+                (unless (bolp) (insert "\n"))
+                (insert (make-string template-level ?*) " TODO " new-heading "\n")
+                (forward-line -1))
+            ;; Insert after current task (original behavior)
+            (org-end-of-subtree t t)
+            (unless (bolp) (insert "\n"))
+            (insert (make-string template-level ?*) " TODO " new-heading "\n")
+            (forward-line -1))
+          
+          (org-back-to-heading t)
+          
+          ;; Set properties from template
+          (when template-effort
+            (org-set-property "Effort" template-effort))
+          
+          ;; Set CREATED date
+          (org-set-property "CREATED" (format-time-string "[%Y-%m-%d]"))
+          
+          ;; Set ACTIVATED date
+          (org-set-property "ACTIVATED" (format-time-string "[%Y-%m-%d]"))
+          
+          ;; Copy tags if any
+          (when template-tags
+            (org-set-tags template-tags))
+          
+          ;; Return marker for new task
+          (copy-marker (point)))))))
+
+(defun rts--format-project-task-candidate (cand)
+  "Format a project task candidate for consult display."
+  (let* ((el (plist-get cand :element))
+         (project (or (plist-get cand :project) "Standalone"))
+         (heading (org-element-property :raw-value el))
+         (priority (rts--get-task-priority el))
+         (priority-str (if priority (format "#%s" priority) ""))
+         (status (plist-get cand :type))
+         (is-next (plist-get cand :is-next))
+         (indent (if is-next "▸ " "  "))
+         (face (if is-next 'font-lock-keyword-face 'default))
+         (display (format "%-25s %s%-5s %-8s %s"
+                          (propertize project 'face 'font-lock-comment-face)
+                          indent
+                          (propertize priority-str 'face 'font-lock-keyword-face)
+                          (propertize status 'face 'font-lock-type-face)
+                          (propertize heading 'face face))))
+    (cons display cand)))
+
+(defun rts--activate-project-task (marker &optional new-title)
+  "Activate task at MARKER by removing constraints, scheduling, and clocking in.
+If NEW-TITLE is provided, update the task title."
+  (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (org-back-to-heading t)
+        
+        ;; Update title if provided
+        (when new-title
+          (let ((current-line (thing-at-point 'line t)))
+            (when (string-match "^\\(\\*+ [A-Z]+ \\(?:\\[#.\\] \\)?\\).*$" current-line)
+              (let ((prefix (match-string 1 current-line)))
+                (beginning-of-line)
+                (delete-region (point) (line-end-position))
+                (insert prefix new-title)))))
+        
+        ;; Remove constraints
+        (rts--remove-task-constraints marker)
+        
+        ;; Set to NEXT status
+        (org-todo "NEXT")
+        
+        ;; Schedule for today with tomorrow deadline
+        (org-schedule nil (format-time-string "<%Y-%m-%d %a>"))
+        (org-deadline nil (format-time-string "<%Y-%m-%d %a>" 
+                                              (time-add (current-time) (* 24 3600))))
+        
+        ;; Add ACTIVATED property
+        (org-set-property "ACTIVATED" (format-time-string "[%Y-%m-%d]"))
+        
+        ;; Add state change to LOGBOOK
+        (rts--add-state-change-logbook-entry "TODO" "NEXT" "Activated via project task selector")
+        
+        ;; Clock in
+        (org-clock-in)
+        
+        (rts--debug-log "Activated project task: %s" 
+                        (or new-title (org-get-heading t t t t)))))))
+
+(defun consult-activate-project-task ()
+  "Select or create a project task, activate it, and start clocking.
+Shows NEXT tasks and their siblings from all projects.
+If input doesn't match, creates new task in selected project."
+  (interactive)
+  (let* ((candidates (rts--get-project-next-with-siblings))
+         (formatted (mapcar #'rts--format-project-task-candidate candidates))
+         (selected-or-input
+          (consult--read formatted
+                         :prompt "Project task (or enter new): "
+                         :sort nil
+                         :require-match nil  ; Allow free input
+                         :category 'project-task
+                         :preview-key "C-."
+                         :state (lambda (action selected)
+                                  (when (and (eq action 'preview) selected)
+                                    (let* ((cand (cdr (assoc selected formatted)))
+                                           (marker (when cand 
+                                                     (org-element-property :org-marker 
+                                                                           (plist-get cand :element)))))
+                                      (when (and marker (markerp marker) 
+                                                 (buffer-live-p (marker-buffer marker)))
+                                        (switch-to-buffer (marker-buffer marker) nil t)
+                                        (goto-char marker)
+                                        (org-show-entry)
+                                        (recenter 0 t))))))))
+    
+    (cond
+     ;; Existing task selected
+     ((assoc selected-or-input formatted)
+      (let* ((selected-cand (cdr (assoc selected-or-input formatted)))
+             (el (plist-get selected-cand :element))
+             (is-next (plist-get selected-cand :is-next))
+             (marker (org-element-property :org-marker el))
+             (project-marker (when marker
+                               (with-current-buffer (marker-buffer marker)
+                                 (save-excursion
+                                   (goto-char marker)
+                                   (org-up-heading-safe)
+                                   (copy-marker (point)))))))
+        
+        (when marker
+          ;; If it's a TODO task (not NEXT), move it before the first NEXT task
+          (unless is-next
+            (with-current-buffer (marker-buffer marker)
+              (save-excursion
+                ;; Find the first NEXT task in this project
+                (goto-char project-marker)
+                (let ((next-marker nil))
+                  (org-map-entries
+                   (lambda ()
+                     (unless next-marker
+                       (when (string= (org-get-todo-state) "NEXT")
+                         (setq next-marker (copy-marker (point))))))
+                   nil
+                   'tree)
+                  
+                  ;; If we found a NEXT task, move our TODO before it
+                  (when next-marker
+                    ;; Get the task content
+                    (goto-char marker)
+                    (org-back-to-heading t)
+                    (let* ((task-start (point))
+                           (task-end (save-excursion (org-end-of-subtree t t) (point)))
+                           (task-content (buffer-substring task-start task-end)))
+                      
+                      ;; Delete from current position
+                      (delete-region task-start task-end)
+                      
+                      ;; Insert before NEXT task
+                      (goto-char next-marker)
+                      (org-back-to-heading t)
+                      (insert task-content)
+                      (unless (bolp) (insert "\n"))
+                      
+                      ;; Update marker to new position
+                      (forward-line -1)
+                      (org-back-to-heading t)
+                      (move-marker marker (point))
+                      
+                      (rts--debug-log "Moved TODO task before NEXT task")))))))
+          
+          ;; Activate the selected task
+          (rts--activate-project-task marker)
+          
+          ;; Ensure only last task has blocker
+          (when project-marker
+            (rts--ensure-only-last-has-blocker project-marker))
+          
+          ;; Show success posframe
+          (rts--show-unified-posframe 
+           (org-element-property :raw-value el)
+           (rts--get-task-priority el)
+           (rts--get-task-tags el)
+           "NEXT"
+           'tasks)
+          
+          (rts--debug-log "Activated existing project task"))))
+     
+     ;; New task input
+     (selected-or-input
+      (let* ((new-task-title selected-or-input)
+             (projects (rts--get-all-projects))
+             (project-names (mapcar #'car projects))
+             (selected-project-name 
+              (consult--read project-names
+                             :prompt "Add to project: "
+                             :require-match t
+                             :sort nil))
+             (project-marker (cdr (assoc selected-project-name projects)))
+             (priority (consult--read '("A" "B" "C" "D" "E" "F")
+                                      :prompt "Priority: "
+                                      :default "C")))
+        
+        (when project-marker
+          ;; Find a NEXT task in this project to use as template
+          (with-current-buffer (marker-buffer project-marker)
+            (save-excursion
+              (goto-char project-marker)
+              (let ((template-marker nil))
+                ;; Find first NEXT or TODO task to clone
+                (org-map-entries
+                 (lambda ()
+                   (unless template-marker
+                     (when (member (org-get-todo-state) '("NEXT" "TODO"))
+                                 (setq template-marker (copy-marker (point))))))
+                 nil
+                 'tree)
+                
+                (if template-marker
+                    (let ((new-marker (rts--clone-task-structure 
+                                       template-marker 
+                                       new-task-title 
+                                       priority)))
+                      
+                      ;; Activate the new task
+                      (rts--activate-project-task new-marker)
+                      
+                      ;; Ensure only last task has blocker
+                      (rts--ensure-only-last-has-blocker project-marker)
+                      
+                      ;; Show success posframe
+                      (rts--show-unified-posframe
+                       new-task-title
+                       priority
+                       nil
+                       "NEXT"
+                       'tasks)
+                      
+                      (rts--debug-log "Created and activated new project task: %s" 
+                                      new-task-title))
+                  (message "No template task found in project %s" selected-project-name)))))))))))
+#+end_src
 
 * Random Bookmarks Selection
 
@@ -5631,35 +6452,6 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
         (let ((url (seq-elt (split-string random-bookmark "\n") 2)))
           (browse-url-firefox url))
       (message "No bookmarks found!"))))
-#+end_src
-* Copilot
-
-#+begin_src elisp
-;; accept completion from copilot and fallback to company
-(use-package! copilot
-  :hook (prog-mode . copilot-mode)
-  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
-         ("C-<tab>" . 'copilot-accept-completion-by-word)
-         :map copilot-completion-map
-         ("<tab>" . 'copilot-accept-completion)
-         ("<right>". 'copilot-accept-completion)
-         ("C-f". 'copilot-accept-completion)
-         ("M-f". 'copilot-accept-completion-by-word)
-         ("C-e". 'copilot-accept-completion-by-line)
-         ("<end>". 'copilot-accept-completion-by-line)
-         ("TAB" . 'copilot-accept-completion))
-  :config
-  (advice-add #'indent-for-tab-command :before #'copilot-complete)
-  )
-
-#+end_src
-
-
-** For copilot disable smartparens
-
-#+begin_src elisp
-(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
-;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
 #+end_src
 * Send to daily highlights
 
@@ -5777,166 +6569,76 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
     (message "No text selected")))
 #+end_src
 
-* Gptel prompts
+* Org time budgets yesterday
 
 #+begin_src elisp
-(use-package gptel-prompts
-  :after (gptel)
-  :demand t
-  :config
-  (setq gptel-prompts-directory "~/.doom.d/llm-system-prompts")
-  (gptel-prompts-update)
-  ;; Ensure prompts are updated if prompt files change
-  (gptel-prompts-add-update-watchers))
-#+end_src
-* Window split org mode hydra
+(defun org-time-budgets-yesterday-range ()
+  "Return the time range (tstart tend) for yesterday from midnight to midnight."
+  (let* ((high (decode-time (current-time)))
+         (high (list 0 0 0 (nth 3 high) (nth 4 high) (nth 5 high)))
+         (high (apply #'encode-time high))
+         (yend high)
+         (ystart (time-subtract yend (days-to-time 1))))
+    (list ystart yend)))
 
-#+begin_src elisp
-(defhydra my/simple-open-link-hydra (:color blue :hint nil :foreign-keys-run t)
-  "
+(defun org-time-budgets-format-block-yesterday (block match ystart-s yend-s wstart-s wend-s range-budget)
+  "Format a single block for yesterday table."
+  (if (null block)
+      (make-string 29 ?\s)  ; Approximate width for empty daily column
+    (let* ((is-daily (memq block '(day workday)))
+           (current (org-time-budgets-time (list :match match
+                                                 :tstart (if is-daily ystart-s wstart-s)
+                                                 :tend (if is-daily yend-s wend-s))))
+           (budget (pcase block
+                     ('day (/ range-budget 7))
+                     ('workday (/ range-budget 5))
+                     ('week range-budget)
+                     (_ 0))))
+      (if (and current budget)
+          (format "[%s] %s / %s"
+                  (org-time-budgets-bar 14 current budget)
+                  (org-time-budgets-minutes-to-string current)
+                  (org-time-budgets-minutes-to-string budget))
+        (make-string 29 ?\s)))))
 
-   Open Link At Point
-
-"
-  ("s" org-open-at-point "Same Window")
-  ("v" (lambda () (interactive) (+evil/window-vsplit-and-follow) (org-open-at-point)) "Vertical Split")
-  ("h" (lambda () (interactive) (+evil/window-split-and-follow) (org-open-at-point)) "Horizontal Split")
-  ("q" nil "Quit"))
-#+end_src
-* Eat semi char mode paste override from evil paste after to eat-yank
-
-#+begin_src elisp
-(with-eval-after-load 'eat
-  (define-key eat-mode-map (kbd "s-p") #'eat-yank)
-  (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank)
-  )
-#+end_src
-* Claude Code
-
-#+begin_src elisp
-(use-package! claude-code
-  :config
-  (defun my-claude-notify (title message)
-    "Display a macOS notification with sound."
-    (call-process "osascript" nil nil nil
-                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                                 message title)))
-
-  (setq claude-code-notification-function #'my-claude-notify)
-  (setq claude-code-startup-delay 0.2)
-  (add-hook 'claude-code-start-hook
-          (lambda ()
-            ;; Reduce line spacing to fix vertical bar gaps
-            (setq-local line-spacing 0.1)))
-  )
-#+end_src
-* Claude Code Ide
-
-#+begin_src emacs-lisp
-(use-package claude-code-ide
-  :config
-  ;; (setq claude-code-ide-terminal-backend 'eat)
-  (claude-code-ide-emacs-tools-setup)
-  ;; (define-key vterm-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
-  (define-key prog-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
-  (setq claude-code-ide-use-ide-diff nil)
-  )
-#+end_src
-* Claude code preventing flickers
-
-#+begin_src elisp
-(defun diego--vterm-font-setup ()
-  "Configure font settings specifically for vterm buffers, workaround claude-code."
-
-  ;; Apply ASCII replacements for vterm specifically
-  (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
-    (dolist (pair
-             '((#x273B . ?*) ; ✻ TEARDROP-SPOKED ASTERISK
-               (#x273D . ?*) ; ✽ HEAVY TEARDROP-SPOKED ASTERISK
-               (#x2722 . ?+) ; ✢ FOUR TEARDROP-SPOKED ASTERISK
-               (#x2736 . ?+) ; ✶ SIX-POINTED BLACK STAR
-               (#x2733 . ?*) ; ✳ EIGHT SPOKED ASTERISK
-               ))
-      (aset tbl (car pair) (vector (cdr pair))))))
-
-(add-hook 'vterm-mode-hook #'diego--vterm-font-setup)
-
-(defvar sm-subsitutions
-  '((?⏺ . ?\-)
-    (?· . ?.)
-    (?✢ . ?+)
-    (?✳ . ?*)
-    (?∗ . ?*)
-    (?✻ . ?*)
-    (?✽ . ?*)
-    (?╭ . ?+)
-    (?╮ . ?+)
-    (?╰ . ?+)
-    (?╯ . ?+)
-    (?⎿ . ?|)
-    (?│ . ?|)
-    (?🤖 . ?*)))
-
-(defun sm-replace-problem-chars (args)
-    (let ((terminal (nth 0 args))
-          (output (nth 1 args)))
-      (dolist (sub sm-subsitutions)
-        (setq output (subst-char-in-string (car sub) (cdr sub) output)))
-      (list terminal output)))
-
-
-(advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
-
-
+(defun org-time-budgets-table-yesterday ()
+  "List the time budgets in a table, with yesterday for daily blocks and this week for weekly blocks."
+  (let* ((title-column-width (apply #'max
+                                    (mapcar #'(lambda (budget) (string-width (plist-get budget :title)))
+                                            org-time-budgets)))
+         (w-trange (org-clock-special-range 'thisweek))
+         (wstart (nth 0 w-trange))
+         (wend (nth 1 w-trange))
+         (wstart-s (format-time-string "[%Y-%m-%d]" wstart))
+         (wend-s (format-time-string "[%Y-%m-%d]" wend))
+         (y-trange (org-time-budgets-yesterday-range))
+         (ystart (car y-trange))
+         (yend (cadr y-trange))
+         (ystart-s (format-time-string "[%Y-%m-%d]" ystart))
+         (yend-s (format-time-string "[%Y-%m-%d]" yend)))
+    (mapconcat #'(lambda (budget)
+                   (let* ((title (plist-get budget :title))
+                          (match (or (plist-get budget :match)
+                                     (plist-get budget :tags))) ;; support for old :tags syntax
+                          (blocks (or (plist-get budget :blocks)
+                                      (cl-case (plist-get budget :block) ;; support for old :block syntax
+                                        (week '(day week))
+                                        (workweek '(workday week)))
+                                      '(day week)))
+                          (range-budget (org-time-budgets-string-to-minutes (plist-get budget :budget))))
+                     (format "%s  %s"
+                             (concat
+                              title
+                              (make-string (max 0 (- title-column-width (string-width title))) ?\s))
+                             (mapconcat
+                              (lambda (block)
+                                (org-time-budgets-format-block-yesterday block match ystart-s yend-s wstart-s wend-s range-budget))
+                              blocks
+                              "  "))))
+               org-time-budgets
+               "\n")))
 #+end_src
 
-* Font fallback for mac taken from claudemacs (maybe helps claude code )
-
-#+begin_src elisp
-(defun my/setup-custom-font-fallbacks-mac ()
-  (interactive)
-  "Configure font fallbacks on mac for symbols and emojis.
-  This will need to be called every time you change your font size,
-  to load the new symbol and emoji fonts."
-
-  (setq use-default-font-for-symbols nil)
-
-  ;; --- Configure for 'symbol' script ---
-  ;; We add fonts one by one. Since we use 'prepend',
-  ;; the last one added here will be the first one Emacs tries.
-  ;; So, list them in reverse order of your preference.
-
-  ;; Least preferred among this list for symbols (will be at the end of our preferred list)
-  (set-fontset-font t 'symbol "Hiragino Sans" nil 'prepend)
-  (set-fontset-font t 'symbol "STIX Two Math" nil 'prepend)
-  (set-fontset-font t 'symbol "Zapf Dingbats" nil 'prepend)
-  (set-fontset-font t 'symbol "Monaco" nil 'prepend)
-  (set-fontset-font t 'symbol "Menlo" nil 'prepend)
-  ;; Most preferred for symbols -- use your main font here
-  (set-fontset-font t 'symbol "JetBrainsMono Nerd Font Mono" nil 'prepend)
-
-
-  ;; --- Configure for 'emoji' script ---
-  ;; Add fonts one by one, in reverse order of preference.
-
-  ;; Least preferred among this list for emojis
-  (set-fontset-font t 'emoji "Hiragino Sans" nil 'prepend)
-  (set-fontset-font t 'emoji "STIX Two Math" nil 'prepend)
-  (set-fontset-font t 'emoji "Zapf Dingbats" nil 'prepend)
-  (set-fontset-font t 'emoji "Monaco" nil 'prepend)
-  (set-fontset-font t 'emoji "Menlo" nil 'prepend)
-  ;; (set-fontset-font t 'emoji "Noto Emoji" nil 'prepend) ;; If you install Noto Emoji
-  ;; Most preferred for emojis -- use your main font here
-  )
-
-;; Then, add the fonts after your setup is complete:
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (progn
-              (when (string-equal system-type "darwin")
-                (my/setup-custom-font-fallbacks-mac)))))
-
-#+end_src
 * Firefox bookmarks export
 
 #+begin_src elisp
@@ -6254,74 +6956,931 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
                        (unless weekly-review-reminder-timer
                          (start-weekly-review-reminders))))
 #+end_src
-* Org time budgets yesterday
+* Kairoam 
 
 #+begin_src elisp
-(defun org-time-budgets-yesterday-range ()
-  "Return the time range (tstart tend) for yesterday from midnight to midnight."
-  (let* ((high (decode-time (current-time)))
-         (high (list 0 0 0 (nth 3 high) (nth 4 high) (nth 5 high)))
-         (high (apply #'encode-time high))
-         (yend high)
-         (ystart (time-subtract yend (days-to-time 1))))
-    (list ystart yend)))
+;;; kairoam-notes.el --- Horizontal evergreen notes for org-roam -*- lexical-binding: t; -*-
 
-(defun org-time-budgets-format-block-yesterday (block match ystart-s yend-s wstart-s wend-s range-budget)
-  "Format a single block for yesterday table."
-  (if (null block)
-      (make-string 29 ?\s)  ; Approximate width for empty daily column
-    (let* ((is-daily (memq block '(day workday)))
-           (current (org-time-budgets-time (list :match match
-                                                 :tstart (if is-daily ystart-s wstart-s)
-                                                 :tend (if is-daily yend-s wend-s))))
-           (budget (pcase block
-                     ('day (/ range-budget 7))
-                     ('workday (/ range-budget 5))
-                     ('week range-budget)
-                     (_ 0))))
-      (if (and current budget)
-          (format "[%s] %s / %s"
-                  (org-time-budgets-bar 14 current budget)
-                  (org-time-budgets-minutes-to-string current)
-                  (org-time-budgets-minutes-to-string budget))
-        (make-string 29 ?\s)))))
+;; Author: kairoam (adapted for user)
+;; Version: 0.1
+;; Keywords: notes, org, org-roam, convenience
+;; Package-Requires: ((emacs "27.1") (org-roam "2.0"))
+;; Compatible with Doom Emacs (uses core libs only)
 
-(defun org-time-budgets-table-yesterday ()
-  "List the time budgets in a table, with yesterday for daily blocks and this week for weekly blocks."
-  (let* ((title-column-width (apply #'max
-                                    (mapcar #'(lambda (budget) (string-width (plist-get budget :title)))
-                                            org-time-budgets)))
-         (w-trange (org-clock-special-range 'thisweek))
-         (wstart (nth 0 w-trange))
-         (wend (nth 1 w-trange))
-         (wstart-s (format-time-string "[%Y-%m-%d]" wstart))
-         (wend-s (format-time-string "[%Y-%m-%d]" wend))
-         (y-trange (org-time-budgets-yesterday-range))
-         (ystart (car y-trange))
-         (yend (cadr y-trange))
-         (ystart-s (format-time-string "[%Y-%m-%d]" ystart))
-         (yend-s (format-time-string "[%Y-%m-%d]" yend)))
-    (mapconcat #'(lambda (budget)
-                   (let* ((title (plist-get budget :title))
-                          (match (or (plist-get budget :match)
-                                     (plist-get budget :tags))) ;; support for old :tags syntax
-                          (blocks (or (plist-get budget :blocks)
-                                      (cl-case (plist-get budget :block) ;; support for old :block syntax
-                                        (week '(day week))
-                                        (workweek '(workday week)))
-                                      '(day week)))
-                          (range-budget (org-time-budgets-string-to-minutes (plist-get budget :budget))))
-                     (format "%s  %s"
-                             (concat
-                              title
-                              (make-string (max 0 (- title-column-width (string-width title))) ?\s))
-                             (mapconcat
-                              (lambda (block)
-                                (org-time-budgets-format-block-yesterday block match ystart-s yend-s wstart-s wend-s range-budget))
-                              blocks
-                              "  "))))
-               org-time-budgets
-               "\n")))
+;;; Commentary:
+;; Single-file implementation of an "evergreen" horizontal notes UI:
+;; - opens notes side-by-side
+;; - inserts new notes at current+1
+;; - keeps up to `kairoam-max-expanded-windows' expanded (default 3)
+;; - folds the farthest expanded window when needed
+;; - folded windows show a vertical title overlay and a thin width
+;; - never reuses existing windows (always creates a new split)
+;;
+;; Key commands:
+;;  C-c k r      kairoam-open-note-to-right
+;;  C-c k l      kairoam-open-at-point
+;;  C-c k f      kairoam-fold-window
+;;  C-c k e      kairoam-expand-window
+;;  C-c k d      kairoam-debug
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'subr-x)
+;; doom typically already loads dash/s, but we don't rely on them explicitly.
+
+
+;;; Configuration and simple logging
+
+(defgroup kairoam nil
+  "Kairoam evergreen-style org-roam panes."
+  :group 'convenience)
+
+(defcustom kairoam-folded-width 3
+  "Width (columns) for folded windows (thin column)."
+  :type 'integer
+  :group 'kairoam)
+
+(defcustom kairoam-max-expanded-windows 3
+  "Maximum number of expanded (full-content) windows to show at once."
+  :type 'integer
+  :group 'kairoam)
+
+(defcustom kairoam-default-expanded-width 80
+  "Fallback width to use when calculating expanded window sizes."
+  :type 'integer
+  :group 'kairoam)
+
+(defvar kairoam--log-buffer "*kairoam-log*")
+(defun kairoam--log (lvl fmt &rest args)
+  "Simple logger: LVL (string), FMT and ARGS."
+  (let ((msg (apply #'format fmt args))
+        (ts (format-time-string "%H:%M:%S")))
+    (with-current-buffer (get-buffer-create kairoam--log-buffer)
+      (goto-char (point-max))
+      (insert (format "[%s] [%s] %s\n" ts lvl msg)))))
+
+(defun kairoam--info (fmt &rest args) (apply #'kairoam--log "INFO" fmt args))
+(defun kairoam--warn (fmt &rest args) (apply #'kairoam--log "WARN" fmt args))
+(defun kairoam--error (fmt &rest args) (apply #'kairoam--log "ERR" fmt args))
+
+
+;;; Core data structure: cl-defstruct for tracked windows
+
+(cl-defstruct kairoam-window
+  window    ;; the window object
+  buffer    ;; buffer shown
+  position  ;; integer position in sequence
+  state     ;; 'expanded or 'folded
+  overlay)  ;; overlay object if folded
+
+(defvar kairoam--registry nil
+  "Ordered list (vector-like) of `kairoam-window' structs representing sequence 0..n-1.")
+
+(defun kairoam--registry-reset () (setq kairoam--registry nil))
+(defun kairoam--registry-count () (length kairoam--registry))
+
+(defun kairoam--find-by-window (win)
+  "Return state struct for WIN, or nil."
+  (cl-find-if (lambda (s) (and (kairoam-window-window s)
+                               (eq (kairoam-window-window s) win)))
+              kairoam--registry))
+
+(defun kairoam--find-by-buffer (buf)
+  (cl-find-if (lambda (s) (eq (kairoam-window-buffer s) buf))
+              kairoam--registry))
+
+(defun kairoam--position-of-window (win)
+  (let ((s (kairoam--find-by-window win)))
+    (and s (kairoam-window-position s))))
+
+(defun kairoam--rebuild-positions ()
+  "Rebuild positions in kairoam--registry so they are sequential 0..n-1."
+  (cl-loop for i from 0
+           for s in kairoam--registry
+           do (setf (kairoam-window-position s) i))
+  (kairoam--info "Rebuilt positions; total=%d" (kairoam--registry-count)))
+
+(defun kairoam--register-new (win buf pos)
+  "Insert new kairoam-window for WIN and BUF at POS, shifting following entries."
+  (let ((new (make-kairoam-window :window win :buffer buf :position pos :state 'expanded :overlay nil)))
+    (if (>= pos (kairoam--registry-count))
+        (setq kairoam--registry (append kairoam--registry (list new)))
+      (setq kairoam--registry
+            (append (cl-subseq kairoam--registry 0 pos)
+                    (list new)
+                    (cl-subseq kairoam--registry pos)))
+      (kairoam--rebuild-positions)
+      (kairoam--info "Registered new window pos=%d buf=%s" pos (buffer-name buf))
+      new)))
+
+(defun kairoam--unregister-window (win)
+  "Remove window WIN from registry and cleanup overlay if present."
+  (let ((s (kairoam--find-by-window win)))
+    (when s
+      (when (kairoam-window-overlay s)
+        (ignore-errors (delete-overlay (kairoam-window-overlay s))))
+      (setq kairoam--registry (cl-remove s kairoam--registry :test #'eq))
+      (kairoam--rebuild-positions)
+      (kairoam--info "Unregistered window %s" (prin1-to-string win)))))
+
+(defun kairoam--cleanup-dead ()
+  "Remove entries whose window or buffer is dead."
+  (let ((removed 0))
+    (setq kairoam--registry
+          (cl-remove-if
+           (lambda (s)
+             (let ((w (kairoam-window-window s))
+                   (b (kairoam-window-buffer s)))
+               (unless (and (windowp w) (window-live-p w) (bufferp b) (buffer-live-p b))
+                 (cl-incf removed)
+                 (when (kairoam-window-overlay s)
+                   (ignore-errors (delete-overlay (kairoam-window-overlay s))))
+                 t)))
+           kairoam--registry))
+    (when (> removed 0) (kairoam--info "Cleaned up %d dead registry entries" removed))
+    (kairoam--rebuild-positions)
+    removed))
+
+
+;;; Helpers: title extraction, vertical title display
+
+(defun kairoam--buffer-title (buf)
+  "Return title for BUF. Try #+TITLE:, then first heading, then buffer name."
+  (with-current-buffer buf
+    (save-excursion
+      (save-restriction
+        (widen)
+        (goto-char (point-min))
+        (or 
+         ;; Try #+TITLE: (case insensitive)
+         (when (re-search-forward "^#\\+\\(?:TITLE\\|title\\|Title\\):\\s-*\\(.*\\)$" nil t)
+           (string-trim (match-string 1)))
+         ;; Try first level-1 org heading
+         (progn
+           (goto-char (point-min))
+           (when (re-search-forward "^\\* \\(.+\\)$" nil t)
+             (string-trim (match-string 1))))
+         ;; Fallback to buffer name without extension
+         (file-name-sans-extension (buffer-name buf)))))))
+
+(defun kairoam--verticalize (s)
+  "Return a string with S vertically (each char on its own line) with org-level-1 styling."
+  (mapconcat (lambda (c) 
+               (propertize (string c) 
+                           'face '(:inherit org-level-1 :height 1.1 :weight bold)))
+             (string-to-list s) "\n"))
+
+(defun kairoam--make-title-overlay (buf title)
+  "Create an overlay in BUF that displays TITLE vertically, centered with enhanced styling."
+  (with-current-buffer buf
+    (save-excursion
+      (goto-char (point-min))
+      ;; Ensure buffer has content to overlay (needed for empty buffers)
+      (when (eobp)
+        (insert " "))
+      (let* ((win (get-buffer-window buf))
+             (h (if win (window-height win) 20))
+             (title-length (length title))
+             (padding-lines (max 0 (/ (- h title-length) 2)))
+             (top-padding (if (> padding-lines 0) 
+                              (make-string padding-lines ?\n) 
+                            ""))
+             (vertical-title (kairoam--verticalize title))
+             (centered-title (concat top-padding vertical-title))
+             (ov (make-overlay (point-min) (point-max))))
+        ;; Cover entire buffer content with styled vertical title
+        (overlay-put ov 'display centered-title)
+        (overlay-put ov 'kairoam-title t)
+        (overlay-put ov 'priority 100) ; Ensure it's on top
+        ov))))
+
+(defun kairoam--remove-title-overlay (buf)
+  (with-current-buffer buf
+    (remove-overlays (point-min) (point-max) 'kairoam-title t)))
+
+
+;;; Window (fold/expand) resizing functions
+
+(defun kairoam--safe-window-width (win)
+  (condition-case _err
+      (window-width win)
+    (error kairoam-folded-width)))
+
+(defun kairoam--resize-window-to (win desired-cols)
+  "Resize WIN to DESIRED-COLS (total columns) using multiple strategies for robustness."
+  (when (and (windowp win) (window-live-p win))
+    (let* ((cur (kairoam--safe-window-width win))
+           (delta (- desired-cols cur)))
+      (when (/= delta 0)
+        ;; Try multiple resize strategies in order of preference
+        (condition-case err1
+            ;; Strategy 1: Use adjust-window-trailing-edge (more robust for non-selected windows)
+            (adjust-window-trailing-edge win delta t)
+          (error 
+           ;; Strategy 2: Select window first, then resize (mimics Evil's approach)
+           (condition-case err2
+               (with-selected-window win
+                 (window-resize win delta t))
+             (error 
+              ;; Strategy 3: Use shrink/enlarge commands with selected window
+              (condition-case err3
+                  (with-selected-window win
+                    (if (> delta 0)
+                        (enlarge-window-horizontally delta)
+                      (shrink-window-horizontally (- delta))))
+                (error
+                 ;; Strategy 4: Try with ignore flag to bypass size constraints
+                 (condition-case err4
+                     (with-selected-window win
+                       (window-resize win delta t t)) ; 4th arg 'ignore' bypasses min size checks
+                   (error 
+                    (kairoam--warn "All resize strategies failed for window %s: %s" 
+                                   (prin1-to-string win) 
+                                   (error-message-string err4))))))))))))))
+
+(defun kairoam--distribute-sizes ()
+  "Compute and set widths for all tracked windows: expanded windows divide frame width equally,
+folded windows get `kairoam-folded-width'. Keeps order/positions."
+  (kairoam--cleanup-dead)
+  (let* ((entries kairoam--registry)
+         (expanded (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'expanded)) entries))
+         (folded (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'folded)) entries))
+         (frame-w (frame-width))
+         (folded-total (* (length folded) kairoam-folded-width))
+         (available (max 1 (- frame-w folded-total)))
+         (nexp (max 1 (length expanded)))
+         (per-expanded (max 10 (floor (/ available nexp))))) ;; target width for expanded windows
+    
+    ;; First pass: Force folded windows to their exact width (must be precise)
+    (dolist (s folded)
+      (let ((win (kairoam-window-window s)))
+        (when (and (windowp win) (window-live-p win))
+          ;; Force exact width for folded windows, try multiple times if needed
+          (let ((attempts 0))
+            (while (and (< attempts 3)
+                        (/= (window-width win) kairoam-folded-width))
+              (kairoam--resize-window-to win kairoam-folded-width)
+              (setq attempts (1+ attempts)))))))
+    
+    ;; Second pass: Resize expanded windows and ensure equal distribution
+    ;; We process from left to right to accumulate any rounding errors
+    (let ((remaining-width available)
+          (remaining-windows (length expanded)))
+      (dolist (s expanded)
+        (let* ((win (kairoam-window-window s))
+               ;; For the last window, use all remaining width to avoid rounding issues
+               (target-width (if (= remaining-windows 1)
+                                 remaining-width
+                               per-expanded)))
+          (when (and (windowp win) (window-live-p win))
+            (kairoam--resize-window-to win target-width)
+            (setq remaining-width (- remaining-width target-width))
+            (setq remaining-windows (1- remaining-windows))))))
+    
+    ;; Third pass: Fine-tune expanded windows to ensure they're actually equal
+    ;; Measure actual widths and redistribute if needed
+    (when (> (length expanded) 1)
+      (let* ((actual-widths (mapcar (lambda (s) 
+                                      (window-width (kairoam-window-window s)))
+                                    expanded))
+             (avg-width (/ (apply #'+ actual-widths) (length actual-widths))))
+        ;; If widths vary too much, try to equalize them
+        (when (> (- (apply #'max actual-widths) (apply #'min actual-widths)) 2)
+          (dolist (s expanded)
+            (let ((win (kairoam-window-window s)))
+              (when (and (windowp win) (window-live-p win))
+                (kairoam--resize-window-to win avg-width)))))))
+    
+    ;; Final pass: Double-check folded windows stayed at minimum width
+    (dolist (s folded)
+      (let ((win (kairoam-window-window s)))
+        (when (and (windowp win) (window-live-p win)
+                   (/= (window-width win) kairoam-folded-width))
+          (kairoam--resize-window-to win kairoam-folded-width))))
+    
+    (kairoam--info "Distributed sizes: expanded=%d folded=%d frame=%d per=%d"
+                   (length expanded) (length folded) frame-w per-expanded)))
+
+
+;;; Folding / expanding
+
+(defun kairoam--fold-window-internal (win)
+  "Internal: Fold WIN without triggering redistribution. Returns the state struct."
+  (let* ((s (kairoam--find-by-window win))
+         (buf (window-buffer win)))
+    ;; ensure tracked
+    (unless s (setq s (kairoam--register-new win buf (kairoam--registry-count))))
+    ;; set state
+    (setf (kairoam-window-state s) 'folded)
+    ;; overlay
+    (when (kairoam-window-overlay s)
+      (ignore-errors (delete-overlay (kairoam-window-overlay s))))
+    (let ((title (kairoam--buffer-title buf)))
+      (setf (kairoam-window-overlay s) (kairoam--make-title-overlay buf title)))
+    (kairoam--info "Folded window pos=%s title=%s" (kairoam-window-position s) (kairoam--buffer-title buf))
+    s))
+
+(defun kairoam-fold-window (&optional win)
+  "Fold WIN (defaults to selected-window). Create vertical title overlay and shrink width."
+  (interactive)
+  (let* ((win (or win (selected-window)))
+         (s (kairoam--fold-window-internal win)))
+    ;; resize and distribute
+    (kairoam--distribute-sizes)
+    s))
+
+(defun kairoam-expand-window (&optional win)
+  "Expand WIN (defaults to selected-window). Remove overlay and mark expanded.
+Enforces max-expanded-windows limit by folding farthest windows if needed."
+  (interactive)
+  (let* ((win (or win (selected-window)))
+         (s (kairoam--find-by-window win)))
+    (unless s (user-error "Window not tracked by kairoam"))
+    (setf (kairoam-window-state s) 'expanded)
+    (when (kairoam-window-overlay s)
+      (ignore-errors (delete-overlay (kairoam-window-overlay s)))
+      (setf (kairoam-window-overlay s) nil))
+    (kairoam--info "Expanded window pos=%s title=%s" (kairoam-window-position s) (kairoam--buffer-title (kairoam-window-buffer s)))
+    ;; Apply max-expanded rule (this does batch folding without redistribution)
+    (kairoam--apply-max-expanded-rule (kairoam-window-position s))
+    ;; Single redistribution after all state changes are complete
+    (kairoam--distribute-sizes)
+    s))
+
+
+;;; Smart-folding algorithm (distance-based)
+
+(defun kairoam--farthest-expanded-from (pos)
+  "Return the kairoam-window struct (expanded) farthest from POS, or nil."
+  (let ((expanded (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'expanded)) kairoam--registry))
+        farthest bestd)
+    (dolist (s expanded)
+      (let* ((p (kairoam-window-position s))
+             (d (abs (- p pos))))
+        (when (or (null bestd) (> d bestd))
+          (setq bestd d farthest s))))
+    farthest))
+
+(defun kairoam--apply-max-expanded-rule (trigger-pos)
+  "Ensure no more than `kairoam-max-expanded-windows' expanded windows. Fold farthest ones.
+Returns t if any windows were folded, nil otherwise."
+  (let ((expanded (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'expanded)) kairoam--registry))
+        (folded-any nil))
+    (when (> (length expanded) kairoam-max-expanded-windows)
+      (let ((excess (- (length expanded) kairoam-max-expanded-windows)))
+        (dotimes (_ excess)
+          (let ((f (kairoam--farthest-expanded-from trigger-pos)))
+            (when f
+              ;; Use internal fold to avoid redistribution until all folding is done
+              (kairoam--fold-window-internal (kairoam-window-window f))
+              (setq folded-any t))))))
+    folded-any))
+
+
+;;; Opening notes and smart insertion
+
+(defun kairoam--open-node-at-position (node position)
+  "Open org-roam NODE at POSITION (insert at current+1 semantics). Returns new window."
+  (unless node (user-error "Node missing"))
+  (let* ((file (if (fboundp 'org-roam-node-file) (org-roam-node-file node)
+                 (error "org-roam node-file accessor missing")))
+         (buf (find-file-noselect file))
+         ;; reference window: if inserting at pos>0, use window at pos-1 as anchor, else use selected-window
+         (ref-win (if (and (> position 0)
+                           (< (1- position) (kairoam--registry-count)))
+                      (kairoam-window-window (nth (1- position) kairoam--registry))
+                    (selected-window)))
+         new-win)
+    ;; split to the right of ref-win
+    (setq new-win (split-window ref-win nil 'right))
+    (with-selected-window new-win
+      (switch-to-buffer buf))
+    (kairoam--register-new new-win buf position)
+    new-win))
+
+(defun kairoam--open-node-with-smart-folding (node pos trigger-pos)
+  "Open NODE at pos and apply smart folding using trigger-pos."
+  (let ((new (kairoam--open-node-at-position node pos)))
+    (kairoam--apply-max-expanded-rule trigger-pos)
+    (kairoam--distribute-sizes)
+    new))
+
+;;; Public interactive: open via consult or org-roam
+
+(defun kairoam-open-note-to-right ()
+  "Interactive: open a node to the right of current selected kairoam window."
+  (interactive)
+  (kairoam--cleanup-dead)
+  (let* ((cur-win (selected-window))
+         (cur-pos (kairoam--position-of-window cur-win)))
+    (unless cur-pos
+      ;; If current not tracked, start a new sequence with current at 0
+      (kairoam--register-new cur-win (window-buffer cur-win) 0)
+      (setq cur-pos 0))
+    (let ((new-pos (1+ cur-pos)) node)
+      (condition-case _err
+          (cond
+           ((fboundp 'consult-org-roam-file)
+            (setq node (consult-org-roam-file)))
+           (t
+            (setq node (org-roam-node-read))))
+        (error (user-error "Failed to select node")))
+      (when node
+        (kairoam--open-node-with-smart-folding node new-pos cur-pos)))))
+
+(defun kairoam-open-note-to-left ()
+  "Open a node to the left of current window (insert at current pos)."
+  (interactive)
+  (kairoam--cleanup-dead)
+  (let* ((cur-win (selected-window))
+         (cur-pos (kairoam--position-of-window cur-win)))
+    (unless cur-pos
+      (kairoam--register-new cur-win (window-buffer cur-win) 0)
+      (setq cur-pos 0))
+    (let ((new-pos cur-pos) node)
+      (condition-case _err
+          (cond
+           ((fboundp 'consult-org-roam-file)
+            (setq node (consult-org-roam-file)))
+           (t
+            (setq node (org-roam-node-read))))
+        (error (user-error "Failed to select node")))
+      (when node
+        (kairoam--open-node-with-smart-folding node new-pos cur-pos)))))
+
+(defun kairoam-open-at-point ()
+  "Open org-roam link at point (id link) to the right of current."
+  (interactive)
+  (kairoam--cleanup-dead)
+  (let ((ctx (condition-case nil (org-element-context) (error nil))))
+    (unless (and ctx (eq (org-element-type ctx) 'link) (string= (org-element-property :type ctx) "id"))
+      (user-error "No org id link at point"))
+    (let* ((id (org-element-property :path ctx))
+           (node (condition-case nil (org-roam-node-from-id id) (error nil))))
+      (unless node (user-error "Could not find node for id %s" id))
+      (let* ((cur-pos (or (kairoam--position-of-window (selected-window))
+                          (progn (kairoam--register-new (selected-window) (current-buffer) 0) 0)))
+             (new-pos (1+ cur-pos)))
+        (kairoam--open-node-with-smart-folding node new-pos cur-pos)))))
+
+
+;;; Utilities / debug / health
+
+(defun kairoam-debug ()
+  "Show simple debug info in message and log buffer."
+  (interactive)
+  (kairoam--cleanup-dead)
+  (let ((lines (mapcar (lambda (s)
+                         (format "pos=%d state=%s buf=%s win=%s"
+                                 (kairoam-window-position s)
+                                 (kairoam-window-state s)
+                                 (kairoam--buffer-title (kairoam-window-buffer s))
+                                 (prin1-to-string (kairoam-window-window s))))
+                       kairoam--registry)))
+    (kairoam--info "=== kairoam-debug begin ===")
+    (dolist (l lines) (kairoam--info "%s" l))
+    (kairoam--info "=== kairoam-debug end ===")
+    (when lines (message "kairoam: %s" (string-join (cl-subseq lines 0 (min 4 (length lines))) " | ")))))
+
+(defun kairoam-health-check ()
+  "Run basic sanity checks and attempt repairs."
+  (interactive)
+  ;; ensure limited number of entries
+  (kairoam--cleanup-dead)
+  (kairoam--rebuild-positions)
+  (kairoam--distribute-sizes)
+  (message "kairoam: health-check complete"))
+
+
+;;; Minor mode & keymap
+
+(defvar kairoam-mode-map
+  (let ((m (make-sparse-keymap)))
+    (define-key m (kbd "C-c k r") #'kairoam-open-note-to-right)
+    (define-key m (kbd "C-c k l") #'kairoam-open-at-point)
+    (define-key m (kbd "C-c k f") #'kairoam-fold-window)
+    (define-key m (kbd "C-c k e") #'kairoam-expand-window)
+    (define-key m (kbd "C-c k d") #'kairoam-debug)
+    m)
+  "Keymap for `kairoam-mode'.")
+
+;;;###autoload
+(define-minor-mode kairoam-mode
+  "Toggle Kairoam evergreen note layout mode."
+  :global t
+  :lighter " kairoam"
+  :keymap kairoam-mode-map
+  (if kairoam-mode
+      (progn
+        (kairoam--info "kairoam-mode enabled")
+        ;; auto-track current buffer if it's an org-roam file
+        (when (and (buffer-file-name)
+                   (bound-and-true-p org-roam-directory)
+                   (string-prefix-p (expand-file-name org-roam-directory)
+                                    (expand-file-name (or (buffer-file-name) ""))))
+          (kairoam--register-new (selected-window) (current-buffer) 0)
+          (kairoam--distribute-sizes)))
+    (kairoam--info "kairoam-mode disabled")
+    ;; cleanup overlays and registry
+    (dolist (s kairoam--registry)
+      (when (kairoam-window-overlay s)
+        (ignore-errors (delete-overlay (kairoam-window-overlay s)))))
+    (kairoam--registry-reset)))
+
+(defun kairoam-reset ()
+  "Reset all note windows to single expanded view."
+  (interactive)
+  (delete-other-windows)
+  (org-show-all)
+  (message "Kairoam layout reset."))
+
+(provide 'kairoam-notes)
+;;; kairoam-notes.el ends here
+#+end_src
+* Qsv csv 
+
+#+begin_src elisp
+;;; csv.el --- QSV-powered CSV operations for Emacs -*- lexical-binding: t; -*-
+
+;; Fast CSV operations using qsv (https://github.com/dathere/qsv)
+;; First principles: minimal code, maximum utility
+
+(after! csv-mode
+  (defvar csv-last-sort-columns nil
+    "Remember last sort columns for quick reuse.")
+
+  (defvar csv-last-sort-reverse nil
+    "Remember if last sort was reversed.")
+
+  (defun csv--get-column-names ()
+    "Extract column names from current CSV buffer."
+    (save-excursion
+      (goto-char (point-min))
+      (let ((header (buffer-substring-no-properties 
+                     (line-beginning-position) 
+                     (line-end-position))))
+        (split-string header "," t " "))))
+
+  (defun csv--build-column-spec ()
+    "Build column specification using consult.
+Returns (columns . reverse-p) where columns is a comma-separated string."
+    (let* ((column-names (csv--get-column-names))
+           (indexed-columns (cl-loop for name in column-names
+                                     for i from 1
+                                     collect (format "%d:%s" i name)))
+           (initial (when csv-last-sort-columns
+                      (concat csv-last-sort-columns 
+                              (if csv-last-sort-reverse " R" ""))))
+           (input (consult--read
+                   indexed-columns
+                   :prompt "Columns (comma-sep, add R for reverse): "
+                   :initial initial
+                   :history 'csv-sort-history
+                   :sort nil)))
+      (let* ((reverse-p (string-match-p " R$" input))
+             (clean-input (replace-regexp-in-string " R$" "" input))
+             (parts (split-string clean-input "," t " "))
+             (columns (mapconcat
+                       (lambda (part)
+                         (cond
+                          ((string-match "^[0-9]+:" part)
+                           (car (split-string part ":")))
+                          ((string-match "^[0-9]+$" part)
+                           part)
+                          (t part)))
+                       parts ",")))
+        (setq csv-last-sort-columns columns
+              csv-last-sort-reverse reverse-p)
+        (cons columns reverse-p))))
+
+  (defun csv-sort-by-columns ()
+    "Sort CSV buffer by selected columns using qsv."
+    (interactive)
+    (let* ((spec (csv--build-column-spec))
+           (columns (car spec))
+           (reverse-p (cdr spec))
+           (buffer-name (format "*CSV sorted: %s%s*" 
+                                columns 
+                                (if reverse-p " (R)" "")))
+           (cmd (format "qsv sort -s %s%s" 
+                        columns
+                        (if reverse-p " -R" "")))
+           (csv-content (buffer-string)))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert (shell-command-to-string 
+                 (format "echo %s | %s"
+                         (shell-quote-argument csv-content)
+                         cmd)))
+        (csv-mode)
+        (csv-align-mode 1)
+        (goto-char (point-min)))
+      (switch-to-buffer buffer-name)
+      (message "Sorted by: %s%s" columns (if reverse-p " (reversed)" ""))))
+
+  (defun csv-sort-numeric ()
+    "Sort CSV numerically by selected columns."
+    (interactive)
+    (let* ((spec (csv--build-column-spec))
+           (columns (car spec))
+           (reverse-p (cdr spec))
+           (buffer-name (format "*CSV sorted numeric: %s%s*"
+                                columns
+                                (if reverse-p " (R)" "")))
+           (cmd (format "qsv sort -s %s -N%s"
+                        columns
+                        (if reverse-p " -R" "")))
+           (csv-content (buffer-string)))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert (shell-command-to-string
+                 (format "echo %s | %s"
+                         (shell-quote-argument csv-content)
+                         cmd)))
+        (csv-mode)
+        (csv-align-mode 1)
+        (goto-char (point-min)))
+      (switch-to-buffer buffer-name)))
+
+  (defun csv-stats ()
+    "Show statistics for current CSV using qsv stats."
+    (interactive)
+    (let ((buffer-name "*CSV Stats*")
+          (cmd "qsv stats")
+          (csv-content (buffer-string)))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert (shell-command-to-string
+                 (format "echo %s | %s"
+                         (shell-quote-argument csv-content)
+                         cmd)))
+        (csv-mode)
+        (csv-align-mode 1)
+        (goto-char (point-min)))
+      (switch-to-buffer buffer-name)))
+
+  (defun csv-filter (query)
+    "Filter CSV rows using qsv search."
+    (interactive "sFilter query: ")
+    (let ((buffer-name (format "*CSV filtered: %s*" query))
+          (cmd (format "qsv search '%s'" query))
+          (csv-content (buffer-string)))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert (shell-command-to-string
+                 (format "echo %s | %s"
+                         (shell-quote-argument csv-content)
+                         cmd)))
+        (csv-mode)
+        (csv-align-mode 1)
+        (goto-char (point-min)))
+      (switch-to-buffer buffer-name)))
+
+  (defun csv-select-columns ()
+    "Select specific columns using qsv select."
+    (interactive)
+    (let* ((column-names (csv--get-column-names))
+           (selected (completing-read-multiple
+                      "Select columns: "
+                      column-names))
+           (columns (mapconcat 'identity selected ","))
+           (buffer-name (format "*CSV columns: %s*" columns))
+           (cmd (format "qsv select %s" columns))
+           (csv-content (buffer-string)))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert (shell-command-to-string
+                 (format "echo %s | %s"
+                         (shell-quote-argument csv-content)
+                         cmd)))
+        (csv-mode)
+        (csv-align-mode 1)
+        (goto-char (point-min)))
+      (switch-to-buffer buffer-name)))
+
+  (defun csv-frequency (column)
+    "Show frequency table for a column."
+    (interactive
+     (list (completing-read "Column: " (csv--get-column-names))))
+    (let ((buffer-name (format "*CSV frequency: %s*" column))
+          (cmd (format "qsv frequency -s %s -l 0" column))
+          (csv-content (buffer-string)))
+      (with-current-buffer (get-buffer-create buffer-name)
+        (erase-buffer)
+        (insert (shell-command-to-string
+                 (format "echo %s | %s"
+                         (shell-quote-argument csv-content)
+                         cmd)))
+        (csv-mode)
+        (csv-align-mode 1)
+        (goto-char (point-min)))
+      (switch-to-buffer buffer-name)))
+
+  ;; Keybindings
+  (define-key csv-mode-map (kbd "C-c s") 'csv-sort-by-columns)
+  (define-key csv-mode-map (kbd "C-c n") 'csv-sort-numeric)
+  (define-key csv-mode-map (kbd "C-c t") 'csv-stats)
+  (define-key csv-mode-map (kbd "C-c f") 'csv-filter)
+  (define-key csv-mode-map (kbd "C-c c") 'csv-select-columns)
+  (define-key csv-mode-map (kbd "C-c q") 'csv-frequency)
+
+  (provide 'csv)
+  )
+#+end_src
+
+* Window split org mode hydra
+
+#+begin_src elisp
+(defhydra my/simple-open-link-hydra (:color blue :hint nil :foreign-keys-run t)
+  "
+
+   Open Link At Point
+
+"
+  ("s" org-open-at-point "Same Window")
+  ("v" (lambda () (interactive) (+evil/window-vsplit-and-follow) (org-open-at-point)) "Vertical Split")
+  ("h" (lambda () (interactive) (+evil/window-split-and-follow) (org-open-at-point)) "Horizontal Split")
+  ("q" nil "Quit"))
+#+end_src
+
+* Copilot
+
+#+begin_src elisp
+;; accept completion from copilot and fallback to company
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
+         ("C-<tab>" . 'copilot-accept-completion-by-word)
+         :map copilot-completion-map
+         ("<tab>" . 'copilot-accept-completion)
+         ("<right>". 'copilot-accept-completion)
+         ("C-f". 'copilot-accept-completion)
+         ("M-f". 'copilot-accept-completion-by-word)
+         ("C-e". 'copilot-accept-completion-by-line)
+         ("<end>". 'copilot-accept-completion-by-line)
+         ("TAB" . 'copilot-accept-completion))
+  :config
+  (advice-add #'indent-for-tab-command :before #'copilot-complete)
+  )
+
+#+end_src
+
+
+** For copilot disable smartparens
+
+#+begin_src elisp
+(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
+;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
+#+end_src
+
+* Gptel prompts
+
+#+begin_src elisp
+(use-package gptel-prompts
+  :after (gptel)
+  :demand t
+  :config
+  (setq gptel-prompts-directory "~/.doom.d/llm-system-prompts")
+  (gptel-prompts-update)
+  ;; Ensure prompts are updated if prompt files change
+  (gptel-prompts-add-update-watchers))
+#+end_src
+
+* Eat semi char mode paste override from evil paste after to eat-yank
+
+#+begin_src elisp
+(with-eval-after-load 'eat
+  (define-key eat-mode-map (kbd "s-p") #'eat-yank)
+  (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank)
+  )
+#+end_src
+
+* Claude Code
+
+#+begin_src elisp
+(use-package! claude-code
+  :config
+  (defun my-claude-notify (title message)
+    "Display a macOS notification with sound."
+    (call-process "osascript" nil nil nil
+                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
+                                 message title)))
+
+  (setq claude-code-notification-function #'my-claude-notify)
+  (setq claude-code-startup-delay 0.2)
+  (add-hook 'claude-code-start-hook
+          (lambda ()
+            ;; Reduce line spacing to fix vertical bar gaps
+            (setq-local line-spacing 0.1)))
+  )
+#+end_src
+* Claude Code Ide
+
+#+begin_src emacs-lisp
+(use-package claude-code-ide
+  :config
+  ;; (setq claude-code-ide-terminal-backend 'eat)
+  (claude-code-ide-emacs-tools-setup)
+  ;; (define-key vterm-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
+  (define-key prog-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
+  (setq claude-code-ide-use-ide-diff nil)
+  )
+#+end_src
+* Claude code preventing flickers
+
+#+begin_src elisp
+(defun diego--vterm-font-setup ()
+  "Configure font settings specifically for vterm buffers, workaround claude-code."
+
+  ;; Apply ASCII replacements for vterm specifically
+  (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
+    (dolist (pair
+             '((#x273B . ?*) ; ✻ TEARDROP-SPOKED ASTERISK
+               (#x273D . ?*) ; ✽ HEAVY TEARDROP-SPOKED ASTERISK
+               (#x2722 . ?+) ; ✢ FOUR TEARDROP-SPOKED ASTERISK
+               (#x2736 . ?+) ; ✶ SIX-POINTED BLACK STAR
+               (#x2733 . ?*) ; ✳ EIGHT SPOKED ASTERISK
+               ))
+      (aset tbl (car pair) (vector (cdr pair))))))
+
+(add-hook 'vterm-mode-hook #'diego--vterm-font-setup)
+
+(defvar sm-subsitutions
+  '((?⏺ . ?\-)
+    (?· . ?.)
+    (?✢ . ?+)
+    (?✳ . ?*)
+    (?∗ . ?*)
+    (?✻ . ?*)
+    (?✽ . ?*)
+    (?╭ . ?+)
+    (?╮ . ?+)
+    (?╰ . ?+)
+    (?╯ . ?+)
+    (?⎿ . ?|)
+    (?│ . ?|)
+    (?🤖 . ?*)))
+
+(defun sm-replace-problem-chars (args)
+    (let ((terminal (nth 0 args))
+          (output (nth 1 args)))
+      (dolist (sub sm-subsitutions)
+        (setq output (subst-char-in-string (car sub) (cdr sub) output)))
+      (list terminal output)))
+
+
+(advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
+
+
+#+end_src
+
+* Font fallback for mac taken from claudemacs (maybe helps claude code )
+
+#+begin_src elisp
+(defun my/setup-custom-font-fallbacks-mac ()
+  (interactive)
+  "Configure font fallbacks on mac for symbols and emojis.
+  This will need to be called every time you change your font size,
+  to load the new symbol and emoji fonts."
+
+  (setq use-default-font-for-symbols nil)
+
+  ;; --- Configure for 'symbol' script ---
+  ;; We add fonts one by one. Since we use 'prepend',
+  ;; the last one added here will be the first one Emacs tries.
+  ;; So, list them in reverse order of your preference.
+
+  ;; Least preferred among this list for symbols (will be at the end of our preferred list)
+  (set-fontset-font t 'symbol "Hiragino Sans" nil 'prepend)
+  (set-fontset-font t 'symbol "STIX Two Math" nil 'prepend)
+  (set-fontset-font t 'symbol "Zapf Dingbats" nil 'prepend)
+  (set-fontset-font t 'symbol "Monaco" nil 'prepend)
+  (set-fontset-font t 'symbol "Menlo" nil 'prepend)
+  ;; Most preferred for symbols -- use your main font here
+  (set-fontset-font t 'symbol "JetBrainsMono Nerd Font Mono" nil 'prepend)
+
+
+  ;; --- Configure for 'emoji' script ---
+  ;; Add fonts one by one, in reverse order of preference.
+
+  ;; Least preferred among this list for emojis
+  (set-fontset-font t 'emoji "Hiragino Sans" nil 'prepend)
+  (set-fontset-font t 'emoji "STIX Two Math" nil 'prepend)
+  (set-fontset-font t 'emoji "Zapf Dingbats" nil 'prepend)
+  (set-fontset-font t 'emoji "Monaco" nil 'prepend)
+  (set-fontset-font t 'emoji "Menlo" nil 'prepend)
+  ;; (set-fontset-font t 'emoji "Noto Emoji" nil 'prepend) ;; If you install Noto Emoji
+  ;; Most preferred for emojis -- use your main font here
+  )
+
+;; Then, add the fonts after your setup is complete:
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (progn
+              (when (string-equal system-type "darwin")
+                (my/setup-custom-font-fallbacks-mac)))))
+
 #+end_src
 
 * Deprecated

@@ -733,7 +733,7 @@ SCHEDULED: %t
 ;;;###autoload
 (after! org-agenda (setq org-agenda-custom-commands
                          '(
-                           ("k" "Today\'s View"
+                           ("k" "Today's View"
                             ((my-agenda-motto "" nil)
                              (agenda ""
                                      ((org-agenda-overriding-header "Overall Agenda View")
@@ -778,28 +778,28 @@ SCHEDULED: %t
                                          (org-agenda-show-log t)))
                              (todo ""
                                    ((org-agenda-files
-                                     '(org-inbox-file))
+                                     (list org-inbox-file))
                                     (org-agenda-overriding-header " Process and refile inbox\n ===================================================================\n")
                                     ))
                              (todo "TOREAD"
                                    ((org-agenda-files
-                                     '(org-bookslog-file))
+                                     (list org-bookslog-file))
                                     (org-agenda-overriding-header " Do you want to read some new book\n ===========================================================\n")
                                     ))
                              (todo "WAITING"
                                    ((org-agenda-files
-                                     '(org-tasks-file))
+                                     (list org-tasks-file))
                                     (org-agenda-overriding-header " Waiting for something else\n ===================================================================\n")
                                     ))
                              (todo ""
                                    ((org-agenda-files
-                                     '(org-projects-file))
+                                     (list org-projects-file))
                                     (org-agenda-overriding-header " Projects Work for Next Week\n ===================================================================\n")
                                     ))
                              (todo ""
                                    ((org-agenda-overriding-header " Process Someday\n ===========================================================\n")
                                     (org-agenda-files
-                                     '(org-someday-file))
+                                     (list org-someday-file))
                                     ))
                              )
                             nil)
@@ -811,32 +811,21 @@ SCHEDULED: %t
                                         ; Read when bored
                              (tags-todo "+read"
                                         ((org-agenda-files
-                                          '(org-bookslog-file))
+                                          (list org-bookslog-file))
                                          (org-agenda-overriding-header " Why not read something rather than waste time?"))
                                         )
                                         ; Get entertained
                              (tags-todo "+entertaintment"
                                         ((org-agenda-files
-                                          '(org-inbox-file))
+                                          (list org-inbox-file))
                                          (org-agenda-overriding-header " Enjoy some time doing whatever"))
                                         )
                              ))
-                           ;; ("w" "Office agenda"
-                           ;;              ; Priority A
-                           ;;  ((tags-todo "PRIORITY=\"A\"&+office"
-                           ;;              ((org-agenda-overriding-header "Priority A")))
-                           ;;              ; Due soon
-                           ;;   (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&+office"
-                           ;;              ((org-agenda-overriding-header "Due soon")))
-                           ;;   ))
-                           ;; ("l" "Home agenda"
-                           ;;              ; Priority A
-                           ;;  ((tags-todo "PRIORITY=\"A\"&+home"
-                           ;;              ((org-agenda-overriding-header "Priority A")))
-                           ;;              ; Due soon
-                           ;;   (tags-todo "-PRIORITY=\"A\"&DEADLINE<=\"<+7d>\"&+home"
-                           ;;              ((org-agenda-overriding-header "Due soon")))
-                           ;;   ))
+                           ("z" "Outdoors"
+                                        ; Priority A
+                            ((tags-todo "+outdoor"
+                                        ((org-agenda-overriding-header "Outdoor Tasks to be done")))
+                             ))
                            )))
 
 (after! org
@@ -989,7 +978,7 @@ SCHEDULED: %t
 (after! org
   (setq org-roam-dailies-directory "daily/")
 
-  (org-roam-setup)
+  ;; (org-roam-setup)
 
   ;; Remove org-roam side buffer on phones ONLY FOR PHONES
   (remove-hook 'org-roam-find-file-hook '+org-roam-open-with-buffer-maybe-h)
@@ -1895,7 +1884,7 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
                 final-tasks)))
         (when final-filtered
           (rts--display-selected-item
-           (rts--select-by-probability final-filtered 'tasks)))))))
+           (rts--select-by-probability final-filtered 'tasks) 'tasks))))))
 
 ;; Leisure selectors
 (defun random-book-select ()
@@ -2047,6 +2036,820 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
    ((eq selector-type 'lazy-low-effort) (list "Lazy Task" "😴" "teal"))
    (t (list "Activity" "📝" "gray"))))
 
+;;; ===================================================================
+;;; GTD System Enforcement & Cleanup
+;;; ===================================================================
+
+;;; Configuration Variables
+(defvar rts-gtd-priority-limits
+  '(("B" . 2) ("C" . 4) ("D" . 8) ("E" . 8))
+  "Priority limits for GTD cleanup enforcement.")
+
+(defvar rts-gtd-timeout-rules
+  '(("NEXT" . 2) ("A" . 2) ("B" . 2) ("C" . 4) ("D" . 7))
+  "Days before status/priority times out.")
+
+(defvar rts-gtd-max-next-tasks 5
+  "Maximum number of NEXT tasks allowed.")
+
+(defvar org-tasks-file nil
+  "Path to main tasks org file.")
+
+(defvar org-projects-file nil
+  "Path to projects org file.")
+
+(defvar org-recurring-file nil
+  "Path to recurring/habits org file.")
+
+;;; GTD Helper Functions
+
+(defun rts--gtd-get-activated-date (task)
+  "Parse :ACTIVATED: property from TASK element."
+  (let ((activated (org-element-property :ACTIVATED task)))
+    (when activated
+      (org-time-string-to-time activated))))
+
+(defun rts--gtd-days-since-activation (task)
+  "Calculate days since TASK was activated."
+  (let ((activated-time (rts--gtd-get-activated-date task)))
+    (when activated-time
+      (/ (float-time (time-subtract (current-time) activated-time)) 86400))))
+
+(defun rts--gtd-is-habit-extended (task)
+  "Extended habit check: style property OR in recurring file."
+  (or (rts--is-habit-p task)
+      (let ((marker (org-element-property :org-marker task)))
+        (when marker
+          (string= (buffer-file-name (marker-buffer marker)) org-recurring-file)))))
+
+(defun rts--gtd-has-clock-time (task)
+  "Check if TASK has any clocked time in history."
+  (let ((marker (org-element-property :org-marker task)))
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          (let ((clock-sum (org-clock-sum-current-item)))
+            (> clock-sum 0)))))))
+
+(defun rts--gtd-get-priority-change-date (task priority)
+  "Get date when TASK was changed to PRIORITY from LOGBOOK."
+  (let ((marker (org-element-property :org-marker task)))
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          (when (re-search-forward ":LOGBOOK:" (org-end-of-subtree t t) t)
+            (let ((logbook-end (save-excursion
+                                 (re-search-forward ":END:" nil t))))
+              (when logbook-end
+                (while (re-search-forward (format "State \".*\" from \".*\" \\[\\([^]]+\\)\\]") logbook-end t)
+                  (let ((timestamp-str (match-string 1)))
+                    (when timestamp-str
+                      (condition-case nil
+                          (org-time-string-to-time timestamp-str)
+                        (error nil)))))))))))))
+
+(defun rts--gtd-days-since-priority-change (task priority)
+  "Calculate days since TASK priority was set to PRIORITY."
+  (let ((change-time (rts--gtd-get-priority-change-date task priority)))
+    (when change-time
+      (/ (float-time (time-subtract (current-time) change-time)) 86400))))
+
+;;; Task Collection
+
+(defun rts--gtd-get-all-tasks ()
+  "Get all active TODO tasks from tasks and projects files, excluding habits and dormant tasks."
+  (let ((files (delq nil (list org-tasks-file org-projects-file))))
+    (when files
+      (seq-filter
+       (lambda (task) 
+         (and (not (rts--gtd-is-habit-extended task))
+              (rts--gtd-is-active-task task)))
+       (org-ql-select
+         files
+         '(todo)
+         :action 'element-with-markers
+         :sort '(priority))))))
+
+(defun rts--gtd-is-active-task (task)
+  "Check if TASK is active (scheduled, deadline, or NEXT status)."
+  (let ((todo-keyword (rts--get-task-todo-keyword task))
+        (scheduled (org-element-property :scheduled task))
+        (deadline (org-element-property :deadline task)))
+    (or (string= todo-keyword "NEXT")
+        scheduled
+        deadline)))
+
+;;; Violation Analysis
+
+(defun rts--gtd-analyze-violations (tasks)
+  "Analyze TASKS for GTD rule violations. Returns violation data structure."
+  (let ((priority-counts (make-hash-table :test 'equal))
+        (next-violations nil)
+        (priority-violations nil)
+        (next-tasks nil))
+    
+    ;; Count priorities and collect violations
+    (dolist (task tasks)
+      (let* ((priority (rts--get-task-priority task))
+             (todo-keyword (rts--get-task-todo-keyword task))
+             (days-next (when (string= todo-keyword "NEXT")
+                          (rts--gtd-days-since-activation task)))
+             (days-priority (when priority
+                              (rts--gtd-days-since-priority-change task priority))))
+        
+        ;; Count priorities
+        (when priority
+          (puthash priority (1+ (gethash priority priority-counts 0)) priority-counts))
+        
+        ;; Collect NEXT tasks
+        (when (string= todo-keyword "NEXT")
+          (push task next-tasks))
+        
+        ;; Check NEXT timeout violations
+        (when (and days-next (> days-next 2))
+          (push (list :task task :type "NEXT-timeout" :days days-next) next-violations))
+        
+        ;; Check priority timeout violations
+        (when (and priority days-priority)
+          (let ((timeout-days (cdr (assoc priority rts-gtd-timeout-rules))))
+            (when (and timeout-days (> days-priority timeout-days))
+              (push (list :task task :type "priority-timeout" :priority priority :days days-priority) 
+                    priority-violations))))))
+    
+    ;; Check priority count violations
+    (let ((priority-excess nil))
+      (maphash (lambda (priority count)
+                 (let ((limit (cdr (assoc priority rts-gtd-priority-limits))))
+                   (when (and limit (> count limit))
+                     (push (list :priority priority :current count :limit limit :excess (- count limit))
+                           priority-excess))))
+               priority-counts)
+      
+      ;; Check NEXT count violation
+      (let ((next-excess (when (> (length next-tasks) rts-gtd-max-next-tasks)
+                           (- (length next-tasks) rts-gtd-max-next-tasks))))
+        
+        (list :priority-counts priority-counts
+              :priority-excess priority-excess
+              :next-violations next-violations
+              :priority-violations priority-violations
+              :next-tasks next-tasks
+              :next-excess next-excess)))))
+
+;;; Smart Demotion Logic
+
+(defun rts--gtd-find-demotion-targets (tasks reason)
+  "Find best demotion targets from TASKS based on REASON using smart criteria."
+  (let ((task-scores nil))
+    (dolist (task tasks)
+      (let* ((marker (org-element-property :org-marker task))
+             (file-path (when marker (buffer-file-name (marker-buffer marker))))
+             (is-tasks-file (and file-path (string= file-path org-tasks-file)))
+             (has-clock (rts--gtd-has-clock-time task))
+             (activation-days (or (rts--gtd-days-since-activation task) 0))
+             (score 0))
+        
+        ;; Scoring criteria (higher score = better demotion target)
+        (when is-tasks-file (setq score (+ score 100)))  ; Prefer tasks file
+        (unless has-clock (setq score (+ score 50)))     ; Prefer no clock time
+        (setq score (+ score activation-days))           ; Prefer more recently activated
+        
+        (push (cons task score) task-scores)))
+    
+    ;; Sort by score descending and return tasks
+    (mapcar #'car (sort task-scores (lambda (a b) (> (cdr a) (cdr b)))))))
+
+(defun rts--gtd-find-available-priority (current-priority violations)
+  "Find next available lower priority slot given current VIOLATIONS."
+  (let ((priority-counts (plist-get violations :priority-counts))
+        (priority-order '("D" "E" "F")))
+    (catch 'found
+      (dolist (priority priority-order)
+        (let ((count (gethash priority priority-counts 0))
+              (limit (cdr (assoc priority rts-gtd-priority-limits))))
+          (when (or (not limit) (< count limit))
+            (throw 'found priority))))
+      "F")))  ; Fallback to F if all else fails
+
+;;; Demotion Execution
+
+(defun rts--gtd-demote-task (task new-priority reason)
+  "Demote TASK to NEW-PRIORITY with REASON logged."
+  (let* ((marker (org-element-property :org-marker task))
+         (heading (org-element-property :raw-value task))
+         (old-priority (rts--get-task-priority task)))
+    
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          
+          ;; Change priority
+          (org-priority (string-to-char new-priority))
+          
+          ;; Add LOGBOOK entry with reason
+          (rts--add-state-change-logbook-entry 
+           (format "Priority %s" (or old-priority "None"))
+           (format "Priority %s" new-priority)
+           reason)
+          
+          (rts--debug-log "GTD CLEANUP: Demoted '%s' from %s to %s (%s)" 
+                          heading (or old-priority "None") new-priority reason))))))
+
+(defun rts--gtd-demote-next-to-todo (task reason)
+  "Demote TASK from NEXT to TODO with REASON logged."
+  (let* ((marker (org-element-property :org-marker task))
+         (heading (org-element-property :raw-value task)))
+    
+    (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          
+          ;; Change status
+          (org-todo "TODO")
+          
+          ;; Add LOGBOOK entry with reason
+          (rts--add-state-change-logbook-entry "NEXT" "TODO" reason)
+          
+          (rts--debug-log "GTD CLEANUP: Demoted '%s' from NEXT to TODO (%s)" 
+                          heading reason))))))
+
+;;; Main Cleanup Functions
+
+(defun rts--gtd-apply-demotions (violations)
+  "Apply demotions based on VIOLATIONS analysis."
+  (let ((changes-made 0))
+    
+    ;; Handle priority count violations
+    (dolist (excess (plist-get violations :priority-excess))
+      (let* ((priority (plist-get excess :priority))
+             (excess-count (plist-get excess :excess))
+             (all-tasks (rts--gtd-get-all-tasks))
+             (priority-tasks (seq-filter 
+                              (lambda (task) 
+                                (string= (rts--get-task-priority task) priority))
+                              all-tasks))
+             (targets (rts--gtd-find-demotion-targets 
+                       priority-tasks 
+                       (format "Priority %s limit exceeded" priority))))
+        
+        (dotimes (i excess-count)
+          (when (nth i targets)
+            (let ((new-priority (rts--gtd-find-available-priority priority violations)))
+              (rts--gtd-demote-task (nth i targets) new-priority 
+                                    (format "Priority %s limit exceeded" 
+                                            priority (+ i 1) excess-count))
+              (setq changes-made (1+ changes-made)))))))
+    
+    ;; Handle NEXT timeout violations
+    (dolist (violation (plist-get violations :next-violations))
+      (let ((task (plist-get violation :task))
+            (days (plist-get violation :days)))
+        (rts--gtd-demote-next-to-todo task 
+                                      (format "NEXT timeout: %d days" (round days)))
+        (setq changes-made (1+ changes-made))))
+    
+    ;; Handle priority timeout violations
+    (dolist (violation (plist-get violations :priority-violations))
+      (let* ((task (plist-get violation :task))
+             (priority (plist-get violation :priority))
+             (days (plist-get violation :days))
+             (new-priority (rts--gtd-find-available-priority priority violations)))
+        (rts--gtd-demote-task task new-priority 
+                              (format "Priority %s timeout: %d days" priority (round days)))
+        (setq changes-made (1+ changes-made))))
+    
+    changes-made))
+
+;;; Main Cleanup Function
+
+(defun cleanup-gtd-system ()
+  "Analyze and cleanup GTD system violations automatically."
+  (interactive)
+  (rts--debug-log "=== GTD SYSTEM CLEANUP STARTED ===")
+  
+  (let* ((tasks (rts--gtd-get-all-tasks))
+         (violations (rts--gtd-analyze-violations tasks))
+         (changes-made (rts--gtd-apply-demotions violations)))
+    
+    ;; Generate summary report
+    (rts--debug-log "=== GTD CLEANUP SUMMARY ===")
+    (rts--debug-log "Total tasks analyzed: %d" (length tasks))
+    (rts--debug-log "Priority violations: %d" (length (plist-get violations :priority-excess)))
+    (rts--debug-log "NEXT timeout violations: %d" (length (plist-get violations :next-violations)))
+    (rts--debug-log "Priority timeout violations: %d" (length (plist-get violations :priority-violations)))
+    (rts--debug-log "Total changes made: %d" changes-made)
+    (rts--debug-log "=== GTD CLEANUP COMPLETED ===")
+    
+    ;; User message
+    (message "GTD Cleanup: %d changes made. See *RTS Debug* buffer for details." changes-made)))
+
+;;; ===================================================================
+;;; Instant Task Creation System - Zero Friction Task Entry
+;;; ===================================================================
+
+(defvar rts-instant-task-last-category nil
+  "Remember the last category used for instant tasks.")
+
+(defvar rts-instant-task-categories
+  '("Hobby" "ToImprove" "ToTheMoon" "EHP" "Entertainment" "Normal")
+  "Available categories for instant tasks.")
+
+(defvar rts-instant-task-common-tags 
+  '("Active" "work" "personal" "code" "meeting" "review" "plan" 
+    "Challenge" "Average" "Easy"
+    "Morning" "Day" "Evening"
+    "Energetic" "ModeratelyLazy" "Lazy")
+  "Common tags to suggest for instant tasks.")
+
+(defun rts--parse-tags-input (input)
+  "Parse space-separated INPUT string into a list of tags."
+  (when (and input (not (string-empty-p input)))
+    (split-string input " " t)))
+
+(defun rts--suggest-time-of-day-tag ()
+  "Suggest time of day tag based on current time."
+  (let ((hour (string-to-number (format-time-string "%H"))))
+    (cond
+     ((<= hour 11) "Morning")
+     ((<= hour 17) "Day")
+     (t "Evening"))))
+
+(defun rts--create-instant-task (title priority effort category tags)
+  "Create a new task in org-tasks-file with given parameters.
+Returns the marker for the newly created task."
+  (with-current-buffer (find-file-noselect org-tasks-file)
+    (save-excursion
+      ;; Go to end of file to append
+      (goto-char (point-max))
+      
+      ;; Make sure we're on a new line
+      (unless (bolp) (insert "\n"))
+      
+      ;; Insert the new task
+      (insert (format "* TODO [#%s] %s" priority title))
+      
+      ;; Add tags if provided
+      (when tags
+        (insert " :" (mapconcat 'identity tags ":") ":"))
+      
+      (insert "\n")
+      
+      ;; Add SCHEDULED for today
+      (insert "SCHEDULED: " (format-time-string "<%Y-%m-%d %a>") "\n")
+      
+      ;; Add properties drawer
+      (insert ":PROPERTIES:\n")
+      (insert ":CREATED:  " (format-time-string "[%Y-%m-%d %a]") "\n")
+      (when effort
+        (insert ":EFFORT:   " effort "\n"))
+      (when category
+        (insert ":CATEGORY: " category "\n"))
+      (insert ":ACTIVATED: " (format-time-string "[%Y-%m-%d]") "\n")
+      (insert ":END:\n\n")
+      
+      ;; Return marker at the task heading
+      (forward-line -2)
+      (org-back-to-heading t)
+      (copy-marker (point)))))
+
+(defun consult-activate-instant-task ()
+  "Create and immediately activate a new task in org-tasks-file.
+Prompts for title, priority, effort, category, and tags.
+Schedules for today, sets to NEXT, and clocks in immediately."
+  (interactive)
+  (let* ((title (read-string "Task: "))
+         (priority (consult--read '("A" "B" "C" "D" "E" "F")
+                                  :prompt "Priority: "
+                                  :default "C"))
+         (effort (read-string "Effort (e.g., 2:00): " "1:00"))
+         (category (consult--read rts-instant-task-categories
+                                  :prompt "Category: "
+                                  :default (or rts-instant-task-last-category 
+                                               (car rts-instant-task-categories))))
+         (time-tag (rts--suggest-time-of-day-tag))
+         (tags-input (completing-read-multiple 
+                      "Tags (comma-separated, TAB to complete): "
+                      rts-instant-task-common-tags))
+         (all-tags (append tags-input (list time-tag "Active"))))
+    
+    ;; Remember category for next time
+    (setq rts-instant-task-last-category category)
+    
+    ;; Create the task
+    (let ((task-marker (rts--create-instant-task title priority effort category all-tags)))
+      
+      (when task-marker
+        ;; Change to NEXT status
+        (with-current-buffer (marker-buffer task-marker)
+          (save-excursion
+            (goto-char task-marker)
+            (org-todo "NEXT")
+            
+            ;; Add state change to LOGBOOK
+            (rts--add-state-change-logbook-entry "TODO" "NEXT" "Instant task creation")
+            
+            ;; Clock in
+            (org-clock-in)
+            
+            (rts--debug-log "Created instant task: %s [#%s]" title priority)))
+        
+        ;; Show success posframe
+        (rts--show-unified-posframe
+         title
+         priority
+         all-tags
+         "NEXT"
+         'tasks)
+        
+        (message "Task created and clocked in: %s" title)))))
+
+;;; ===================================================================
+;;; Project Task Activation System - Ultra Focus Mode
+;;; ===================================================================
+
+(defvar rts-project-task-siblings-limit 5
+  "Number of sibling tasks to show after each NEXT task in projects.")
+
+(defvar rts-project-files (list org-projects-file)
+  "List of org files containing projects.")
+
+(defun rts--get-parent-project-name (marker)
+  "Get the parent project heading name for MARKER if applicable."
+  (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (when (org-up-heading-safe)
+          (org-get-heading t t t t))))))
+
+
+(defun rts--get-project-next-with-siblings ()
+  "Get all NEXT tasks from projects with their following siblings.
+Returns a list of candidates with project context."
+  (let ((candidates nil))
+    (dolist (file rts-project-files)
+      (when (and file (file-exists-p file))
+        (with-current-buffer (find-file-noselect file)
+          (org-element-map (org-element-parse-buffer) 'headline
+            (lambda (element)
+              ;; Check if this is a NEXT task
+              (when (string= (org-element-property :todo-keyword element) "NEXT")
+                (let* ((marker (copy-marker (org-element-property :begin element)))
+                       (project-name (rts--get-parent-project-name marker))
+                       (level (org-element-property :level element)))
+                  
+                  ;; Add the NEXT task itself
+                  (push (list :element (org-element-put-property element :org-marker marker)
+                              :project project-name
+                              :is-next t
+                              :type "NEXT"
+                              :level level)
+                        candidates)
+                  
+                  ;; Collect following siblings
+                  (save-excursion
+                    (goto-char marker)
+                    (let ((sibling-count 0))
+                      (while (and (< sibling-count rts-project-task-siblings-limit)
+                                  (org-forward-heading-same-level 1 t))
+                        (let* ((sibling-el (org-element-at-point))
+                               (sibling-todo (org-element-property :todo-keyword sibling-el))
+                               (sibling-marker (copy-marker (point))))
+                          (when (and sibling-todo
+                                     (not (member sibling-todo '("DONE" "CANCELLED"))))
+                            (push (list :element (org-element-put-property sibling-el :org-marker sibling-marker)
+                                        :project project-name
+                                        :is-next nil
+                                        :type sibling-todo
+                                        :level level)
+                                  candidates)
+                            (setq sibling-count (1+ sibling-count))))))))))))))
+    (nreverse candidates)))
+
+(defun rts--remove-task-constraints (marker)
+  "Remove TRIGGER and BLOCKER properties from task at MARKER."
+  (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (org-back-to-heading t)
+        ;; Remove TRIGGER property
+        (org-delete-property "TRIGGER")
+        ;; Remove BLOCKER property  
+        (org-delete-property "BLOCKER")
+        (rts--debug-log "Removed TRIGGER and BLOCKER constraints from task")))))
+
+(defun rts--ensure-only-last-has-blocker (project-marker)
+  "Ensure only the last TODO task in project has BLOCKER property."
+  (when (and project-marker (markerp project-marker))
+    (with-current-buffer (marker-buffer project-marker)
+      (save-excursion
+        (goto-char project-marker)
+        (org-back-to-heading t)
+        (let ((project-level (org-outline-level))
+              (last-todo-marker nil))
+          
+          ;; Find all TODO tasks in this project
+          (org-map-entries
+           (lambda ()
+             (let ((todo (org-get-todo-state)))
+               (when (and todo (not (member todo '("DONE" "CANCELLED"))))
+                 ;; Remove BLOCKER from all tasks first
+                 (org-delete-property "BLOCKER")
+                 (setq last-todo-marker (point-marker)))))
+           (format "LEVEL=%d" (1+ project-level))
+           'tree)
+          
+          ;; Add BLOCKER only to the last TODO
+          (when last-todo-marker
+            (goto-char last-todo-marker)
+            (org-set-property "BLOCKER" "previous-sibling")
+            (rts--debug-log "Set BLOCKER on last TODO task in project")))))))
+
+(defun rts--get-all-projects ()
+  "Get list of all active projects from project files."
+  (let ((projects nil))
+    (dolist (file rts-project-files)
+      (when (and file (file-exists-p file))
+        (with-current-buffer (find-file-noselect file)
+          (org-element-map (org-element-parse-buffer) 'headline
+            (lambda (element)
+              (when (member "proj" (org-element-property :tags element))
+                (let* ((title (org-element-property :raw-value element))
+                       (marker (copy-marker (org-element-property :begin element))))
+                  (push (cons title marker) projects))))))))
+    (nreverse projects)))
+
+(defun rts--clone-task-structure (template-marker new-title priority)
+  "Clone task structure from TEMPLATE-MARKER with NEW-TITLE and PRIORITY.
+Returns the marker for the newly created task."
+  (when (and template-marker (markerp template-marker))
+    (with-current-buffer (marker-buffer template-marker)
+      (save-excursion
+        (goto-char template-marker)
+        (org-back-to-heading t)
+        (let* ((template-level (org-outline-level))
+               (template-tags (org-get-tags))
+               (template-effort (org-entry-get nil "Effort"))
+               (is-next-task (string= (org-get-todo-state) "NEXT"))
+               (new-heading (format "%s %s"
+                                    (if priority (format "[#%s]" priority) "")
+                                    new-title)))
+          
+          ;; If template is NEXT, insert BEFORE it to avoid trigger chain
+          ;; Otherwise insert after current task
+          (if is-next-task
+              (progn
+                ;; Insert before current NEXT task
+                (unless (bolp) (insert "\n"))
+                (insert (make-string template-level ?*) " TODO " new-heading "\n")
+                (forward-line -1))
+            ;; Insert after current task (original behavior)
+            (org-end-of-subtree t t)
+            (unless (bolp) (insert "\n"))
+            (insert (make-string template-level ?*) " TODO " new-heading "\n")
+            (forward-line -1))
+          
+          (org-back-to-heading t)
+          
+          ;; Set properties from template
+          (when template-effort
+            (org-set-property "Effort" template-effort))
+          
+          ;; Set CREATED date
+          (org-set-property "CREATED" (format-time-string "[%Y-%m-%d]"))
+          
+          ;; Set ACTIVATED date
+          (org-set-property "ACTIVATED" (format-time-string "[%Y-%m-%d]"))
+          
+          ;; Copy tags if any
+          (when template-tags
+            (org-set-tags template-tags))
+          
+          ;; Return marker for new task
+          (copy-marker (point)))))))
+
+(defun rts--format-project-task-candidate (cand)
+  "Format a project task candidate for consult display."
+  (let* ((el (plist-get cand :element))
+         (project (or (plist-get cand :project) "Standalone"))
+         (heading (org-element-property :raw-value el))
+         (priority (rts--get-task-priority el))
+         (priority-str (if priority (format "#%s" priority) ""))
+         (status (plist-get cand :type))
+         (is-next (plist-get cand :is-next))
+         (indent (if is-next "▸ " "  "))
+         (face (if is-next 'font-lock-keyword-face 'default))
+         (display (format "%-25s %s%-5s %-8s %s"
+                          (propertize project 'face 'font-lock-comment-face)
+                          indent
+                          (propertize priority-str 'face 'font-lock-keyword-face)
+                          (propertize status 'face 'font-lock-type-face)
+                          (propertize heading 'face face))))
+    (cons display cand)))
+
+(defun rts--activate-project-task (marker &optional new-title)
+  "Activate task at MARKER by removing constraints, scheduling, and clocking in.
+If NEW-TITLE is provided, update the task title."
+  (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (org-back-to-heading t)
+        
+        ;; Update title if provided
+        (when new-title
+          (let ((current-line (thing-at-point 'line t)))
+            (when (string-match "^\\(\\*+ [A-Z]+ \\(?:\\[#.\\] \\)?\\).*$" current-line)
+              (let ((prefix (match-string 1 current-line)))
+                (beginning-of-line)
+                (delete-region (point) (line-end-position))
+                (insert prefix new-title)))))
+        
+        ;; Remove constraints
+        (rts--remove-task-constraints marker)
+        
+        ;; Set to NEXT status
+        (org-todo "NEXT")
+        
+        ;; Schedule for today with tomorrow deadline
+        (org-schedule nil (format-time-string "<%Y-%m-%d %a>"))
+        (org-deadline nil (format-time-string "<%Y-%m-%d %a>" 
+                                              (time-add (current-time) (* 24 3600))))
+        
+        ;; Add ACTIVATED property
+        (org-set-property "ACTIVATED" (format-time-string "[%Y-%m-%d]"))
+        
+        ;; Add state change to LOGBOOK
+        (rts--add-state-change-logbook-entry "TODO" "NEXT" "Activated via project task selector")
+        
+        ;; Clock in
+        (org-clock-in)
+        
+        (rts--debug-log "Activated project task: %s" 
+                        (or new-title (org-get-heading t t t t)))))))
+
+(defun consult-activate-project-task ()
+  "Select or create a project task, activate it, and start clocking.
+Shows NEXT tasks and their siblings from all projects.
+If input doesn't match, creates new task in selected project."
+  (interactive)
+  (let* ((candidates (rts--get-project-next-with-siblings))
+         (formatted (mapcar #'rts--format-project-task-candidate candidates))
+         (selected-or-input
+          (consult--read formatted
+                         :prompt "Project task (or enter new): "
+                         :sort nil
+                         :require-match nil  ; Allow free input
+                         :category 'project-task
+                         :preview-key "C-."
+                         :state (lambda (action selected)
+                                  (when (and (eq action 'preview) selected)
+                                    (let* ((cand (cdr (assoc selected formatted)))
+                                           (marker (when cand 
+                                                     (org-element-property :org-marker 
+                                                                           (plist-get cand :element)))))
+                                      (when (and marker (markerp marker) 
+                                                 (buffer-live-p (marker-buffer marker)))
+                                        (switch-to-buffer (marker-buffer marker) nil t)
+                                        (goto-char marker)
+                                        (org-show-entry)
+                                        (recenter 0 t))))))))
+    
+    (cond
+     ;; Existing task selected
+     ((assoc selected-or-input formatted)
+      (let* ((selected-cand (cdr (assoc selected-or-input formatted)))
+             (el (plist-get selected-cand :element))
+             (is-next (plist-get selected-cand :is-next))
+             (marker (org-element-property :org-marker el))
+             (project-marker (when marker
+                               (with-current-buffer (marker-buffer marker)
+                                 (save-excursion
+                                   (goto-char marker)
+                                   (org-up-heading-safe)
+                                   (copy-marker (point)))))))
+        
+        (when marker
+          ;; If it's a TODO task (not NEXT), move it before the first NEXT task
+          (unless is-next
+            (with-current-buffer (marker-buffer marker)
+              (save-excursion
+                ;; Find the first NEXT task in this project
+                (goto-char project-marker)
+                (let ((next-marker nil))
+                  (org-map-entries
+                   (lambda ()
+                     (unless next-marker
+                       (when (string= (org-get-todo-state) "NEXT")
+                         (setq next-marker (copy-marker (point))))))
+                   nil
+                   'tree)
+                  
+                  ;; If we found a NEXT task, move our TODO before it
+                  (when next-marker
+                    ;; Get the task content
+                    (goto-char marker)
+                    (org-back-to-heading t)
+                    (let* ((task-start (point))
+                           (task-end (save-excursion (org-end-of-subtree t t) (point)))
+                           (task-content (buffer-substring task-start task-end)))
+                      
+                      ;; Delete from current position
+                      (delete-region task-start task-end)
+                      
+                      ;; Insert before NEXT task
+                      (goto-char next-marker)
+                      (org-back-to-heading t)
+                      (insert task-content)
+                      (unless (bolp) (insert "\n"))
+                      
+                      ;; Update marker to new position
+                      (forward-line -1)
+                      (org-back-to-heading t)
+                      (move-marker marker (point))
+                      
+                      (rts--debug-log "Moved TODO task before NEXT task")))))))
+          
+          ;; Activate the selected task
+          (rts--activate-project-task marker)
+          
+          ;; Ensure only last task has blocker
+          (when project-marker
+            (rts--ensure-only-last-has-blocker project-marker))
+          
+          ;; Show success posframe
+          (rts--show-unified-posframe 
+           (org-element-property :raw-value el)
+           (rts--get-task-priority el)
+           (rts--get-task-tags el)
+           "NEXT"
+           'tasks)
+          
+          (rts--debug-log "Activated existing project task"))))
+     
+     ;; New task input
+     (selected-or-input
+      (let* ((new-task-title selected-or-input)
+             (projects (rts--get-all-projects))
+             (project-names (mapcar #'car projects))
+             (selected-project-name 
+              (consult--read project-names
+                             :prompt "Add to project: "
+                             :require-match t
+                             :sort nil))
+             (project-marker (cdr (assoc selected-project-name projects)))
+             (priority (consult--read '("A" "B" "C" "D" "E" "F")
+                                      :prompt "Priority: "
+                                      :default "C")))
+        
+        (when project-marker
+          ;; Find a NEXT task in this project to use as template
+          (with-current-buffer (marker-buffer project-marker)
+            (save-excursion
+              (goto-char project-marker)
+              (let ((template-marker nil))
+                ;; Find first NEXT or TODO task to clone
+                (org-map-entries
+                 (lambda ()
+                   (unless template-marker
+                     (when (member (org-get-todo-state) '("NEXT" "TODO"))
+                       (setq template-marker (copy-marker (point))))))
+                 nil
+                 'tree)
+                
+                (if template-marker
+                    (let ((new-marker (rts--clone-task-structure 
+                                       template-marker 
+                                       new-task-title 
+                                       priority)))
+                      
+                      ;; Activate the new task
+                      (rts--activate-project-task new-marker)
+                      
+                      ;; Ensure only last task has blocker
+                      (rts--ensure-only-last-has-blocker project-marker)
+                      
+                      ;; Show success posframe
+                      (rts--show-unified-posframe
+                       new-task-title
+                       priority
+                       nil
+                       "NEXT"
+                       'tasks)
+                      
+                      (rts--debug-log "Created and activated new project task: %s" 
+                                      new-task-title))
+                  (message "No template task found in project %s" selected-project-name)))))))))))
+
 ;;; Taken from https://xenodium.com/building-your-own-bookmark-launcher/
 ;;;###autoload
 (defun browser-bookmarks (org-file)
@@ -2071,13 +2874,13 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
 ;;;###autoload
 (defun open-bookmark ()
   (interactive)
-  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "/sdcard/org/notes/bookmarks.org")) "\n") 2)))
+  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
     (browse-url-firefox url)))
 
 (defun open-random-bookmark ()
   "Open a random bookmark from the bookmarks file."
   (interactive)
-  (let* ((bookmarks (browser-bookmarks "/sdcard/org/notes/bookmarks.org"))
+  (let* ((bookmarks (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org"))
          (random-bookmark (when bookmarks
                             (seq-random-elt bookmarks))))
     (if random-bookmark
@@ -2085,7 +2888,6 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
           (browse-url-firefox url))
       (message "No bookmarks found!"))))
 
-;;;###autoload
 (defun send-to-daily-highlights ()
   "Send selected text to highlights section in today's org-roam daily note with linked subheading."
   (interactive)
@@ -2198,55 +3000,6 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
         (message "Added to daily highlights under '%s'" heading-display-name))
     (message "No text selected")))
 
-(with-eval-after-load 'eat
-  (define-key eat-mode-map (kbd "s-p") #'eat-yank)
-  (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank)
-  )
-
-(use-package! claude-code
-  :config
-  (defun my-claude-notify (title message)
-    "Display a macOS notification with sound."
-    (call-process "osascript" nil nil nil
-                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                               message title)))
-
-  (setq claude-code-notification-function #'my-claude-notify)
-  (setq claude-code-startup-delay 0.2)
-  (add-hook 'claude-code-start-hook
-            (lambda ()
-              ;; Reduce line spacing to fix vertical bar gaps
-              (setq-local line-spacing 0.1)))
-  )
-
-(after! eat
-  (defvar sm-subsitutions
-    '((?⏺ . ?\-)
-      (?· . ?.)
-      (?✢ . ?+)
-      (?✳ . ?*)
-      (?∗ . ?*)
-      (?✻ . ?*)
-      (?✽ . ?*)
-      (?╭ . ?+)
-      (?╮ . ?+)
-      (?╰ . ?+)
-      (?╯ . ?+)
-      (?⎿ . ?|)
-      (?│ . ?|)
-      (?🤖 . ?*)))
-
-  (defun sm-replace-problem-chars (args)
-    (let ((terminal (nth 0 args))
-          (output (nth 1 args)))
-      (dolist (sub sm-subsitutions)
-        (setq output (subst-char-in-string (car sub) (cdr sub) output)))
-      (list terminal output)))
-
-
-  (advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars))
-
-;; ORG TIME BUDGETS - YESTERDAY TABLE FOR YESTERDAY DAILY REVIEW
 (defun org-time-budgets-yesterday-range ()
   "Return the time range (tstart tend) for yesterday from midnight to midnight."
   (let* ((high (decode-time (current-time)))
@@ -2312,6 +3065,41 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
                               "  "))))
                org-time-budgets
                "\n")))
+
+
+(use-package! claude-code
+  :config
+  (defun my-claude-notify (title message)
+    "Display a macOS notification with sound."
+    (call-process "osascript" nil nil nil
+                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
+                               message title)))
+
+  (setq claude-code-notification-function #'my-claude-notify)
+  (setq claude-code-startup-delay 0.2)
+  (setq claude-code-terminal-backend 'vterm)
+  (add-hook 'claude-code-start-hook
+            (lambda ()
+              ;; Reduce line spacing to fix vertical bar gaps
+              (setq-local line-spacing 0.1)))
+  )
+
+(defun diego--vterm-font-setup ()
+  "Configure font settings specifically for vterm buffers, workaround claude-code."
+
+  ;; Apply ASCII replacements for vterm specifically
+  (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
+    (dolist (pair
+             '((#x273B . ?*) ; ✻ TEARDROP-SPOKED ASTERISK
+               (#x273D . ?*) ; ✽ HEAVY TEARDROP-SPOKED ASTERISK
+               (#x2722 . ?+) ; ✢ FOUR TEARDROP-SPOKED ASTERISK
+               (#x2736 . ?+) ; ✶ SIX-POINTED BLACK STAR
+               (#x2733 . ?*) ; ✳ EIGHT SPOKED ASTERISK
+               ))
+      (aset tbl (car pair) (vector (cdr pair))))))
+
+(add-hook 'vterm-mode-hook #'diego--vterm-font-setup)
+
 
 ;; ADDITIONAL ANDROID CONFIG
 (set-popup-rule! "^\\*Messages\\*$" :height 1 :quit nil :select t)
