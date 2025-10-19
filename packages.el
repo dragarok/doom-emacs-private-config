@@ -1,6 +1,5 @@
 ;; Must Have packages
 ;; (package! helm-org-rifle)
-(unpin! magit)
 (package! org-ql)
 (package! org-noter-pdftools)
 ;; useful for parsing web pages
@@ -224,9 +223,9 @@
 ;; (package! org-node-fakeroam)
 ;; (package! code-cells)
 (package! hackernews)
-(package! consult-gh)
-(package! consult-gh-embark)
-(package! consult-gh-forge)
+;; (package! consult-gh)
+;; (package! consult-gh-embark)
+;; (package! consult-gh-forge)
 ;; (package! elysium)
 ;; (package! evedel
 ;;   :recipe (:host github :repo "daedsidog/evedel"))
