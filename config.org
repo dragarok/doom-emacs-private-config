@@ -62,12 +62,6 @@
 (pixel-scroll-precision-mode)
 #+end_src
 
-** Saving text to kill ring emacs even when not pasted anything really
-
-#+begin_src elisp
-(setq save-interprogram-paste-before-kill t)
-#+end_src
-
 ** Remove c-i mapped to tab because moving fwd doesn't work when org mode
 For some reason c-i is mapped as tab key so that way org mode will try to use it as org-cycle instead.
 #+begin_src emacs-lisp
@@ -127,14 +121,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ;; ;; add to $DOOMDIR/config.el
 ;; (remove-hook 'org-mode-hook #'+literate-enable-recompile-h)
 #+end_src
-** Trying homebrew git for speedup in emacs
-
-#+begin_src elisp
-(let ((git-path "/applications/xcode.app/contents/developer/usr/bin/git"))
-  (when (file-exists-p git-path)
-    (setq magit-git-executable git-path)))
-#+end_src
-
 * Set Defaults
 
 ** Org Directory and Org Agenda
@@ -236,28 +222,10 @@ Set local leader to comma for ease of use.
 #+begin_src elisp
 (setq doom-scratch-initial-major-mode 'org-mode)
 #+end_src
-* Macos copy paste
+** Bookmarks file 
 
 #+begin_src elisp
-(when IS-MAC
-  (defun copy-from-osx ()
-    "Return macOS clipboard contents as string."
-    (shell-command-to-string "pbpaste"))
-
-  (defun paste-to-osx (text &optional push)
-    "Copy TEXT to macOS clipboard."
-    (let ((process-connection-type nil))
-      (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
-        (process-send-string proc text)
-        (process-send-eof proc))))
-
-  (setq interprogram-cut-function 'paste-to-osx)
-  (setq interprogram-paste-function 'copy-from-osx)
-
-  (advice-add 'yank :after
-              (lambda (&rest _)
-                (when (and interprogram-cut-function (current-kill 0 nil))
-                  (funcall interprogram-cut-function (current-kill 0 nil))))))
+(setq bookmark-default-file "/Users/alokregmi/.doom.d/bookmarks")
 #+end_src
 
 * Popup Rules
@@ -827,7 +795,7 @@ latter - its output."
         org-priority-highest 65
         org-priority-lowest 70
         ;; org-habit-show-habits nil
-        +org-habit-min-width 180
+        ;; +org-habit-min-width 180
         )
 
   ;; (global-org-modern-mode)
@@ -1297,6 +1265,15 @@ See `pdf-links-action-perform' for the interface."
 
     ;; Set the genres as tags on the current heading
     (org-set-tags genres-str)))
+#+end_src
+** Dired test unexpected process state 
+
+#+begin_src elisp
+(after! dired
+  (setq diff-hl-dired-ignored-backends (append
+                                        '((Git) (RCS)))))
+(after! diff-hl
+  (remove-hook 'dired-mode-hook #'+vc-gutter-enable-maybe-h))
 #+end_src
 
 * My own configurations
@@ -2026,8 +2003,13 @@ ease of use.
 
 (define-key global-map (kbd "C-s-n") #'random-task-select)
 (define-key global-map (kbd "C-s-e") #'priority-time-task-select)
+(define-key global-map (kbd "C-s-c") #'consult-clock-nonimportant-task)
 (define-key global-map (kbd "C-s-i") #'send-to-daily-highlights)
-;; (define-key global-map (kbd "C-s-h") #'consult-buffer)
+(define-key global-map (kbd "C-s-i") #'cleanup-gtd-system)
+(define-key global-map (kbd "C-s-o") #'kairoam-toggle)
+(define-key global-map (kbd "C-s-h") #'kairoam-expand-window)
+(define-key global-map (kbd "C-s-d") #'kairoam-fold-window)
+(define-key global-map (kbd "C-s-;") #'kairoam-open-note-to-right)
 (define-key global-map (kbd "C-s-u") #'random-piano-select)
 (define-key global-map (kbd "C-s-y") #'random-blog-study-select)
 (define-key global-map (kbd "C-s-j") #'random-guitar-select)
@@ -2036,8 +2018,8 @@ ease of use.
 (define-key global-map (kbd "C-s-m") #'random-music-select)
 (define-key global-map (kbd "C-s-b") #'random-book-select)
 (define-key global-map (kbd "C-s-?") #'my-org-roam-search)
-
-
+(define-key global-map (kbd "C-s-x") #'consult-activate-project-task)
+(define-key global-map (kbd "C-s-z") #'consult-activate-instant-task)
 
 (map! :leader
       :n ">" #'projectile-find-dir
@@ -2751,8 +2733,7 @@ SCHEDULED: %t
                                       (org-deadline-warning-days 7)
                                       (org-agenda-start-day
                                        (org-today))
-                                      (org-agenda-sorting-strategy '(priority-down effort-down))
-                                      (org-agenda-current-span 'day))
+                                      (org-agenda-sorting-strategy '(priority-down effort-down)))
                                      )
                              (org-time-budgets-in-agenda-maybe)
                              (todo "SUMMARISING"
@@ -2846,6 +2827,7 @@ SCHEDULED: %t
                            ;;   ))
                            )))
 #+END_SRC
+
 *** Color Time Grid based on clocking time
 #+BEGIN_SRC elisp
 (after! org
@@ -3946,6 +3928,28 @@ structure changes."
           (insert data))
         (message "Image saved to %s" filename)))))
 
+(defun image-previous-file-nofreeze (&optional n)
+  "Visit the preceding image in the same directory as the current file.
+With optional argument N, visit the Nth image file preceding the
+current one, in reverse alphabetical order.
+
+This command visits the specified file via `find-alternate-file',
+replacing the current Image mode buffer."
+  (interactive "p" image-mode)
+  (unless (derived-mode-p 'image-mode)
+    (error "The buffer is not in Image mode"))
+  (unless buffer-file-name
+    (error "The current image is not associated with a file"))
+  (let* ((n (or n 1))  ; Default to 1
+         (file buffer-file-name)
+         (dir (file-name-directory file))
+         ;; Get sorted list of files matching image-file-name-regexp
+         (files (sort (directory-files dir t (image-file-name-regexp)) #'string<))
+         (index (cl-position file files :test #'string-equal)))
+    (if (or (null index) (<= index (1- n)))
+        (user-error "No previous image file")
+      (find-alternate-file (nth (- index n) files)))))
+
 (map! :map image-mode-map
       :nvm "q" #'image-kill-buffer
       :nvm "c" #'my/crop-save-tags-rename-and-next
@@ -3954,7 +3958,7 @@ structure changes."
       :nvm "C-j" #'image-next-line
       :nvm "C-k" #'image-previous-line
       :nvm "j" #'image-next-file
-      :nvm "k" #'image-previous-file
+      :nvm "k" #'image-previous-file-nofreeze
       )
 #+end_src
 * Gptel
@@ -4529,35 +4533,36 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 
 #+begin_src emacs-lisp
 
-(defun popup-frame-delete (&rest _)
-  "Kill selected frame if it has parameter `popup-frame'."
-  (when (frame-parameter nil 'popup-frame))
-  (delete-frame))
+;; (defun popup-frame-delete (&rest _)
+;;   "Kill selected frame if it has parameter `popup-frame'."
+;;   (when (frame-parameter nil 'popup-frame))
+;;   (delete-frame))
 
-(defmacro popup-frame-define (command title &optional delete-frame)
-  "Define interactive function to call COMMAND in frame with TITLE."
-  `(defun ,(intern (format "popup-frame-%s" command)) ()
-     (interactive)
-     (let* ((display-buffer-alist '(("")
-                                    (display-buffer-full-frame)))
-            (frame (make-frame
-                    '((title . ,title)
-                      (window-system . ns)
-                      (popup-frame . t)))))
-       (select-frame frame)
-       ;; (switch-to-buffer " popup-frame-hidden-buffer")
-       (condition-case nil
-           (progn
-             (call-interactively ',command)
-             (delete-other-windows))
-         (error (delete-frame frame)))
-       (when ,delete-frame
-         (sit-for 0.2)
-         (delete-frame frame)))))
+;; (defmacro popup-frame-define (command title &optional delete-frame)
+;;   "Define interactive function to call COMMAND in frame with TITLE."
+;;   `(defun ,(intern (format "popup-frame-%s" command)) ()
+;;      (interactive)
+;;      (let* ((display-buffer-alist '(("")
+;;                                     (display-buffer-full-frame)))
+;;             (frame (make-frame
+;;                     '((title . ,title)
+;;                       (window-system . ns)
+;;                       (popup-frame . t)))))
+;;        (select-frame frame)
+;;        ;; (switch-to-buffer " popup-frame-hidden-buffer")
+;;        (condition-case nil
+;;            (progn
+;;              (call-interactively ',command)
+;;              (delete-other-windows))
+;;          (error (delete-frame frame)))
+;;        (when ,delete-frame
+;;          (sit-for 0.2)
+;;          (delete-frame frame)))))
 
 
 (defun my-org-agenda (&optional p)
-  (+workspace/new-named "agenda")
+  (make-frame)
+  (+workspace/new-named "kai-agenda")
   (interactive "P")
   (org-agenda "" "k")
   (org-agenda-redo-all))
@@ -4566,10 +4571,14 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
   (interactive "P")
   (doom/switch-to-scratch-buffer))
 
-(popup-frame-define my-org-agenda "large-popup")
-(popup-frame-define my-scratch "large-popup")
+;; (popup-frame-define my-org-agenda "large-popup")
+;; (popup-frame-define my-scratch "large-popup")
 
 #+end_src
+
+#+RESULTS:
+: my-scratch
+
 * Screenshot Easying
 
 #+begin_src emacs-lisp
@@ -4721,6 +4730,7 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
 ;; (define-key dirvish-mode-map (kbd "Y") #'dired-mark-empty-dirs)
 ;; (define-key dirvish-mode-map (kbd "<C-return>") #'dired-find-file-or-do-async-shell-command)
 (after! dirvish
+  
   (map! (:after dirvish
         :map dirvish-mode-map
         :n "p" #'dirvish-ls-switches-menu
@@ -5039,44 +5049,45 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
       (when (re-search-forward "^\\*+ In Progress" nil t)
         (point-marker)))))
 
-(defun rts--add-state-change-logbook-entry (old-state new-state)
-  "Add a state change entry to the current task's LOGBOOK."
+(defun rts--add-state-change-logbook-entry (old-state new-state &optional reason)
+  "Add a state change entry to the current task's LOGBOOK.
+If REASON is provided, it will be added as an indented line below the state change."
   (let ((timestamp (format-time-string "[%Y-%m-%d %a %H:%M]")))
     (org-back-to-heading t)
-    (forward-line 1)
-
-    ;; Look for existing LOGBOOK drawer
-    (let ((logbook-start nil)
-          (logbook-end nil)
-          (properties-end (save-excursion
-                            (when (looking-at "[ \t]*:PROPERTIES:")
-                              (org-get-property-block)))))
-
-      ;; Skip past PROPERTIES drawer if it exists
-      (when properties-end
-        (goto-char (cdr properties-end))
-        (forward-line 1))
-
-      ;; Look for LOGBOOK drawer
-      (when (looking-at "[ \t]*:LOGBOOK:")
-        (setq logbook-start (point))
-        (setq logbook-end (save-excursion
-                            (re-search-forward "^[ \t]*:END:" nil t)
-                            (point))))
-
-      (if logbook-start
-          ;; LOGBOOK exists, add entry at the beginning
+    (let* ((heading-start (point))
+           (heading-end (save-excursion 
+                          (org-end-of-subtree t t)
+                          (point)))
+           ;; Search for existing LOGBOOK drawer after the heading line
+           (logbook-region (save-excursion
+                             (goto-char heading-start)
+                             (forward-line 1) ; Skip the heading line itself
+                             (when (re-search-forward "^[ \t]*:LOGBOOK:[ \t]*$" heading-end t)
+                               (let ((lb-start (line-beginning-position)))
+                                 (when (re-search-forward "^[ \t]*:END:[ \t]*$" heading-end t)
+                                   (cons lb-start (line-beginning-position))))))))
+      
+      (if logbook-region
+          ;; LOGBOOK exists, add entry after :LOGBOOK: line
           (progn
-            (goto-char logbook-start)
+            (goto-char (car logbook-region))
             (forward-line 1)
-            (insert (format "- State \"%s\" from \"%s\" %s\n" new-state old-state timestamp)))
-        ;; No LOGBOOK, create one
-        (insert ":LOGBOOK:\n")
-        (insert (format "- State \"%s\" from \"%s\" %s\n" new-state old-state timestamp))
-        (insert ":END:\n"))))
-
+            (insert (format "- State \"%s\" from \"%s\" %s \\\\\n" new-state old-state timestamp))
+            (when reason
+              (insert (format "  REASON: %s\n" reason))))
+        ;; No LOGBOOK, create one after metadata
+        (progn
+          (goto-char heading-start)
+          (org-end-of-meta-data)
+          (insert ":LOGBOOK:\n")
+          (insert (format "- State \"%s\" from \"%s\" %s \\\\\n" new-state old-state timestamp))
+          (when reason
+            (insert (format "  REASON: %s\n" reason)))
+          (insert ":END:\n")))))
+  
   (when rts-debug-mode
-    (rts--debug-log "Added LOGBOOK entry: %s -> %s" old-state new-state)))
+    (rts--debug-log "Added LOGBOOK entry: %s -> %s%s" old-state new-state 
+                    (if reason (format " (Reason: %s)" reason) ""))))
 
 (defun rts--refile-to-in-progress (task-marker)
   "Refile task at TASK-MARKER to 'In Progress' heading in same file."
@@ -5243,24 +5254,20 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
         (caar item-points)))))
 
 ;;; Unified Display Functions
-
 (defun rts--get-activity-info (tags selector-type)
   "Get activity information (name, emoji, color) based on tags and selector-type."
   (cond
-   ((eq selector-type 'tasks)
-    (list "Task" "🎯" "gray"))
-   ((eq selector-type 'books)
-    (list "Book" "📚" "blue"))
+   ((eq selector-type 'tasks) (list "Task" "🎯" "gray"))
+   ((eq selector-type 'books) (list "Book" "📚" "blue"))
    ((or (eq selector-type 'guitar) (rts--has-tag-p tags "guitaractive"))
     (list "Guitar" "🎸" "orange"))
    ((or (eq selector-type 'piano) (rts--has-tag-p tags "pianoactive"))
     (list "Piano" "🎹" "purple"))
    ((or (eq selector-type 'study) (rts--has-tag-p tags "studyactive"))
     (list "Study" "📚" "blue"))
-   ((eq selector-type 'music)
-    (list "Music" "🎵" "green"))
-   ((eq selector-type 'leisure)
-    (list "Leisure" "🎯" "gold"))
+   ((eq selector-type 'music) (list "Music" "🎵" "green"))
+   ((eq selector-type 'leisure) (list "Leisure" "🎯" "gold"))
+   ((eq selector-type 'lazy-low-effort) (list "Lazy Task" "😴" "teal"))
    (t (list "Activity" "📝" "gray"))))
 
 (defun rts--show-unified-posframe (heading priority tags status selector-type)
@@ -5415,11 +5422,18 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
                  (lambda (task)
                    (rts--has-tag-p (rts--get-task-tags task) current-time-group))
                  sorted-tasks)))
-          (let ((selected-task (nth (random (length same-time-tasks)) same-time-tasks)))
-            (when rts-debug-mode
-              (rts--debug-log "=== PRIORITY A SELECTION ===")
-              (rts--debug-log "Selected from %d tasks in %s group" (length same-time-tasks) current-time-group))
-            (rts--display-selected-item selected-task 'tasks)))
+          (if same-time-tasks
+              (let ((selected-task (nth (random (length same-time-tasks)) same-time-tasks)))
+                (when rts-debug-mode
+                  (rts--debug-log "=== PRIORITY A SELECTION ===")
+                  (rts--debug-log "Selected from %d tasks in %s group" (length same-time-tasks) current-time-group))
+                (rts--display-selected-item selected-task 'tasks))
+            ;; Fallback to all Priority A tasks if no time-specific matches
+            (let ((selected-task (nth (random (length priority-a-tasks)) priority-a-tasks)))
+              (when rts-debug-mode
+                (rts--debug-log "=== PRIORITY A SELECTION (FALLBACK) ===")
+                (rts--debug-log "No time-specific matches, selected from %d total Priority A tasks" (length priority-a-tasks)))
+              (rts--display-selected-item selected-task 'tasks))))
 
       (let* ((lower-tasks (rts--get-lower-priority-tasks time-filtered-base))
              (time-filtered (rts--filter-by-time-of-day lower-tasks current-time))
@@ -5571,22 +5585,6 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
           (rts--display-selected-item selected-item 'lazy-low-effort))
       (message "No active lazy tasks found with 'Lazy' tag."))))
 
-;;; Modified Display Function for Lazy Low-Effort
-(defun rts--get-activity-info (tags selector-type)
-  "Get activity information (name, emoji, color) based on tags and selector-type."
-  (cond
-   ((eq selector-type 'tasks) (list "Task" "🎯" "gray"))
-   ((eq selector-type 'books) (list "Book" "📚" "blue"))
-   ((or (eq selector-type 'guitar) (rts--has-tag-p tags "guitaractive"))
-    (list "Guitar" "🎸" "orange"))
-   ((or (eq selector-type 'piano) (rts--has-tag-p tags "pianoactive"))
-    (list "Piano" "🎹" "purple"))
-   ((or (eq selector-type 'study) (rts--has-tag-p tags "studyactive"))
-    (list "Study" "📚" "blue"))
-   ((eq selector-type 'music) (list "Music" "🎵" "green"))
-   ((eq selector-type 'leisure) (list "Leisure" "🎯" "gold"))
-   ((eq selector-type 'lazy-low-effort) (list "Lazy Task" "😴" "teal"))
-   (t (list "Activity" "📝" "gray"))))
 #+end_src
 * GTD Cleanup Method
 
@@ -6411,6 +6409,105 @@ If input doesn't match, creates new task in selected project."
                                       new-task-title))
                   (message "No template task found in project %s" selected-project-name)))))))))))
 #+end_src
+* Clock into non-important tasks 
+
+#+begin_src elisp
+;;; ===================================================================
+;;; Quick Clock-in for Mundane/Leisure Tasks
+;;; ===================================================================
+
+(defun consult-clock-nonimportant-task ()
+  "Quick clock into mundane/leisure tasks with smart status prioritization.
+Prioritizes active statuses (READING, STUDYING, PRACTICING) over pending ones."
+  (interactive)
+  (let* ((tasks (org-ql-select
+                  (org-agenda-files)
+                  '(and (not (done))
+                        (or (todo "TOREAD" "READING" "REREADING" "SUMMARIZING")
+                            (todo "TOSTUDY" "STUDYING" "REVISING") 
+                            (todo "TOPRACTICE" "PRACTICING" "REPRACTICING")
+                            (todo "TOWATCH" "WATCHING" "REWATCH")
+                            (todo "TONOTDO")))
+                  :action 'element-with-markers
+                  :sort '(todo priority)))
+         (candidates (mapcar
+                      (lambda (task)
+                        (let* ((heading (org-element-property :raw-value task))
+                               (status (org-element-property :todo-keyword task))
+                               (priority (rts--get-task-priority task))
+                               (tags (rts--get-task-tags task))
+                               (marker (org-element-property :org-marker task))
+                               ;; Status weighting for sorting - active tasks get higher weight
+                               (weight (cond
+                                        ((member status '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
+                                        ((member status '("SUMMARIZING")) 90)
+                                        ((member status '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
+                                        (t 10)))
+                               ;; Format display with status, priority, and heading
+                               (display (format "%-12s | %s | %s"
+                                                (propertize status 'face 
+                                                            (if (> weight 50) 
+                                                                'font-lock-keyword-face
+                                                              'font-lock-comment-face))
+                                                (if priority 
+                                                    (propertize (format "[#%s]" priority) 
+                                                                'face 'font-lock-type-face)
+                                                  "    ")
+                                                heading)))
+                          (cons display marker)))
+                      tasks))
+         ;; Sort candidates by weight (active tasks first)
+         (sorted (sort candidates 
+                       (lambda (a b)
+                         (let* ((status-a (car (split-string (car a) " ")))
+                                (status-b (car (split-string (car b) " ")))
+                                (weight-a (cond
+                                           ((member status-a '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
+                                           ((member status-a '("SUMMARIZING")) 90)
+                                           ((member status-a '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
+                                           (t 10)))
+                                (weight-b (cond
+                                           ((member status-b '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
+                                           ((member status-b '("SUMMARIZING")) 90)
+                                           ((member status-b '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
+                                           (t 10))))
+                           (> weight-a weight-b)))))
+         (selected (when sorted
+                     (consult--read sorted
+                                    :prompt "Clock into mundane/leisure task: "
+                                    :require-match t
+                                    :sort nil
+                                    :category 'mundane-task))))
+    
+    (if selected
+        (let ((marker (cdr (assoc selected sorted))))
+          (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+            (with-current-buffer (marker-buffer marker)
+              (save-excursion
+                (goto-char marker)
+                (org-clock-in)
+                
+                ;; Get task info for display
+                (let* ((task (org-element-at-point))
+                       (heading (org-element-property :raw-value task))
+                       (status (org-element-property :todo-keyword task))
+                       (priority (rts--get-task-priority task))
+                       (tags (rts--get-task-tags task)))
+                  
+                  ;; Show success posframe with appropriate styling
+                  (rts--show-unified-posframe
+                   heading
+                   priority
+                   tags
+                   status
+                   'leisure)
+                  
+                  (when rts-debug-mode
+                    (rts--debug-log "Clocked into mundane task: %s [%s]" heading status))
+                  
+                  (message "Clocked into: %s" heading))))))
+      (message "No mundane/leisure tasks found."))))
+#+end_src
 
 * Random Bookmarks Selection
 
@@ -6959,6 +7056,10 @@ If input doesn't match, creates new task in selected project."
 * Kairoam 
 
 #+begin_src elisp
+(setq window-min-width 3)
+#+end_src
+
+#+begin_src elisp
 ;;; kairoam-notes.el --- Horizontal evergreen notes for org-roam -*- lexical-binding: t; -*-
 
 ;; Author: kairoam (adapted for user)
@@ -6968,20 +7069,26 @@ If input doesn't match, creates new task in selected project."
 ;; Compatible with Doom Emacs (uses core libs only)
 
 ;;; Commentary:
-;; Single-file implementation of an "evergreen" horizontal notes UI:
-;; - opens notes side-by-side
+;; Single-file implementation of an "evergreen" notes UI with mobile/laptop modes:
+;; - Laptop mode: opens notes side-by-side (horizontal splits)
+;; - Mobile mode: opens notes top-to-bottom (vertical splits)
 ;; - inserts new notes at current+1
 ;; - keeps up to `kairoam-max-expanded-windows' expanded (default 3)
 ;; - folds the farthest expanded window when needed
-;; - folded windows show a vertical title overlay and a thin width
+;; - folded windows show title overlay (vertical in laptop, horizontal in mobile)
 ;; - never reuses existing windows (always creates a new split)
 ;;
 ;; Key commands:
-;;  C-c k r      kairoam-open-note-to-right
+;;  C-c k r      kairoam-open-note-to-right (right in laptop, below in mobile)
 ;;  C-c k l      kairoam-open-at-point
 ;;  C-c k f      kairoam-fold-window
 ;;  C-c k e      kairoam-expand-window
 ;;  C-c k d      kairoam-debug
+;;  C-c k t      kairoam-toggle-layout-mode (switch between mobile/laptop)
+;;  C-c k m      kairoam-mobile-mode (set mobile mode)
+;;  C-c k L      kairoam-laptop-mode (set laptop mode)
+;;  C-c k R      kairoam-reset (reset and disable mode, C-u to kill buffers)
+;;  C-c k K      kairoam-kill-all-buffers (reset and kill all tracked buffers)
 
 ;;; Code:
 
@@ -6996,8 +7103,19 @@ If input doesn't match, creates new task in selected project."
   "Kairoam evergreen-style org-roam panes."
   :group 'convenience)
 
+(defcustom kairoam-layout-mode 'laptop
+  "Layout mode: 'laptop for side-by-side (horizontal split), 'mobile for top-bottom (vertical split)."
+  :type '(choice (const :tag "Laptop (side-by-side)" laptop)
+          (const :tag "Mobile (top-bottom)" mobile))
+  :group 'kairoam)
+
 (defcustom kairoam-folded-width 3
-  "Width (columns) for folded windows (thin column)."
+  "Width (columns) for folded windows in laptop mode (thin column)."
+  :type 'integer
+  :group 'kairoam)
+
+(defcustom kairoam-folded-height 2
+  "Height (lines) for folded windows in mobile mode (thin row)."
   :type 'integer
   :group 'kairoam)
 
@@ -7007,7 +7125,17 @@ If input doesn't match, creates new task in selected project."
   :group 'kairoam)
 
 (defcustom kairoam-default-expanded-width 80
-  "Fallback width to use when calculating expanded window sizes."
+  "Fallback width to use when calculating expanded window sizes in laptop mode."
+  :type 'integer
+  :group 'kairoam)
+
+(defcustom kairoam-default-expanded-height 30
+  "Fallback height to use when calculating expanded window sizes in mobile mode."
+  :type 'integer
+  :group 'kairoam)
+
+(defcustom kairoam-max-title-length 80
+  "Maximum length for vertical titles in folded windows. Longer titles will be truncated."
   :type 'integer
   :group 'kairoam)
 
@@ -7032,7 +7160,8 @@ If input doesn't match, creates new task in selected project."
   buffer    ;; buffer shown
   position  ;; integer position in sequence
   state     ;; 'expanded or 'folded
-  overlay)  ;; overlay object if folded
+  overlay   ;; overlay object if folded
+  line-numbers-mode-state) ;; original state of display-line-numbers-mode
 
 (defvar kairoam--registry nil
   "Ordered list (vector-like) of `kairoam-window' structs representing sequence 0..n-1.")
@@ -7063,7 +7192,8 @@ If input doesn't match, creates new task in selected project."
 
 (defun kairoam--register-new (win buf pos)
   "Insert new kairoam-window for WIN and BUF at POS, shifting following entries."
-  (let ((new (make-kairoam-window :window win :buffer buf :position pos :state 'expanded :overlay nil)))
+  (let ((new (make-kairoam-window :window win :buffer buf :position pos :state 'expanded 
+                                  :overlay nil :line-numbers-mode-state nil)))
     (if (>= pos (kairoam--registry-count))
         (setq kairoam--registry (append kairoam--registry (list new)))
       (setq kairoam--registry
@@ -7131,8 +7261,14 @@ If input doesn't match, creates new task in selected project."
                            'face '(:inherit org-level-1 :height 1.1 :weight bold)))
              (string-to-list s) "\n"))
 
+(defun kairoam--horizontalize (s)
+  "Return a styled horizontal title string for mobile mode."
+  (propertize s 'face '(:inherit org-level-1 :height 1.2 :weight bold)))
+
 (defun kairoam--make-title-overlay (buf title)
-  "Create an overlay in BUF that displays TITLE vertically, centered with enhanced styling."
+  "Create an overlay in BUF that displays TITLE.
+In laptop mode: displays vertically centered.
+In mobile mode: displays horizontally centered."
   (with-current-buffer buf
     (save-excursion
       (goto-char (point-min))
@@ -7140,17 +7276,31 @@ If input doesn't match, creates new task in selected project."
       (when (eobp)
         (insert " "))
       (let* ((win (get-buffer-window buf))
-             (h (if win (window-height win) 20))
-             (title-length (length title))
-             (padding-lines (max 0 (/ (- h title-length) 2)))
-             (top-padding (if (> padding-lines 0) 
-                              (make-string padding-lines ?\n) 
-                            ""))
-             (vertical-title (kairoam--verticalize title))
-             (centered-title (concat top-padding vertical-title))
-             (ov (make-overlay (point-min) (point-max))))
-        ;; Cover entire buffer content with styled vertical title
-        (overlay-put ov 'display centered-title)
+             (mobile-mode (eq kairoam-layout-mode 'mobile))
+             ;; Truncate title if too long
+             (truncated-title (if (> (length title) kairoam-max-title-length)
+                                  (concat (substring title 0 (- kairoam-max-title-length 3)) "...")
+                                title))
+             (ov (make-overlay (point-min) (point-max)))
+             display-content)
+        (kairoam--info "Creating overlay for %s in %s mode" title (if mobile-mode "mobile" "laptop"))
+        (if mobile-mode
+            ;; Mobile mode: horizontal title centered on single line
+            (let* ((w (if win (window-width win) 80))
+                   (title-len (length truncated-title))
+                   (padding-spaces (max 0 (/ (- w title-len) 2)))
+                   (left-padding (make-string padding-spaces ?\s))
+                   (horizontal-title (kairoam--horizontalize truncated-title)))
+              ;; Just show title on one line for compact folded view
+              (setq display-content (concat left-padding horizontal-title)))
+          ;; Laptop mode: vertical title centered
+          (let* ((h (if win (window-height win) 20))
+                 (padding-lines (max 1 (/ h 4)))
+                 (top-padding (make-string padding-lines ?\n))
+                 (vertical-title (kairoam--verticalize truncated-title)))
+            (setq display-content (concat top-padding vertical-title))))
+        ;; Cover entire buffer content with styled title
+        (overlay-put ov 'display display-content)
         (overlay-put ov 'kairoam-title t)
         (overlay-put ov 'priority 100) ; Ensure it's on top
         ov))))
@@ -7167,100 +7317,124 @@ If input doesn't match, creates new task in selected project."
       (window-width win)
     (error kairoam-folded-width)))
 
-(defun kairoam--resize-window-to (win desired-cols)
-  "Resize WIN to DESIRED-COLS (total columns) using multiple strategies for robustness."
+(defun kairoam--safe-window-height (win)
+  (condition-case _err
+      (window-height win)
+    (error kairoam-folded-height)))
+
+(defun kairoam--resize-window-to (win desired-size &optional vertical)
+  "Resize WIN to DESIRED-SIZE (columns or lines based on VERTICAL flag).
+  If VERTICAL is non-nil, resize height, otherwise resize width."
   (when (and (windowp win) (window-live-p win))
-    (let* ((cur (kairoam--safe-window-width win))
-           (delta (- desired-cols cur)))
+    (let* ((cur (if vertical 
+                    (kairoam--safe-window-height win)
+                  (kairoam--safe-window-width win)))
+           (delta (- desired-size cur)))
       (when (/= delta 0)
         ;; Try multiple resize strategies in order of preference
         (condition-case err1
-            ;; Strategy 1: Use adjust-window-trailing-edge (more robust for non-selected windows)
-            (adjust-window-trailing-edge win delta t)
+            ;; Strategy 1: Use adjust-window-trailing-edge
+            (adjust-window-trailing-edge win delta (not vertical))
           (error 
-           ;; Strategy 2: Select window first, then resize (mimics Evil's approach)
+           ;; Strategy 2: Select window first, then resize
            (condition-case err2
                (with-selected-window win
-                 (window-resize win delta t))
+                 (window-resize win delta (not vertical)))
              (error 
               ;; Strategy 3: Use shrink/enlarge commands with selected window
               (condition-case err3
                   (with-selected-window win
-                    (if (> delta 0)
-                        (enlarge-window-horizontally delta)
-                      (shrink-window-horizontally (- delta))))
+                    (if vertical
+                        (if (> delta 0)
+                            (enlarge-window delta)
+                          (shrink-window (- delta)))
+                      (if (> delta 0)
+                          (enlarge-window-horizontally delta)
+                        (shrink-window-horizontally (- delta)))))
                 (error
                  ;; Strategy 4: Try with ignore flag to bypass size constraints
                  (condition-case err4
                      (with-selected-window win
-                       (window-resize win delta t t)) ; 4th arg 'ignore' bypasses min size checks
+                       (window-resize win delta (not vertical) t))
                    (error 
                     (kairoam--warn "All resize strategies failed for window %s: %s" 
                                    (prin1-to-string win) 
                                    (error-message-string err4))))))))))))))
 
 (defun kairoam--distribute-sizes ()
-  "Compute and set widths for all tracked windows: expanded windows divide frame width equally,
-folded windows get `kairoam-folded-width'. Keeps order/positions."
+  "Compute and set sizes for all tracked windows based on layout mode.
+In laptop mode: distributes widths horizontally.
+In mobile mode: distributes heights vertically."
   (kairoam--cleanup-dead)
   (let* ((entries kairoam--registry)
          (expanded (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'expanded)) entries))
          (folded (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'folded)) entries))
-         (frame-w (frame-width))
-         (folded-total (* (length folded) kairoam-folded-width))
-         (available (max 1 (- frame-w folded-total)))
+         (mobile-mode (eq kairoam-layout-mode 'mobile))
+         (frame-size (if mobile-mode (frame-height) (frame-width)))
+         (folded-size (if mobile-mode kairoam-folded-height kairoam-folded-width))
+         (folded-total (* (length folded) folded-size))
+         (available (max 1 (- frame-size folded-total)))
          (nexp (max 1 (length expanded)))
-         (per-expanded (max 10 (floor (/ available nexp))))) ;; target width for expanded windows
+         (per-expanded (max 10 (floor (/ available nexp))))) ;; target size for expanded windows
     
-    ;; First pass: Force folded windows to their exact width (must be precise)
+    ;; First pass: Force folded windows to their exact size
     (dolist (s folded)
       (let ((win (kairoam-window-window s)))
         (when (and (windowp win) (window-live-p win))
-          ;; Force exact width for folded windows, try multiple times if needed
-          (let ((attempts 0))
+          (let ((attempts 0)
+                (current-size (if mobile-mode 
+                                  (window-height win)
+                                (window-width win))))
             (while (and (< attempts 3)
-                        (/= (window-width win) kairoam-folded-width))
-              (kairoam--resize-window-to win kairoam-folded-width)
+                        (/= current-size folded-size))
+              (kairoam--resize-window-to win folded-size mobile-mode)
+              (setq current-size (if mobile-mode 
+                                     (window-height win)
+                                   (window-width win)))
               (setq attempts (1+ attempts)))))))
     
     ;; Second pass: Resize expanded windows and ensure equal distribution
-    ;; We process from left to right to accumulate any rounding errors
-    (let ((remaining-width available)
+    (let ((remaining-size available)
           (remaining-windows (length expanded)))
       (dolist (s expanded)
         (let* ((win (kairoam-window-window s))
-               ;; For the last window, use all remaining width to avoid rounding issues
-               (target-width (if (= remaining-windows 1)
-                                 remaining-width
-                               per-expanded)))
+               (target-size (if (= remaining-windows 1)
+                                remaining-size
+                              per-expanded)))
           (when (and (windowp win) (window-live-p win))
-            (kairoam--resize-window-to win target-width)
-            (setq remaining-width (- remaining-width target-width))
+            (kairoam--resize-window-to win target-size mobile-mode)
+            (setq remaining-size (- remaining-size target-size))
             (setq remaining-windows (1- remaining-windows))))))
     
     ;; Third pass: Fine-tune expanded windows to ensure they're actually equal
-    ;; Measure actual widths and redistribute if needed
     (when (> (length expanded) 1)
-      (let* ((actual-widths (mapcar (lambda (s) 
-                                      (window-width (kairoam-window-window s)))
-                                    expanded))
-             (avg-width (/ (apply #'+ actual-widths) (length actual-widths))))
-        ;; If widths vary too much, try to equalize them
-        (when (> (- (apply #'max actual-widths) (apply #'min actual-widths)) 2)
+      (let* ((actual-sizes (mapcar (lambda (s) 
+                                     (let ((w (kairoam-window-window s)))
+                                       (if mobile-mode
+                                           (window-height w)
+                                         (window-width w))))
+                                   expanded))
+             (avg-size (/ (apply #'+ actual-sizes) (length actual-sizes))))
+        ;; If sizes vary too much, try to equalize them
+        (when (> (- (apply #'max actual-sizes) (apply #'min actual-sizes)) 2)
           (dolist (s expanded)
             (let ((win (kairoam-window-window s)))
               (when (and (windowp win) (window-live-p win))
-                (kairoam--resize-window-to win avg-width)))))))
+                (kairoam--resize-window-to win avg-size mobile-mode)))))))
     
-    ;; Final pass: Double-check folded windows stayed at minimum width
+    ;; Final pass: Double-check folded windows stayed at minimum size
     (dolist (s folded)
       (let ((win (kairoam-window-window s)))
-        (when (and (windowp win) (window-live-p win)
-                   (/= (window-width win) kairoam-folded-width))
-          (kairoam--resize-window-to win kairoam-folded-width))))
+        (when (and (windowp win) (window-live-p win))
+          (let ((current-size (if mobile-mode
+                                  (window-height win)
+                                (window-width win))))
+            (when (/= current-size folded-size)
+              (kairoam--resize-window-to win folded-size mobile-mode))))))
     
-    (kairoam--info "Distributed sizes: expanded=%d folded=%d frame=%d per=%d"
-                   (length expanded) (length folded) frame-w per-expanded)))
+    (kairoam--info "Distributed sizes (%s mode): expanded=%d folded=%d frame=%d per=%d"
+                   (if mobile-mode "mobile" "laptop")
+                   (length expanded) (length folded) frame-size per-expanded)))
 
 
 ;;; Folding / expanding
@@ -7273,6 +7447,12 @@ folded windows get `kairoam-folded-width'. Keeps order/positions."
     (unless s (setq s (kairoam--register-new win buf (kairoam--registry-count))))
     ;; set state
     (setf (kairoam-window-state s) 'folded)
+    ;; Save and disable line numbers
+    (with-current-buffer buf
+      (setf (kairoam-window-line-numbers-mode-state s) 
+            (if (bound-and-true-p display-line-numbers-mode) t
+              (if display-line-numbers t nil)))
+      (setq-local display-line-numbers nil))
     ;; overlay
     (when (kairoam-window-overlay s)
       (ignore-errors (delete-overlay (kairoam-window-overlay s))))
@@ -7295,17 +7475,31 @@ folded windows get `kairoam-folded-width'. Keeps order/positions."
 Enforces max-expanded-windows limit by folding farthest windows if needed."
   (interactive)
   (let* ((win (or win (selected-window)))
-         (s (kairoam--find-by-window win)))
+         (s (kairoam--find-by-window win))
+         (buf (window-buffer win)))
     (unless s (user-error "Window not tracked by kairoam"))
+    ;; Mark as expanded
     (setf (kairoam-window-state s) 'expanded)
+    ;; Restore line numbers to their original state
+    (with-current-buffer buf
+      (let ((saved-state (kairoam-window-line-numbers-mode-state s)))
+        (when saved-state
+          (setq-local display-line-numbers (if (eq saved-state t) t nil)))))
+    ;; Remove ALL overlays to ensure buffer content is visible
     (when (kairoam-window-overlay s)
-      (ignore-errors (delete-overlay (kairoam-window-overlay s)))
+      (delete-overlay (kairoam-window-overlay s))
       (setf (kairoam-window-overlay s) nil))
-    (kairoam--info "Expanded window pos=%s title=%s" (kairoam-window-position s) (kairoam--buffer-title (kairoam-window-buffer s)))
+    (with-current-buffer buf
+      (kairoam--remove-title-overlay buf)
+      ;; Force window to show buffer content
+      (set-window-buffer win buf))
+    (kairoam--info "Expanded window pos=%s title=%s" (kairoam-window-position s) (kairoam--buffer-title buf))
     ;; Apply max-expanded rule (this does batch folding without redistribution)
     (kairoam--apply-max-expanded-rule (kairoam-window-position s))
     ;; Single redistribution after all state changes are complete
     (kairoam--distribute-sizes)
+    ;; Select the expanded window
+    (select-window win)
     s))
 
 
@@ -7351,25 +7545,48 @@ Returns t if any windows were folded, nil otherwise."
                            (< (1- position) (kairoam--registry-count)))
                       (kairoam-window-window (nth (1- position) kairoam--registry))
                     (selected-window)))
+         ;; split direction based on layout mode
+         (split-dir (if (eq kairoam-layout-mode 'mobile) 'below 'right))
          new-win)
-    ;; split to the right of ref-win
-    (setq new-win (split-window ref-win nil 'right))
+    (setq new-win (split-window ref-win nil split-dir))
     (with-selected-window new-win
       (switch-to-buffer buf))
     (kairoam--register-new new-win buf position)
     new-win))
 
 (defun kairoam--open-node-with-smart-folding (node pos trigger-pos)
-  "Open NODE at pos and apply smart folding using trigger-pos."
-  (let ((new (kairoam--open-node-at-position node pos)))
-    (kairoam--apply-max-expanded-rule trigger-pos)
-    (kairoam--distribute-sizes)
-    new))
+  "Open NODE at pos and apply smart folding using trigger-pos. 
+If node's buffer is already open in a kairoam window, expand that window instead."
+  (let* ((file (if (fboundp 'org-roam-node-file) 
+                   (org-roam-node-file node)
+                 (error "org-roam node-file accessor missing")))
+         (buf (find-file-noselect file))
+         (existing (kairoam--find-by-buffer buf)))
+    (if existing
+        ;; Buffer already tracked - just expand it and select it
+        (progn
+          (kairoam--info "Buffer %s already open at pos %d, expanding it" 
+                         (buffer-name buf) (kairoam-window-position existing))
+          (let ((win (kairoam-window-window existing)))
+            (when (eq (kairoam-window-state existing) 'folded)
+              (kairoam-expand-window win))
+            (select-window win)
+            win))
+      ;; Not already open - create new window (starts as expanded)
+      (let ((new (kairoam--open-node-at-position node pos)))
+        ;; Apply max-expanded rule BEFORE counting the new window
+        ;; Use the new position as trigger to keep it expanded
+        (kairoam--apply-max-expanded-rule pos)
+        (kairoam--distribute-sizes)
+        ;; Make sure the new window stays expanded and visible
+        (with-selected-window new
+          (kairoam--remove-title-overlay buf))
+        new))))
 
 ;;; Public interactive: open via consult or org-roam
 
 (defun kairoam-open-note-to-right ()
-  "Interactive: open a node to the right of current selected kairoam window."
+  "Interactive: open a node to the right/below current window (based on layout mode)."
   (interactive)
   (kairoam--cleanup-dead)
   (let* ((cur-win (selected-window))
@@ -7390,7 +7607,7 @@ Returns t if any windows were folded, nil otherwise."
         (kairoam--open-node-with-smart-folding node new-pos cur-pos)))))
 
 (defun kairoam-open-note-to-left ()
-  "Open a node to the left of current window (insert at current pos)."
+  "Open a node to the left/above current window (based on layout mode)."
   (interactive)
   (kairoam--cleanup-dead)
   (let* ((cur-win (selected-window))
@@ -7453,6 +7670,20 @@ Returns t if any windows were folded, nil otherwise."
   (message "kairoam: health-check complete"))
 
 
+;;; Advice for seamless integration with Doom's +org/dwim-at-point
+
+(defun kairoam--advice-dwim-at-point (orig-fn &optional arg)
+  "Advice for +org/dwim-at-point to use kairoam for ID links when kairoam-mode is active."
+  (if (and kairoam-mode
+           (let ((ctx (ignore-errors (org-element-context))))
+             (and ctx 
+                  (eq (org-element-type ctx) 'link)
+                  (string= (org-element-property :type ctx) "id"))))
+      ;; We're in kairoam-mode and on an ID link - use kairoam's handler
+      (kairoam-open-at-point)
+    ;; Otherwise use the original function
+    (funcall orig-fn arg)))
+
 ;;; Minor mode & keymap
 
 (defvar kairoam-mode-map
@@ -7462,6 +7693,11 @@ Returns t if any windows were folded, nil otherwise."
     (define-key m (kbd "C-c k f") #'kairoam-fold-window)
     (define-key m (kbd "C-c k e") #'kairoam-expand-window)
     (define-key m (kbd "C-c k d") #'kairoam-debug)
+    (define-key m (kbd "C-c k t") #'kairoam-toggle-layout-mode)
+    (define-key m (kbd "C-c k m") #'kairoam-mobile-mode)
+    (define-key m (kbd "C-c k L") #'kairoam-laptop-mode)
+    (define-key m (kbd "C-c k R") #'kairoam-reset)
+    (define-key m (kbd "C-c k K") #'kairoam-kill-all-buffers)
     m)
   "Keymap for `kairoam-mode'.")
 
@@ -7474,6 +7710,9 @@ Returns t if any windows were folded, nil otherwise."
   (if kairoam-mode
       (progn
         (kairoam--info "kairoam-mode enabled")
+        ;; Install advice for +org/dwim-at-point if it exists
+        (when (fboundp '+org/dwim-at-point)
+          (advice-add '+org/dwim-at-point :around #'kairoam--advice-dwim-at-point))
         ;; auto-track current buffer if it's an org-roam file
         (when (and (buffer-file-name)
                    (bound-and-true-p org-roam-directory)
@@ -7482,22 +7721,182 @@ Returns t if any windows were folded, nil otherwise."
           (kairoam--register-new (selected-window) (current-buffer) 0)
           (kairoam--distribute-sizes)))
     (kairoam--info "kairoam-mode disabled")
-    ;; cleanup overlays and registry
+    ;; Remove advice when disabling mode
+    (when (fboundp '+org/dwim-at-point)
+      (advice-remove '+org/dwim-at-point #'kairoam--advice-dwim-at-point))
+    ;; Restore line numbers and cleanup overlays
     (dolist (s kairoam--registry)
+      ;; Restore line numbers for each buffer
+      (let ((buf (kairoam-window-buffer s))
+            (saved-state (kairoam-window-line-numbers-mode-state s)))
+        (when (and buf (buffer-live-p buf) saved-state)
+          (with-current-buffer buf
+            (setq-local display-line-numbers 
+                        (if (eq saved-state t) t nil)))))
+      ;; Remove overlays
       (when (kairoam-window-overlay s)
         (ignore-errors (delete-overlay (kairoam-window-overlay s)))))
     (kairoam--registry-reset)))
 
-(defun kairoam-reset ()
-  "Reset all note windows to single expanded view."
+(defun kairoam--set-layout-mode (new-mode)
+  "Internal function to set layout mode to NEW-MODE and reconfigure windows."
+  (unless (memq new-mode '(laptop mobile))
+    (error "Invalid layout mode: %s" new-mode))
+  
+  (if (eq kairoam-layout-mode new-mode)
+      (message "Already in %s mode" new-mode)
+    (let ((old-mode kairoam-layout-mode))
+      ;; Set new mode
+      (setq kairoam-layout-mode new-mode)
+      
+      ;; Save window configuration
+      (let ((windows-info (mapcar (lambda (s)
+                                    (cons (kairoam-window-buffer s)
+                                          (kairoam-window-state s)))
+                                  kairoam--registry)))
+        ;; Reset windows
+        (delete-other-windows)
+        
+        ;; Clear registry but keep mode active
+        (kairoam--registry-reset)
+        
+        ;; Recreate windows in new layout
+        (when windows-info
+          (let ((first-buf (caar windows-info))
+                (prev-win nil))
+            ;; Start with first buffer
+            (switch-to-buffer first-buf)
+            (kairoam--register-new (selected-window) first-buf 0)
+            (setq prev-win (selected-window))
+            
+            ;; Add remaining windows - split from the previous window, not selected
+            (cl-loop for (buf . state) in (cdr windows-info)
+                     for pos from 1
+                     do (let ((new-win (split-window prev-win nil 
+                                                     (if (eq kairoam-layout-mode 'mobile) 
+                                                         'below 'right))))
+                          (with-selected-window new-win
+                            (switch-to-buffer buf))
+                          (kairoam--register-new new-win buf pos)
+                          (setq prev-win new-win)
+                          ;; Restore fold state
+                          (when (eq state 'folded)
+                            (kairoam--fold-window-internal new-win)))))
+          
+          ;; Apply sizing - this should properly resize all windows
+          (kairoam--distribute-sizes)))
+      
+      (message "Kairoam layout mode changed from %s to %s" 
+               old-mode kairoam-layout-mode))))
+
+(defun kairoam-toggle-layout-mode ()
+  "Toggle between laptop (side-by-side) and mobile (top-bottom) layout modes."
   (interactive)
-  (delete-other-windows)
-  (org-show-all)
-  (message "Kairoam layout reset."))
+  (kairoam--set-layout-mode (if (eq kairoam-layout-mode 'mobile) 'laptop 'mobile)))
+
+(defun kairoam-mobile-mode ()
+  "Switch to mobile layout mode (top-bottom splits)."
+  (interactive)
+  (kairoam--set-layout-mode 'mobile))
+
+(defun kairoam-laptop-mode ()
+  "Switch to laptop layout mode (side-by-side splits)."
+  (interactive)
+  (kairoam--set-layout-mode 'laptop))
+
+(defun kairoam-auto-detect-mode ()
+  "Auto-detect and set the appropriate layout mode based on frame dimensions."
+  (interactive)
+  (let* ((width (frame-width))
+         (height (frame-height))
+         (aspect-ratio (/ (float width) height))
+         (new-mode (if (< aspect-ratio 1.0) 'mobile 'laptop)))
+    (when (not (eq kairoam-layout-mode new-mode))
+      (kairoam--set-layout-mode new-mode)
+      (message "Auto-detected %s mode (width: %d, height: %d, ratio: %.2f)"
+               new-mode width height aspect-ratio))))
+
+(defun kairoam-reset (&optional kill-buffers)
+  "Reset all note windows to single expanded view and disable kairoam-mode.
+With prefix arg or if KILL-BUFFERS is non-nil, also kill all kairoam-tracked buffers."
+  (interactive "P")
+  ;; Save buffers list before resetting
+  (let ((buffers-to-kill (when kill-buffers
+                           (mapcar #'kairoam-window-buffer kairoam--registry))))
+    ;; Disable mode (this restores line numbers)
+    (kairoam-mode -1)
+    ;; Reset window configuration
+    (delete-other-windows)
+    (when (fboundp 'org-show-all)
+      (ignore-errors (org-show-all)))
+    ;; Kill buffers if requested
+    (when kill-buffers
+      (dolist (buf buffers-to-kill)
+        (when (and buf (buffer-live-p buf))
+          (kill-buffer buf)))
+      (message "Kairoam reset - mode disabled and %d buffers killed" 
+               (length buffers-to-kill)))
+    (unless kill-buffers
+      (message "Kairoam layout reset and mode disabled."))))
+
+(defun kairoam-kill-all-buffers ()
+  "Kill all buffers tracked by kairoam and reset."
+  (interactive)
+  (kairoam-reset t))
+
+(defun kairoam-balance ()
+  "Balance all kairoam windows according to their state (folded/expanded).
+Fixes any window sizing issues and ensures proper distribution."
+  (interactive)
+  (when kairoam-mode
+    ;; Clean up any dead windows first
+    (kairoam--cleanup-dead)
+    
+    ;; Re-apply overlays for folded windows (in case they got messed up)
+    (dolist (s kairoam--registry)
+      (when (eq (kairoam-window-state s) 'folded)
+        (let* ((win (kairoam-window-window s))
+               (buf (kairoam-window-buffer s)))
+          (when (and win (window-live-p win) buf (buffer-live-p buf))
+            ;; Ensure overlay is properly set
+            (when (kairoam-window-overlay s)
+              (ignore-errors (delete-overlay (kairoam-window-overlay s))))
+            (let ((title (kairoam--buffer-title buf)))
+              (setf (kairoam-window-overlay s) (kairoam--make-title-overlay buf title)))))))
+    
+    ;; Force redistribute all window sizes
+    (kairoam--distribute-sizes)
+    
+    ;; Ensure expanded windows are properly shown
+    (dolist (s kairoam--registry)
+      (when (eq (kairoam-window-state s) 'expanded)
+        (let* ((win (kairoam-window-window s))
+               (buf (kairoam-window-buffer s)))
+          (when (and win (window-live-p win) buf (buffer-live-p buf))
+            ;; Force redisplay of buffer content
+            (with-current-buffer buf
+              (kairoam--remove-title-overlay buf))
+            (set-window-buffer win buf)))))
+    
+    (kairoam--info "Balanced %d windows (%d expanded, %d folded)"
+                   (length kairoam--registry)
+                   (length (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'expanded)) 
+                                             kairoam--registry))
+                   (length (cl-remove-if-not (lambda (s) (eq (kairoam-window-state s) 'folded)) 
+                                             kairoam--registry)))
+    (message "Kairoam windows balanced")))
+
+(defun kairoam-toggle ()
+  "Toggle kairoam mode if not active else reset"
+  (interactive)
+  (if (eq kairoam-mode t)
+      (kairoam-reset)
+    (kairoam-mode)))
+
 
 (provide 'kairoam-notes)
-;;; kairoam-notes.el ends here
 #+end_src
+
 * Qsv csv 
 
 #+begin_src elisp
@@ -7688,6 +8087,1416 @@ Returns (columns . reverse-p) where columns is a comma-separated string."
   (provide 'csv)
   )
 #+end_src
+* Booxnoter
+
+#+begin_src elisp
+;;; booxnoter.el --- Convert Boox and e-reader highlights to Org-roam notes -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2024 Your Name
+
+;; Author: Your Name
+;; Keywords: org, notes, books, highlights
+;; Version: 0.1.0
+;; Package-Requires: ((emacs "27.1") (org-roam "2.0.0") (s "1.12.0") (dash "2.19.0") (f "0.20.0"))
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;;; Commentary:
+
+;; This package provides a modular system for processing e-reader highlights
+;; into organized Org-roam notes.  Currently supports Boox note format with
+;; planned support for KOReader and other formats.
+;;
+;; Features:
+;; - Automatic book metadata extraction
+;; - Chapter-aware quote organization
+;; - Duplicate detection
+;; - Smart file management
+;; - Extensible parser architecture
+
+;;; Code:
+
+(require 'org-roam)
+(require 's)
+(require 'dash)
+(require 'f)
+(require 'cl-lib)
+
+;;; Customization
+
+(defgroup booxnoter nil
+  "Process e-reader highlights into Org-roam notes."
+  :group 'org
+  :prefix "booxnoter-")
+
+(defcustom booxnoter-pdf-destination-dir
+  (expand-file-name "~/Nextcloud/org/handwritten_notes/boox_notes")
+  "Directory where processed PDF files will be stored."
+  :type 'directory
+  :group 'booxnoter)
+
+(defcustom booxnoter-processed-subdir "done"
+  "Subdirectory name for processed highlight files."
+  :type 'string
+  :group 'booxnoter)
+
+(defcustom booxnoter-default-filetags '("bookreview")
+  "Default filetags to add to book review notes."
+  :type '(repeat string)
+  :group 'booxnoter)
+
+;;; Data Structures
+
+(cl-defstruct booxnoter-book
+  "Structure representing a book with its metadata."
+  title
+  author
+  year
+  publisher
+  raw-title)
+
+(cl-defstruct booxnoter-quote
+  "Structure representing a single highlight/quote."
+  text
+  page
+  timestamp
+  chapter
+  source-file)
+
+(cl-defstruct booxnoter-highlight-file
+  "Structure representing a parsed highlight file."
+  filepath
+  book
+  quotes
+  highlight-number)
+
+;;; Parser Architecture - Base Classes
+
+(defclass booxnoter-parser ()
+  ((name :initarg :name
+         :type string
+         :documentation "Name of the parser")
+   (patterns :initarg :patterns
+             :type list
+             :documentation "Regex patterns for parsing"))
+  "Base class for highlight file parsers.")
+
+(cl-defgeneric booxnoter-parser-can-parse (parser filepath)
+  "Return non-nil if PARSER can parse FILEPATH.")
+
+(cl-defgeneric booxnoter-parser-parse-file (parser filepath)
+  "Parse FILEPATH using PARSER, return booxnoter-highlight-file struct.")
+
+;;; Boox Format Parser
+
+(defclass booxnoter-boox-parser (booxnoter-parser)
+  ((name :initform "Boox Parser")
+   (patterns :initform '(:header-pattern "Reading Notes \\| <<\\(.+?\\)>>\\(.+\\)"
+                         :date-pattern "\\([0-9-]+ [0-9:]+\\)\\s-*|\\s-*Page No\\.:\\s-*\\([0-9]+\\)"
+                         :separator-pattern "^-+$")))
+  "Parser for Boox note format.")
+
+(cl-defmethod booxnoter-parser-can-parse ((parser booxnoter-boox-parser) filepath)
+  "Check if file at FILEPATH is in Boox format."
+  (when (f-readable? filepath)
+    (with-temp-buffer
+      (insert-file-contents filepath nil 0 500)
+      (goto-char (point-min))
+      (looking-at-p "Reading Notes"))))
+
+(cl-defmethod booxnoter-parser-parse-file ((parser booxnoter-boox-parser) filepath)
+  "Parse Boox format file at FILEPATH."
+  (let* ((content (f-read-text filepath))
+         (lines (split-string content "\n"))
+         (book (booxnoter--parse-boox-header (car lines)))
+         (quotes '())
+         (current-chapter nil)
+         (quote-text nil)
+         (quote-page nil)
+         (quote-timestamp nil))
+    
+    (dolist (line (cdr lines))
+      (cond
+       ;; Separator - save previous quote if exists
+       ((string-match-p "^-+$" line)
+        (when (and quote-text quote-page)
+          (push (make-booxnoter-quote
+                 :text (s-trim quote-text)
+                 :page quote-page
+                 :timestamp quote-timestamp
+                 :chapter current-chapter
+                 :source-file (f-filename filepath))
+                quotes)
+          (setq quote-text nil
+                quote-page nil
+                quote-timestamp nil)))
+       
+       ;; Date and page line
+       ((string-match "\\([0-9]+-[0-9]+-[0-9]+ [0-9:]+\\)\\s-*|\\s-*Page No\\.:\\s-*\\([0-9]+\\)" line)
+        (setq quote-timestamp (match-string 1 line))
+        (setq quote-page (string-to-number (match-string 2 line))))
+       
+       ;; Empty line - skip
+       ((string-blank-p line) nil)
+       
+       ;; Chapter heading (non-empty, non-separator, before any date line)
+       ((and (not quote-page) (not (string-blank-p line)))
+        (setq current-chapter (s-trim line)))
+       
+       ;; Quote text
+       (t
+        (setq quote-text (if quote-text
+                             (concat quote-text "\n" line)
+                           line)))))
+    
+    ;; Don't forget last quote
+    (when (and quote-text quote-page)
+      (push (make-booxnoter-quote
+             :text (s-trim quote-text)
+             :page quote-page
+             :timestamp quote-timestamp
+             :chapter current-chapter
+             :source-file (f-filename filepath))
+            quotes))
+    
+    (make-booxnoter-highlight-file
+     :filepath filepath
+     :book book
+     :quotes (nreverse quotes)
+     :highlight-number nil)))
+
+(defun booxnoter--parse-boox-header (header-line)
+  "Parse HEADER-LINE to extract book metadata."
+  (if (string-match "<<\\([^>]+\\)>>" header-line)
+      (let* ((raw-title (match-string 1 header-line))
+             (author-part (if (string-match ">>\\(.+\\)" header-line)
+                              (s-trim (match-string 1 header-line))
+                            nil))
+             (title-parts (booxnoter--extract-title-components raw-title)))
+        (make-booxnoter-book
+         :title (plist-get title-parts :title)
+         :author (or (plist-get title-parts :author) author-part)
+         :year (plist-get title-parts :year)
+         :publisher (plist-get title-parts :publisher)
+         :raw-title raw-title))
+    (make-booxnoter-book :title "Unknown Book" :raw-title header-line)))
+
+(defun booxnoter--extract-title-components (raw-title)
+  "Extract title, author, year, and publisher from RAW-TITLE string."
+  (let ((title nil)
+        (author nil)
+        (year nil)
+        (publisher nil)
+        (cleaned-title raw-title))
+    
+    ;; First, remove any trailing source indicators
+    (setq cleaned-title (replace-regexp-in-string " - \\(libgen\\.[a-z]+\\|Z-Library\\|anna's archive\\|libgen\\.lc\\)$" "" cleaned-title))
+    
+    (cond
+     ;; Special case: web capture format with date (highagency_com_2025-03-26_06-17-15)
+     ((string-match "\\([^_]+\\)_com_\\([0-9]+-[0-9]+-[0-9]+\\)_" cleaned-title)
+      (setq title (s-replace "_" " " (match-string 1 cleaned-title)))
+      (setq author nil))
+     
+     ;; Pattern: Author - Title (Year, Publisher)
+     ((string-match "^\\([^-]+\\) - \\(.+\\)$" cleaned-title)
+      (let* ((before-dash (s-trim (match-string 1 cleaned-title)))
+             (after-dash (s-trim (match-string 2 cleaned-title)))
+             ;; Get just the title part before parentheses
+             (title-candidate after-dash))
+        
+        ;; Remove parenthetical content from title
+        (when (string-match "^\\([^(]+?\\)\\s-*(" title-candidate)
+          (setq title-candidate (s-trim (match-string 1 title-candidate))))
+        
+        ;; Extract author from before-dash
+        (setq author before-dash)
+        ;; Clean up author - remove company names and underscores
+        (when (string-match "\\([^_]+\\)$" author)
+          (setq author (match-string 1 author)))
+        (setq author (s-replace "_" " " author))
+        
+        ;; Extract year from parentheses  
+        (when (string-match "(\\([0-9]\\{4\\}\\)" after-dash)
+          (setq year (match-string 1 after-dash)))
+        
+        ;; Extract publisher from parentheses
+        (when (string-match "(\\([0-9]+[^,]*\\),\\s-*\\([^)]+\\))" after-dash)
+          (setq publisher (match-string 2 after-dash)))
+        
+        (setq title title-candidate)))
+     
+     ;; Pattern: Just title with possible parenthetical metadata
+     ((not (string-match " - " cleaned-title))
+      (let ((base-title cleaned-title))
+        ;; Remove all parenthetical content
+        (when (string-match "^\\([^(]+?\\)\\s-*(" base-title)
+          (setq base-title (s-trim (match-string 1 base-title))))
+        
+        (setq title (s-replace "_" " " base-title))
+        
+        ;; Try to extract year if present
+        (when (string-match "(\\([0-9]\\{4\\}\\)" cleaned-title)
+          (setq year (match-string 1 cleaned-title)))
+        
+        ;; Check for author info in parentheses
+        (when (string-match "(\\([^,)]+\\)[,)]" cleaned-title)
+          (let ((paren-content (match-string 1 cleaned-title)))
+            (unless (string-match "^[0-9]" paren-content)
+              (setq author paren-content))))))
+     
+     ;; Fallback
+     (t
+      (setq title (s-replace "_" " " cleaned-title))
+      (setq title (replace-regexp-in-string " *([^)]*)" "" title))))
+    
+    ;; Final cleanup
+    (when title
+      (setq title (replace-regexp-in-string "\\.pdf$" "" title))
+      (setq title (replace-regexp-in-string "_" " " title))
+      (setq title (s-trim title)))
+    
+    (list :title (or title "Unknown Book") 
+          :author author 
+          :year year 
+          :publisher publisher)))
+
+;;; Quote Processing
+
+(defun booxnoter--sort-quotes (quotes)
+  "Sort QUOTES by page number, then by timestamp."
+  (sort quotes
+        (lambda (q1 q2)
+          (let ((page1 (booxnoter-quote-page q1))
+                (page2 (booxnoter-quote-page q2)))
+            (if (= page1 page2)
+                (let ((ts1 (booxnoter-quote-timestamp q1))
+                      (ts2 (booxnoter-quote-timestamp q2)))
+                  (and ts1 ts2 (string< ts1 ts2)))
+              (< page1 page2))))))
+
+(defun booxnoter--group-quotes-by-chapter (quotes)
+  "Group QUOTES by their chapter, maintaining order."
+  (let ((groups '())
+        (current-chapter nil)
+        (current-group '()))
+    (dolist (quote quotes)
+      (let ((chapter (booxnoter-quote-chapter quote)))
+        (unless (equal chapter current-chapter)
+          (when current-group
+            (push (cons current-chapter (nreverse current-group)) groups))
+          (setq current-chapter chapter
+                current-group '()))
+        (push quote current-group)))
+    (when current-group
+      (push (cons current-chapter (nreverse current-group)) groups))
+    (nreverse groups)))
+
+(defun booxnoter--merge-highlight-files (highlight-files)
+  "Merge multiple HIGHLIGHT-FILES for the same book."
+  (when highlight-files
+    (let* ((first-file (car highlight-files))
+           (book (booxnoter-highlight-file-book first-file))
+           (all-quotes '()))
+      
+      ;; Collect all quotes with their source file tags
+      (cl-loop for file in highlight-files
+               for index from 1
+               do (let ((hl-tag (format "highlight_%d" index)))
+                    (dolist (quote (booxnoter-highlight-file-quotes file))
+                      (setf (booxnoter-quote-source-file quote) hl-tag)
+                      (push quote all-quotes))))
+      
+      (make-booxnoter-highlight-file
+       :filepath (booxnoter-highlight-file-filepath first-file)
+       :book book
+       :quotes (booxnoter--sort-quotes (nreverse all-quotes))
+       :highlight-number nil))))
+
+;;; Org-roam Integration
+
+(defun booxnoter--create-org-roam-node (book)
+  "Create or find an Org-roam node for BOOK."
+  (let* ((title (format "BR %s" (booxnoter-book-title book)))
+         (node (org-roam-node-from-title-or-alias title)))
+    (if node
+        node
+      ;; Create new node using capture
+      (org-roam-capture-
+       :node (org-roam-node-create :title title)
+       :templates '(("b" "book review" plain "%?"
+                     :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                                        "#+title: ${title}\n#+filetags: :bookreview:\n")
+                     :unnarrowed t))
+       :props '(:finalize find-file)))))
+
+(defun booxnoter--format-quote-as-org (quote)
+  "Format QUOTE as an Org-mode entry."
+  (let ((source-tag (booxnoter-quote-source-file quote))
+        (page (booxnoter-quote-page quote))
+        (timestamp (booxnoter-quote-timestamp quote))
+        (text (booxnoter-quote-text quote)))
+    (concat
+     (format "** Quote :%s:\n" (or source-tag ""))
+     ":PROPERTIES:\n"
+     (format ":PAGE: %d\n" page)
+     (when timestamp
+       (format ":TIMESTAMP: [%s]\n"
+               (replace-regexp-in-string
+                "\\([0-9]+\\)-\\([0-9]+\\)-\\([0-9]+\\) \\([0-9]+:[0-9]+\\)"
+                "\\1-\\2-\\3 \\4"
+                timestamp)))
+     ":END:\n"
+     "#+BEGIN_QUOTE\n"
+     text "\n"
+     "#+END_QUOTE\n")))
+
+(defun booxnoter--quote-exists-p (quote buffer)
+  "Check if QUOTE already exists in BUFFER."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (let ((page (booxnoter-quote-page quote))
+            (text-snippet (substring (booxnoter-quote-text quote) 
+                                     0 (min 50 (length (booxnoter-quote-text quote))))))
+        (or (re-search-forward 
+             (format ":PAGE: %d" page) nil t)
+            (search-forward text-snippet nil t))))))
+
+(defun booxnoter--insert-quotes-into-org-buffer (highlight-file buffer)
+  "Insert quotes from HIGHLIGHT-FILE into BUFFER."
+  (with-current-buffer buffer
+    (goto-char (point-max))
+    (let ((chapter-groups (booxnoter--group-quotes-by-chapter 
+                           (booxnoter-highlight-file-quotes highlight-file))))
+      (dolist (group chapter-groups)
+        (let ((chapter (car group))
+              (quotes (cdr group)))
+          ;; Insert chapter heading if it exists
+          (when chapter
+            (insert (format "\n* %s\n" chapter)))
+          ;; Insert quotes for this chapter
+          (dolist (quote quotes)
+            (unless (booxnoter--quote-exists-p quote buffer)
+              (insert "\n" (booxnoter--format-quote-as-org quote)))))))))
+
+;;; File Management
+
+(defun booxnoter--find-matching-pdf (highlight-file)
+  "Find PDF file matching HIGHLIGHT-FILE."
+  (let* ((filepath (booxnoter-highlight-file-filepath highlight-file))
+         (dir (f-dirname filepath))
+         (book-title (booxnoter-book-title 
+                      (booxnoter-highlight-file-book highlight-file)))
+         (pdf-files (f-files dir (lambda (f) (f-ext? f "pdf")) nil))) ;; non-recursive for PDFs
+    ;; First try to find PDF with "scribble" in the name (most common pattern)
+    (or (cl-find-if 
+         (lambda (pdf)
+           (s-contains? "scribble" (downcase (f-filename pdf))))
+         pdf-files)
+        ;; Otherwise try to find matching PDF by title similarity
+        (cl-find-if 
+         (lambda (pdf)
+           (let ((pdf-name (downcase (f-base pdf)))
+                 (title-parts (downcase book-title)))
+             (or (s-contains? title-parts pdf-name)
+                 (s-contains? (car (s-split " " title-parts)) pdf-name))))
+         pdf-files))))
+
+(defun booxnoter--find-png-files (highlight-file)
+  "Find PNG files in the same directory as HIGHLIGHT-FILE."
+  (let* ((filepath (booxnoter-highlight-file-filepath highlight-file))
+         (dir (f-dirname filepath)))
+    (f-files dir (lambda (f) (f-ext? f "png")) nil)))
+
+(defun booxnoter--move-pdf-to-destination (pdf-path book)
+  "Move PDF at PDF-PATH to destination with BOOK metadata."
+  (when (and pdf-path (f-exists? pdf-path))
+    (let* ((year (or (booxnoter-book-year book) "unknown"))
+           (title (booxnoter-book-title book))
+           (new-name (format "%s -- %s -- scribble.pdf" year title))
+           (dest-path (f-join booxnoter-pdf-destination-dir new-name)))
+      (unless (f-exists? booxnoter-pdf-destination-dir)
+        (make-directory booxnoter-pdf-destination-dir t))
+      (rename-file pdf-path dest-path t)
+      dest-path)))
+
+(defun booxnoter--move-png-files-to-destination (png-files book)
+  "Move PNG-FILES to destination with BOOK metadata, return list of destination paths."
+  (let ((destinations '())
+        (year (or (booxnoter-book-year book) "unknown"))
+        (title (booxnoter-book-title book)))
+    (cl-loop for png in png-files
+             for index from 1
+             do (when (f-exists? png)
+                  (let* ((suffix (if (> (length png-files) 1)
+                                     (format "_%d" index)
+                                   ""))
+                         (new-name (format "%s -- %s -- screenshot%s.png" year title suffix))
+                         (dest-path (f-join booxnoter-pdf-destination-dir new-name)))
+                    (unless (f-exists? booxnoter-pdf-destination-dir)
+                      (make-directory booxnoter-pdf-destination-dir t))
+                    (rename-file png dest-path t)
+                    (push dest-path destinations))))
+    (nreverse destinations)))
+
+(defun booxnoter--move-to-done (filepath base-directory)
+  "Move FILEPATH to done subdirectory at BASE-DIRECTORY level, preserving folder structure."
+  (let* ((relative-path (f-relative filepath base-directory))
+         (done-dir (f-join base-directory booxnoter-processed-subdir))
+         (dest-dir (f-join done-dir (f-dirname relative-path)))
+         (dest (f-join dest-dir (f-filename filepath))))
+    (unless (f-exists? dest-dir)
+      (make-directory dest-dir t))
+    (when (f-exists? filepath)
+      (rename-file filepath dest t))))
+
+;;; Main Processing Pipeline
+
+(defun booxnoter--get-available-parsers ()
+  "Return list of available parser instances."
+  (list (booxnoter-boox-parser)))
+
+(defun booxnoter--find-parser-for-file (filepath)
+  "Find appropriate parser for FILEPATH."
+  (cl-find-if 
+   (lambda (parser)
+     (booxnoter-parser-can-parse parser filepath))
+   (booxnoter--get-available-parsers)))
+
+(defun booxnoter-process-directory (directory)
+  "Process all highlight files in DIRECTORY and subdirectories."
+  (interactive "DSelect directory with highlight files: ")
+  (let* ((txt-files (f-files directory 
+                             (lambda (f) 
+                               (and (f-ext? f "txt")
+                                    (not (s-contains? (concat "/" booxnoter-processed-subdir "/") f))))
+                             t)) ;; t for recursive
+         (books-table (make-hash-table :test 'equal))
+         (file-count (length txt-files)))
+    
+    (when (zerop file-count)
+      (message "No text files found in %s or its subdirectories" directory)
+      (cl-return-from booxnoter-process-directory nil))
+    
+    (message "Found %d text files to process recursively" file-count)
+    
+    ;; Parse all files and group by book
+    ;; Group files by their parent directory first to assign highlight numbers correctly
+    (let ((dir-files-table (make-hash-table :test 'equal)))
+      ;; Group files by directory
+      (dolist (filepath txt-files)
+        (let ((dir (f-dirname filepath)))
+          (push filepath (gethash dir dir-files-table))))
+      
+      ;; Process each directory's files
+      (maphash
+       (lambda (dir files)
+         (let ((sorted-files (sort files 'string<)))
+           (cl-loop for filepath in sorted-files
+                    for index from 1
+                    do (let ((parser (booxnoter--find-parser-for-file filepath)))
+                         (if parser
+                             (let* ((hl-file (booxnoter-parser-parse-file parser filepath))
+                                    (book-title (booxnoter-book-title 
+                                                 (booxnoter-highlight-file-book hl-file))))
+                               (setf (booxnoter-highlight-file-highlight-number hl-file) index)
+                               (push hl-file (gethash book-title books-table)))
+                           (message "No parser found for %s" filepath))))))
+       dir-files-table))
+    
+    ;; Process each book
+    (maphash 
+     (lambda (book-title highlight-files)
+       (message "Processing book: %s" book-title)
+       (let* ((merged (booxnoter--merge-highlight-files (reverse highlight-files)))
+              (book (booxnoter-highlight-file-book merged))
+              (node-title (format "BR %s" book-title))
+              (all-file-links '()))
+         
+         ;; Find and move all PDFs and PNGs, collecting their destination paths
+         (dolist (hl-file (reverse highlight-files))
+           ;; Handle PDF
+           (let ((pdf (booxnoter--find-matching-pdf hl-file)))
+             (when pdf
+               (let ((pdf-dest (booxnoter--move-pdf-to-destination pdf book)))
+                 (when pdf-dest
+                   (push (format "[[file:%s]]" pdf-dest) all-file-links)))))
+           ;; Handle PNGs
+           (let ((pngs (booxnoter--find-png-files hl-file)))
+             (when pngs
+               (let ((png-dests (booxnoter--move-png-files-to-destination pngs book)))
+                 (dolist (png-dest png-dests)
+                   (push (format "[[file:%s]]" png-dest) all-file-links))))))
+         
+         ;; Remove duplicates from file links
+         (setq all-file-links (delete-dups (nreverse all-file-links)))
+         
+         ;; Create or find org-roam node
+         (let ((node (org-roam-node-from-title-or-alias node-title)))
+           (unless node
+             ;; Create new node via org-roam-capture
+             (org-roam-capture-
+              :node (org-roam-node-create :title node-title)
+              :templates `(("b" "book review" plain ""
+                            :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                                               ,(concat "#+title: ${title}\n"
+                                                        "#+filetags: :bookreview:\n"))
+                            :immediate-finish t
+                            :unnarrowed t))))
+           
+           ;; Find the buffer for this node
+           (let* ((node (org-roam-node-from-title-or-alias node-title))
+                  (file (org-roam-node-file node)))
+             (when file
+               (with-current-buffer (find-file-noselect file)
+                 (goto-char (point-max))
+                 ;; Check if file links section already exists
+                 (unless (save-excursion
+                           (goto-char (point-min))
+                           (re-search-forward "^\\[\\[file:" nil t))
+                   ;; Add all file links at the end of the header section
+                   (when all-file-links
+                     (insert "\n")
+                     (dolist (link all-file-links)
+                       (insert link "\n"))
+                     (insert "\n")))
+                 ;; Insert quotes
+                 (booxnoter--insert-quotes-into-org-buffer merged (current-buffer))
+                 (save-buffer)
+                 (message "Added %d quotes and %d file links to %s" 
+                          (length (booxnoter-highlight-file-quotes merged))
+                          (length all-file-links)
+                          node-title)))))
+         
+         ;; Move text files to done
+         (dolist (hl-file (reverse highlight-files))
+           (let ((filepath (booxnoter-highlight-file-filepath hl-file)))
+             (booxnoter--move-to-done filepath directory)))))
+     books-table)
+    
+    ;; Clean up empty directories after moving files
+    (let ((subdirs (f-directories directory nil t)))
+      (dolist (subdir subdirs)
+        (unless (string= (f-filename subdir) booxnoter-processed-subdir)
+          (when (and (f-directory? subdir)
+                     (zerop (length (f-entries subdir))))
+            (delete-directory subdir)))))
+    
+    (message "Processing complete! Processed %d books." (hash-table-count books-table))))
+
+;;; Interactive Commands
+
+;;;###autoload
+(defun booxnoter-process-folder ()
+  "Interactively process a folder of highlight files."
+  (interactive)
+  (let ((dir (read-directory-name "Select folder with highlight files: "
+                                  "~/Boox/notes/")))
+    (booxnoter-process-directory dir)))
+
+;;;###autoload
+(defun booxnoter-process-current-folder ()
+  "Process highlight files in the current buffer's directory."
+  (interactive)
+  (if buffer-file-name
+      (booxnoter-process-directory (f-dirname buffer-file-name))
+    (user-error "Current buffer is not visiting a file")))
+
+(provide 'booxnoter)
+;;; booxnoter.el ends here
+#+end_src
+* Beancount helper 
+
+#+begin_src elisp
+;;; beancount_helper.el --- Consult-based Beancount Transaction Entry -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Streamlined beancount transaction entry using consult prompts
+
+;;; Code:
+
+(require 'cl-lib)
+
+;; Only require these if available
+(require 'consult nil t)
+(require 'beancount nil t)
+
+(defvar beancount-helper-file "/Users/alokregmi/Nextcloud/org/personal.beancount"
+  "Path to the main beancount file to read from and write to.")
+
+(defvar beancount-helper-default-currency "NPR"
+  "Default currency for transactions.")
+
+(defvar beancount-helper-common-payees
+  '("Bhatbhateni" "Salesberry" "BigMart" "Foodmandu" "Pathao" "InDrive" 
+    "Daraz" "Gyapu" "CG Digital" "Ncell" "NTC" "WorldLink" "Subisu"
+    "KFC" "Pizza Hut" "Burger House" "Cafe" "Restaurant" "Pharmacy"
+    "Hospital" "Clinic" "Lab" "Uber" "Sajilo Marmat" "Electricity" "Water")
+  "Common payees for quick selection.")
+
+(defvar beancount-helper-persons
+  '("MY" "MOM" "DAD" "SUS" "SAJ")
+  "Family members for investment accounts.")
+
+(defvar beancount-helper-stock-types
+  '("Regular" "IPO" "FPO")
+  "Types of stock purchases.")
+
+(defvar beancount-helper-section-markers
+  '((expenses . "^\\* Expenses")
+    (income . "^\\* Taxable Investments")
+    (investments . "^\\* Taxable Investments")
+    (banking . "^\\* Banking")
+    (cash . "^\\* Cash")
+    (credit-cards . "^\\* Credit-Cards"))
+  "Regex patterns to find section markers in the beancount file.")
+
+(defun beancount-helper--get-all-accounts ()
+  "Get all accounts from the beancount file."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (let ((accounts '()))
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^[0-9-]+ open \\([A-Za-z:]+\\)" nil t)
+          (push (match-string 1) accounts)))
+      (nreverse accounts))))
+
+(defun beancount-helper--account-exists-p (account)
+  "Check if ACCOUNT exists in the beancount file."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (save-excursion
+      (goto-char (point-min))
+      (re-search-forward (format "^[0-9-]+ open %s" (regexp-quote account)) nil t))))
+
+(defun beancount-helper--get-section-name (account)
+  "Get the appropriate section name for ACCOUNT."
+  (let* ((account-type (car (split-string account ":")))
+         (account-parts (split-string account ":")))
+    (cond
+     ((string= account-type "Expenses") "Expenses")
+     ((string= account-type "Income") "Taxable Investments")
+     ((string= account-type "Assets")
+      (cond
+       ;; ETrade accounts go to Taxable Investments
+       ((and (>= (length account-parts) 3)
+             (string= (nth 2 account-parts) "ETrade"))
+        "Taxable Investments")
+       ;; Cash/Esewa/Khalti go to Cash section
+       ((string-match-p "Cash\\|Esewa\\|Khalti" account) "Cash")
+       ;; Default assets go to Banking
+       (t "Banking")))
+     ((string= account-type "Liabilities") "Credit-Cards")
+     (t "Banking"))))
+
+(defun beancount-helper--find-section-bounds (section-name)
+  "Find the start and end positions of SECTION-NAME in the beancount file.
+Returns (START . END) where START is after the section header
+and END is before the next section or EOF."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward (format "^\\* %s" (regexp-quote section-name)) nil t)
+        (let ((section-start (progn (forward-line 1) (point)))
+              (section-end (if (re-search-forward "^\\* " nil t)
+                               (progn (beginning-of-line) (point))
+                             (point-max))))
+          (cons section-start section-end))))))
+
+(defun beancount-helper--create-account (account)
+  "Create a new ACCOUNT in the appropriate section."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (let* ((section-name (beancount-helper--get-section-name account))
+           (bounds (beancount-helper--find-section-bounds section-name)))
+      (if bounds
+          (save-excursion
+            ;; Go to start of section (right after header)
+            (goto-char (car bounds))
+            ;; Skip any existing blank lines
+            (while (and (looking-at "^\\s-*$") 
+                        (< (point) (cdr bounds)))
+              (forward-line 1))
+            ;; Insert the new account
+            (insert (format "%s open %s\n" (format-time-string "%Y-%m-%d") account))
+            (save-buffer)
+            (message "Created account: %s in section %s" account section-name))
+        ;; Section doesn't exist - create it
+        (save-excursion
+          (goto-char (point-max))
+          (insert (format "\n* %s\n\n%s open %s\n" 
+                          section-name
+                          (format-time-string "%Y-%m-%d")
+                          account))
+          (save-buffer)
+          (message "Created section %s and account: %s" section-name account))))))
+
+(defun beancount-helper--get-payees ()
+  "Get all unique payees from the beancount file."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (let ((payees beancount-helper-common-payees))
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^[0-9-]+ \\*\\(\\|!\\) \"\\([^\"]+\\)\"" nil t)
+          (let ((payee (match-string 2)))
+            (unless (member payee payees)
+              (push payee payees)))))
+      payees)))
+
+(defun beancount-helper--find-insertion-point (date &optional section-name)
+  "Find the appropriate insertion point for a transaction with DATE.
+Optional SECTION-NAME to specify which section to insert into."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (let* ((section (or section-name "Taxable Investments"))
+           (bounds (beancount-helper--find-section-bounds section)))
+      (if bounds
+          (save-excursion
+            (goto-char (cdr bounds))
+            (skip-chars-backward " \t\n")
+            (unless (bolp) (forward-line 1))
+            (point))
+        ;; Fallback to end of file
+        (save-excursion
+          (goto-char (point-max))
+          (skip-chars-backward " \t\n")
+          (unless (bolp) (forward-line 1))
+          (point))))))
+
+(defun beancount-helper--insert-transaction (transaction date &optional section-name)
+  "Insert TRANSACTION at the appropriate point for DATE in the file.
+Optional SECTION-NAME to specify which section to insert into."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (goto-char (beancount-helper--find-insertion-point date section-name))
+    (insert "\n" transaction)
+    (save-buffer)))
+
+(defun beancount-helper--create-commodity (ticker)
+  "Create a commodity for TICKER if needed."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (unless (save-excursion
+              (goto-char (point-min))
+              (re-search-forward (format "^[0-9-]+ commodity %s" ticker) nil t))
+      (when (y-or-n-p (format "Create commodity %s? " ticker))
+        (let ((bounds (beancount-helper--find-section-bounds "Commodities")))
+          (if bounds
+              (save-excursion
+                (goto-char (car bounds))
+                ;; Skip existing commodities to add at end of section content
+                (while (and (not (looking-at "^\\s-*$\\|^\\*"))
+                            (< (point) (cdr bounds)))
+                  (forward-line 1))
+                (insert (format "\n%s commodity %s\n  name: \"%s Stock\"\n" 
+                                (format-time-string "%Y-%m-%d") ticker ticker))
+                (save-buffer))
+            ;; Create Commodities section if missing
+            (save-excursion
+              (goto-char (point-min))
+              (if (re-search-forward "^\\* Options" nil t)
+                  (progn
+                    (if (re-search-forward "^\\* " nil t)
+                        (beginning-of-line)
+                      (goto-char (point-max)))
+                    (insert (format "\n* Commodities\n\n%s commodity %s\n  name: \"%s Stock\"\n"
+                                    (format-time-string "%Y-%m-%d") ticker ticker)))
+                ;; Fallback
+                (goto-char (point-min))
+                (insert (format "* Commodities\n\n%s commodity %s\n  name: \"%s Stock\"\n\n"
+                                (format-time-string "%Y-%m-%d") ticker ticker)))
+              (save-buffer))))))))
+
+(defun beancount-helper--format-amount (amount currency)
+  "Format AMOUNT with CURRENCY, handling negative values."
+  (if (string-match "^-" amount)
+      (format "%s %s" amount currency)
+    (format "%s %s" amount currency)))
+
+;;;###autoload
+(defun beancount-helper-add-transaction ()
+  "Add a new transaction with consult prompts."
+  (interactive)
+  (let* ((date (read-string "Date (YYYY-MM-DD): " (format-time-string "%Y-%m-%d")))
+         (payee (completing-read "Payee: " (beancount-helper--get-payees) nil nil))
+         (description (read-string "Description (optional): " ""))
+         (all-accounts (beancount-helper--get-all-accounts))
+         (from-account (completing-read "From account: " all-accounts nil nil))
+         (to-account (completing-read "To account: " all-accounts nil nil))
+         (amount (read-string "Amount: "))
+         (currency (completing-read "Currency: " '("NPR" "USD") nil nil beancount-helper-default-currency)))
+            
+    ;; Create accounts if they don't exist
+    (unless (beancount-helper--account-exists-p from-account)
+      (when (y-or-n-p (format "Account %s doesn't exist. Create it? " from-account))
+        (beancount-helper--create-account from-account)))
+            
+    (unless (beancount-helper--account-exists-p to-account)
+      (when (y-or-n-p (format "Account %s doesn't exist. Create it? " to-account))
+        (beancount-helper--create-account to-account)))
+            
+    ;; Build transaction string
+    (let ((transaction (format "%s * \"%s\"%s\n  %s  %s\n  %s  %s\n"
+                               date
+                               payee
+                               (if (equal description "") "" (format " \"%s\"" description))
+                               from-account
+                               (beancount-helper--format-amount (format "-%s" amount) currency)
+                               to-account
+                               (beancount-helper--format-amount amount currency))))
+              
+      ;; Insert at appropriate position in the file
+      (beancount-helper--insert-transaction transaction date)
+      (message "Transaction added successfully!"))))
+
+(defun beancount-helper--get-person-accounts ()
+  "Get all person expense accounts from the file."
+  (with-current-buffer (find-file-noselect beancount-helper-file)
+    (let ((persons '()))
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^[0-9-]+ open Expenses:Person:\\([A-Za-z]+\\)" nil t)
+          (push (match-string 1) persons)))
+      (nreverse persons))))
+
+(defun beancount-helper--create-person-account (person)
+  "Create a person expense account for PERSON."
+  (let ((account (format "Expenses:Person:%s" person)))
+    (unless (beancount-helper--account-exists-p account)
+      (beancount-helper--create-account account))))
+
+;;;###autoload
+(defun beancount-helper-add-expense ()
+  "Quick expense entry with optional split functionality."
+  (interactive)
+  (let* ((date (format-time-string "%Y-%m-%d"))
+         (total-amount (string-to-number (read-string "Amount spent: ")))
+         (payee (completing-read "Payee/Store: " (beancount-helper--get-payees) nil nil))
+         (description (read-string "Description (optional): " ""))
+         (expense-categories '("Expenses:Food:Outdoors"
+                               "Expenses:Food:Groceries"
+                               "Expenses:Food:Gatherings"
+                               "Expenses:Travel"
+                               "Expenses:Home:Internet"
+                               "Expenses:Home:Mobile"
+                               "Expenses:Ownership:Clothing"
+                               "Expenses:Ownership:Electronics"
+                               "Expenses:Medicine"
+                               "Expenses:RandomFun"
+                               "Expenses:HouseCommon"))
+         (expense-account (completing-read "Expense type: " expense-categories nil nil))
+         (payment-accounts '("Assets:NP:MY:Cash"
+                             "Assets:NP:MY:Esewa"
+                             "Assets:NP:MY:Khalti"
+                             "Assets:NP:MY:RBBChecking"
+                             "Assets:NP:MY:SBLChecking"
+                             "Liabilities:NP:SBL"))
+         (from-account (completing-read "Paid with: " payment-accounts nil nil))
+         (split-p (y-or-n-p "Split this expense? ")))
+    
+    (if (not split-p)
+        ;; Regular expense without split
+        (let ((transaction (format "%s * \"%s\"%s\n  %s  -%s NPR\n  %s  %s NPR\n"
+                                   date
+                                   payee
+                                   (if (equal description "") "" (format " \"%s\"" description))
+                                   from-account
+                                   (format "%.2f" total-amount)
+                                   expense-account
+                                   (format "%.2f" total-amount))))
+          (beancount-helper--insert-transaction transaction date "Expenses")
+          (message "Expense added: %.2f NPR at %s" total-amount payee))
+      
+      ;; Split expense among people
+      (let* ((existing-persons (beancount-helper--get-person-accounts))
+             (all-persons (append existing-persons 
+                                   '("Family" "Sajja" "Sushma" "Momma" "Dad" 
+                                     "Aashish" "Shambhu" "Aatish" "Shishir")))
+             ;; Use completing-read-multiple for comma-separated selection
+             (selected-persons (completing-read-multiple
+                               "Select people to split with (comma-separated): "
+                               all-persons nil nil)))
+        
+        ;; Create person accounts for new people
+        (dolist (person selected-persons)
+          (unless (member person existing-persons)
+            (when (y-or-n-p (format "Create new person account for %s? " person))
+              (beancount-helper--create-person-account person))))
+        
+        (if (null selected-persons)
+            (message "No people selected for split. Cancelling.")
+          ;; Calculate split
+          (let* ((num-people (1+ (length selected-persons))) ; +1 for yourself
+                 (share-amount (/ total-amount num-people))
+                 (my-share share-amount)
+                 (transaction-lines (list (format "%s * \"%s\"%s"
+                                                  date payee
+                                                  (if (equal description "") 
+                                                      " \"Split expense\""
+                                                    (format " \"%s (split)\"" description))))))
+            
+            ;; Payment line
+            (push (format "  %s  -%.2f NPR" from-account total-amount) transaction-lines)
+            
+            ;; My share of the expense
+            (push (format "  %s  %.2f NPR" expense-account my-share) transaction-lines)
+            
+            ;; Each person owes their share
+            (dolist (person selected-persons)
+              (push (format "  Expenses:Person:%s  %.2f NPR" person share-amount) transaction-lines))
+            
+            (let ((transaction (mapconcat 'identity (nreverse transaction-lines) "\n")))
+              (beancount-helper--insert-transaction (concat transaction "\n") date "Expenses")
+              (message "Split expense: %.2f NPR total, %.2f NPR each among %d people" 
+                       total-amount share-amount num-people))))))))
+
+;;;###autoload
+(defun beancount-helper-add-income ()
+  "Quick income entry."
+  (interactive)
+  (let* ((date (format-time-string "%Y-%m-%d"))
+         (amount (read-string "Income amount: "))
+         (source (read-string "Income source: "))
+         (income-accounts '("Income:NP:Nepali:Freelancing"
+                            "Income:US:Foreign:Freelancing"
+                            "Income:NP:Nepali:HouseCommon"))
+         (income-account (completing-read "Income type: " income-accounts nil nil))
+         (deposit-accounts '("Assets:NP:MY:RBBChecking"
+                             "Assets:NP:MY:SBLChecking"
+                             "Assets:US:MY:Deel"
+                             "Assets:NP:MY:Cash"
+                             "Assets:NP:MY:Esewa"))
+         (to-account (completing-read "Deposit to: " deposit-accounts nil nil))
+         (currency (completing-read "Currency: " '("NPR" "USD") nil nil "NPR")))
+            
+    (let ((transaction (format "%s * \"%s\"\n  %s  %s %s\n  %s  -%s %s\n"
+                               date
+                               source
+                               to-account
+                               amount
+                               currency
+                               income-account
+                               amount
+                               currency)))
+              
+      (beancount-helper--insert-transaction transaction date)
+      (message "Income added: %s %s from %s" amount currency source))))
+
+;;;###autoload
+(defun beancount-helper-transfer ()
+  "Quick transfer between accounts."
+  (interactive)
+  (let* ((date (format-time-string "%Y-%m-%d"))
+         (amount (read-string "Transfer amount: "))
+         (all-accounts (beancount-helper--get-all-accounts))
+         (from-account (completing-read "Transfer from: " all-accounts nil nil))
+         (to-account (completing-read "Transfer to: " all-accounts nil nil))
+         (currency (completing-read "Currency: " '("NPR" "USD") nil nil "NPR"))
+         (description (read-string "Description (optional): " "Transfer")))
+            
+    (let ((transaction (format "%s * \"%s\"\n  %s  -%s %s\n  %s  %s %s\n"
+                               date
+                               description
+                               from-account
+                               amount
+                               currency
+                               to-account
+                               amount
+                               currency)))
+              
+      (beancount-helper--insert-transaction transaction date)
+      (message "Transfer completed: %s %s from %s to %s" amount currency from-account to-account))))
+
+;;;###autoload
+(defun beancount-helper-buy-stock ()
+  "Buy stock, IPO, or FPO shares with person tracking."
+  (interactive)
+  (let* ((date (read-string "Date (YYYY-MM-DD): " (format-time-string "%Y-%m-%d")))
+         (person (completing-read "Whose account: " beancount-helper-persons nil t nil nil "MY"))
+         (stock-type (completing-read "Type: " beancount-helper-stock-types nil t nil nil "Regular"))
+         (ticker (upcase (read-string "Stock ticker: ")))
+         (shares (read-string "Number of shares: " 
+                              (if (string= stock-type "IPO") "10" "")))
+         (price (read-string "Price per share: "))
+         (currency (or (completing-read "Currency: " '("NPR" "USD") nil t nil nil "NPR") "NPR"))
+         (commission (or (read-string "Commission (default 25): " "25") "25"))
+         (broker-accounts '("Assets:NP:MY:RBBChecking"
+                            "Assets:NP:MY:SBLChecking"
+                            "Assets:NP:MY:Cash"
+                            "Assets:US:MY:Deel"))
+         (cash-account (or (completing-read "Pay from account: " broker-accounts nil t) 
+                           (car broker-accounts)))
+         (stock-account (if (string= stock-type "Regular")
+                            (format "Assets:%s:ETrade:%s:%s" 
+                                    (if (string= currency "USD") "US" "NP")
+                                    person ticker)
+                          (format "Assets:%s:ETrade:%s:%s:%s"
+                                  (if (string= currency "USD") "US" "NP")
+                                  person stock-type ticker)))
+         (commission-account (format "Expenses:%s:Financial:Commissions" person))
+         (total (+ (* (string-to-number shares) (string-to-number price))
+                   (string-to-number commission))))
+            
+    ;; Create commodity for the ticker if needed
+    (beancount-helper--create-commodity ticker)
+    
+    ;; Create stock account if needed
+    (unless (beancount-helper--account-exists-p stock-account)
+      (when (y-or-n-p (format "Account %s doesn't exist. Create it? " stock-account))
+        (beancount-helper--create-account stock-account)))
+            
+    ;; Create commission account if needed
+    (unless (beancount-helper--account-exists-p commission-account)
+      (when (y-or-n-p (format "Create %s account? " commission-account))
+        (beancount-helper--create-account commission-account)))
+            
+    ;; Validate inputs
+    (when (or (equal ticker "")
+              (equal shares "")
+              (equal price ""))
+      (error "Ticker, shares, and price are required"))
+            
+    (let ((transaction (format "%s * \"Buy %sshares of %s%s\"\n  %s  -%.2f %s\n  %s  %s %s {%s %s, %s}\n  %s  %s %s\n"
+                               date 
+                               (if (string= stock-type "Regular") "" (concat stock-type " "))
+                               ticker
+                               (if (string= person "MY") "" (format " for %s" person))
+                               cash-account total currency
+                               stock-account shares ticker price currency date
+                               commission-account commission currency))
+          (inhibit-read-only t))
+              
+      (beancount-helper--insert-transaction transaction date)
+      (message "Bought %s shares of %s at %s %s" shares ticker price currency))))
+
+;;;###autoload
+(defun beancount-helper-sell-stock ()
+  "Sell stock shares with person and type detection."
+  (interactive)
+  (let* ((date (read-string "Date (YYYY-MM-DD): " (format-time-string "%Y-%m-%d")))
+         (ticker (upcase (read-string "Stock ticker to sell: ")))
+         ;; Find available lots across all persons
+         (lots (beancount-helper--get-stock-lots ticker))
+         (lot-strings (mapcar (lambda (lot)
+                                (format "%s: %s shares @ %s %s%s (bought %s)"
+                                        (nth 0 lot) ; person
+                                        (nth 2 lot) ; shares
+                                        (nth 3 lot) ; price
+                                        (nth 4 lot) ; currency
+                                        (if (nth 1 lot) (format " (%s)" (nth 1 lot)) "") ; type
+                                        (nth 5 lot))) ; date
+                              lots)))
+            
+    (if (null lots)
+        (message "No lots found for %s" ticker)
+      (let* ((selected-lot (completing-read "Select lot to sell: " lot-strings nil t))
+             (lot-index (cl-position selected-lot lot-strings :test 'string=))
+             (lot (nth lot-index lots))
+             (person (nth 0 lot))
+             (stock-type (nth 1 lot))
+             (shares-available (nth 2 lot))
+             (cost-price (nth 3 lot))
+             (currency (nth 4 lot))
+             (buy-date (nth 5 lot))
+             (shares (read-string (format "Shares to sell (max %s): " shares-available) shares-available))
+             (sell-price (read-string "Sell price per share: "))
+             (commission (or (read-string "Commission (default 25): " "25") "25"))
+             (cash-accounts '("Assets:NP:ETrade:Cash"
+                              "Assets:NP:MY:RBBChecking"
+                              "Assets:NP:MY:SBLChecking"))
+             (cash-account (completing-read "Deposit to account: " cash-accounts nil t))
+             (stock-account (if stock-type
+                                (format "Assets:%s:ETrade:%s:%s:%s"
+                                        (if (string= currency "USD") "US" "NP")
+                                        person stock-type ticker)
+                              (format "Assets:%s:ETrade:%s:%s"
+                                      (if (string= currency "USD") "US" "NP")
+                                      person ticker)))
+             (commission-account (format "Expenses:%s:Financial:Commissions" person))
+             (pnl-account (format "Income:%s:ETrade:%s:PnL" 
+                                  (if (string= currency "USD") "US" "NP") person))
+             (proceeds (- (* (string-to-number shares) (string-to-number sell-price))
+                          (string-to-number commission)))
+             (pnl (- (* (string-to-number shares) 
+                        (- (string-to-number sell-price) (string-to-number cost-price)))
+                     (string-to-number commission))))
+                
+        ;; Create accounts if needed
+        (unless (beancount-helper--account-exists-p commission-account)
+          (when (y-or-n-p (format "Create %s account? " commission-account))
+            (beancount-helper--create-account commission-account)))
+                
+        (unless (beancount-helper--account-exists-p pnl-account)
+          (when (y-or-n-p (format "Create %s account? " pnl-account))
+            (beancount-helper--create-account pnl-account)))
+                
+        (let ((transaction (format "%s * \"Sell %sshares of %s%s\"\n  %s  -%s %s {%s %s, %s} @ %s %s\n  %s  %.2f %s\n  %s  %s %s\n  %s  %.2f %s\n"
+                                   date 
+                                   (if stock-type (concat stock-type " ") "")
+                                   ticker
+                                   (if (string= person "MY") "" (format " for %s" person))
+                                   stock-account shares ticker cost-price currency buy-date sell-price currency
+                                   cash-account proceeds currency
+                                   commission-account commission currency
+                                   pnl-account (- pnl) currency))
+              (inhibit-read-only t))
+                  
+          (beancount-helper--insert-transaction transaction date)
+          (message "Sold %s shares of %s for %s - P&L: %.2f %s" shares ticker person pnl currency))))))
+
+(defun beancount-helper--get-stock-lots (ticker)
+  "Get all available lots for TICKER across all persons."
+  (let ((lots '())
+        ;; Match: Assets:NP:ETrade:PERSON:TYPE:TICKER or Assets:NP:ETrade:PERSON:TICKER
+        (stock-pattern (format "Assets:[A-Z]+:ETrade:\\([A-Z]+\\)\\(?::\\([A-Z]+\\)\\)?:%s\\s-+\\([0-9.]+\\)\\s-+%s\\s-+{\\([0-9.]+\\)\\s-+\\([A-Z]+\\),\\s-+\\([0-9-]+\\)}"
+                               ticker ticker)))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward stock-pattern nil t)
+        (let* ((person (match-string 1))
+               (type-or-shares (match-string 2))
+               (shares (if type-or-shares (match-string 3) (match-string 2)))
+               (price (if type-or-shares (match-string 4) (match-string 3)))
+               (currency (if type-or-shares (match-string 5) (match-string 4)))
+               (date (if type-or-shares (match-string 6) (match-string 5)))
+               (stock-type (when (and type-or-shares 
+                                      (member type-or-shares '("IPO" "FPO")))
+                             type-or-shares)))
+          (push (list person stock-type shares price currency date) lots))))
+    (nreverse lots)))
+
+;;;###autoload
+(defun beancount-helper-dividend ()
+  "Record dividend income with person support."
+  (interactive)
+  (let* ((date (read-string "Date (YYYY-MM-DD): " (format-time-string "%Y-%m-%d")))
+         (person (completing-read "Whose account: " beancount-helper-persons nil t nil nil "MY"))
+         (ticker (upcase (read-string "Stock ticker (or 'PORTFOLIO' for mixed): ")))
+         (amount (read-string "Dividend amount: "))
+         (currency (completing-read "Currency: " '("NPR" "USD") nil t nil nil "NPR"))
+         (cash-account (format "Assets:%s:ETrade:%s:Cash" 
+                               (if (string= currency "USD") "US" "NP") person))
+         (dividend-account (format "Income:%s:ETrade:%s:Dividends"
+                                   (if (string= currency "USD") "US" "NP") person)))
+            
+    ;; Create cash account if needed
+    (unless (beancount-helper--account-exists-p cash-account)
+      (when (y-or-n-p (format "Create %s account? " cash-account))
+        (beancount-helper--create-account cash-account)))
+            
+    ;; Create dividend account if needed
+    (unless (beancount-helper--account-exists-p dividend-account)
+      (when (y-or-n-p (format "Create %s account? " dividend-account))
+        (beancount-helper--create-account dividend-account)))
+            
+    (let ((transaction (format "%s * \"Dividends on %s%s\"\n  %s  %s %s\n  %s  -%s %s\n"
+                               date 
+                               (if (string= ticker "PORTFOLIO") "portfolio" ticker)
+                               (if (string= person "MY") "" (format " for %s" person))
+                               cash-account amount currency
+                               dividend-account amount currency))
+          (inhibit-read-only t))
+              
+      (beancount-helper--insert-transaction transaction date)
+      (message "Dividend recorded: %s %s from %s for %s" amount currency ticker person))))
+
+;;;###autoload
+(defun beancount-helper-bonus-shares ()
+  "Record bonus shares received with person support."
+  (interactive)
+  (let* ((date (read-string "Date (YYYY-MM-DD): " (format-time-string "%Y-%m-%d")))
+         (person (completing-read "Whose account: " beancount-helper-persons nil t nil nil "MY"))
+         (stock-type (completing-read "Type: " '("Regular" "IPO" "FPO") nil t nil nil "Regular"))
+         (ticker (upcase (read-string "Stock ticker: ")))
+         (shares (read-string "Number of bonus shares: "))
+         (price (read-string "Price per share (0 for free bonus): " "0"))
+         (currency (completing-read "Currency: " '("NPR" "USD") nil t nil nil "NPR"))
+         (stock-account (if (string= stock-type "Regular")
+                            (format "Assets:%s:ETrade:%s:%s" 
+                                    (if (string= currency "USD") "US" "NP")
+                                    person ticker)
+                          (format "Assets:%s:ETrade:%s:%s:%s"
+                                  (if (string= currency "USD") "US" "NP")
+                                  person stock-type ticker)))
+         (bonus-account (format "Income:%s:ETrade:%s:BonusShares"
+                                (if (string= currency "USD") "US" "NP") person)))
+            
+    ;; Create commodity for the ticker if needed
+    (beancount-helper--create-commodity ticker)
+    
+    ;; Create stock account if needed
+    (unless (beancount-helper--account-exists-p stock-account)
+      (when (y-or-n-p (format "Create %s account? " stock-account))
+        (beancount-helper--create-account stock-account)))
+    
+    ;; Create bonus account if needed
+    (unless (beancount-helper--account-exists-p bonus-account)
+      (when (y-or-n-p (format "Create %s account? " bonus-account))
+        (beancount-helper--create-account bonus-account)))
+            
+    (let ((transaction (format "%s * \"Bonus shares of %s%s\"\n  %s  %s %s {%s %s, %s}\n  %s  -%s %s\n"
+                               date ticker
+                               (if (string= person "MY") "" (format " for %s" person))
+                               stock-account shares ticker price currency date
+                               bonus-account
+                               (format "%.2f" (* (string-to-number shares) (string-to-number price)))
+                               currency))
+          (inhibit-read-only t))
+              
+      (beancount-helper--insert-transaction transaction date)
+      (message "Bonus shares recorded: %s shares of %s for %s" shares ticker person))))
+
+;;;###autoload
+(defun beancount-helper-rights-shares ()
+  "Record rights shares purchase with person support."
+  (interactive)
+  (let* ((date (read-string "Date (YYYY-MM-DD): " (format-time-string "%Y-%m-%d")))
+         (person (completing-read "Whose account: " beancount-helper-persons nil t nil nil "MY"))
+         (ticker (upcase (read-string "Stock ticker: ")))
+         (shares (read-string "Number of rights shares: "))
+         (price (read-string "Price per share (rights price): "))
+         (currency (completing-read "Currency: " '("NPR" "USD") nil t nil nil "NPR"))
+         (commission (or (read-string "Commission (default 25): " "25") "25"))
+         (broker-accounts '("Assets:NP:MY:RBBChecking"
+                            "Assets:NP:MY:SBLChecking"
+                            "Assets:NP:MY:Cash"))
+         (cash-account (or (completing-read "Pay from account: " broker-accounts nil t) 
+                           (car broker-accounts)))
+         ;; Rights shares typically go into the same structure as regular shares
+         (stock-account (format "Assets:%s:ETrade:%s:RIGHTS:%s" 
+                                (if (string= currency "USD") "US" "NP")
+                                person ticker))
+         (commission-account (format "Expenses:%s:Financial:Commissions" person))
+         (total (+ (* (string-to-number shares) (string-to-number price))
+                   (string-to-number commission))))
+            
+    ;; Create commodity for the ticker if needed
+    (beancount-helper--create-commodity ticker)
+    
+    ;; Create stock account if needed
+    (unless (beancount-helper--account-exists-p stock-account)
+      (when (y-or-n-p (format "Account %s doesn't exist. Create it? " stock-account))
+        (beancount-helper--create-account stock-account)))
+    
+    ;; Create commission account if needed
+    (unless (beancount-helper--account-exists-p commission-account)
+      (when (y-or-n-p (format "Create %s account? " commission-account))
+        (beancount-helper--create-account commission-account)))
+            
+    (let ((transaction (format "%s * \"Buy RIGHTS shares of %s%s\"\n  %s  -%.2f %s\n  %s  %s %s {%s %s, %s}\n  %s  %s %s\n"
+                               date ticker
+                               (if (string= person "MY") "" (format " for %s" person))
+                               cash-account total currency
+                               stock-account shares ticker price currency date
+                               commission-account commission currency))
+          (inhibit-read-only t))
+              
+      (beancount-helper--insert-transaction transaction date)
+      (message "Rights shares recorded: %s shares of %s at %s %s for %s" 
+               shares ticker price currency person))))
+
+(provide 'beancount-helper)
+;;; beancount_helper.el ends here
+#+end_src
+* Add clock time after doing the task 
+
+#+begin_src elisp
+(defun org-agenda-add-clock-time ()
+  "Add clock time to task at point in org-agenda.
+Prompts for duration in minutes and optional end offset.
+Example: 30 minutes duration, 5 minutes offset = clock from 35 mins ago to 5 mins ago."
+  (interactive)
+  (org-agenda-check-type t 'agenda 'todo 'tags 'search)
+  (let* ((marker (org-get-at-bol 'org-marker))
+         (duration (read-number "Minutes to clock: " 30))
+         (end-offset (read-number "End how many minutes ago (0 = now): " 0))
+         (end-offset (if (= end-offset 0) 1 end-offset))) ; Default to 1 minute ago if 0
+    (when (and marker (> duration 0))
+      (org-with-point-at marker
+        (let* ((now (current-time))
+               (end-time (time-subtract now (seconds-to-time (* end-offset 60))))
+               (start-time (time-subtract end-time (seconds-to-time (* duration 60))))
+               (start-str (format-time-string "[%Y-%m-%d %a %H:%M]" start-time))
+               (end-str (format-time-string "[%Y-%m-%d %a %H:%M]" end-time))
+               (hours (/ duration 60))
+               (mins (% duration 60))
+               (clock-entry (format "CLOCK: %s--%s =>  %2d:%02d" start-str end-str hours mins)))
+          (save-excursion
+            (org-back-to-heading t)
+            (let* ((heading-start (point))
+                   (heading-end (save-excursion 
+                                  (org-end-of-subtree t t)
+                                  (point)))
+                   ;; Search for existing LOGBOOK drawer after the heading line
+                   (logbook-region (save-excursion
+                                     (goto-char heading-start)
+                                     (forward-line 1) ; Skip the heading line itself
+                                     (when (re-search-forward "^[ \t]*:LOGBOOK:[ \t]*$" heading-end t)
+                                       (let ((lb-start (line-beginning-position)))
+                                         (when (re-search-forward "^[ \t]*:END:[ \t]*$" heading-end t)
+                                           (cons lb-start (line-beginning-position))))))))
+              
+              (if logbook-region
+                  ;; LOGBOOK exists, add entry after :LOGBOOK: line
+                  (progn
+                    (goto-char (car logbook-region))
+                    (forward-line 1)
+                    (insert clock-entry "\n"))
+                ;; No LOGBOOK, create one after metadata
+                (progn
+                  (goto-char heading-start)
+                  (org-end-of-meta-data)
+                  (insert ":LOGBOOK:\n")
+                  (insert clock-entry "\n")
+                  (insert ":END:\n")))))
+          (message "Added %d minutes (from %d to %d mins ago)" 
+                   duration (+ duration end-offset) end-offset))))))
+#+end_src
+* Open latest downloaded file directly 
+
+#+begin_src elisp
+(defun open-latest-download ()
+  "Open the most recently downloaded file from Downloads folder.
+Uses dired/dirvish to handle file opening automatically."
+  (interactive)
+  (let* ((downloads-dir (expand-file-name "~/Downloads/"))
+         (files (directory-files downloads-dir t "^[^.]" t))
+         (latest-file (car (sort files
+                                 (lambda (a b)
+                                   (time-less-p (nth 5 (file-attributes b))
+                                               (nth 5 (file-attributes a))))))))
+    (if latest-file
+        (progn
+          (dired downloads-dir)
+          (dired-goto-file latest-file)
+          (dired-find-file))
+      (message "No files found in Downloads folder"))))
+
+#+end_src
+* Org roam mondays
+
+#+begin_src elisp
+;;;###autoload
+(defun org-roam-dailies-goto-monday-of-week ()
+  "Find the daily-note for the Monday of the current week, creating it if necessary."
+  (interactive)
+  (let* ((now (current-time))
+         (decoded (decode-time now))
+         (dow (nth 6 decoded))  ; 0=Sunday, 1=Monday, etc.
+         (days-back (if (= dow 0) 6 (1- dow)))
+         (monday-time (time-add now (days-to-time (- days-back)))))
+    (org-roam-dailies--capture monday-time t)))
+
+;;;###autoload
+(defun org-roam-dailies-goto-monday-of-next-week ()
+  "Find the daily-note for the Monday of next week, creating it if necessary."
+  (interactive)
+  (let* ((now (current-time))
+         (decoded (decode-time now))
+         (dow (nth 6 decoded))  ; 0=Sunday, 1=Monday, etc.
+         (days-forward (if (= dow 0) 1 (- 8 dow)))
+         (next-monday-time (time-add now (days-to-time days-forward))))
+    (org-roam-dailies--capture next-monday-time t)))
+#+end_src
 
 * Window split org mode hydra
 
@@ -7702,36 +9511,6 @@ Returns (columns . reverse-p) where columns is a comma-separated string."
   ("v" (lambda () (interactive) (+evil/window-vsplit-and-follow) (org-open-at-point)) "Vertical Split")
   ("h" (lambda () (interactive) (+evil/window-split-and-follow) (org-open-at-point)) "Horizontal Split")
   ("q" nil "Quit"))
-#+end_src
-
-* Copilot
-
-#+begin_src elisp
-;; accept completion from copilot and fallback to company
-(use-package! copilot
-  :hook (prog-mode . copilot-mode)
-  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
-         ("C-<tab>" . 'copilot-accept-completion-by-word)
-         :map copilot-completion-map
-         ("<tab>" . 'copilot-accept-completion)
-         ("<right>". 'copilot-accept-completion)
-         ("C-f". 'copilot-accept-completion)
-         ("M-f". 'copilot-accept-completion-by-word)
-         ("C-e". 'copilot-accept-completion-by-line)
-         ("<end>". 'copilot-accept-completion-by-line)
-         ("TAB" . 'copilot-accept-completion))
-  :config
-  (advice-add #'indent-for-tab-command :before #'copilot-complete)
-  )
-
-#+end_src
-
-
-** For copilot disable smartparens
-
-#+begin_src elisp
-(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
-;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
 #+end_src
 
 * Gptel prompts
@@ -7765,14 +9544,15 @@ Returns (columns . reverse-p) where columns is a comma-separated string."
     "Display a macOS notification with sound."
     (call-process "osascript" nil nil nil
                   "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                                 message title)))
+                               message title)))
 
   (setq claude-code-notification-function #'my-claude-notify)
   (setq claude-code-startup-delay 0.2)
+  (setq claude-code-terminal-backend 'vterm)
   (add-hook 'claude-code-start-hook
-          (lambda ()
-            ;; Reduce line spacing to fix vertical bar gaps
-            (setq-local line-spacing 0.1)))
+            (lambda ()
+              ;; Reduce line spacing to fix vertical bar gaps
+              (setq-local line-spacing 0.1)))
   )
 #+end_src
 * Claude Code Ide
@@ -11074,3 +12854,71 @@ restart lsp based on that environment"
   )
 #+end_src
 
+** Copilot
+
+#+begin_src elisp
+;; accept completion from copilot and fallback to company
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+  :bind (("C-TAB" . 'copilot-accept-completion-by-word)
+         ("C-<tab>" . 'copilot-accept-completion-by-word)
+         :map copilot-completion-map
+         ("<tab>" . 'copilot-accept-completion)
+         ("<right>". 'copilot-accept-completion)
+         ("C-f". 'copilot-accept-completion)
+         ("M-f". 'copilot-accept-completion-by-word)
+         ("C-e". 'copilot-accept-completion-by-line)
+         ("<end>". 'copilot-accept-completion-by-line)
+         ("TAB" . 'copilot-accept-completion))
+  :config
+  (advice-add #'indent-for-tab-command :before #'copilot-complete)
+  )
+
+#+end_src
+
+
+*** For copilot disable smartparens
+
+#+begin_src elisp
+(remove-hook 'doom-first-buffer-hook #'smartparens-global-mode)
+;; (add-hook 'doom-first-buffer-hook #'electric-pair-mode)
+#+end_src
+
+** Trying homebrew git for speedup in emacs
+
+#+begin_src elisp
+(let ((git-path "/applications/xcode.app/contents/developer/usr/bin/git"))
+  (when (file-exists-p git-path)
+    (setq magit-git-executable git-path)))
+#+end_src
+
+** Macos copy paste
+
+#+begin_src elisp
+(when IS-MAC
+  (defun copy-from-osx ()
+    "Return macOS clipboard contents as string."
+    (shell-command-to-string "pbpaste"))
+
+  (defun paste-to-osx (text &optional push)
+    "Copy TEXT to macOS clipboard."
+    (let ((process-connection-type nil))
+      (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
+        (process-send-string proc text)
+        (process-send-eof proc))))
+
+  (setq interprogram-cut-function 'paste-to-osx)
+  (setq interprogram-paste-function 'copy-from-osx)
+
+  (advice-add 'yank :after
+              (lambda (&rest _)
+                (when (and interprogram-cut-function (current-kill 0 nil))
+                  (funcall interprogram-cut-function (current-kill 0 nil))))))
+#+end_src
+
+
+** Saving text to kill ring emacs even when not pasted anything really
+
+#+begin_src elisp
+(setq save-interprogram-paste-before-kill t)
+#+end_src
