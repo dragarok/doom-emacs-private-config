@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: weeklynote
+# key: weekstart
+# condition: t
+# --
+
+* Planning for weekly tasks
+
+** Books to Highlight
+
+
+** Emacs/AI tools to watch out
+
+
+** Algorithmic Problem to think about
+

@@ -10,5 +10,5 @@
 :PROPERTIES:
 :Effort: $4
 :CREATED: `(today)`
-:CATEGORY: <`(org-set-property "CATEGORY" nil)`>
+:CATEGORY: $5
 :END:
