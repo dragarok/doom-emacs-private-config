@@ -6612,6 +6612,114 @@ This is an alias for calling consult-clock-nonimportant-task with prefix argumen
   (consult-clock-nonimportant-task t))
 #+end_src
 
+* Add clock to any task 
+
+#+begin_src elisp
+(defun rts--get-all-task-candidates ()
+  "Get formatted candidates from base tasks AND mundane/leisure tasks.
+Returns list of (display . marker) pairs with duplicates removed."
+  (let* ((base-tasks (rts--get-base-tasks 'tasks))
+         (mundane-tasks (org-ql-select
+                          (org-agenda-files)
+                          '(and (not (done))
+                                (or (todo "TOREAD" "READING" "REREADING" "SUMMARIZING")
+                                    (todo "TOSTUDY" "STUDYING" "REVISING")
+                                    (todo "TOPRACTICE" "PRACTICING" "REPRACTICING")
+                                    (todo "TOWATCH" "WATCHING" "REWATCH")
+                                    (todo "TONOTDO")))
+                          :action 'element-with-markers))
+         ;; Combine and dedupe by marker position
+         (seen-positions (make-hash-table :test 'equal))
+         (all-tasks (seq-filter
+                     (lambda (task)
+                       (let* ((marker (org-element-property :org-marker task))
+                              (key (cons (marker-buffer marker) (marker-position marker))))
+                         (unless (gethash key seen-positions)
+                           (puthash key t seen-positions)
+                           t)))
+                     (append base-tasks mundane-tasks)))
+         (candidates (mapcar
+                      (lambda (task)
+                        (let* ((heading (org-element-property :raw-value task))
+                               (status (org-element-property :todo-keyword task))
+                               (priority (rts--get-task-priority task))
+                               (marker (org-element-property :org-marker task))
+                               (display (format "%-12s | %s | %s"
+                                                (propertize (or status "")
+                                                            'face 'font-lock-keyword-face)
+                                                (if priority
+                                                    (propertize (format "[#%s]" priority)
+                                                                'face 'font-lock-type-face)
+                                                  "    ")
+                                                heading)))
+                          (cons display marker)))
+                      all-tasks)))
+    candidates))
+
+(defun consult-add-clock-to-task ()
+  "Select any task (scheduled, deadline, or mundane) and add clock time."
+  (interactive)
+  (let* ((candidates (rts--get-all-task-candidates))
+         (selected (when candidates
+                     (consult--read candidates
+                                    :prompt "Add clock time to task: "
+                                    :require-match t
+                                    :sort nil
+                                    :category 'org-task))))
+    (if selected
+        (let ((marker (cdr (assoc selected candidates))))
+          (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
+            (let* ((start-time (read-string "Start time (HH:MM): "))
+                   (end-time (read-string "End time (HH:MM): "))
+                   (start-parts (split-string start-time ":"))
+                   (end-parts (split-string end-time ":"))
+                   (start-hour (string-to-number (car start-parts)))
+                   (start-min (string-to-number (cadr start-parts)))
+                   (end-hour (string-to-number (car end-parts)))
+                   (end-min (string-to-number (cadr end-parts)))
+                   (today (decode-time (current-time)))
+                   (start-time-obj (encode-time 0 start-min start-hour
+                                                (nth 3 today) (nth 4 today) (nth 5 today)))
+                   (end-time-obj (encode-time 0 end-min end-hour
+                                              (nth 3 today) (nth 4 today) (nth 5 today)))
+                   (duration-seconds (float-time (time-subtract end-time-obj start-time-obj)))
+                   (duration-minutes (round (/ duration-seconds 60))))
+
+              (unless (and (>= start-hour 0) (<= start-hour 23) (>= start-min 0) (<= start-min 59))
+                (error "Invalid start time format. Use HH:MM (e.g., 14:30)"))
+              (unless (and (>= end-hour 0) (<= end-hour 23) (>= end-min 0) (<= end-min 59))
+                (error "Invalid end time format. Use HH:MM (e.g., 16:45)"))
+              (unless (> duration-minutes 0)
+                (error "End time must be after start time"))
+
+              (rts--add-clock-entry-to-task marker start-time-obj end-time-obj duration-minutes)
+
+              (with-current-buffer (marker-buffer marker)
+                (save-excursion
+                  (goto-char marker)
+                  (let* ((task (org-element-at-point))
+                         (heading (org-element-property :raw-value task))
+                         (status (org-element-property :todo-keyword task))
+                         (priority (rts--get-task-priority task))
+                         (tags (rts--get-task-tags task)))
+
+                    (rts--show-unified-posframe
+                     heading
+                     priority
+                     tags
+                     status
+                     'tasks)
+
+                    (when rts-debug-mode
+                      (rts--debug-log "Added %d minutes (%s to %s) to task: %s [%s]"
+                                      duration-minutes start-time end-time heading status))
+
+                    (message "Added %d minutes (%s to %s) to '%s'"
+                             duration-minutes start-time end-time heading)))))))
+      (message "No tasks found."))))
+
+#+end_src
+
 * Universal Clock Add Time 
 
 #+begin_src elisp

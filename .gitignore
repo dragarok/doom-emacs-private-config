@@ -3,5 +3,5 @@
 *.log
 tmp/
 config.el
-bookmarks
 custom.el
+bookmarks
