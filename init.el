@@ -104,7 +104,9 @@
         ;; +flymake
         +childframe)
        (spell
-        +aspell
+        ;; +aspell
+        +hunspell
+        ;; +enchant
         ;; +enchant
         ) ; tasing you for misspelling mispelling
        ;; grammar           ; tasing grammar mistake every you make
@@ -133,7 +135,6 @@
        pass              ; password manager for nerds
        pdf               ; pdf enhancements
        prodigy           ; FIXME managing external services & code builders
-       ;; rgb               ; creating color strings
        ;;taskrunner        ; taskrunner for all your projects
        terraform         ; infrastructure as code
        ;;tmux              ; an API for interacting with tmux
@@ -170,8 +171,8 @@
        ;;fsharp            ; ML stands for Microsoft's Language
        ;;fstar             ; (dependent) types and (monadic) effects and Z3
        ;;gdscript          ; the language you waited for
-       ;;(go +lsp)         ; the hipster dialect
-       ;;(haskell +lsp)    ; a language that's lazier than I am
+       (go +lsp)         ; the hipster dialect
+       (haskell +lsp)    ; a language that's lazier than I am
        ;;hy                ; readability of scheme w/ speed of python
        ;;idris             ; a language you can depend on
        (json)              ; At least it ain't XML

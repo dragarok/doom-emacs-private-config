@@ -272,3 +272,14 @@
 ;; (unpin! string-inflection)
 ;; (package! string-inflection
 ;;   :recipe (:host github :repo "akicho8/string-inflection" :branch "main" ))
+
+(package! ai-code-interface
+  :recipe (:host github :repo "tninja/ai-code-interface.el"))
+
+(package! gemini-cli
+  :recipe (:host github :repo "linchen2chris/gemini-cli.el"
+           :files ("*.el" (:exclude "demo.gif"))))
+
+(package! chezmoi
+  :recipe (:host github :repo "dragarok/chezmoi.el"
+           :files (:defaults "extensions/*.el")))

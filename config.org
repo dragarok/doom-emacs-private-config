@@ -158,9 +158,6 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 (setq org-yearlyreview-file (concat org-lookbacks-directory "yearlyreview.org"))
 (setq org-roam-logs-file (concat org-logs-directory "notes_log.txt"))
 
-(setq org-refile-targets
-      '((org-someday-file :maxlevel . 1)
-        (org-agenda-files :maxlevel . 3)))
 #+END_SRC
 ** Buffers
 
@@ -728,21 +725,6 @@ latter - its output."
         :nvm "h" #'scimax-python-mode/body
         :nvm "/" #'hydra-posframe-mode
         :nvm "D" #'dap-debug)
-  )
-#+end_src
-*** Debugging in python
-
-#+begin_src elisp
-(after! python-mode
-  (setq dap-python-debugger 'debugpy)
-  ;; (dap-register-debug-template
-  ;;  "Python :: Run pytest"
-  ;;  (list :type "python"
-  ;;        :cwd "C:/EHP/utils/"
-  ;;        :module "pytest"
-  ;;        :request "launch"
-  ;;        :debugger 'debugpy
-  ;;        :name "Python :: Run Pytest (EHP)"))
   )
 #+end_src
 *** Pyright multi root server
@@ -1990,16 +1972,14 @@ ease of use.
 (bind-key "C-M-s-c" 'screenshot-as-file-link)
 ;; last set of key bindings
 (bind-key "C-M-s-g" 'clock-out-and-mark-current-todo-done)
-;; doing dap very efficiently
-(after! dap-mode
-  (define-key dap-mode-map (kbd "C-s-n") #'dap-next)
-  (define-key dap-mode-map (kbd "C-s-k") #'dap-step-out)
-  (define-key dap-mode-map (kbd "C-s-o") #'dap-step-in)
-  (define-key dap-mode-map (kbd "C-s-c") #'dap-step-continue)
-  (define-key dap-mode-map (kbd "C-s-e") #'dap-ui-expressions-add)
-  (define-key dap-mode-map (kbd "C-s-r") #'dap-ui-repl)
-  (define-key dap-mode-map (kbd "C-s-\"") #'dap-eval-region)
-  )
+;; Debugging efficiently
+(define-key global-map (kbd "C-s-(") #'dape-step-out)
+(define-key global-map (kbd "C-s-)") #'dape-step-in)
+(define-key global-map (kbd "C-s-r") #'dape-next)
+(define-key global-map (kbd "C-s-s") #'dape-continue)
+(define-key global-map (kbd "C-s-+") #'dape-breakpoint-expression)
+(define-key global-map (kbd "C-s-_") #'dape-repl)
+(define-key global-map (kbd "C-s-|") #'dape-evaluate-expression)
 
 (define-key global-map (kbd "C-s-n") #'random-task-select)
 (define-key global-map (kbd "C-s-e") #'priority-time-task-select)
@@ -3775,6 +3755,14 @@ structure changes."
 ;; To start the logging, call this once:
 (run-at-time "30 minutes" nil 'my-log-energy)
 #+end_src
+** Org refile targets 
+
+#+begin_src elisp
+(setq org-refile-targets
+      '((org-someday-file :maxlevel . 1)
+        (org-agenda-files :maxlevel . 3)))
+#+end_src
+
 * Speedy note taking
 
 ** Copy quote with title into the quote
@@ -3881,7 +3869,7 @@ structure changes."
                              new-base-name)
                            "." extension))
          (processed-path (expand-file-name new-name my-image-processed-dir))
-         (index-entry (format "%s,%s\n" processed-path (string-join final-tags ", "))))
+         (index-entry (format "%s,%s\n" processed-path (string-join final-tags ","))))
 
     ;; Perform the rename operation
     (when file
@@ -6416,10 +6404,9 @@ If input doesn't match, creates new task in selected project."
 ;;; Quick Clock-in for Mundane/Leisure Tasks
 ;;; ===================================================================
 
-(defun consult-clock-nonimportant-task ()
-  "Quick clock into mundane/leisure tasks with smart status prioritization.
-Prioritizes active statuses (READING, STUDYING, PRACTICING) over pending ones."
-  (interactive)
+(defun rts--get-mundane-task-candidates ()
+  "Get formatted candidates for mundane/leisure task selection.
+Returns sorted list of (display . marker) pairs."
   (let* ((tasks (org-ql-select
                   (org-agenda-files)
                   '(and (not (done))
@@ -6455,26 +6442,78 @@ Prioritizes active statuses (READING, STUDYING, PRACTICING) over pending ones."
                                                   "    ")
                                                 heading)))
                           (cons display marker)))
-                      tasks))
-         ;; Sort candidates by weight (active tasks first)
-         (sorted (sort candidates 
-                       (lambda (a b)
-                         (let* ((status-a (car (split-string (car a) " ")))
-                                (status-b (car (split-string (car b) " ")))
-                                (weight-a (cond
-                                           ((member status-a '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
-                                           ((member status-a '("SUMMARIZING")) 90)
-                                           ((member status-a '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
-                                           (t 10)))
-                                (weight-b (cond
-                                           ((member status-b '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
-                                           ((member status-b '("SUMMARIZING")) 90)
-                                           ((member status-b '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
-                                           (t 10))))
-                           (> weight-a weight-b)))))
+                      tasks)))
+    ;; Sort candidates by weight (active tasks first)
+    (sort candidates 
+          (lambda (a b)
+            (let* ((status-a (car (split-string (car a) " ")))
+                   (status-b (car (split-string (car b) " ")))
+                   (weight-a (cond
+                              ((member status-a '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
+                              ((member status-a '("SUMMARIZING")) 90)
+                              ((member status-a '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
+                              (t 10)))
+                   (weight-b (cond
+                              ((member status-b '("READING" "STUDYING" "PRACTICING" "WATCHING")) 100)
+                              ((member status-b '("SUMMARIZING")) 90)
+                              ((member status-b '("REREADING" "REVISING" "REPRACTICING" "REWATCH")) 50)
+                              (t 10))))
+              (> weight-a weight-b))))))
+
+(defun rts--add-clock-entry-to-task (marker start-time-obj end-time-obj duration-minutes)
+  "Add clock entry to task at MARKER with given time objects and duration."
+  (with-current-buffer (marker-buffer marker)
+    (save-excursion
+      (goto-char marker)
+      (org-back-to-heading t)
+      (let* ((start-str (format-time-string "[%Y-%m-%d %a %H:%M]" start-time-obj))
+             (end-str (format-time-string "[%Y-%m-%d %a %H:%M]" end-time-obj))
+             (hours (/ duration-minutes 60))
+             (mins (% duration-minutes 60))
+             (clock-entry (format "CLOCK: %s--%s =>  %2d:%02d" start-str end-str hours mins)))
+        
+        (let* ((heading-start (point))
+               (heading-end (save-excursion 
+                              (org-end-of-subtree t t)
+                              (point)))
+               ;; Search for existing LOGBOOK drawer
+               (logbook-region (save-excursion
+                                 (goto-char heading-start)
+                                 (forward-line 1)
+                                 (when (re-search-forward "^[ \t]*:LOGBOOK:[ \t]*$" heading-end t)
+                                   (let ((lb-start (line-beginning-position)))
+                                     (when (re-search-forward "^[ \t]*:END:[ \t]*$" heading-end t)
+                                       (cons lb-start (line-beginning-position))))))))
+          
+          (if logbook-region
+              ;; LOGBOOK exists, add entry after :LOGBOOK: line
+              (progn
+                (goto-char (car logbook-region))
+                (forward-line 1)
+                (insert clock-entry "\n"))
+            ;; No LOGBOOK, create one after metadata
+            (progn
+              (goto-char heading-start)
+              (org-end-of-meta-data)
+              (insert ":LOGBOOK:\n")
+              (insert clock-entry "\n")
+              (insert ":END:\n"))))
+        
+        ;; Save all org buffers
+        (org-save-all-org-buffers)))))
+
+(defun consult-clock-nonimportant-task (&optional add-past-time)
+  "Quick clock into mundane/leisure tasks with smart status prioritization.
+Prioritizes active statuses (READING, STUDYING, PRACTICING) over pending ones.
+With prefix argument ADD-PAST-TIME, prompts for start/end times instead of clocking in."
+  (interactive "P")
+  (let* ((sorted (rts--get-mundane-task-candidates))
+         (prompt (if add-past-time 
+                     "Add clock time to mundane task: "
+                   "Clock into mundane/leisure task: "))
          (selected (when sorted
                      (consult--read sorted
-                                    :prompt "Clock into mundane/leisure task: "
+                                    :prompt prompt
                                     :require-match t
                                     :sort nil
                                     :category 'mundane-task))))
@@ -6482,31 +6521,296 @@ Prioritizes active statuses (READING, STUDYING, PRACTICING) over pending ones."
     (if selected
         (let ((marker (cdr (assoc selected sorted))))
           (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
-            (with-current-buffer (marker-buffer marker)
-              (save-excursion
-                (goto-char marker)
-                (org-clock-in)
-                
-                ;; Get task info for display
-                (let* ((task (org-element-at-point))
-                       (heading (org-element-property :raw-value task))
-                       (status (org-element-property :todo-keyword task))
-                       (priority (rts--get-task-priority task))
-                       (tags (rts--get-task-tags task)))
+            (if add-past-time
+                ;; Add past time mode
+                (let* ((start-time (read-string "Start time (HH:MM): "))
+                       (end-time (read-string "End time (HH:MM): "))
+                       ;; Parse time inputs
+                       (start-parts (split-string start-time ":"))
+                       (end-parts (split-string end-time ":"))
+                       (start-hour (string-to-number (car start-parts)))
+                       (start-min (string-to-number (cadr start-parts)))
+                       (end-hour (string-to-number (car end-parts)))
+                       (end-min (string-to-number (cadr end-parts)))
+                       ;; Create time objects for today with specified times
+                       (today (decode-time (current-time)))
+                       (start-time-obj (encode-time 0 start-min start-hour 
+                                                    (nth 3 today) (nth 4 today) (nth 5 today)))
+                       (end-time-obj (encode-time 0 end-min end-hour 
+                                                  (nth 3 today) (nth 4 today) (nth 5 today)))
+                       ;; Calculate duration in minutes
+                       (duration-seconds (float-time (time-subtract end-time-obj start-time-obj)))
+                       (duration-minutes (round (/ duration-seconds 60))))
                   
-                  ;; Show success posframe with appropriate styling
-                  (rts--show-unified-posframe
-                   heading
-                   priority
-                   tags
-                   status
-                   'leisure)
+                  ;; Validate inputs
+                  (unless (and (>= start-hour 0) (<= start-hour 23) (>= start-min 0) (<= start-min 59))
+                    (error "Invalid start time format. Use HH:MM (e.g., 14:30)"))
+                  (unless (and (>= end-hour 0) (<= end-hour 23) (>= end-min 0) (<= end-min 59))
+                    (error "Invalid end time format. Use HH:MM (e.g., 16:45)"))
+                  (unless (> duration-minutes 0)
+                    (error "End time must be after start time"))
                   
-                  (when rts-debug-mode
-                    (rts--debug-log "Clocked into mundane task: %s [%s]" heading status))
+                  ;; Add clock entry
+                  (rts--add-clock-entry-to-task marker start-time-obj end-time-obj duration-minutes)
                   
-                  (message "Clocked into: %s" heading))))))
+                  ;; Get task info for display
+                  (with-current-buffer (marker-buffer marker)
+                    (save-excursion
+                      (goto-char marker)
+                      (let* ((task (org-element-at-point))
+                             (heading (org-element-property :raw-value task))
+                             (status (org-element-property :todo-keyword task))
+                             (priority (rts--get-task-priority task))
+                             (tags (rts--get-task-tags task)))
+                        
+                        ;; Show success posframe
+                        (rts--show-unified-posframe
+                         heading
+                         priority
+                         tags
+                         status
+                         'leisure)
+                        
+                        (when rts-debug-mode
+                          (rts--debug-log "Added %d minutes (%s to %s) to mundane task: %s [%s]" 
+                                          duration-minutes start-time end-time heading status))
+                        
+                        (message "Added %d minutes (%s to %s) to '%s' and saved all org buffers" 
+                                 duration-minutes start-time end-time heading)))))
+              
+              ;; Normal clock-in mode
+              (with-current-buffer (marker-buffer marker)
+                (save-excursion
+                  (goto-char marker)
+                  (org-clock-in)
+                  
+                  ;; Get task info for display
+                  (let* ((task (org-element-at-point))
+                         (heading (org-element-property :raw-value task))
+                         (status (org-element-property :todo-keyword task))
+                         (priority (rts--get-task-priority task))
+                         (tags (rts--get-task-tags task)))
+                    
+                    ;; Show success posframe with appropriate styling
+                    (rts--show-unified-posframe
+                     heading
+                     priority
+                     tags
+                     status
+                     'leisure)
+                    
+                    (when rts-debug-mode
+                      (rts--debug-log "Clocked into mundane task: %s [%s]" heading status))
+                    
+                    (message "Clocked into: %s" heading)))))))
       (message "No mundane/leisure tasks found."))))
+
+(defun consult-add-clock-to-mundane-task ()
+  "Select a mundane/leisure task from a list and add clock time with start/end times.
+This is an alias for calling consult-clock-nonimportant-task with prefix argument."
+  (interactive)
+  (consult-clock-nonimportant-task t))
+#+end_src
+
+* Universal Clock Add Time 
+
+#+begin_src elisp
+;;; ===================================================================
+;;; Add Clock Time Functions - Works in Agenda and Org Mode
+;;; ===================================================================
+
+(defun rts--get-current-task-marker ()
+  "Get marker for task at point, works in both agenda and org mode."
+  (cond
+   ;; In agenda mode
+   ((derived-mode-p 'org-agenda-mode)
+    (org-get-at-bol 'org-marker))
+   ;; In org mode
+   ((derived-mode-p 'org-mode)
+    (save-excursion
+      (org-back-to-heading t)
+      (point-marker)))
+   (t
+    (error "Not in org-mode or agenda mode"))))
+
+(defun add-clock-time-by-offset ()
+  "Add clock time to current task using offset approach.
+Works in both agenda mode and org mode. Similar to org-agenda-add-clock-time
+but universal. Prompts for duration and end offset."
+  (interactive)
+  (let* ((marker (rts--get-current-task-marker))
+         (duration (read-number "Minutes to clock: " 30))
+         (end-offset (read-number "End how many minutes ago (0 = now): " 0))
+         (end-offset (if (= end-offset 0) 1 end-offset))) ; Default to 1 minute ago if 0
+    
+    (when (and marker (> duration 0))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          (let* ((now (current-time))
+                 (end-time (time-subtract now (seconds-to-time (* end-offset 60))))
+                 (start-time (time-subtract end-time (seconds-to-time (* duration 60))))
+                 (start-str (format-time-string "[%Y-%m-%d %a %H:%M]" start-time))
+                 (end-str (format-time-string "[%Y-%m-%d %a %H:%M]" end-time))
+                 (hours (/ duration 60))
+                 (mins (% duration 60))
+                 (clock-entry (format "CLOCK: %s--%s =>  %2d:%02d" start-str end-str hours mins)))
+            
+            (rts--add-clock-entry-to-logbook clock-entry)
+            (org-save-all-org-buffers)
+            
+            (when rts-debug-mode
+              (rts--debug-log "Added %d minutes (from %d to %d mins ago) via offset method" 
+                              duration (+ duration end-offset) end-offset))
+            
+            (message "Added %d minutes (from %d to %d mins ago)" 
+                     duration (+ duration end-offset) end-offset)))))))
+
+(defun add-clock-time-direct ()
+  "Add clock time to current task using direct start/end time approach.
+Works in both agenda mode and org mode. Similar to consult-add-clock-to-mundane-task
+but works on current task without selection. Prompts for start and end times."
+  (interactive)
+  (let* ((marker (rts--get-current-task-marker))
+         (start-time (read-string "Start time (HH:MM): "))
+         (end-time (read-string "End time (HH:MM): "))
+         ;; Parse time inputs
+         (start-parts (split-string start-time ":"))
+         (end-parts (split-string end-time ":"))
+         (start-hour (string-to-number (car start-parts)))
+         (start-min (string-to-number (cadr start-parts)))
+         (end-hour (string-to-number (car end-parts)))
+         (end-min (string-to-number (cadr end-parts)))
+         ;; Create time objects for today with specified times
+         (today (decode-time (current-time)))
+         (start-time-obj (encode-time 0 start-min start-hour 
+                                      (nth 3 today) (nth 4 today) (nth 5 today)))
+         (end-time-obj (encode-time 0 end-min end-hour 
+                                    (nth 3 today) (nth 4 today) (nth 5 today)))
+         ;; Calculate duration in minutes
+         (duration-seconds (float-time (time-subtract end-time-obj start-time-obj)))
+         (duration-minutes (round (/ duration-seconds 60))))
+    
+    ;; Validate inputs
+    (unless (and (>= start-hour 0) (<= start-hour 23) (>= start-min 0) (<= start-min 59))
+      (error "Invalid start time format. Use HH:MM (e.g., 14:30)"))
+    (unless (and (>= end-hour 0) (<= end-hour 23) (>= end-min 0) (<= end-min 59))
+      (error "Invalid end time format. Use HH:MM (e.g., 16:45)"))
+    (unless (> duration-minutes 0)
+      (error "End time must be after start time"))
+    
+    (when (and marker (> duration-minutes 0))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (org-back-to-heading t)
+          
+          ;; Add clock entry using existing helper function
+          (rts--add-clock-entry-to-task marker start-time-obj end-time-obj duration-minutes)
+          
+          (when rts-debug-mode
+            (rts--debug-log "Added %d minutes (%s to %s) via direct time method" 
+                            duration-minutes start-time end-time))
+          
+          (message "Added %d minutes (%s to %s) and saved all org buffers" 
+                   duration-minutes start-time end-time))))))
+
+(defun rts--add-clock-entry-to-logbook (clock-entry)
+  "Add CLOCK-ENTRY to the current task's LOGBOOK drawer.
+Helper function for universal clock time functions."
+  (let* ((heading-start (point))
+         (heading-end (save-excursion 
+                        (org-end-of-subtree t t)
+                        (point)))
+         ;; Search for existing LOGBOOK drawer after the heading line
+         (logbook-region (save-excursion
+                           (goto-char heading-start)
+                           (forward-line 1) ; Skip the heading line itself
+                           (when (re-search-forward "^[ \t]*:LOGBOOK:[ \t]*$" heading-end t)
+                             (let ((lb-start (line-beginning-position)))
+                               (when (re-search-forward "^[ \t]*:END:[ \t]*$" heading-end t)
+                                 (cons lb-start (line-beginning-position))))))))
+    
+    (if logbook-region
+        ;; LOGBOOK exists, add entry after :LOGBOOK: line
+        (progn
+          (goto-char (car logbook-region))
+          (forward-line 1)
+          (insert clock-entry "\n"))
+      ;; No LOGBOOK, create one after metadata
+      (progn
+        (goto-char heading-start)
+        (org-end-of-meta-data)
+        (insert ":LOGBOOK:\n")
+        (insert clock-entry "\n")
+        (insert ":END:\n")))))
+
+#+end_src
+
+* Open http link on clock in 
+
+#+begin_src elisp
+(defvar rts-auto-open-links-on-clock-in t
+  "When non-nil, automatically open links when clocking into study/leisure tasks.")
+
+(defvar rts-link-open-tags '("studyactive" "study" "blog" "youtube" "watchlist" "repo" "technical")
+  "List of tags that trigger automatic link opening when clocking in.")
+
+(defun rts--extract-links-from-entry ()
+  "Extract all URLs from the current org entry (heading and content).
+Returns a list of URLs found."
+  (save-excursion
+    (org-back-to-heading t)
+    (let* ((element (org-element-at-point))
+           (begin (org-element-property :begin element))
+           (end (org-element-property :end element))
+           (content (buffer-substring-no-properties begin end))
+           (urls nil))
+      ;; Match various URL patterns
+      (with-temp-buffer
+        (insert content)
+        (goto-char (point-min))
+        ;; Match plain URLs
+        (while (re-search-forward "https?://[^[:space:]\n]+" nil t)
+          (push (match-string 0) urls))
+        ;; Also match org-link format [[URL][description]]
+        (goto-char (point-min))
+        (while (re-search-forward "\\[\\[\\(https?://[^]]+\\)\\]" nil t)
+          (push (match-string 1) urls)))
+      (nreverse urls))))
+
+(defun rts--should-auto-open-link-p ()
+  "Check if current entry should trigger automatic link opening.
+Returns t if any of the auto-open tags are present."
+  (let ((tags (org-get-tags)))
+    (seq-some (lambda (tag) (member tag tags)) rts-link-open-tags)))
+
+(defun rts--open-links-for-task ()
+  "Open all links found in the current task if appropriate."
+  (when (and rts-auto-open-links-on-clock-in
+             (rts--should-auto-open-link-p))
+    (let ((urls (rts--extract-links-from-entry)))
+      (when urls
+        (dolist (url urls)
+          ;; Clean up the URL (remove trailing punctuation, org-link remnants)
+          (setq url (replace-regexp-in-string "\\].*$" "" url))
+          (setq url (replace-regexp-in-string "[,;.]$" "" url))
+          (browse-url url)
+          (when rts-debug-mode
+            (rts--debug-log "Opened URL: %s" url)))
+        (message "Opened %d link(s) for task" (length urls))))))
+
+(defun rts--clock-in-with-link-opening (orig-fun &rest args)
+  "Advice function to open links after clocking in.
+Wraps org-clock-in to add link opening functionality."
+  (let ((result (apply orig-fun args)))
+    ;; After successful clock-in, check for and open links
+    (rts--open-links-for-task)
+    result))
+
+;; Install advice when productivity system loads
+(advice-add 'org-clock-in :around #'rts--clock-in-with-link-opening)
 #+end_src
 
 * Random Bookmarks Selection
@@ -9451,27 +9755,6 @@ Example: 30 minutes duration, 5 minutes offset = clock from 35 mins ago to 5 min
           (message "Added %d minutes (from %d to %d mins ago)" 
                    duration (+ duration end-offset) end-offset))))))
 #+end_src
-* Open latest downloaded file directly 
-
-#+begin_src elisp
-(defun open-latest-download ()
-  "Open the most recently downloaded file from Downloads folder.
-Uses dired/dirvish to handle file opening automatically."
-  (interactive)
-  (let* ((downloads-dir (expand-file-name "~/Downloads/"))
-         (files (directory-files downloads-dir t "^[^.]" t))
-         (latest-file (car (sort files
-                                 (lambda (a b)
-                                   (time-less-p (nth 5 (file-attributes b))
-                                               (nth 5 (file-attributes a))))))))
-    (if latest-file
-        (progn
-          (dired downloads-dir)
-          (dired-goto-file latest-file)
-          (dired-find-file))
-      (message "No files found in Downloads folder"))))
-
-#+end_src
 * Org roam mondays
 
 #+begin_src elisp
@@ -9498,6 +9781,27 @@ Uses dired/dirvish to handle file opening automatically."
     (org-roam-dailies--capture next-monday-time t)))
 #+end_src
 
+* Open latest downloaded file directly 
+
+#+begin_src elisp
+(defun open-latest-download ()
+  "Open the most recently downloaded file from Downloads folder.
+Uses dired/dirvish to handle file opening automatically."
+  (interactive)
+  (let* ((downloads-dir (expand-file-name "~/Downloads/"))
+         (files (directory-files downloads-dir t "^[^.]" t))
+         (latest-file (car (sort files
+                                 (lambda (a b)
+                                   (time-less-p (nth 5 (file-attributes b))
+                                               (nth 5 (file-attributes a))))))))
+    (if latest-file
+        (progn
+          (dired downloads-dir)
+          (dired-goto-file latest-file)
+          (dired-find-file))
+      (message "No files found in Downloads folder"))))
+
+#+end_src
 * Window split org mode hydra
 
 #+begin_src elisp
@@ -9602,12 +9906,13 @@ Uses dired/dirvish to handle file opening automatically."
     (?│ . ?|)
     (?🤖 . ?*)))
 
+
 (defun sm-replace-problem-chars (args)
-    (let ((terminal (nth 0 args))
-          (output (nth 1 args)))
-      (dolist (sub sm-subsitutions)
-        (setq output (subst-char-in-string (car sub) (cdr sub) output)))
-      (list terminal output)))
+  (let ((terminal (nth 0 args))
+        (output (nth 1 args)))
+    (dolist (sub sm-subsitutions)
+      (setq output (subst-char-in-string (car sub) (cdr sub) output)))
+    (list terminal output)))
 
 
 (advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
@@ -9618,49 +9923,102 @@ Uses dired/dirvish to handle file opening automatically."
 * Font fallback for mac taken from claudemacs (maybe helps claude code )
 
 #+begin_src elisp
-(defun my/setup-custom-font-fallbacks-mac ()
-  (interactive)
-  "Configure font fallbacks on mac for symbols and emojis.
-  This will need to be called every time you change your font size,
-  to load the new symbol and emoji fonts."
+;; Customize cursor type in read-only mode (default is '(box nil nil))
+;; The format is (CURSOR-ON BLINKING-FREQUENCY CURSOR-OFF)
+;; Cursor type options: 'box, 'hollow, 'bar, 'hbar, or nil
+(setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
 
-  (setq use-default-font-for-symbols nil)
-
-  ;; --- Configure for 'symbol' script ---
-  ;; We add fonts one by one. Since we use 'prepend',
-  ;; the last one added here will be the first one Emacs tries.
-  ;; So, list them in reverse order of your preference.
-
-  ;; Least preferred among this list for symbols (will be at the end of our preferred list)
-  (set-fontset-font t 'symbol "Hiragino Sans" nil 'prepend)
-  (set-fontset-font t 'symbol "STIX Two Math" nil 'prepend)
-  (set-fontset-font t 'symbol "Zapf Dingbats" nil 'prepend)
-  (set-fontset-font t 'symbol "Monaco" nil 'prepend)
-  (set-fontset-font t 'symbol "Menlo" nil 'prepend)
-  ;; Most preferred for symbols -- use your main font here
-  (set-fontset-font t 'symbol "JetBrainsMono Nerd Font Mono" nil 'prepend)
-
-
-  ;; --- Configure for 'emoji' script ---
-  ;; Add fonts one by one, in reverse order of preference.
-
-  ;; Least preferred among this list for emojis
-  (set-fontset-font t 'emoji "Hiragino Sans" nil 'prepend)
-  (set-fontset-font t 'emoji "STIX Two Math" nil 'prepend)
-  (set-fontset-font t 'emoji "Zapf Dingbats" nil 'prepend)
-  (set-fontset-font t 'emoji "Monaco" nil 'prepend)
-  (set-fontset-font t 'emoji "Menlo" nil 'prepend)
-  ;; (set-fontset-font t 'emoji "Noto Emoji" nil 'prepend) ;; If you install Noto Emoji
-  ;; Most preferred for emojis -- use your main font here
-  )
-
+;; Control eat scrollback size for longer conversations
+;; The default is 131072 characters, which is usually sufficient
+;; For very long Claude sessions, you may want to increase it
+;; WARNING: Setting to nil (unlimited) is NOT recommended with Claude Code
+;; as it can cause severe performance issues with long sessions
+(setq eat-term-scrollback-size 500000)  ; Increase to 500k characters
 ;; Then, add the fonts after your setup is complete:
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (progn
-              (when (string-equal system-type "darwin")
-                (my/setup-custom-font-fallbacks-mac)))))
 
+;; important - tell emacs to use our fontset settings
+;; (setq use-default-font-for-symbols nil)
+;; (set-fontset-font t 'unicode (font-spec :family "JuliaMono"))
+
+;; ;; your preferred, default font:
+;; (set-fontset-font t 'symbol "JuliaMono" nil 'prepend)
+
+(add-hook 'claude-code-start-hook
+          (lambda ()
+            ;; Reduce line spacing to fix vertical bar gaps
+            (setq-local line-spacing 0.1))) 
+
+(custom-set-faces
+ '(claude-code-repl-face ((t (:family "JuliaMono")))))
+#+end_src
+* Ai code client 
+
+#+begin_src elisp
+(use-package ai-code-interface
+  :config
+  (ai-code-set-backend  'claude-code-ide) ;; use claude-code-ide as backend
+  ;; Optional: Set up Magit integration for AI commands in Magit popups
+  (with-eval-after-load 'magit
+    (ai-code-magit-setup-transients)))
+(use-package gemini-cli
+  :defer t)
+(defun my-gemini-notify (title message)
+  "Display a macOS notification with sound."
+  (call-process "osascript" nil nil nil
+                "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
+                             message title)))
+
+(setq gemini-cli-notification-function #'my-gemini-notify)
+#+end_src
+* Claude switch accounts 
+
+#+begin_src elisp
+(defun claude-switch-accounts ()
+  "Toggle between default claude account and the ~/.claude333 account."
+  (interactive)
+  (if (string-prefix-p "CLAUDE_CONFIG_DIR=" claude-code-ide-cli-path)
+      ;; Currently using the alternate account → switch to default
+      (progn
+        (setq claude-code-ide-cli-path "claude")
+        (setq claude-code-program        "claude"))
+    ;; Currently using default (or anything else) → switch to alternate
+    (progn
+      (setq claude-code-ide-cli-path "CLAUDE_CONFIG_DIR=~/.claude333 claude")
+      (setq claude-code-program        "CLAUDE_CONFIG_DIR=~/.claude333 claude")))
+
+  (message "Claude CLI now using: %s" claude-code-ide-cli-path))
+#+end_src
+* Chezmoi 
+
+#+begin_src elisp
+(use-package! chezmoi
+  :defer t
+  :config
+  (require 'chezmoi-cape)
+  (require 'chezmoi-magit)
+  (require 'chezmoi-dired)
+  (add-to-list 'completion-at-point-functions #'chezmoi-capf)
+  (defun chezmoi--evil-insert-state-enter ()
+    "Run after evil-insert-state-entry."
+    (chezmoi-template-buffer-display nil (point))
+    (remove-hook 'after-change-functions #'chezmoi-template--after-change 1))
+
+  (defun chezmoi--evil-insert-state-exit ()
+    "Run after evil-insert-state-exit."
+    (chezmoi-template-buffer-display nil)
+    (chezmoi-template-buffer-display t)
+    (add-hook 'after-change-functions #'chezmoi-template--after-change nil 1))
+
+  (defun chezmoi-evil ()
+    (if chezmoi-mode
+        (progn
+          (add-hook 'evil-insert-state-entry-hook #'chezmoi--evil-insert-state-enter nil 1)
+          (add-hook 'evil-insert-state-exit-hook #'chezmoi--evil-insert-state-exit nil 1))
+      (progn
+        (remove-hook 'evil-insert-state-entry-hook #'chezmoi--evil-insert-state-enter 1)
+        (remove-hook 'evil-insert-state-exit-hook #'chezmoi--evil-insert-state-exit 1))))
+  (add-hook 'chezmoi-mode-hook #'chezmoi-evil)
+  )
 #+end_src
 
 * Deprecated
@@ -12921,4 +13279,20 @@ restart lsp based on that environment"
 
 #+begin_src elisp
 (setq save-interprogram-paste-before-kill t)
+#+end_src
+
+** Debugging in python
+
+#+begin_src elisp
+(after! python-mode
+  (setq dap-python-debugger 'debugpy)
+  ;; (dap-register-debug-template
+  ;;  "Python :: Run pytest"
+  ;;  (list :type "python"
+  ;;        :cwd "C:/EHP/utils/"
+  ;;        :module "pytest"
+  ;;        :request "launch"
+  ;;        :debugger 'debugpy
+  ;;        :name "Python :: Run Pytest (EHP)"))
+  )
 #+end_src
