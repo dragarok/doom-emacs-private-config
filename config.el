@@ -185,6 +185,13 @@
 
 (setq! citar-notes-paths '(org-roam-directory))
 
+;; Prevent citar-org-roam from triggering org-roam-db-sync (prevents slow rebuilds)
+;; We temporarily make org-roam-db-sync a no-op during citar-org-roam-setup
+(defadvice! my/citar-org-roam-setup-no-sync (fn &rest args)
+  :around #'citar-org-roam-setup
+  (cl-letf (((symbol-function 'org-roam-db-sync) #'ignore))
+    (apply fn args)))
+
 ;; Common derived paths (work on both platforms)
 (setq org-logs-directory (concat org-directory "logs/"))
 (setq org-agenda-directory (concat org-directory "agenda/"))
