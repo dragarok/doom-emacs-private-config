@@ -89,6 +89,9 @@
 
 (pixel-scroll-precision-mode)
 
+;; Add lisp directory to load-path early (needed for android-extras and other modules)
+(add-to-list 'load-path (expand-file-name "lisp" doom-user-dir))
+
 ;; ============================================================
 ;; ANDROID-SPECIFIC UI SETTINGS
 ;; ============================================================
@@ -113,9 +116,6 @@
 
   ;; Load Android-specific modules (from lisp/)
   (require 'android-extras))       ; keyboard control, dired xdg-open, vterm shell
-
-;; Add lisp directory to load-path (modules loaded after paths are set)
-(add-to-list 'load-path (expand-file-name "lisp" doom-user-dir))
 
 (define-key input-decode-map [?\C-i] [C-i])
 
