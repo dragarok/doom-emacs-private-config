@@ -35,6 +35,12 @@
   :recipe (:host github :repo "stevemolitor/claude-code.el"
            :files ("*.el" (:exclude "images/*"))))
 
+(package! hydra-posframe
+  :recipe (:host github :repo "Ladicle/hydra-posframe"))
+
+(package! org-books
+  :recipe (:host github :repo "goderich/org-books"))
+(package! orgmdb)
 ;; ============================================================
 ;; MAC-ONLY PACKAGES
 ;; ============================================================
@@ -48,9 +54,6 @@
   (package! magit-delta
     :recipe (:host github :repo "dandavison/magit-delta"))
 
-  ;; UI enhancements
-  (package! hydra-posframe
-    :recipe (:host github :repo "Ladicle/hydra-posframe"))
   (package! focus)
   (package! page-break-lines)
   (package! info-colors)
@@ -73,9 +76,6 @@
     :recipe (:host github
              :repo "tecosaur/org-pandoc-import"
              :files ("*.el" "filters" "preprocessors")))
-  (package! org-books
-    :recipe (:host github :repo "goderich/org-books"))
-  (package! orgmdb)
   (package! ox-json)
 
   ;; LaTeX

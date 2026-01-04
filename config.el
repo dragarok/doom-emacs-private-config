@@ -455,18 +455,18 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
         :n "z" #'python-shell-send-statement
         :n "F" #'python-shell-send-file
         :nvm "h" #'scimax-python-mode/body
-        :nvm "/" #'hydra-posframe-mode
-        :nvm "D" #'dap-debug)
+        :nvm "/" #'hydra-posframe-mode)
   )
 
 (setq lsp-pyright-multi-root nil)
 
-(use-package numpydoc
-  :ensure t
-  :bind (:map python-mode-map
-              ("C-c C-n" . numpydoc-generate))
-  :config
-  (setq! numpydoc-insertion-style 'yas))
+(unless IS-ANDROID
+  (use-package numpydoc
+    :ensure t
+    :bind (:map python-mode-map
+                ("C-c C-n" . numpydoc-generate))
+    :config
+    (setq! numpydoc-insertion-style 'yas)))
 
 (after! org
   (setq org-highlight-latex-and-related '(native script entities)))
@@ -510,11 +510,11 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
         )
   )
 
-(use-package! orgmdb
-  :after org
-  :config
-  (setq orgmdb-omdb-apikey "")
-  )
+(unless IS-ANDROID
+  (use-package! orgmdb
+    :after org
+    :config
+    (setq orgmdb-omdb-apikey "")))
 
 (map! :localleader
       :map markdown-mode-map
@@ -604,9 +604,9 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
           (lambda ()
             (define-key yaml-mode-map "\C-m" 'newline-and-indent)))
 
-(use-package! org-pandoc-import :after org)
-
-(add-hook 'magit-mode-hook (lambda () (magit-delta-mode +1)))
+(unless IS-ANDROID
+  (use-package! org-pandoc-import :after org)
+  (add-hook 'magit-mode-hook (lambda () (magit-delta-mode +1))))
 
 (defun my-magit/delete-merged-branches ()
   (interactive)
@@ -968,7 +968,8 @@ selected, then the current line."
 (bind-key "C-M-s-e" 'scroll-other-window)
 ;; (bind-key "C-M-s-:" 'newline-and-indent)
 ;; (bind-key "C-M-s-w" 'winner-undo)
-(bind-key "C-M-s-c" 'screenshot-as-file-link)
+(unless IS-ANDROID
+  (bind-key "C-M-s-c" 'screenshot-as-file-link))
 ;; last set of key bindings
 (bind-key "C-M-s-g" 'clock-out-and-mark-current-todo-done)
 ;; Debugging efficiently
@@ -1017,17 +1018,6 @@ selected, then the current line."
        :n "q" #'org-ql-search
        :n "a" #'consult-org-agenda
        :n "w" #'consult-org-heading)
-      (:prefix "k"
-       :n "t" #'dap-breakpoint-toggle
-       :n "c" #'dap-continue
-       :n "n" #'dap-next
-       :n "i" #'dap-step-in
-       :n "o" #'dap-step-out
-       :n "e" #'dap-ui-expressions-add
-       :n "f" #'dap-ui-expressions-remove
-       :n "g" #'dap-ui-expressions-add-prompt
-       :n "x" #'dap-ui-hide-many-windows
-       :n "z" #'dap-ui-show-many-windows)
       (:prefix "v"
        :n "i" #'(lambda ()
                   (interactive)
@@ -1054,8 +1044,8 @@ selected, then the current line."
        :n "w" #'change-env-and-restart-lsp
        :n "h" #'unpackaged/org-outline-numbers
        :n "f" #'auto-fill-mode
-       :n "j" #'grab-x-link-firefox-insert-org-link
-       :n "b" #'grab-x-link-brave-insert-org-link)
+       :n "j" (if IS-ANDROID #'ignore #'grab-x-link-firefox-insert-org-link)
+       :n "b" (if IS-ANDROID #'ignore #'grab-x-link-brave-insert-org-link))
       (:prefix "d"
        :n "h" #'org-ref-bibtex-hydra/body
        :n "w" #'+hydra/window-nav/body
@@ -1066,8 +1056,8 @@ selected, then the current line."
        :n "n" #'org-toogle-narrow-to-subtree
        :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
-       :n "o" #'org-noter
-       :n "c" #'org-noter-pdftools-create-skeleton
+       :n "o" (if IS-ANDROID #'ignore #'org-noter)
+       :n "c" (if IS-ANDROID #'ignore #'org-noter-pdftools-create-skeleton)
        :n "j" #'org-hugo-auto-export-mode
        :n "p" #'poetry
        :n "r" #'poetry-run
@@ -1091,9 +1081,10 @@ selected, then the current line."
 ;; (bind-key "H-;" '+evil-window-split-a)
 ;; (bind-key "H-\\" '+evil-window-vsplit-a)
 
-(setq scihub-homepage "https://sci-hub.st"
-      scihub-download-directory "~/pdfs"
-      scihub-open-after-download nil)
+(unless IS-ANDROID
+  (setq scihub-homepage "https://sci-hub.st"
+        scihub-download-directory "~/pdfs"
+        scihub-open-after-download nil))
 
 (setq! org-agenda-category-icon-alist
        `(
@@ -1934,13 +1925,14 @@ appropriate.  In tables, insert a new row or end the table."
 ;; (popup-frame-define my-org-agenda "large-popup")
 ;; (popup-frame-define my-scratch "large-popup")
 
-(defun screenshot-as-file-link ()
-  (interactive)
-  (org-download-clipboard)
-  (run-at-time "0.1 sec" nil
-               (lambda ()
-                 (forward-line -1)
-                 (cpb/convert-attachment-to-file))))
+(unless IS-ANDROID
+  (defun screenshot-as-file-link ()
+    (interactive)
+    (org-download-clipboard)
+    (run-at-time "0.1 sec" nil
+                 (lambda ()
+                   (forward-line -1)
+                   (cpb/convert-attachment-to-file)))))
 
 (defun my/org-attach-attach-and-link (file)
   (interactive "fFile to attach: ")
@@ -2113,8 +2105,9 @@ appropriate.  In tables, insert a new row or end the table."
 (map! :g "s-[" #'winner-undo
       :g "s-]" #'winner-redo)
 
-(use-package dwim-shell-command
-  :ensure t)
+(unless IS-ANDROID
+  (use-package dwim-shell-command
+    :ensure t))
 
 (defun send-to-daily-highlights ()
   "Send selected text to highlights section in today's org-roam daily note with linked subheading."
