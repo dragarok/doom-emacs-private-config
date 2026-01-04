@@ -622,6 +622,18 @@ If node's buffer is already open in a kairoam window, expand that window instead
     ;; Otherwise use the original function
     (funcall orig-fn arg)))
 
+(defun kairoam--advice-org-open-at-mouse (orig-fn &optional arg)
+  "Advice for org-open-at-mouse to use kairoam for ID links when kairoam-mode is active."
+  (if (and kairoam-mode
+           (let ((ctx (ignore-errors (org-element-context))))
+             (and ctx 
+                  (eq (org-element-type ctx) 'link)
+                  (string= (org-element-property :type ctx) "id"))))
+      ;; We're in kairoam-mode and on an ID link - use kairoam's handler
+      (kairoam-open-at-point)
+    ;; Otherwise use the original function
+    (funcall orig-fn arg)))
+;;; Minor mode & keymap
 ;;; Minor mode & keymap
 
 (defvar kairoam-mode-map
@@ -652,6 +664,8 @@ If node's buffer is already open in a kairoam window, expand that window instead
         ;; Install advice for +org/dwim-at-point if it exists
         (when (fboundp '+org/dwim-at-point)
           (advice-add '+org/dwim-at-point :around #'kairoam--advice-dwim-at-point))
+        (when (fboundp 'org-open-at-mouse)
+          (advice-add 'org-open-at-mouse :around #'kairoam--advice-org-open-at-mouse))
         ;; auto-track current buffer if it's an org-roam file
         (when (and (buffer-file-name)
                    (bound-and-true-p org-roam-directory)
@@ -663,6 +677,8 @@ If node's buffer is already open in a kairoam window, expand that window instead
     ;; Remove advice when disabling mode
     (when (fboundp '+org/dwim-at-point)
       (advice-remove '+org/dwim-at-point #'kairoam--advice-dwim-at-point))
+    (when (fboundp 'org-open-at-mouse)
+      (advice-remove 'org-open-at-mouse #'kairoam--advice-org-open-at-mouse))
     ;; Restore line numbers and cleanup overlays
     (dolist (s kairoam--registry)
       ;; Restore line numbers for each buffer

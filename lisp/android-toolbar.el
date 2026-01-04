@@ -69,7 +69,7 @@
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-continue>"
       '(menu-item "Continue" rts-flow-continue
         :help "Continue last task"
-        :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
+        :image (image :type svg :file "~/.doom.d/toolbar-assets/play-button-svgrepo-com.svg"
                       :height 48 :width 48)))
 
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-cancel>"
@@ -109,7 +109,7 @@
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-add>"
       '(menu-item "Add" rts-flow-add
         :help "Add task, beancount entry, or clock time"
-        :image (image :type svg :file "~/.doom.d/toolbar-assets/add-circle-svgrepo-com.svg"
+        :image (image :type svg :file "~/.doom.d/toolbar-assets/add-circle2-svgrepo-com.svg"
                       :height 48 :width 48)))
 
     ;; ===================================================================

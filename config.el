@@ -80,7 +80,9 @@
   (setq doom-theme 'modus-operandi))
  (IS-ANDROID
   ;; Other Android devices (POCO, etc.)
-  (setq doom-theme 'doom-acario-light))
+  (if (eq toolkit-theme 'dark )
+      (setq doom-theme 'doom-monokai-ristretto)
+    (setq doom-theme 'doom-acario-light)))
  (IS-MAC
   (add-hook 'ns-system-appearance-change-functions #'my/apply-theme)
   (setq doom-theme 'doom-gruvbox-light))
