@@ -6,6 +6,17 @@
 (defconst IS-ANDROID (eq system-type 'android)
   "Are we running on Android (Termux)?")
 
+;; Android device detection (POCO phone vs ONYX e-reader)
+(defconst IS-ONYX (and IS-ANDROID
+                       (boundp 'android-build-fingerprint)
+                       (string-prefix-p "ONYX" android-build-fingerprint))
+  "Are we running on an Onyx Boox e-reader?")
+
+(defconst IS-POCO (and IS-ANDROID
+                       (boundp 'android-build-fingerprint)
+                       (string-prefix-p "POCO" android-build-fingerprint))
+  "Are we running on a POCO phone?")
+
 ;; ============================================================
 ;; BASIC SETTINGS
 ;; ============================================================
@@ -21,7 +32,20 @@
 ;; FONTS - Platform specific
 ;; ============================================================
 (cond
+ (IS-ONYX
+  ;; Onyx Boox e-reader - larger fonts for e-ink display
+  (setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :size 30)
+        doom-big-font (font-spec :family "Iosevka Nerd Font Mono" :size 36)
+        doom-variable-pitch-font (font-spec :family "SpaceMono Nerd Font" :size 40)
+        doom-serif-font (font-spec :family "BlexMono Nerd Font" :size 40 :weight 'light)))
+ (IS-POCO
+  ;; POCO phone - standard Android sizes
+  (setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :size 26)
+        doom-big-font (font-spec :family "Iosevka Nerd Font Mono" :size 25)
+        doom-variable-pitch-font (font-spec :family "SpaceMono Nerd Font" :size 36)
+        doom-serif-font (font-spec :family "BlexMono Nerd Font" :size 36 :weight 'light)))
  (IS-ANDROID
+  ;; Fallback for other Android devices (same as POCO)
   (setq doom-font (font-spec :family "Iosevka Nerd Font Mono" :size 26)
         doom-big-font (font-spec :family "Iosevka Nerd Font Mono" :size 25)
         doom-variable-pitch-font (font-spec :family "SpaceMono Nerd Font" :size 36)
@@ -51,7 +75,11 @@
 
 ;; Theme - Platform specific
 (cond
+ (IS-ONYX
+  ;; Onyx Boox e-reader - modus-operandi is great for e-ink
+  (setq doom-theme 'modus-operandi))
  (IS-ANDROID
+  ;; Other Android devices (POCO, etc.)
   (setq doom-theme 'doom-acario-light))
  (IS-MAC
   (add-hook 'ns-system-appearance-change-functions #'my/apply-theme)
@@ -1066,13 +1094,6 @@ selected, then the current line."
 (setq scihub-homepage "https://sci-hub.st"
       scihub-download-directory "~/pdfs"
       scihub-open-after-download nil)
-
-(use-package! org-mru-clock
-  :after org
-  :config
-  (setq org-mru-clock-how-many 40)
-  (add-hook 'minibuffer-setup-hook #'org-mru-clock-embark-minibuffer-hook)
-  )
 
 (setq! org-agenda-category-icon-alist
        `(

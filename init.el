@@ -14,6 +14,9 @@
 ;;      Alternatively, press 'gd' (or 'C-c c d') on a module to browse its
 ;;      directory (for easy access to its source code).
 
+;; Platform detection for conditional module loading
+(defconst IS-ANDROID (eq system-type 'android))
+
 ;; (add-to-list 'default-frame-alist '(undecorated-round . t))
 
 (doom! :input
@@ -23,75 +26,64 @@
 
        :completion
        ;; company           ; the ultimate code completion backend
-       (corfu
-        +icons
-        +orderless)
+       (:unless IS-ANDROID
+         (corfu +icons +orderless))
+       (:if IS-ANDROID corfu)
        ;;helm              ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
        ;;ivy               ; a search engine for love and life
-       (vertico
-        +childframe
-        +icons)        ; the search engine of the future
+       (:unless IS-ANDROID
+         (vertico +childframe +icons))
+       (:if IS-ANDROID vertico)
 
        :ui
        ;;deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
        doom-dashboard    ; a nifty splash screen for Emacs
-       smooth-scroll
-
+       (:unless IS-ANDROID smooth-scroll)
        ;; doom-quit         ; DOOM quit-message prompts when you quit Emacs
-       (emoji +unicode)  ; 🙂
+       (:unless IS-ANDROID (emoji +unicode))
        hl-todo           ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
        ;; hydra
        indent-guides     ; highlighted indent columns
-       (ligatures)
-       ;;  +iosevka)
+       ligatures         ; ligatures and symbols to make your code pretty again
        ;;minimap           ; show a map of the code on the side
        modeline          ; snazzy, Atom-inspired modeline, plus API
        ;; nav-flash         ; blink cursor line after big motions
        ;;neotree           ; a project drawer, like NERDTree for vim
-       ophints           ; highlight the region an operation acts on
-       (popup
-        ;; +all
-        +defaults)   ; tame sudden yet inevitable temporary windows
+       (:unless IS-ANDROID ophints)  ; highlight the region an operation acts on
+       (popup +defaults)   ; tame sudden yet inevitable temporary windows
        ;; tabs              ; a tab bar for Emacs
-       (treemacs          ; a project drawer, like neotree but cooler
-        +lsp)
-       unicode           ; extended unicode support for various languages
-       (vc-gutter +pretty)         ; vcs diff in the fringe
+       (:unless IS-ANDROID (treemacs +lsp))  ; a project drawer, like neotree but cooler
+       (:unless IS-ANDROID unicode)  ; extended unicode support for various languages
+       (:unless IS-ANDROID (vc-gutter +pretty))  ; vcs diff in the fringe
        ;; vi-tilde-fringe   ; fringe tildes to mark beyond EOB
-       (window-select     ; visually switch windows
-        +numbers)
+       (:unless IS-ANDROID (window-select +numbers))  ; visually switch windows
        workspaces        ; tab emulation, persistence & separate workspaces
        zen               ; distraction-free coding or writing
 
        :editor
        (evil +everywhere); come to the dark side, we have cookies
-       file-templates    ; auto-snippets for empty files
+       (:unless IS-ANDROID file-templates)  ; auto-snippets for empty files
        fold              ; (nigh) universal code folding
        (format +onsave)  ; automated prettiness
        ;;god               ; run Emacs commands without modifier keys
        ;;lispy             ; vim for lisp, for people who don't like vim
-       multiple-cursors  ; editing in many places at once
+       (:unless IS-ANDROID multiple-cursors)  ; editing in many places at once
        ;;objed             ; text object editing for the innocent
        ;;parinfer          ; turn lisp into python, sort of
        ;; rotate-text       ; cycle region at point between text candidates
        snippets          ; my elves. They type so I don't have to
-       word-wrap         ; soft wrapping with language-aware indent
+       (:unless IS-ANDROID word-wrap)  ; soft wrapping with language-aware indent
 
        :emacs
-       (dired             ; making dired pretty [functional]
-        ;; +ranger
-        +dirvish
-        ;; +icons
-        )
+       (dired +dirvish)
        electric          ; smarter, keyword-based electric-indent
-       (ibuffer         ; interactive buffer management
-        +icons)
-       (undo              ; persistent, smarter undo for your inevitable mistakes
-        +tree
-        )
-       vc                ; version-control and Emacs, sitting in a tree
+       (:unless IS-ANDROID (ibuffer +icons))  ; interactive buffer management
+       (:if IS-ANDROID (ibuffer))
+       (:unless IS-ANDROID (undo +tree))
+       (:if IS-ANDROID undo)  ; persistent, smarter undo for your inevitable mistakes
+       (:unless IS-ANDROID vc)  ; version-control and Emacs, sitting in a tree
 
        :term
        eshell            ; the elisp shell that works everywhere
@@ -100,46 +92,34 @@
        vterm             ; the best terminal emulation in Emacs
 
        :checkers
-       (syntax              ; tasing you for every semicolon you forget
-        ;; +flymake
-        +childframe)
-       (spell
-        ;; +aspell
-        +hunspell
-        ;; +enchant
-        ;; +enchant
-        ) ; tasing you for misspelling mispelling
+       (:unless IS-ANDROID (syntax +childframe))  ; tasing you for every semicolon you forget
+       (:unless IS-ANDROID (spell +hunspell))  ; tasing you for misspelling mispelling
        ;; grammar           ; tasing grammar mistake every you make
 
        :tools
        ;;ansible
        biblio            ; Writes a PhD for you (citation needed)
-       debugger          ; FIXME stepping through code, to help you add bug
+       (:unless IS-ANDROID debugger)  ; FIXME stepping through code, to help you add bugs
        direnv
-       docker
-       editorconfig      ; let someone else argue about tabs vs spaces
-       ein               ; tame Jupyter notebooks with emacs
-       (eval +overlay)     ; run code, run (also, repls)
+       (:unless IS-ANDROID docker)
+       (:unless IS-ANDROID editorconfig)  ; let someone else argue about tabs vs spaces
+       (:unless IS-ANDROID ein)  ; tame Jupyter notebooks with emacs
+       (:unless IS-ANDROID (eval +overlay))  ; run code, run (also, repls)
        ;; gist              ; interacting with github gists
-       (lookup              ; navigate your code and its documentation
-        +dictionary
-        +offline
-        +docsets)
-       (lsp               ; M-x vscode
-        +peek
-        +booster)
+       (:unless IS-ANDROID (lookup +dictionary +offline +docsets))  ; navigate your code and its documentation
+       (:unless IS-ANDROID (lsp +peek +booster))  ; M-x vscode
        ;; llm
-       (magit             ; a git porcelain for Emacs
-        +forge)
+       (:unless IS-ANDROID (magit +forge))
+       (:if IS-ANDROID magit)  ; a git porcelain for Emacs
        ;;make              ; run make tasks from Emacs
-       pass              ; password manager for nerds
-       pdf               ; pdf enhancements
-       prodigy           ; FIXME managing external services & code builders
+       (:unless IS-ANDROID pass)  ; password manager for nerds
+       (:unless IS-ANDROID pdf)   ; pdf enhancements
+       (:unless IS-ANDROID prodigy)  ; FIXME managing external services & code builders
        ;;taskrunner        ; taskrunner for all your projects
-       terraform         ; infrastructure as code
+       (:unless IS-ANDROID terraform)  ; infrastructure as code
        ;;tmux              ; an API for interacting with tmux
-       tree-sitter
-       upload            ; map local to remote projects via ssh/ftp
+       (:unless IS-ANDROID tree-sitter)
+       (:unless IS-ANDROID upload)  ; map local to remote projects via ssh/ftp
 
        :os
        (:if (featurep :system 'macos) macos)  ; improve compatibility with macOS
@@ -147,100 +127,71 @@
 
        :lang
        ;;agda              ; types of types of types of types...
-       (beancount         ; mind the GAAP
-        +lsp)
+       (:unless IS-ANDROID (beancount +lsp))
+       (:if IS-ANDROID beancount)  ; mind the GAAP
        ;;cc                ; C > C++ == 1
        ;;clojure           ; java with a lisp
        ;;common-lisp       ; if you've seen one lisp, you've seen them all
        ;;coq               ; proofs-as-programs
        ;;crystal           ; ruby at the speed of c
-       (csharp            ; unity, .NET, and mono shenanigans
-        +tree-sitter
-        +lsp)
-       data              ; config/data formats
+       (:unless IS-ANDROID (csharp +tree-sitter +lsp))  ; unity, .NET, and mono shenanigans
+       (:unless IS-ANDROID data)  ; config/data formats
        ;;(dart +flutter)   ; paint ui and not much else
        ;;dhall
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
        emacs-lisp        ; drown in parentheses
        ;;erlang            ; an elegant language for a more civilized age
-       ess               ; emacs speaks statistics
+       (:unless IS-ANDROID ess)  ; emacs speaks statistics
        ;;factor
        ;;faust             ; dsp, but you get to keep your soul
        ;;fortran           ; in FORTRAN, GOD is REAL (unless declared INTEGER)
        ;;fsharp            ; ML stands for Microsoft's Language
        ;;fstar             ; (dependent) types and (monadic) effects and Z3
        ;;gdscript          ; the language you waited for
-       (go +lsp)         ; the hipster dialect
-       (haskell +lsp)    ; a language that's lazier than I am
+       (:unless IS-ANDROID (go +lsp))  ; the hipster dialect
+       (:unless IS-ANDROID (haskell +lsp))  ; a language that's lazier than I am
        ;;hy                ; readability of scheme w/ speed of python
        ;;idris             ; a language you can depend on
-       (json)              ; At least it ain't XML
+       (:unless IS-ANDROID json)  ; At least it ain't XML
        ;;(java +meghanada) ; the poster child for carpal tunnel syndrome
-       (javascript        ; all(hope(abandon(ye(who(enter(here))))))
-        +tree-sitter
-        +lsp)
-       ;; (julia             ; a better, faster MATLAB
-       ;;  +lsp)
-       (kotlin            ; a better, slicker Java(Script)
-        +lsp)
-       (latex             ; writing papers in Emacs has never been so fun
-        +cdlatex
-        +fold
-        +lsp
-        +latexmk)
+       (:unless IS-ANDROID (javascript +tree-sitter +lsp))  ; all(hope(abandon(ye(who(enter(here))))))
+       ;; (julia +lsp)      ; a better, faster MATLAB
+       (:unless IS-ANDROID (kotlin +lsp))  ; a better, slicker Java(Script)
+       (:unless IS-ANDROID (latex +cdlatex +fold +lsp +latexmk))  ; writing papers in Emacs has never been so fun
        ;;lean              ; for folks with too much to prove
        ;;ledger            ; be audit you can be
        ;;lua               ; one-based indices? one-based indices
-       (markdown          ; writing docs for people to ignore
-        +grip)
+       (:unless IS-ANDROID (markdown +grip))  ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        ;;nix               ; I hereby declare "nix geht mehr!"
        ;;ocaml             ; an objective camel
-       (org               ; organize your plain life in plain text
-        +dragndrop
-        +hugo            ; use Emacs for hugo blogging
-        +jupyter
-        +noter
-        +pandoc          ; export-with-pandoc support
-        +pomodoro        ; be fruitful with the tomato technique
-        +present        ; using org-mode for presentations
-        +pretty
-        +roam2
-        )
+       (:unless IS-ANDROID
+         (org +dragndrop +hugo +jupyter +noter +pandoc +pomodoro +present +pretty +roam2))
+       (:if IS-ANDROID
+           (org +pretty +roam2))  ; organize your plain life in plain text
        ;;php               ; perl's insecure younger brother
        ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
-       (python            ; beautiful is better than ugly
-        +tree-sitter
-        +lsp
-        +pyright
-        +pyenv)
+       (:unless IS-ANDROID (python +tree-sitter +lsp +pyright +pyenv))
+       (:if IS-ANDROID (python +pyenv))  ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
        ;;raku              ; the artist formerly known as perl6
        ;;rest              ; Emacs as a REST client
        ;;rst               ; ReST in peace
        ;;(ruby +rails)     ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
-       (rust              ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
-        +lsp)
+       (:unless IS-ANDROID (rust +lsp))  ; Fe2O3.unwrap().unwrap().unwrap().unwrap()
        ;;scala             ; java, but good
        ;;(scheme +guile)   ; a fully conniving family of lisps
-       (sh                ; she sells {ba,z,fi}sh shells on the C xor
-        +powershell
-        +tree-sitter
-        +lsp)
+       (:unless IS-ANDROID (sh +powershell +tree-sitter +lsp))
+       (:if IS-ANDROID sh)  ; she sells {ba,z,fi}sh shells on the C xor
        ;;sml
        ;;solidity          ; do you need a blockchain? No.
-       (swift             ; who asked for emoji variables?
-        +lsp
-        +tree-sitter)
+       (:unless IS-ANDROID (swift +lsp +tree-sitter))  ; who asked for emoji variables?
        ;;terra             ; Earth and Moon in alignment for performance.
-       (web               ; the tubes
-        +tree-sitter
-        +lsp)
-       (yaml              ; JSON, but readable
-        +lsp)
+       (:unless IS-ANDROID (web +tree-sitter +lsp))  ; the tubes
+       (:unless IS-ANDROID (yaml +lsp))  ; JSON, but readable
        ;;zig               ; C, but simpler
 
        :email
@@ -249,13 +200,27 @@
        ;;(wanderlust +gmail)
 
        :app
-       calendar
+       (:unless IS-ANDROID calendar)
        ;; emms
-       everywhere        ; *leave* Emacs!? You must be joking
+       (:unless IS-ANDROID everywhere)  ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize
        ;; (rss +org)        ; emacs as an RSS reader
        ;; twitter           ; twitter client https://twitter.com/vnought
 
        :config
        ;;literate
-       (default +bindings))
+       (:unless IS-ANDROID (default +bindings))
+       (:if IS-ANDROID (default +bindings +smartparens)))
+
+;; Termux PATH setup for Android
+(when IS-ANDROID
+  (let ((termux-bin "/data/data/com.termux/files/usr/bin"))
+    ;; Prepend Termux bin to PATH → ssh from Termux wins
+    (setenv "PATH" (concat termux-bin ":" (getenv "PATH")))
+    (setq exec-path (cons termux-bin exec-path))
+
+    ;; Optional: explicitly force ssh program (extra safety)
+    (let ((termux-ssh (concat termux-bin "/ssh")))
+      (when (file-executable-p termux-ssh)
+        (setq ssh-program termux-ssh)
+        (setenv "GIT_SSH" termux-ssh)))))
