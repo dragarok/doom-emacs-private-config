@@ -271,8 +271,8 @@
   (use-package hydra-posframe
     :custom
     (hydra-posframe-parameters
-      '((left-fringe . 5)
-        (right-fringe . 5)))
+     '((left-fringe . 5)
+       (right-fringe . 5)))
     :custom-face
     (hydra-posframe-border-face ((t (:background "#6272a4"))))
     :hook (after-init . hydra-posframe-mode)))
@@ -454,7 +454,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
         )
   ;; fuxialexander's code
   ;; (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
-)
+  )
 
 (use-package org-noter-pdftools
   :after org-noter
@@ -647,9 +647,9 @@ latter - its output."
 (after! org
 
   (lambda () (progn
-          (setq left-margin-width 2)
-          (setq right-margin-width 2)
-          (set-window-buffer nil (current-buffer))))
+               (setq left-margin-width 2)
+               (setq right-margin-width 2)
+               (set-window-buffer nil (current-buffer))))
   (setq org-startup-indented t
         org-hide-leading-stars t
         org-ellipsis "  " ;; folding symbol
@@ -711,25 +711,25 @@ latter - its output."
       :desc "Six"   "6" 'markdown-insert-header-atx-6)
 
 (after! org
-(require 'org-capture)
-(require 'org-protocol)
+  (require 'org-capture)
+  (require 'org-protocol)
 
 ;;; Org Capture
 ;;;; Thank you random guy from StackOverflow
 ;;;; http://stackoverflow.com/questions/23517372/hook-or-advice-when-aborting-org-capture-before-template-selection
 
-(defadvice org-capture
-    (after make-full-window-frame activate)
-  "Advise capture to be the only window when used as a popup"
-  (if (equal "emacs-capture" (frame-parameter nil 'name))
-      (delete-other-windows)))
+  (defadvice org-capture
+      (after make-full-window-frame activate)
+    "Advise capture to be the only window when used as a popup"
+    (if (equal "emacs-capture" (frame-parameter nil 'name))
+        (delete-other-windows)))
 
-(defadvice org-capture-finalize
-    (after delete-capture-frame activate)
-  "Advise capture-finalize to close the frame"
-  (if (equal "emacs-capture" (frame-parameter nil 'name))
-      (delete-frame)))
-)
+  (defadvice org-capture-finalize
+      (after delete-capture-frame activate)
+    "Advise capture-finalize to close the frame"
+    (if (equal "emacs-capture" (frame-parameter nil 'name))
+        (delete-frame)))
+  )
 
 (defun sanityinc/split-window()
   "Split the window to see the most recent buffer in the other window.
@@ -758,13 +758,13 @@ Call a second time to restore the original window configuration."
     "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
     "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
     "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
-   ;; "~/.config/google-chrome/Default/Bookmarks"
-   ;; "~/bookmarks_edge_beta.json"
-   ;; "~/bookmarks_edge_dev.json"
-   ;; "~/bookmarks_edge.json"
+    ;; "~/.config/google-chrome/Default/Bookmarks"
+    ;; "~/bookmarks_edge_beta.json"
+    ;; "~/bookmarks_edge_dev.json"
+    ;; "~/bookmarks_edge.json"
     "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
-   ;; "~/.config/google-chrome/Default/Bookmarks"
-   ;; "~/.config/chromium/Default/Bookmarks"
+    ;; "~/.config/google-chrome/Default/Bookmarks"
+    ;; "~/.config/chromium/Default/Bookmarks"
     (substitute-in-file-name
      "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
     (substitute-in-file-name
@@ -787,23 +787,23 @@ Call a second time to restore the original window configuration."
                 (json-read-file chrome-bookmarks-file)))
         level)
     (cl-labels ((fn
-                 (al)
-                 (pcase (alist-get 'type al)
-                   ("folder"
-                    (insert
-                     (format "%s %s\n"
-                             (make-string level ?*)
-                             (alist-get 'name al)))
-                    (cl-incf level)
-                    (mapc #'fn (alist-get 'children al))
-                    (cl-decf level))
-                   ("url"
-                    (insert
-                     (format "%s %s\n"
-                             (make-string level ?*)
-                             (org-make-link-string
-                              (alist-get 'url al)
-                              (alist-get 'name al))))))))
+                  (al)
+                  (pcase (alist-get 'type al)
+                    ("folder"
+                     (insert
+                      (format "%s %s\n"
+                              (make-string level ?*)
+                              (alist-get 'name al)))
+                     (cl-incf level)
+                     (mapc #'fn (alist-get 'children al))
+                     (cl-decf level))
+                    ("url"
+                     (insert
+                      (format "%s %s\n"
+                              (make-string level ?*)
+                              (org-make-link-string
+                               (alist-get 'url al)
+                               (alist-get 'name al))))))))
       (setq level 1)
       (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
       (setq level 1)
@@ -854,9 +854,9 @@ This determines the relative size of the font, when interactively
 reading links."
   :group 'pdf-links
   :type '(restricted-sexp :match-alternatives
-                          ((lambda (x) (and (numberp x)
-                                       (<= x 1)
-                                       (>= x 0))))))
+          ((lambda (x) (and (numberp x)
+                            (<= x 1)
+                            (>= x 0))))))
 
 (defun pdf-links-read-char-action (query prompt)
   "Using PROMPT, interactively read a link-action.
@@ -1092,7 +1092,7 @@ sEnter type of project: ")
     (save-buffer))
   (projectile-add-known-project full-proj)
   (projectile-switch-project-by-name full-proj)
-)
+  )
 
 ;;;###autoload
 (defun ml-gitignore ()
@@ -1111,7 +1111,7 @@ models/\n
 
 ")
   (save-buffer)
-)
+  )
 
 ;;;###autoload
 (defun run-django-project()
@@ -1329,148 +1329,11 @@ N defaults to 1 (largest)."
 ;;     )
 ;;   (add-hook 'org-roam-capture-new-node-hook #'tag-new-org-roam-node))
 
-(defun open-my-daily-ritual ()
-  "Opens daily ritual if it's the first time I am opening emacs"
-  (interactive "p")
-  (if (or (not (boundp 'last-ritual-open))
-          (> (time-to-seconds (time-since last-ritual-open)) 50))
-      (progn
-        (sit-for 5)
-        (setq last-ritual-open (current-time))
-        (eval-after-load "savehist"
-          '(add-to-list 'savehist-additional-variables 'last-ritual-open))
-        ;; (+org-init-agenda-h)
-        ;; (+org-init-roam-h)
-        ;; (+org-roam-try-init-db-a)
-        (org-agenda "" "k")
-        (org-agenda-redo-all)
-        (sit-for 5)
-        (split-window-horizontally)
-        (find-file-other-window (concat org-roam-directory "my_daily_ritual.org"))
-        ;; (switch-to-buffer "my_daily_ritual.org")
-        )
-    )
-  )
-
 (defun open-main-agenda ()
   "Opens my main agenda which is at key k"
   (interactive)
   (org-agenda "" "k")
   )
-
-(after! org
-  (defun project/open-from-ancestor-heading (fn property)
-    "Check the current heading and go up recursively to the parent heading until the specified property is found, then execute the given function FN."
-    (save-excursion
-      (while (and (not (org-entry-get nil property))
-                  (org-up-heading-safe)))
-      (funcall fn)))
-
-  (defun project/open-proj-ref-url ()
-    "Open the REF_URL property from the current or ancestor Org mode heading."
-    (interactive)
-    (project/open-from-ancestor-heading
-     (lambda ()
-       (let ((ref-url (org-entry-get nil "PROJ_REF_URL")))
-         (when ref-url
-           (browse-url ref-url))))
-     "PROJ_REF_URL"))
-
-  (defun recursively-open-ref-url ()
-    "Open the REF_URL property from the current or ancestor Org mode heading."
-    (interactive)
-    (project/open-from-ancestor-heading
-     (lambda ()
-       (let ((ref-url (org-entry-get nil "REF_URL")))
-         (when ref-url
-           (browse-url ref-url))))
-     "REF_URL"))
-
-  (defun project/open-proj-notes ()
-    "Open the ORG_FILE property from the current or ancestor Org mode heading."
-    (interactive)
-    (project/open-from-ancestor-heading
-     (lambda ()
-       (let ((org-file-id (org-entry-get nil "PROJ_NOTES")))
-         (when org-file-id
-           (org-open-link-from-string org-file-id))))
-     "PROJ_NOTES"))
-
-  (defun recursively-open-ref-org-note ()
-    "Open the ORG_FILE property from the current or ancestor Org mode heading."
-    (interactive)
-    (project/open-from-ancestor-heading
-     (lambda ()
-       (let ((org-file-id (org-entry-get nil "REF_NOTE")))
-         (when org-file-id
-           (org-open-link-from-string org-file-id))))
-     "REF_NOTE"))
-
-  (defun project/open-resources-dir ()
-    "Open the RESOURCES_DIR property from the current or ancestor Org mode heading."
-    (interactive)
-    (project/open-from-ancestor-heading
-     (lambda ()
-       (let ((resources-dir (org-entry-get nil "PROJ_RESOURCES_DIR")))
-         (when resources-dir
-           (let ((path (replace-regexp-in-string "\\[\\[\\|\\]\\]" "" resources-dir)))
-             (dired (org-link-unescape path))))))
-     "PROJ_RESOURCES_DIR"))
-
-  (map! :map org-mode-map
-        :localleader
-        :desc "Open ref org note" "z" #'recursively-open-ref-org-note
-        :desc "Open ref url" "u" #'recursively-open-ref-url
-        :prefix ("p" . "Project Mappings")
-        :desc "Open proj ref url" "u" #'project/open-proj-ref-url
-        :desc "Open proj notes" "n" #'project/open-proj-notes
-        :desc "Open resources dir" "p" #'project/open-resources-dir
-        "d" nil)
-
-  ;; For agenda mode
-  (defun project/execute-in-org-buffer (fn)
-    "Execute the given function FN in the org buffer if called from org-agenda."
-    (if (eq major-mode 'org-agenda-mode)
-        (progn
-          (split-window-right) ; Split the window to the right
-          (other-window 1) ; Move to the new window
-          (org-agenda-switch-to) ; Switch to the corresponding Org buffer
-          (funcall fn))   ; Call the given function
-      (call-interactively fn)))
-
-  (map! :map org-agenda-mode-map
-        :localleader
-        :desc "Open ref org note" "z" (lambda () (interactive) (project/execute-in-org-buffer #'recursively-open-ref-org-note))
-        :desc "Open ref url" "u" (lambda () (interactive) (project/execute-in-org-buffer #'recursively-open-ref-url))
-        :desc "Open proj ref url" "pu" (lambda () (interactive) (project/execute-in-org-buffer #'project/open-proj-ref-url))
-        :desc "Open proj notes" "pn" (lambda () (interactive) (project/execute-in-org-buffer #'project/open-proj-notes))
-        :desc "Open resources dir" "pr" (lambda () (interactive) (project/execute-in-org-buffer #'project/open-resources-dir))
-        "pd" nil)
-  )
-
-(defun clock-out-and-mark-current-todo-done ()
-  "Clock out the currently active todo and mark it as DONE.
-Additionally, prompt for work mode (normal, focus, deepwork) and add the corresponding tag if not normal."
-  (interactive)
-  (if (org-clocking-p)
-      (let ((clocked-buffer (marker-buffer org-clock-marker))
-            (clocked-position (marker-position org-clock-marker)))
-        ;; Clock out first
-        (org-clock-out)
-
-        ;; Go to the clocked item and mark as DONE
-        (when (and clocked-buffer clocked-position)
-          (with-current-buffer clocked-buffer
-            (save-excursion
-              (goto-char clocked-position)
-              (org-back-to-heading t)
-              (org-todo "DONE")
-              ;; Prompt for work mode and add tag if not normal
-              (let ((mode (completing-read "Work mode (default: normal): " '("normal" "focus" "deepwork") nil t nil nil "normal")))
-                (unless (string= mode "normal")
-                  (org-toggle-tag mode 'on))
-                (message "Clocked out and marked todo as DONE%s" (if (string= mode "normal") "." (format ", and added %s tag" mode)))))))
-        (message "No active clock to clock out"))))
 
 (after! smartparens
   (defun zz/goto-match-paren (arg)
@@ -1800,18 +1663,18 @@ selected, then the current line."
 
         "H-K" 'jupyter-org-move-src-block
         "H-J" '(lambda ()
-                        (interactive)
-                        (jupyter-org-move-src-block t))
+                 (interactive)
+                 (jupyter-org-move-src-block t))
 
         "H-O" 'jupyter-org-insert-src-block
         "H-o" '(lambda ()
-                        (interactive)
-                        (jupyter-org-insert-src-block t))
+                 (interactive)
+                 (jupyter-org-insert-src-block t))
 
         "H-B" 'jupyter-org-split-src-block
         "H-b" '(lambda ()
-                        (interactive)
-                        (jupyter-org-split-src-block t))
+                 (interactive)
+                 (jupyter-org-split-src-block t))
         "C-H-k" 'jupyter-org-merge-blocks
         "H-p" 'jupyter-org-jump-to-block
         "H-P" 'jupyter-org-jump-to-visible-block
@@ -1823,7 +1686,7 @@ selected, then the current line."
         "<H-return>" '(lambda ()
                         (interactive)
                         (jupyter-org-execute-and-next-block t)))
-)
+  )
 
 (after! org
   ;; (define-key org-mode-map (kbd "H--") 'other-window)
@@ -1834,7 +1697,7 @@ selected, then the current line."
   (define-key org-mode-map (kbd "C-M-s-(") 'org-code-region-or-point)
   (define-key org-mode-map (kbd "C-M-s-)") 'org-underline-region-or-point)
   ;; (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
-)
+  )
 
 ;; (bind-key "H-F" 'evil-window-split)
 ;; (bind-key "H-f" 'evil-window-vsplit)
@@ -2145,7 +2008,7 @@ the inbox.  Set it as a waiting action and refile to
 
 (after! org (add-to-list 'org-capture-templates
                          '("l" "Link Capture" entry (file (concat org-directory "extra/links.org"))
-                          "* TODO [[%^{link}][%^{description}]]"
+                           "* TODO [[%^{link}][%^{description}]]"
                            :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
@@ -2447,37 +2310,37 @@ SCHEDULED: %t
                            )))
 
 (after! org
-(defun my:org-agenda-time-grid-spacing ()
-  "Set different line spacing w.r.t. time duration."
-  (save-excursion
-    (let* ((background (alist-get 'background-mode (frame-parameters)))
-           (background-dark-p (string= background "dark"))
-           (colors (if background-dark-p
-                       (list "#aa557f" "DarkGreen" "DarkSlateGray" "DarkSlateBlue")
-                     (list "#F6B1C3" "#FFFF9D" "#BEEB9F" "#ADD5F7")))
-           pos
-           duration)
-      (nconc colors colors)
-      (goto-char (point-min))
-      (while (setq pos (next-single-property-change (point) 'duration))
-        (goto-char pos)
-        (when (and (not (equal pos (point-at-eol)))
-                   (setq duration (org-get-at-bol 'duration)))
-          (let ((line-height (if (< duration 30) 1.0 (+ 0.5 (/ duration 60))))
-                (ov (make-overlay (point-at-bol) (1+ (point-at-eol)))))
-            (overlay-put ov 'face `(:background ,(car colors)
-                                                :foreground
-                                                ,(if background-dark-p "black" "white")))
-            (setq colors (cdr colors))
-            (overlay-put ov 'line-height line-height)
-            (overlay-put ov 'line-spacing (1- line-height))))))))
-(add-hook 'org-agenda-finalize-hook #'my:org-agenda-time-grid-spacing)
-)
+  (defun my:org-agenda-time-grid-spacing ()
+    "Set different line spacing w.r.t. time duration."
+    (save-excursion
+      (let* ((background (alist-get 'background-mode (frame-parameters)))
+             (background-dark-p (string= background "dark"))
+             (colors (if background-dark-p
+                         (list "#aa557f" "DarkGreen" "DarkSlateGray" "DarkSlateBlue")
+                       (list "#F6B1C3" "#FFFF9D" "#BEEB9F" "#ADD5F7")))
+             pos
+             duration)
+        (nconc colors colors)
+        (goto-char (point-min))
+        (while (setq pos (next-single-property-change (point) 'duration))
+          (goto-char pos)
+          (when (and (not (equal pos (point-at-eol)))
+                     (setq duration (org-get-at-bol 'duration)))
+            (let ((line-height (if (< duration 30) 1.0 (+ 0.5 (/ duration 60))))
+                  (ov (make-overlay (point-at-bol) (1+ (point-at-eol)))))
+              (overlay-put ov 'face `(:background ,(car colors)
+                                      :foreground
+                                      ,(if background-dark-p "black" "white")))
+              (setq colors (cdr colors))
+              (overlay-put ov 'line-height line-height)
+              (overlay-put ov 'line-spacing (1- line-height))))))))
+  (add-hook 'org-agenda-finalize-hook #'my:org-agenda-time-grid-spacing)
+  )
 
 (after! org
   (setq org-highlight-latex-and-related '(native script entities))
   (add-hook 'org-mode-hook 'org-fragtog-mode)
-)
+  )
 
 (add-hook! 'org-mode-hook #'org-appear-mode)
 
@@ -3128,48 +2991,48 @@ Opens a buffer with links to what is found. This function installs pylint if nee
           (switch-to-buffer-other-window cb))
         ;; final cleanup and delete file
         (delete-file tempfile))))
-)
+  )
 
 (after! org
   (defun unpackaged/org-outline-numbers (&optional remove-p)
-  "Add outline number overlays to the current buffer.
+    "Add outline number overlays to the current buffer.
 When REMOVE-P is non-nil (interactively, with prefix), remove
 them.  Overlays are not automatically updated when the outline
 structure changes."
-  ;; NOTE: This does not necessarily play nicely with org-indent-mode
-  ;; or org-bullets, but it probably wouldn't be too hard to fix that.
-  (interactive (list current-prefix-arg))
-  (cl-labels ((heading-number ()
-               (or (when-let ((num (previous-sibling-number)))
-                     (1+ num))
-                   1))
-              (previous-sibling-number ()
-               (save-excursion
-                 (let ((pos (point)))
-                   (org-backward-heading-same-level 1)
-                   (when (/= pos (point))
-                     (heading-number)))))
-              (number-list ()
-               (let ((ancestor-numbers (save-excursion
-                                         (cl-loop while (org-up-heading-safe)
-                                                  collect (heading-number)))))
-                 (nreverse (cons (heading-number) ancestor-numbers))))
-              (add-overlay ()
-               (let* ((ov-length (org-current-level))
-                      (ov (make-overlay (point) (+ (point) ov-length)))
-                      (ov-string (concat (mapconcat #'number-to-string (number-list) ".")
-                                         ".")))
-                 (overlay-put ov 'org-outline-numbers t)
-                 (overlay-put ov 'display ov-string))))
-    (remove-overlays nil nil 'org-outline-numbers t)
-    (unless remove-p
-      (org-with-wide-buffer
-       (goto-char (point-min))
-       (when (org-before-first-heading-p)
-         (outline-next-heading))
-       (cl-loop do (add-overlay)
-                while (outline-next-heading))))))
-)
+    ;; NOTE: This does not necessarily play nicely with org-indent-mode
+    ;; or org-bullets, but it probably wouldn't be too hard to fix that.
+    (interactive (list current-prefix-arg))
+    (cl-labels ((heading-number ()
+                  (or (when-let ((num (previous-sibling-number)))
+                        (1+ num))
+                      1))
+                (previous-sibling-number ()
+                  (save-excursion
+                    (let ((pos (point)))
+                      (org-backward-heading-same-level 1)
+                      (when (/= pos (point))
+                        (heading-number)))))
+                (number-list ()
+                  (let ((ancestor-numbers (save-excursion
+                                            (cl-loop while (org-up-heading-safe)
+                                                     collect (heading-number)))))
+                    (nreverse (cons (heading-number) ancestor-numbers))))
+                (add-overlay ()
+                  (let* ((ov-length (org-current-level))
+                         (ov (make-overlay (point) (+ (point) ov-length)))
+                         (ov-string (concat (mapconcat #'number-to-string (number-list) ".")
+                                            ".")))
+                    (overlay-put ov 'org-outline-numbers t)
+                    (overlay-put ov 'display ov-string))))
+      (remove-overlays nil nil 'org-outline-numbers t)
+      (unless remove-p
+        (org-with-wide-buffer
+         (goto-char (point-min))
+         (when (org-before-first-heading-p)
+           (outline-next-heading))
+         (cl-loop do (add-overlay)
+                  while (outline-next-heading))))))
+  )
 
 (set-popup-rule! "*jupyter-pager*" :side 'right :size .40 :select t :vslot 2 :ttl 3)
 (set-popup-rule! "^\\*Org Src*" :side 'right :size .60 :select t :vslot 2 :ttl 3 :quit nil)
@@ -3256,15 +3119,15 @@ structure changes."
 (add-hook 'org-font-lock-hook #'aj/org-indent-quotes)
 
 (defun aj/org-indent-quotes (limit)
-           (let ((case-fold-search t))
-             (while (search-forward-regexp "^[ \t]*#\\+begin_quote" limit t)
-               (let ((beg (1+ (match-end 0))))
-                 ;; on purpose, we look further than LIMIT
-                 (when (search-forward-regexp "^[ \t]*#\\+end_quote" nil t)
-                   (let ((end (1- (match-beginning 0)))
-                         (indent (propertize "    " 'face 'org-hide)))
-                     (add-text-properties beg end (list 'line-prefix indent
-                                                        'wrap-prefix indent))))))))
+  (let ((case-fold-search t))
+    (while (search-forward-regexp "^[ \t]*#\\+begin_quote" limit t)
+      (let ((beg (1+ (match-end 0))))
+        ;; on purpose, we look further than LIMIT
+        (when (search-forward-regexp "^[ \t]*#\\+end_quote" nil t)
+          (let ((end (1- (match-beginning 0)))
+                (indent (propertize "    " 'face 'org-hide)))
+            (add-text-properties beg end (list 'line-prefix indent
+                                               'wrap-prefix indent))))))))
 
 (defun replace-jibberish-chars ()
   (interactive)
@@ -3765,16 +3628,16 @@ the second element is the other tags."
                            (member (downcase match) (mapcar #'downcase titles))
                            (not (member f backlink-files)))  ; Skip files that are already backlinking
                   (magit-insert-section section (org-roam-grep-section)
-                    (oset section file f)
-                    (oset section row row)
-                    (oset section col col)
-                    (insert (propertize (format "%s:%s:%s"
-                                                (truncate-string-to-width (file-name-base f) 15 nil nil t)
-                                                row col) 'font-lock-face 'org-roam-dim)
-                            " "
-                            (org-roam-fontify-like-in-org-mode
-                             (org-roam-unlinked-references-preview-line f row))
-                            "\n"))))))
+                                        (oset section file f)
+                                        (oset section row row)
+                                        (oset section col col)
+                                        (insert (propertize (format "%s:%s:%s"
+                                                                    (truncate-string-to-width (file-name-base f) 15 nil nil t)
+                                                                    row col) 'font-lock-face 'org-roam-dim)
+                                                " "
+                                                (org-roam-fontify-like-in-org-mode
+                                                 (org-roam-unlinked-references-preview-line f row))
+                                                "\n"))))))
           (insert ?\n)))))
 
   (setq org-roam-mode-sections
@@ -3961,10 +3824,10 @@ the second element is the other tags."
     (consult-ripgrep org-roam-directory)))
 
 (after! org
-(defun jupyter-python-to-only-python (text backend info)
-  "Replace jupyter-python src blocks with python blocks."
-  (replace-regexp-in-string "```jupyter-python" "```python" text))
-(add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python))
+  (defun jupyter-python-to-only-python (text backend info)
+    "Replace jupyter-python src blocks with python blocks."
+    (replace-regexp-in-string "```jupyter-python" "```python" text))
+  (add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python))
 
 (defun my/convert-task-to-org-note ()
   "Convert a task in a `org-roam' note."
@@ -4224,9 +4087,9 @@ the second element is the other tags."
 (after! dirvish
   
   (map! (:after dirvish
-        :map dirvish-mode-map
-        :n "p" #'dirvish-ls-switches-menu
-        :n "P" #'dired-mark-empty-dirs))
+         :map dirvish-mode-map
+         :n "p" #'dirvish-ls-switches-menu
+         :n "P" #'dired-mark-empty-dirs))
   (map! :map dired-mode-map
         :localleader
         "b" #'dirvish-history-go-backward
@@ -4284,39 +4147,39 @@ the second element is the other tags."
 
 (after! prodigy
   (prodigy-define-service
-    :name "Hugo server"
-    :tags '(personal)
-    :port 5000
-    :command "hugo"
-    :args '("server" "-t")
-    :cwd "~/workspace/personal/personalblog/"
-    :stop-signal 'sigkill
-    :kill-process-buffer-on-stop t)
+   :name "Hugo server"
+   :tags '(personal)
+   :port 5000
+   :command "hugo"
+   :args '("server" "-t")
+   :cwd "~/workspace/personal/personalblog/"
+   :stop-signal 'sigkill
+   :kill-process-buffer-on-stop t)
 
   (prodigy-define-service
-    :name "FastAPI Uvicorn with Direnv"
-    :tags '(work)
-    :command "sh"
-    :args '("-c" "direnv exec . uvicorn src.optfastapi.main:app --host 0.0.0.0 --port 8080 --reload")
-    :cwd "~/workspace/EHP/OptAPI/"
-    :port 8080
-    ;; Using this way envrc-reload was only available after opening some code or project, so not using init
-    ;; :command "uvicorn"  ; Use shell to run the command
-    ;; :args '("src.optfastapi.main:app" "--host" "0.0.0.0" "--port" "8080" "--reload")
-    ;; :init (lambda () (envrc-reload))
-    )
+   :name "FastAPI Uvicorn with Direnv"
+   :tags '(work)
+   :command "sh"
+   :args '("-c" "direnv exec . uvicorn src.optfastapi.main:app --host 0.0.0.0 --port 8080 --reload")
+   :cwd "~/workspace/EHP/OptAPI/"
+   :port 8080
+   ;; Using this way envrc-reload was only available after opening some code or project, so not using init
+   ;; :command "uvicorn"  ; Use shell to run the command
+   ;; :args '("src.optfastapi.main:app" "--host" "0.0.0.0" "--port" "8080" "--reload")
+   ;; :init (lambda () (envrc-reload))
+   )
 
   (prodigy-define-service
-    :name "Jarvisapi"
-    :tags '(work)
-    :command "sh"
-    :args '("-c" "direnv exec . uvicorn src.jarvisfastapi.main:app --host 0.0.0.0 --port 9000 --reload")
-    :cwd "~/workspace/EHP/JarvisAPI/"
-    :port 9000
-    ;; :command "uvicorn"  ; Use shell to run the command
-    ;; :args '("src.jarvisfastapi.main:app" "--host" "0.0.0.0" "--port" "9000" "--reload")
-    ;; :init (lambda () (envrc-reload))
-    )
+   :name "Jarvisapi"
+   :tags '(work)
+   :command "sh"
+   :args '("-c" "direnv exec . uvicorn src.jarvisfastapi.main:app --host 0.0.0.0 --port 9000 --reload")
+   :cwd "~/workspace/EHP/JarvisAPI/"
+   :port 9000
+   ;; :command "uvicorn"  ; Use shell to run the command
+   ;; :args '("src.jarvisfastapi.main:app" "--host" "0.0.0.0" "--port" "9000" "--reload")
+   ;; :init (lambda () (envrc-reload))
+   )
   )
 
 (use-package dwim-shell-command
@@ -4615,8 +4478,8 @@ the second element is the other tags."
                           (format "%s %s\n"
                                   (make-string level ?*)
                                   (org-make-link-string
-                                  (plist-get item :url)
-                                  (or (plist-get item :title) (plist-get item :url))))))))))
+                                   (plist-get item :url)
+                                   (or (plist-get item :title) (plist-get item :url))))))))))
         (setq level 1)
         (dolist (root (list (plist-get bookmark-data :menu)
                             (plist-get bookmark-data :toolbar)
