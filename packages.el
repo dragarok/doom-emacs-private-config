@@ -41,6 +41,9 @@
 (package! org-books
   :recipe (:host github :repo "goderich/org-books"))
 (package! orgmdb)
+
+;; File handling
+(package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
 ;; ============================================================
 ;; MAC-ONLY PACKAGES
 ;; ============================================================
@@ -62,9 +65,6 @@
   (package! scihub
     :recipe (:host github :repo "emacs-pe/scihub.el"))
   (package! zotxt)
-
-  ;; File handling
-  (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
   (package! virtual-auto-fill)
 
   ;; Editing enhancements
