@@ -33,24 +33,24 @@
             (delete-file previous-file)
             (message "Deleted file %s" previous-file)))))
 
-  (defun read-tags-from-csv (csv-file)
-    "Read tags from CSV-FILE and return frequency-sorted list."
+  (defun read-tags-from-imageindex-csv (csv-file)
+    "Read tags from a CSV file, print them with counts to the message buffer, and return a frequency-sorted list of tags."
     (let ((tag-counts (make-hash-table :test 'equal)))
-      (when (file-exists-p csv-file)
-        (with-temp-buffer
-          (insert-file-contents csv-file)
-          (while (not (eobp))
-            (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
-                   (elements (split-string line "," t))
-                   (tags (cdr elements)))
-              (dolist (tag tags)
-                (let ((trimmed-tag (string-trim tag)))
-                  (when (not (string-empty-p trimmed-tag))
-                    (puthash trimmed-tag (1+ (gethash trimmed-tag tag-counts 0)) tag-counts))))
-              (forward-line 1)))))
-      (let ((sorted-tags (sort (hash-table-keys tag-counts)
-                               (lambda (a b) (> (gethash a tag-counts) (gethash b tag-counts))))))
-        (append sorted-tags my-image-tags))))
+      (with-temp-buffer
+        (insert-file-contents csv-file)
+        (while (not (eobp))
+          (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+                 (elements (split-string line "," t))
+                 (tags (cdr elements)))  ; Skip the first element (filename)
+            (dolist (tag tags)
+              (let ((trimmed-tag (string-trim tag)))  ; Trim whitespace from tag
+                (when (not (string-empty-p trimmed-tag))  ; Only process non-empty tags
+                  (puthash trimmed-tag (1+ (gethash trimmed-tag tag-counts 0)) tag-counts))))
+            (forward-line 1)))
+        (let ((sorted-tags (sort (hash-table-keys tag-counts)
+                                 (lambda (a b) (> (gethash a tag-counts) (gethash b tag-counts))))))
+          (append sorted-tags my-image-tags)))))
+
 
   (defun set-image-tags-and-rename-and-next ()
     "Set tags, rename and move image to processed directory."
@@ -61,7 +61,7 @@
     (unless (file-directory-p my-image-processed-dir)
       (make-directory my-image-processed-dir t))
     (let* ((file (buffer-file-name))
-           (all-tags (read-tags-from-csv my-image-index-file))
+           (all-tags (read-tags-from-imageindex-csv my-image-index-file))
            (selected-tags (completing-read-multiple "Select tags: " all-tags nil t))
            (final-tags (seq-filter (lambda (tag) (not (string-empty-p tag)))
                                    (mapcar #'string-trim selected-tags)))
@@ -71,14 +71,14 @@
            (new-name (concat (if first-tag (concat first-tag "--" new-base-name) new-base-name)
                              "." extension))
            (processed-path (expand-file-name new-name my-image-processed-dir))
-           (index-entry (format "%s,%s\n" processed-path (string-join final-tags ", "))))
+           (index-entry (format "%s,%s\n" processed-path (string-join final-tags ","))))
       (when file
         (evil-save file t)
         (rename-file file processed-path)
         (with-temp-buffer
           (insert index-entry)
           (append-to-file (point-min) (point-max) my-image-index-file))
-        (message "Moved to %s with tags: %s" processed-path (string-join final-tags ", ")))
+        (message "Moved to %s with tags: %s" processed-path (string-join final-tags ",")))
       (my/delete-image-and-next)))
 
   (defun my/save-cropped-image (filename)

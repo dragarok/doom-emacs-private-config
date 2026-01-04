@@ -18,7 +18,6 @@
 ;;; Code:
 
 (require 'productivity)
-(require 'org-roam nil t)
 (require 'cl-lib)
 
 ;;; ===================================================================

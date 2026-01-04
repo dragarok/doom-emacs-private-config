@@ -1,16 +1,23 @@
-;;; org-roam-setup.el --- Org-roam configuration -*- lexical-binding: t; -*-
+;;; org-roam-config.el --- Org-roam configuration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Org-roam setup for knowledge management.
+;; Org-roam configuration for knowledge management.
 ;; Works on both Mac and Android.
+;; Uses use-package! to ensure settings override Doom's defaults.
 
 ;;; Code:
 
 ;; ============================================================
-;; ORG ROAM V2 NODE DISPLAY
+;; ORG ROAM CONFIGURATION
 ;; ============================================================
 
-(after! org
+(use-package! org-roam
+  :config
+  ;; Remove Doom's lazy-init advice for faster access on Android
+  ;; This advice delays db sync until first query, but we want immediate access
+  (advice-remove 'org-roam-db-query #'+org-roam-try-init-db-a)
+
+  ;; Dailies directory
   (setq org-roam-dailies-directory "daily/")
 
   ;; Attachments removed from org-roam db
@@ -20,24 +27,11 @@
            (not (cdr (assoc "NOTER_PAGE" (org-entry-properties))))
            (not (member "ATTACH" (org-get-tags))))))
 
-  ;; Org-roam interface
-  (cl-defmethod org-roam-node-hierarchy ((node org-roam-node))
-    "Return the node's TITLE, as well as it's HIERARCHY."
-    (let* ((title (org-roam-node-title node))
-           (olp (mapcar (lambda (s) (if (> (length s) 30) (concat (substring s 0 30) "...") s)) (org-roam-node-olp node)))
-           (level (org-roam-node-level node))
-           (filetitle (org-roam-get-keyword "TITLE" (org-roam-node-file node)))
-           (shortentitle (if (> (length filetitle) 30) (concat (substring filetitle 0 30) "...") filetitle))
-           (separator (concat " " (nerd-fonts-insert-faicon "nf-fa-chevron_right") " ")))
-      (cond
-       ((= level 1) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-green)) " "
-                            (propertize shortentitle 'face 'org-roam-dim) separator title))
-       ((= level 2) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-dpurple)) " "
-                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
-       ((> level 2) (concat (propertize (format "=level:%d=" level) 'display (all-the-icons-material "list" :face 'all-the-icons-dsilver)) " "
-                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
-       (t (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "list" :face 'all-the-icons-yellow)) " " title)))))
+  ;; ============================================================
+  ;; V2 NODE DISPLAY - Custom accessors
+  ;; ============================================================
 
+  ;; Tag constants
   (defconst my/org-roam-special-tags
     '("bibnote" "bookreview" "literaturenote" "default" "abstract" "blog" "person" "creativewriting")
     "Special tags that are unique to each file to represent the note's function.")
@@ -55,6 +49,24 @@
     (seq-remove (lambda (tag)
                   (member tag my/org-roam-ignored-tags))
                 (org-roam-node-tags node)))
+
+  ;; Custom hierarchy display with icons
+  (cl-defmethod org-roam-node-hierarchy ((node org-roam-node))
+    "Return the node's TITLE, as well as it's HIERARCHY."
+    (let* ((title (org-roam-node-title node))
+           (olp (mapcar (lambda (s) (if (> (length s) 30) (concat (substring s 0 30) "...") s)) (org-roam-node-olp node)))
+           (level (org-roam-node-level node))
+           (filetitle (org-roam-get-keyword "TITLE" (org-roam-node-file node)))
+           (shortentitle (if (> (length filetitle) 30) (concat (substring filetitle 0 30) "...") filetitle))
+           (separator (concat " " (nerd-icons-faicon "nf-fa-chevron_right") " ")))
+      (cond
+       ((= level 1) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-green)) " "
+                            (propertize shortentitle 'face 'org-roam-dim) separator title))
+       ((= level 2) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-dpurple)) " "
+                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
+       ((> level 2) (concat (propertize (format "=level:%d=" level) 'display (all-the-icons-material "list" :face 'all-the-icons-dsilver)) " "
+                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
+       (t (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-yellow)) " " title)))))
 
   (cl-defmethod org-roam-node-functiontag ((node org-roam-node))
     "Return the FUNCTION TAG for each node."
@@ -83,8 +95,8 @@
                           :and (= type "id")]
                          (org-roam-node-id node)))))
       (if (> count 0)
-          (concat (propertize "=has:backlinks=" 'display (nerd-icons-insert-octicon "nf-oct-link" :face 'all-the-icons-dblue)) (format "%d" count))
-        (concat (propertize "=not-backlinks=" 'display (nerd-icons-insert-octicon "nf-oct-link" :face 'org-roam-dim)) " "))))
+          (concat (propertize "=has:backlinks=" 'display (nerd-icons-octicon "nf-oct-link" :face 'all-the-icons-dblue)) (format "%d" count))
+        (concat (propertize "=not-backlinks=" 'display (nerd-icons-octicon "nf-oct-link" :face 'org-roam-dim)) " "))))
 
   (defun my/org-roam-compute-tags (node)
     "Compute the function tags and other tags for the given NODE.
@@ -97,7 +109,8 @@ the second element is the other tags."
            (othertags (seq-difference tags my/org-roam-special-tags 'string=)))
       (list functiontags othertags)))
 
-  (defun org-roam-node-fullformat (node)
+  ;; This MUST be a cl-defmethod to work as a template accessor
+  (cl-defmethod org-roam-node-fullformat ((node org-roam-node))
     "Return a formatted string containing the title and computed tags for the NODE."
     (let* ((tags (my/org-roam-compute-tags node))
            (functiontag (car tags))
@@ -110,43 +123,13 @@ the second element is the other tags."
                              (propertize (string-join othertags ", ") 'face 'nerd-icons-dgreen)))))
       (format " %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str ""))))
 
-  (setq org-roam-node-display-template
-        (concat "${fullformat}"))
+  ;; Override Doom's default display template with our custom one
+  (setq org-roam-node-display-template "${fullformat}")
 
-;;;###autoload
-  (defun title-to-org-roam-node (title)
-    "Create an Org-roam note from the current headline and jump to it."
-    (interactive)
-    (let ((node nil)
-          (filetag ""))
-      (setq node (org-roam-node-create :title title))
-      (setq filetag (list "auto"))
-      (if (org-roam-node-file node)
-          (progn
-            (message "Skipping %s, node already exists" title)
-            node)
-        (org-roam-capture- :node node
-                           :keys "r")
-        (org-entry-put (point-min) "PROJ_RESOURCES_DIR" (concat "[[" project-resources-dir title "]]"))
-        (org-roam-tag-add filetag)
-        (org-capture-finalize nil)
-        node)))
+  ;; ============================================================
+  ;; BUFFER SECTIONS
+  ;; ============================================================
 
-  ;; Keys binding
-  (map! :leader
-        :prefix "n"
-        (:prefix ("r" . "Org-roam")
-         :desc "Toggle roam buffer"            "t" #'org-roam-buffer-toggle
-         :desc "Refile"                        "r" #'org-roam-refile
-         (:prefix ("l" . "Roam Alias")
-          :desc "Add alias"                    "a" #'org-roam-alias-add
-          :desc "Remove alias"                 "d" #'org-roam-alias-remove))))
-
-;; ============================================================
-;; ORG ROAM BUFFER SECTIONS
-;; ============================================================
-
-(after! org-roam
   (defun my/org-roam--backlink-files (node)
     "Get the list of files that are already backlinking to NODE."
     (seq-map
@@ -204,31 +187,12 @@ References from files that are already backlinking to NODE are excluded."
   (setq org-roam-mode-sections
         (list #'org-roam-backlinks-section
               #'org-roam-reflinks-section
-              #'org-roam-unique-unlinked-references-section)))
+              #'org-roam-unique-unlinked-references-section))
 
-;; ============================================================
-;; ORG ROAM LOG NOTES SAVING
-;; ============================================================
+  ;; ============================================================
+  ;; CAPTURE TEMPLATES
+  ;; ============================================================
 
-(defun log-org-roam-file-save ()
-  "Log the saving of an Org-roam file to a device-specific log file."
-  (when (and (eq major-mode 'org-mode)
-             (boundp 'org-roam-directory)
-             (string-prefix-p (expand-file-name org-roam-directory) (expand-file-name buffer-file-name)))
-    (let ((log-file (concat org-logs-directory "notes_log_" (system-name) ".txt"))
-          (current-time (format-time-string "[%Y-%m-%d %H:%M:%S]"))
-          (file-name (buffer-file-name)))
-      (with-temp-buffer
-        (insert (format "%s Saved file: %s\n" current-time file-name))
-        (append-to-file (point-min) (point-max) log-file)))))
-
-(add-hook 'after-save-hook #'log-org-roam-file-save)
-
-;; ============================================================
-;; CAPTURE TEMPLATES
-;; ============================================================
-
-(after! org-roam
   (setq org-roam-capture-templates
         '(("d" "Default" plain "%?"
            :if-new (file+head "${slug}.org"
@@ -299,13 +263,69 @@ References from files that are already backlinking to NODE are excluded."
                       "#+title: %<%Y-%m-%d %a>\n#+FILETAGS: journal\n#+STARTUP: overview\n")
            :unnarrowed t)))
 
+  ;; Set CREATED property on new nodes
   (defun my/org-roam-set-created ()
     "Set a CREATED property in the current Org-roam node."
     (when (and (org-roam-buffer-p)
                (not (org-entry-get (point) "CREATED")))
       (org-set-property "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))))
 
-  (add-hook 'org-roam-capture-new-node-hook #'my/org-roam-set-created))
+  (add-hook 'org-roam-capture-new-node-hook #'my/org-roam-set-created)
+
+  ;; ============================================================
+  ;; HELPER FUNCTIONS
+  ;; ============================================================
+
+  ;;;###autoload
+  (defun title-to-org-roam-node (title)
+    "Create an Org-roam note from the current headline and jump to it."
+    (interactive)
+    (let ((node nil)
+          (filetag ""))
+      (setq node (org-roam-node-create :title title))
+      (setq filetag (list "auto"))
+      (if (org-roam-node-file node)
+          (progn
+            (message "Skipping %s, node already exists" title)
+            node)
+        (org-roam-capture- :node node
+                           :keys "r")
+        (org-entry-put (point-min) "PROJ_RESOURCES_DIR" (concat "[[" project-resources-dir title "]]"))
+        (org-roam-tag-add filetag)
+        (org-capture-finalize nil)
+        node)))
+
+  ;; ============================================================
+  ;; KEYBINDINGS
+  ;; ============================================================
+
+  (map! :leader
+        :prefix "n"
+        (:prefix ("r" . "Org-roam")
+         :desc "Toggle roam buffer"            "t" #'org-roam-buffer-toggle
+         :desc "Refile"                        "r" #'org-roam-refile
+         (:prefix ("l" . "Roam Alias")
+          :desc "Add alias"                    "a" #'org-roam-alias-add
+          :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
+  ) ;; End of use-package! org-roam
+
+;; ============================================================
+;; ORG ROAM LOG NOTES SAVING
+;; ============================================================
+
+(defun log-org-roam-file-save ()
+  "Log the saving of an Org-roam file to a device-specific log file."
+  (when (and (eq major-mode 'org-mode)
+             (boundp 'org-roam-directory)
+             (string-prefix-p (expand-file-name org-roam-directory) (expand-file-name buffer-file-name)))
+    (let ((log-file (concat org-logs-directory "notes_log_" (system-name) ".txt"))
+          (current-time (format-time-string "[%Y-%m-%d %H:%M:%S]"))
+          (file-name (buffer-file-name)))
+      (with-temp-buffer
+        (insert (format "%s Saved file: %s\n" current-time file-name))
+        (append-to-file (point-min) (point-max) log-file)))))
+
+(add-hook 'after-save-hook #'log-org-roam-file-save)
 
 ;; ============================================================
 ;; ORG ROAM UI
@@ -442,5 +462,5 @@ If in Evil normal mode, switch to insert mode."
          (monday-time (time-add now (* (- days-back) 86400))))
     (org-roam-dailies--capture monday-time t)))
 
-(provide 'org-roam-setup)
-;;; org-roam-setup.el ends here
+(provide 'org-roam-config)
+;;; org-roam-config.el ends here

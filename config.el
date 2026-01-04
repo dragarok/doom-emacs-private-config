@@ -86,37 +86,8 @@
   ;; Load Android-specific modules (from lisp/)
   (require 'android-extras))       ; keyboard control, dired xdg-open, vterm shell
 
-;; ============================================================
-;; LOAD LISP MODULES
-;; ============================================================
+;; Add lisp directory to load-path (modules loaded after paths are set)
 (add-to-list 'load-path (expand-file-name "lisp" doom-user-dir))
-
-;; Core productivity modules (both Mac and Android)
-(require 'productivity)
-(require 'productivity_flow)
-(require 'productivity_addons)
-(require 'beancount-helper)
-(require 'kairoam-notes)
-(require 'booxnoter)
-(require 'diary-events)
-(require 'qsv-csv)
-(require 'org-project-helpers)
-(require 'org-roam-setup)
-(require 'image-workflow)
-(require 'review-reminders)
-
-;; Android-specific toolbar
-(when IS-ANDROID
-  (require 'android-toolbar))
-
-;; Mac-only modules
-(unless IS-ANDROID
-  (require 'ai-workflows)          ; gptel, claude-code, mcp-hub
-  (require 'yabai-windmove)        ; yabai window management
-  (require 'chezmoi-config)        ; dotfiles manager
-  (require 'prodigy-services)      ; dev server management
-  (require 'jupyter-config)        ; Jupyter/EIN notebook support
-  (require 'browser-bookmarks))    ; Chrome/Brave bookmark utilities
 
 (define-key input-decode-map [?\C-i] [C-i])
 
@@ -206,6 +177,41 @@
 (setq org-quarterlyreview-file (concat org-lookbacks-directory "quarterlyreview.org"))
 (setq org-yearlyreview-file (concat org-lookbacks-directory "yearlyreview.org"))
 (setq org-roam-logs-file (concat org-logs-directory "notes_log.txt"))
+
+;; ============================================================
+;; LOAD LISP MODULES (after essential paths are set)
+;; ============================================================
+
+;; Core productivity modules (both Mac and Android)
+(require 'org-roam-config)
+(require 'productivity)
+(require 'productivity_flow)
+(require 'productivity_addons)
+(require 'beancount-helper)
+(require 'kairoam-notes)
+(require 'booxnoter)
+(require 'diary-events)
+(require 'qsv-csv)
+(require 'org-project-helpers)
+(require 'image-workflow)
+(require 'review-reminders)
+
+;; Android-specific toolbar
+(when IS-ANDROID
+  (require 'android-toolbar))
+
+;; Mac-only modules
+(unless IS-ANDROID
+  (require 'ai-workflows)          ; gptel, claude-code, mcp-hub
+  (require 'yabai-windmove)        ; yabai window management
+  (require 'chezmoi-config)        ; dotfiles manager
+  (require 'prodigy-services)      ; dev server management
+  (require 'jupyter-config)        ; Jupyter/EIN notebook support
+  (require 'browser-bookmarks))    ; Chrome/Brave bookmark utilities
+
+;; ============================================================
+;; GENERAL SETTINGS
+;; ============================================================
 
 (setq show-trailing-whitespace t)
 ;; (setq frame-title-format '("Kaimacs - %b\n\n"))
