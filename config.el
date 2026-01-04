@@ -116,7 +116,9 @@
   ;; Load Android-specific modules (from lisp/)
   (require 'android-extras))       ; keyboard control, dired xdg-open, vterm shell
 
-(define-key input-decode-map [?\C-i] [C-i])
+;; Separate C-i from TAB (only needed on Mac GUI)
+(unless IS-ANDROID
+  (define-key input-decode-map [?\C-i] [C-i]))
 
 ;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
 (defun doom-dashboard-widget-banner ()
