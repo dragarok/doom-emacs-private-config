@@ -162,9 +162,13 @@
 ;; AI CODE INTERFACE
 ;; ============================================================
 
-(use-package ai-code-interface
+(use-package ai-code
   :config
-  (ai-code-set-backend 'claude-code-ide)
+  (ai-code-set-backend  'claude-code-ide) ;; use claude-code-ide as backend
+  ;; Optional: Turn on auto-revert buffer, so that the AI code change automatically appears in the buffer
+  (global-auto-revert-mode 1)
+  (setq auto-revert-interval 1) ;; set to 1 second for faster update
+  ;; Optional: Set up Magit integration for AI commands in Magit popups
   (with-eval-after-load 'magit
     (ai-code-magit-setup-transients)))
 
@@ -184,22 +188,59 @@
 (setq gemini-cli-notification-function #'my-gemini-notify)
 
 ;; ============================================================
-;; CLAUDE ACCOUNT SWITCHING
+;; CLAUDE ACCOUNT/PROFILE SWITCHING
 ;; ============================================================
 
-(defun claude-switch-accounts ()
-  "Toggle between default claude account and the ~/.claude333 account."
+(defvar my-claude-current-profile "111"
+  "Current Claude profile name.")
+
+(defvar my-claude-config-dir "~/.claude"
+  "Custom CLAUDE_CONFIG_DIR for claude-code-ide. Set by profile switcher.")
+
+(defvar my-claude-profiles
+  '(("111" . "~/.claude")
+    ("333" . "~/.claude333"))
+  "Alist of Claude profiles: (NAME . CONFIG-DIR).")
+
+;; Advice for claude-code-ide to inject CLAUDE_CONFIG_DIR
+(defun my-claude-ide-inject-config-dir (orig-fun buffer-name working-dir port continue resume session-id)
+  "Advice to inject CLAUDE_CONFIG_DIR into claude-code-ide sessions."
+  (let ((vterm-environment
+         (if my-claude-config-dir
+             (cons (format "CLAUDE_CONFIG_DIR=%s" (expand-file-name my-claude-config-dir))
+                   vterm-environment)
+           vterm-environment))
+        (process-environment
+         (if my-claude-config-dir
+             (cons (format "CLAUDE_CONFIG_DIR=%s" (expand-file-name my-claude-config-dir))
+                   process-environment)
+           process-environment)))
+    (funcall orig-fun buffer-name working-dir port continue resume session-id)))
+
+(advice-add 'claude-code-ide--create-terminal-session
+            :around #'my-claude-ide-inject-config-dir)
+
+(defun claude-switch-profile ()
+  "Toggle between Claude profiles."
   (interactive)
-  (if (string-prefix-p "CLAUDE_CONFIG_DIR=" claude-code-ide-cli-path)
-      ;; Currently using the alternate account -> switch to default
-      (progn
-        (setq claude-code-ide-cli-path "claude")
-        (setq claude-code-program        "claude"))
-    ;; Currently using default -> switch to alternate
-    (progn
-      (setq claude-code-ide-cli-path "CLAUDE_CONFIG_DIR=~/.claude333 claude")
-      (setq claude-code-program        "CLAUDE_CONFIG_DIR=~/.claude333 claude")))
-  (message "Claude CLI now using: %s" claude-code-ide-cli-path))
+  (let* ((other (if (string= my-claude-current-profile "111") "333" "111"))
+         (config-dir (alist-get other my-claude-profiles nil nil #'string=)))
+    (setq my-claude-current-profile other)
+    (setq my-claude-config-dir config-dir)
+    (setq claude-code-program (format "claude%s.sh" other))
+    (force-mode-line-update t)
+    (message "Claude profile: %s (%s)" other config-dir)))
+
+;; Modeline indicator
+(defvar my-claude-profile-mode-line
+  '(:eval (propertize (format " [Claude:%s]" my-claude-current-profile)
+                      'face 'font-lock-constant-face))
+  "Mode line construct for Claude profile.")
+
+(put 'my-claude-profile-mode-line 'risky-local-variable t)
+
+(unless (memq 'my-claude-profile-mode-line global-mode-string)
+  (setq global-mode-string (append global-mode-string '(my-claude-profile-mode-line))))
 
 ;; ============================================================
 ;; EAT KEYBINDINGS
