@@ -13,7 +13,7 @@
 (defvar my-image-processed-dir
   (if (eq system-type 'android)
       "/sdcard/Pictures/S23/Processed/"
-    (expand-file-name "~/Pictures/Processed/"))
+    (expand-file-name "~/PicturesShared/S23/Processed/"))
   "Directory to move processed images to.")
 
 (defvar my-image-tags '("personal" "work" "meditation" "books" "research"
