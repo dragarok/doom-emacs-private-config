@@ -1,1 +1,0 @@
-/Users/alokregmi/Nextcloud/org/termux-doom-config/config.el
