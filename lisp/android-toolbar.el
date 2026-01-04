@@ -69,7 +69,7 @@
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-continue>"
       '(menu-item "Continue" rts-flow-continue
         :help "Continue last task"
-        :image (image :type svg :file "~/.doom.d/toolbar-assets/play-svgrepo-com.svg"
+        :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
                       :height 48 :width 48)))
 
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-cancel>"
@@ -86,7 +86,7 @@
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-manual>"
       '(menu-item "Manual Clock" rts-flow-manual
         :help "Clock into any task via search"
-        :image (image :type svg :file "~/.doom.d/toolbar-assets/clock-plus-svgrepo-com.svg"
+        :image (image :type svg :file "~/.doom.d/toolbar-assets/clock-circle-svgrepo-com.svg"
                       :height 48 :width 48)))
 
     (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-clock-out>"
@@ -154,7 +154,7 @@
     (keymap-set-after (default-value 'tool-bar-map) "<org-node-random-large>"
       '(menu-item "Random Large Note" org-roam-open-large-note-randomly
         :help "Open a random large org-roam note"
-        :image (image :type svg :file "~/.doom.d/toolbar-assets/random-2dice-svgrepo-com.svg"
+        :image (image :type svg :file "~/.doom.d/toolbar-assets/random-1dice-svgrepo-com.svg"
                       :height 48 :width 48)))
 
     (keymap-set-after (default-value 'tool-bar-map) "<org-node-random>"
@@ -186,6 +186,8 @@
         :image (image :type svg :file "~/.doom.d/toolbar-assets/zen-brush-symbol-svgrepo-com.svg"
                       :height 48 :width 48)))
 
+    (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-8>" menu-bar-separator)
+    (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-9>" menu-bar-separator)
     (keymap-set-after (default-value 'tool-bar-map) "<keyboard>"
       '(menu-item "Keyboard" my/toggle-touch-keyboard
         :help "Toggle touch keyboard"

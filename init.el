@@ -42,7 +42,7 @@
        doom-dashboard    ; a nifty splash screen for Emacs
        (:unless IS-ANDROID smooth-scroll)
        ;; doom-quit         ; DOOM quit-message prompts when you quit Emacs
-       (:unless IS-ANDROID (emoji +unicode))
+       (emoji +unicode)  ; emoji support on all platforms
        hl-todo           ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
        ;; hydra
        indent-guides     ; highlighted indent columns

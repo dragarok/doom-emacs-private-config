@@ -442,7 +442,8 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
                                            ("Young Adult" . "YoungAdult")
                                            ("Other" . "Other"))))
 
-(add-hook 'emacs-lisp-mode-hook #'aggressive-indent-mode)
+(unless IS-ANDROID
+  (add-hook 'emacs-lisp-mode-hook #'aggressive-indent-mode))
 
 (after! python
   (map! :localleader
@@ -1908,11 +1909,13 @@ appropriate.  In tables, insert a new row or end the table."
 
 (defun my-org-agenda (&optional p)
   (interactive "P")
-  (make-frame '((name . "kai-agenda")))
+  (unless IS-ANDROID
+    (make-frame '((name . "kai-agenda"))))
   (if (+workspace-exists-p "kai-agenda")
       (+workspace/switch-to "kai-agenda")
     (+workspace/new-named "kai-agenda"))
-  (sleep-for 1)
+  (unless IS-ANDROID
+    (sleep-for 1))
   (message "Current major-mode: %s, buffer: %s" major-mode (buffer-name))
   (unless (eq major-mode 'org-agenda-mode)
     (org-agenda "" "k"))
