@@ -4584,7 +4584,6 @@ Rename jupyter-python to python for hugo text block syntax highlighting for pyth
       :desc "Attach file with link" "l a" #'my/org-attach-attach-and-link)
 #+end_src
 
-
 * Dired
 ** Mark empty dirs
 
@@ -4834,7 +4833,6 @@ Load the productivity system from lisp/ directory:
 #+begin_src elisp
 ;; Add lisp directory to load-path
 (add-to-list 'load-path (expand-file-name "lisp" doom-user-dir))
-
 ;; Core productivity modules
 (require 'productivity)
 (require 'productivity_flow)
