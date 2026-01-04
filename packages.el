@@ -190,7 +190,7 @@
 ;; (package! dockerfile-mode)
 ;; (package! docker)
 ;; (package! elfeed-score)
-(unpin! emacsql)
+;; (unpin! emacsql)
 (package! org-books
   :recipe (:host github :repo "goderich/org-books"))
 
