@@ -86,8 +86,36 @@
   ;; Load Android-specific modules (from lisp/)
   (require 'android-extras))       ; keyboard control, dired xdg-open, vterm shell
 
-;; Image workflow - works on both Mac and Android with platform-specific paths
+;; ============================================================
+;; LOAD LISP MODULES
+;; ============================================================
+(add-to-list 'load-path (expand-file-name "lisp" doom-user-dir))
+
+;; Core productivity modules (both Mac and Android)
+(require 'productivity)
+(require 'productivity_flow)
+(require 'productivity_addons)
+(require 'beancount-helper)
+(require 'kairoam-notes)
+(require 'booxnoter)
+(require 'diary-events)
+(require 'qsv-csv)
+(require 'org-project-helpers)
+(require 'org-roam-setup)
 (require 'image-workflow)
+
+;; Android-specific toolbar
+(when IS-ANDROID
+  (require 'android-toolbar))
+
+;; Mac-only modules
+(unless IS-ANDROID
+  (require 'ai-workflows)          ; gptel, claude-code, mcp-hub
+  (require 'yabai-windmove)        ; yabai window management
+  (require 'chezmoi-config)        ; dotfiles manager
+  (require 'prodigy-services)      ; dev server management
+  (require 'jupyter-config)        ; Jupyter/EIN notebook support
+  (require 'browser-bookmarks))    ; Chrome/Brave bookmark utilities
 
 (define-key input-decode-map [?\C-i] [C-i])
 
@@ -332,40 +360,7 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
 (setq writeroom-extra-line-spacing 0.3
       writeroom-width 100)
 
-;; (add-hook 'writeroom-mode-hook #'mixed-pitch-mode)
-
-(defun +my/vterm-run-project ()
-  (interactive)
-  (+evil-window-vsplit-a)
-  (+evil-window-split-a)
-  (call-interactively '+vterm/toggle))
-
 (require 'nepali-romanized)
-
-;;;###autoload
-(defun ruborcalor/org-pomodoro-time ()
-  "Return the remaining pomodoro time"
-  (if (org-pomodoro-active-p)
-      (cl-case org-pomodoro-state
-        (:pomodoro
-         (format "Pomo: %d mins - %s" (/ (org-pomodoro-remaining-seconds) 60) org-clock-heading))
-        (:short-break
-         (format "SB %d minutes" (/ (org-pomodoro-remaining-seconds) 60)))
-        (:long-break
-         (format "LB %d mins" (/ (org-pomodoro-remaining-seconds) 60)))
-        (:overtime
-         (format "Overtime! %d minutes" (/ (org-pomodoro-remaining-seconds) 60))))
-    "NO POMO"))
-
-(after! org
-  (require 'org-pomodoro)
-  (setq org-pomodoro-length 45
-        org-pomodoro-short-break-length 10
-        org-pomodoro-long-break-length 15
-        org-pomodoro-keep-killed-pomodoro-time t
-        org-pomodoro-long-break-frequency 3
-        org-pomodoro-play-sounds t
-        org-pomodoro-ticking-sound-p t))
 
 (use-package blamer
   :bind (("s-i" . blamer-show-commit-info))
@@ -430,190 +425,6 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
                                            ("Children's" . "Children")
                                            ("Young Adult" . "YoungAdult")
                                            ("Other" . "Other"))))
-
-(after! org
-  (defun who/org-noter-insert-highlighted-note ()
-    "Highlight the active region and add a precise note at its position."
-    (interactive)
-    ;; Adding an annotation will deactivate the region, so we reset it afterward
-    (let ((region (pdf-view-active-region)))
-      (call-interactively 'pdf-annot-add-highlight-markup-annotation)
-      (setq pdf-view-active-region region))
-    (call-interactively 'org-noter-insert-precise-note))
-
-  (setq org-noter-always-create-frame nil
-        org-noter-insert-selected-text-inside-note t
-        ;; ;; The WM can handle splits
-        ;; org-noter-notes-window-location 'other-frame
-        ;; I want to see the whole file
-        org-noter-hide-other nil
-        org-noter-insert-note-no-questions t
-        org-noter-notes-search-path '(org-roam-directory)
-        org-noter-separate-notes-from-heading t
-        ;; org-noter-auto-save-last-location t
-        )
-  ;; fuxialexander's code
-  ;; (add-hook! org-noter-notes-mode (require 'org-noter-pdftools))
-  )
-
-(use-package org-noter-pdftools
-  :after org-noter
-  :config
-  (with-eval-after-load 'pdf-annot
-    (add-hook 'pdf-annot-activate-handler-functions #'org-noter-pdftools-jump-to-note)))
-
-(after! dap-mode
-  (setq dap-python-debugger 'debugpy)
-  (setq dap-python-terminal "vterm")
-  (setq dap-auto-configure-features '(sessions locals expressions repl tooltip))
-  (dap-register-debug-template
-   "Python :: Run with workspace folder to pythonpath"
-   (list :type "python"
-         :args ""
-         :cwd "${workspaceFolder}"
-         :module nil
-         :program nil
-         :request "launch"
-         :env (list :PYTHONPATH "${workspaceFolder}")))
-  (setq dap-ui-buffer-configurations
-        `((,dap-ui--locals-buffer . ((side . left) (slot . 1) (window-height . 0.7)))
-          (,dap-ui--expressions-buffer . ((side . left) (slot . 2) (window-height . 0.3)))
-          (,dap-ui--breakpoints-buffer . ((side . left) (slot . 3) (window-height . 0.20)))
-          (,dap-ui--sessions-buffer . ((side . left) (slot . 4) (window-height . 0.05)))
-          (,dap-ui--debug-window-buffer . ((side . bottom) (slot . 1) (window-width . 0.5)))
-          (,dap-ui--repl-buffer . ((side . bottom) (slot . 2) (window-height . 0.5)(window-width . 0.5))))))
-
-(after! ein-notebook
-  (defun +ein-buffer-p (buf)
-    (or (memq buf (ein:notebook-opened-buffers))
-        (memq buf (mapcar #'ein:notebooklist-get-buffer (ein:notebooklist-keys)))))
-  (add-to-list 'doom-real-buffer-functions #'+ein-buffer-p nil #'eq)
-
-  (defun spacemacs/ein:worksheet-merge-cell-next ()
-    (interactive)
-    (ein:worksheet-merge-cell (ein:worksheet--get-ws-or-error) (ein:worksheet-get-current-cell) t t))
-
-  ;; (set-popup-rule! "^\\*ein" :ignore t)
-  ;; keybindings mirror ipython web interface behavior
-  (evil-define-key 'normal  ein:markdown-mode-map
-    ;; keybindings mirror ipython web interface behavior
-    "go" 'ein:worksheet-goto-next-input-km
-    "gO" 'ein:worksheet-goto-prev-input-km)
-
-  (evil-define-key 'insert ein:notebook-mode-map
-    ;; keybindings mirror ipython web interface behavior
-    "<C-return>" 'ein:worksheet-execute-cell-km
-    "<C-H-return>" 'ein:worksheet-execute-cell-and-goto-next-km)
-
-  ;; ein show images in there
-  (setq ein:output-area-inlined-images t)
-
-  (map! :map ein:notebook-mode-map
-        ;; Insert new cell, Execute cells
-        ;; Merge, Split, Remove or Move cells
-        "C-s-<return>" 'ein:worksheet-execute-cell-and-goto-next-km
-        "C-s-<tab>" 'ein:worksheet-execute-cell-km
-        "C-s-o" 'ein:worksheet-insert-cell-below-km
-        "C-s-O" 'ein:worksheet-insert-cell-above-km
-        "C-s-c" 'ein:worksheet-change-cell-type-km
-        "C-s-b" 'ein:worksheet-split-cell-at-point-km
-        "C-s-k" 'ein:worksheet-move-cell-up-km
-        "C-s-j" 'ein:worksheet-move-cell-down-km
-        "C-s-k" 'ein:worksheet-merge-cell-km
-        "C-s-j" 'spacemacs/ein:worksheet-merge-cell-next
-        "C-s-y" 'ein:worksheet-copy-cell-km
-        "C-s-t" 'ein:worksheet-toggle-output-km
-        "C-s-p" 'ein:worksheet-yank-cell-km
-        "C-s-d" 'ein:worksheet-kill-cell-km
-        "C-s-m" 'ein:notebook-scratchsheet-open-km
-        ;; Output
-        "C-s-z" 'ein:worksheet-toggle-output-km
-        "C-s-x" 'ein:worksheet-clear-output-km
-        "C-s-;" 'ein:worksheet-clear-all-output-km
-        ;; Notebook Opening and closing
-        "C-s-s" 'ein:notebook-save-notebook-command-km
-        "C-s-r" 'ein:notebook-rename-command-km
-        "C-s-q" 'ein:notebook-close-km
-        "C-S-s-<return>" 'ein:worksheet-execute-cell-and-goto-next-km
-        "C-S-s-<tab>" 'ein:worksheet-execute-cell-km
-        "C-S-s-o" 'ein:worksheet-insert-cell-below-km
-        "C-S-s-O" 'ein:worksheet-insert-cell-above-km
-        "C-S-s-c" 'ein:worksheet-change-cell-type-km
-        "C-S-s-b" 'ein:worksheet-split-cell-at-point-km
-        "C-S-s-k" 'ein:worksheet-move-cell-up-km
-        "C-S-s-j" 'ein:worksheet-move-cell-down-km
-        "C-S-s-k" 'ein:worksheet-merge-cell-km
-        "C-S-s-j" 'spacemacs/ein:worksheet-merge-cell-next
-        "C-S-s-y" 'ein:worksheet-copy-cell-km
-        "C-S-s-t" 'ein:worksheet-toggle-output-km
-        "C-S-s-p" 'ein:worksheet-yank-cell-km
-        "C-S-s-d" 'ein:worksheet-kill-cell-km
-        "C-S-s-m" 'ein:notebook-scratchsheet-open-km
-        ;; Output
-        "C-S-s-z" 'ein:worksheet-toggle-output-km
-        "C-S-s-x" 'ein:worksheet-clear-output-km
-        "C-S-s-;" 'ein:worksheet-clear-all-output-km
-        ;; Notebook Opening and closing
-        "C-S-s-s" 'ein:notebook-save-notebook-command-km
-        "C-S-s-r" 'ein:notebook-rename-command-km
-        "C-S-s-q" 'ein:notebook-close-km
-        :map ein:notebooklist-mode-map
-        :nv "O" 'ein:notebook-open-km
-        :nv "o" 'ace-link-custom)
-
-  (map!  :localleader
-         :map ein:notebook-mode-map
-         :desc "Show Hydra" :n "?" #'+ein/hydra/body
-         :desc "Change cell type" :n "c" #'ein:worksheet-change-cell-type-km
-         :desc "Execute and step" :n "RET" #'ein:worksheet-execute-cell-and-goto-next
-         :desc "Yank cell" :n "y" #'ein:worksheet-copy-cell
-         :desc "Paste cell" :n "p" #'ein:worksheet-yank-cell
-         :desc "Delete cell" :n "d" #'ein:worksheet-kill-cell
-         :desc "Insert cell below" :n "o" #'ein:worksheet-insert-cell-below
-         :desc "Insert cell above" :n "O" #'ein:worksheet-insert-cell-above
-         :desc "Next cell" :n "j" #'ein:worksheet-goto-next-input
-         :desc "Previous cell" :n "k" #'ein:worksheet-goto-prev-input
-         :desc "Save notebook" :n "fs" #'ein:notebook-save-notebook-command)
-
-  ;;(add-hook 'ein:notebook-mode-hook #'virtual-auto-fill-mode)
-  ;;(add-hook 'ein:markdown-mode-hook #'virtual-auto-fill-mode)
-  ;; (add-hook 'ein:ipdb-mode-hook #'virtual-auto-fill-mode)
-  ;; (add-hook 'ein:shared-output-mode-hook #'virtual-auto-fill-mode)
-  )
-(defun my-preview-latex ()
-  "Preview LaTeX from the current cell in a separate buffer.
-
-Handles only markdown and code cells, but both in a bit different
-ways: on the former, its input is being rendered, while on the
-latter - its output."
-  (interactive)
-  (let* ((cell (ein:worksheet-get-current-cell))
-	 (text-to-render
-	  (cond ((ein:markdowncell-p cell) (slot-value cell :input))
-		((ein:codecell-p cell)
-		 (plist-get (car (cl-remove-if-not
-				  (lambda (e) (string= (plist-get e :name) "stdout"))
-				  (slot-value cell :outputs)))
-			    :text))
-		(t (error "Unsupported cell type"))))
-	 (buffer (get-buffer-create " *ein: LaTeX preview*")))
-    (with-current-buffer buffer
-      (when buffer-read-only
-	(toggle-read-only))
-      (unless (= (point-min) (point-max))
-	(delete-region (point-min) (point-max)))
-      (insert text-to-render)
-      (goto-char (point-min))
-      (org-mode)
-      (org-toggle-latex-fragment 16)
-      (special-mode)
-      (unless buffer-read-only
-	(toggle-read-only))
-      (display-buffer
-       buffer
-       '((display-buffer-below-selected display-buffer-at-bottom)
-         (inhibit-same-window . t)))
-      (fit-window-to-buffer (window-in-direction 'below)))))
 
 (add-hook 'emacs-lisp-mode-hook #'aggressive-indent-mode)
 
@@ -731,83 +542,11 @@ latter - its output."
         (delete-frame)))
   )
 
-(defun sanityinc/split-window()
-  "Split the window to see the most recent buffer in the other window.
-Call a second time to restore the original window configuration."
-  (interactive)
-  (if (eq last-command 'sanityinc/split-window)
-      (progn
-        (jump-to-register :sanityinc/split-window)
-        (setq this-command 'sanityinc/unsplit-window))
-    (window-configuration-to-register :sanityinc/split-window)
-    (switch-to-buffer-other-window nil)))
-
-(global-set-key (kbd "<f7>") 'sanityinc/split-window)
-
 (when (eq system-type 'windows-nt)
   (defun me/bash ()
     (interactive)
     (let ((explicit-shell-file-name "C:/Windows/System32/bash.exe"))
       (shell))))
-
-(defvar chrome-bookmarks-file
-  (cl-find-if
-   #'file-exists-p
-   ;; Base on `helm-chrome-file'
-   (list
-    "~/Library/Application Support/Google/Chrome/Profile 1/Bookmarks"
-    "~/Library/Application Support/Google/Chrome/Default/Bookmarks"
-    "~/AppData/Local/Google/Chrome/User Data/Default/Bookmarks"
-    ;; "~/.config/google-chrome/Default/Bookmarks"
-    ;; "~/bookmarks_edge_beta.json"
-    ;; "~/bookmarks_edge_dev.json"
-    ;; "~/bookmarks_edge.json"
-    "~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks"
-    ;; "~/.config/google-chrome/Default/Bookmarks"
-    ;; "~/.config/chromium/Default/Bookmarks"
-    (substitute-in-file-name
-     "$LOCALAPPDATA/Google/Chrome/User Data/Default/Bookmarks")
-    (substitute-in-file-name
-     "$USERPROFILE/Local Settings/Application Data/Google/Chrome/User Data/Default/Bookmarks")))
-  "Path to Google Chrome Bookmarks file (it's JSON).")
-
-
-
-;;;###autoload
-(defun chrome-bookmarks-insert-as-org ()
-  "Insert Chrome Bookmarks as org-mode headings."
-  (interactive)
-  (require 'json)
-  (require 'org)
-  (let ((data (let ((json-object-type 'alist)
-                    (json-array-type  'list)
-                    (json-key-type    'symbol)
-                    (json-false       nil)
-                    (json-null        nil))
-                (json-read-file chrome-bookmarks-file)))
-        level)
-    (cl-labels ((fn
-                  (al)
-                  (pcase (alist-get 'type al)
-                    ("folder"
-                     (insert
-                      (format "%s %s\n"
-                              (make-string level ?*)
-                              (alist-get 'name al)))
-                     (cl-incf level)
-                     (mapc #'fn (alist-get 'children al))
-                     (cl-decf level))
-                    ("url"
-                     (insert
-                      (format "%s %s\n"
-                              (make-string level ?*)
-                              (org-make-link-string
-                               (alist-get 'url al)
-                               (alist-get 'name al))))))))
-      (setq level 1)
-      (fn (alist-get 'bookmark_bar (alist-get 'roots data)))
-      (setq level 1)
-      (fn (alist-get 'other (alist-get 'roots data))))))
 
 (custom-set-faces!
   '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
@@ -821,150 +560,8 @@ Call a second time to restore the original window configuration."
         )
   )
 
-(use-package! yasnippet
-  :config
-  ;; It will test whether it can expand, if yes, change cursor color
-  (defun hp/change-cursor-color-if-yasnippet-can-fire (&optional field)
-    (interactive)
-    (setq yas--condition-cache-timestamp (current-time))
-    (let (templates-and-pos)
-      (unless (and yas-expand-only-for-last-commands
-                   (not (member last-command yas-expand-only-for-last-commands)))
-        (setq templates-and-pos (if field
-                                    (save-restriction
-                                      (narrow-to-region (yas--field-start field)
-                                                        (yas--field-end field))
-                                      (yas--templates-for-key-at-point))
-                                  (yas--templates-for-key-at-point))))
-      (set-cursor-color (if (and templates-and-pos (first templates-and-pos)
-                                 (eq evil-state 'insert))
-                            (doom-color 'red)
-                          (face-attribute 'default :foreground)))))
-  :hook (post-command . hp/change-cursor-color-if-yasnippet-can-fire))
-;; For adding code snippets in yasnippet
-(add-to-list 'warning-suppress-types '(yasnippet backquote-change))
-
 (add-hook! (gfm-mode markdown-mode) #'mixed-pitch-mode)
 (add-hook! (gfm-mode markdown-mode) #'visual-line-mode #'turn-off-auto-fill)
-
-(defcustom pdf-links-convert-pointsize-scale 0.02
-  "The scale factor for the -pointsize convert command.
-
-This determines the relative size of the font, when interactively
-reading links."
-  :group 'pdf-links
-  :type '(restricted-sexp :match-alternatives
-          ((lambda (x) (and (numberp x)
-                            (<= x 1)
-                            (>= x 0))))))
-
-(defun pdf-links-read-char-action (query prompt)
-  "Using PROMPT, interactively read a link-action.
-BORROWED FROM `pdf-links-read-link-action'.
-See `pdf-links-action-perform' for the interface."
-  (pdf-util-assert-pdf-window)
-  (let* ((links (pdf-info-search-string
-                 query
-                 (pdf-view-current-page)
-                 (current-buffer)))
-         (keys (pdf-links-read-link-action--create-keys
-                (length links)))
-         (key-strings (mapcar (apply-partially 'apply 'string)
-                              keys))
-         (alist (cl-mapcar 'cons keys links))
-         (size (pdf-view-image-size))
-         (colors (pdf-util-face-colors
-                  'pdf-links-read-link pdf-view-dark-minor-mode))
-         (args (list
-                :foreground (car colors)
-                :background "blue"
-                :formats
-                `((?c . ,(lambda (_edges) (pop key-strings)))
-                  (?P . ,(number-to-string
-                          (max 1 (* (cdr size)
-                                    pdf-links-convert-pointsize-scale)))))
-                :commands pdf-links-read-link-convert-commands
-                :apply (pdf-util-scale-relative-to-pixel
-                        (mapcar (lambda (l) (car (cdr (assq 'edges l))))
-                                links)))))
-    (print colors)
-
-    (unless links
-      (error "No links on this page"))
-    (unwind-protect
-        (let ((image-data nil))
-          (unless image-data
-            (setq image-data (apply 'pdf-util-convert-page args ))
-            (pdf-cache-put-image
-             (pdf-view-current-page)
-             (car size) image-data 'pdf-links-read-link-action))
-          (pdf-view-display-image
-           (create-image image-data (pdf-view-image-type) t))
-          (pdf-links-read-link-action--read-chars prompt alist))
-      (pdf-view-redisplay))))
-
-(defun avy-timed-input ()
-  "BORROWED FORM `avy--read-candidates'"
-  (let ((str "")
-        char break)
-    (while (and (not break)
-                (setq char
-                      (read-char (format "char%s (prefer multiple chars w.r.t. speed): "
-                                         (if (string= str "")
-                                             str
-                                           (format " (%s)" str)))
-                                 t
-                                 (and (not (string= str ""))
-                                      avy-timeout-seconds))))
-      ;; Unhighlight
-      (cond
-       ;; Handle RET
-       ((= char 13)
-        (if avy-enter-times-out
-            (setq break t)
-          (setq str (concat str (list ?\n)))))
-       ;; Handle C-h, DEL
-       ((memq char avy-del-last-char-by)
-        (let ((l (length str)))
-          (when (>= l 1)
-            (setq str (substring str 0 (1- l))))))
-       ;; Handle ESC
-       ((= char 27)
-        (keyboard-quit))
-       (t
-        (setq str (concat str (list char))))))
-    (print str)))
-
-(defun get-coordinates (end)
-  (let* ((query (avy-timed-input))
-         (coords (list (or (pdf-links-read-char-action query "Please specify (SPC scrolls): ")
-                           (error "No char selected")))))
-    ;; (print coords)
-    ;; (print (car (alist-get 'edges (car coords))))))
-    (car (alist-get 'edges (car coords)))))
-
-
-
-(defun pdf-keyboard-highlight ()
-  (interactive)
-  (let* ((start (get-coordinates nil))
-         (end (get-coordinates t))
-         (edges (append (cl-subseq start 0 2) (cl-subseq end 2 4))))
-    (pdf-annot-add-markup-annotation
-     edges 'highlight '"yellow") nil))
-
-;; PDF Tools ease of highlighting and history
-(map!
- :map pdf-view-mode-map
- :v "a" #'pdf-annot-add-highlight-markup-annotation
- :v "A" #'pdf-annot-add-markup-annotation
- :v "t" #'pdf-annot-add-text-annotation
- :n "x" #'pdf-annot-delete
- :n "c" #'pdf-history-backward
- :n "C" #'pdf-history-forward
- :n "b" #'pdf-view-set-slice-from-bounding-box
- :n "p" #'pdf-keyboard-highlight
- :n "B" #'pdf-view-reset-slice)
 
 ;;;###autoload
 (defun +vertico/switch-workspace-buffer-other-window()
@@ -1066,66 +663,6 @@ See `pdf-links-action-perform' for the interface."
 (after! diff-hl
   (remove-hook 'dired-mode-hook #'+vc-gutter-enable-maybe-h))
 
-;;;###autoload
-(defun create-new-ml-project (proj-name proj-type)
-  "Initial setup for any ML project"
-  (interactive "sEnter the project full path:
-sEnter type of project: ")
-  (+workspace/new)
-  (if (equal proj-type "p")
-      (setq full-proj (cl-concatenate 'string "~/workspace/personal/" proj-name ))
-    (setq full-proj (cl-concatenate 'string "~/workspace/work/" proj-name)))
-  ;; (message "%s" full-proj)
-  (dired-create-directory full-proj)
-  (dired-create-directory (cl-concatenate 'string full-proj "/src"))
-  (dired-create-directory (cl-concatenate 'string full-proj "/input"))
-  (dired-create-directory (cl-concatenate 'string full-proj "/models"))
-  (magit-init full-proj)
-  (shell-command "joe linux python >> .gitignore")
-  (ml-gitignore)
-  (setq py-files '("src/__init__.py" "predict.py" "utils.py" "dataset.py"
-                   "feature_generator.py" "dispatcher.py" "create_folds.py"
-                   "train.py" "loss.py"))
-  (dolist (element py-files)
-    (message "%s" element)
-    (find-file element)
-    (save-buffer))
-  (projectile-add-known-project full-proj)
-  (projectile-switch-project-by-name full-proj)
-  )
-
-;;;###autoload
-(defun ml-gitignore ()
-  (find-file ".gitignore")
-  (insert "
-# input and data related\n
-input/\n
-models/\n
-
-# data
-*.csv
-*.h5
-*.pkl
-*.hd5
-*.pth
-
-")
-  (save-buffer)
-  )
-
-;;;###autoload
-(defun run-django-project()
-  "Run a django project with commands
-from .dir-locals.el"
-  (interactive)
-  ;; (message dir-local-variables-alist)
-  (setq django-commands (eval (cdr (assoc 'django-commands dir-local-variables-alist))))
-  (call-interactively '+vterm/here) ()
-  (dolist (command django-commands)
-    (vterm-send-string command)
-    (vterm-send-return))
-  )
-
 ;; Time related functions from holtzermann17
 (defun now ()
   "Insert string for the current time formatted like '2:34 PM'."
@@ -1172,58 +709,6 @@ Otherwise, it begins with ## and is indented accordingly."
 (add-hook 'ess-r-mode-hook
           #'(lambda ()
               (local-set-key (kbd "H-/") #'ess-r-comment-box-line)))
-
-;;;###autoload
-(defun my/create-id-and-copy-link()
-  "Creates id for the given heading at point and returns the org link"
-  (org-id-get-create)
-  (kill-new (concat "[[id:" (org-id-get) "]" "["
-                    ;; get 2 min taskname if it's there
-                    (let ((props (org-entry-properties)))
-                      (if (cdr (assoc "2_MIN_TNAME" props))
-                          (cdr (assoc "2_MIN_TNAME" props))
-                        (cdr (assoc "ITEM" props))))
-                    "]]"))
-  (save-buffer))
-
-;;;###autoload
-(defun my/copy-heading-link()
-  "Copies heading link from org mode to be pasted anywhere else in org mode"
-  (interactive)
-  (if (equal (buffer-name) "*Org Agenda*")
-      (let* ((marker (org-get-at-bol 'org-marker))
-             (buffer (marker-buffer marker))
-             (pos (marker-position marker)))
-        (org-with-remote-undo buffer
-          (with-current-buffer buffer
-            (goto-char pos)
-            (my/create-id-and-copy-link))))
-    (my/create-id-and-copy-link)
-    )
-  )
-
-;;;###autoload
-(defun my/clock-in-and-back()
-  "Enter on the link at point, clock in, and come back here."
-  (interactive)
-  (save-excursion
-    (link-hint-open-link-at-point)
-    (org-clock-in)
-    (save-buffer)
-    (org-mark-ring-goto)))
-
-;;;###autoload
-(defun my/work-done-and-update()
-  "Go to the task under point, mark it done, return back,
- and update in roam-dailies"
-  (interactive)
-  (save-excursion
-    (link-hint-open-link-at-point)
-    (org-todo 'done)
-    (save-buffer)
-    (org-mark-ring-goto)
-    (org-toggle-checkbox)
-    ))
 
 (defun buffer-count-words ()
   "Count the number of words in region"
@@ -1411,57 +896,6 @@ selected, then the current line."
                (not (org-entry-get nil "ACTIVATED")))
       (org-entry-put nil "ACTIVATED" (format-time-string "[%Y-%m-%d]"))))
   (add-hook 'org-after-todo-state-change-hook #'log-todo-next-creation-date)
-
-;;;###autoload
-  (defun jethro/org-agenda-process-inbox-item ()
-    "Process a single item in the org-agenda."
-    (org-with-wide-buffer
-     (org-agenda-set-tags)
-     ;; (org-agenda-set-property)
-     (org-agenda-priority)
-     (org-agenda-set-effort)
-     (call-interactively 'org-agenda-schedule)
-     (org-agenda-set-property)
-     (org-agenda-refile nil nil t)))
-
-
-;;;###autoload
-  (defun jethro/bulk-process-entries ()
-    (interactive)
-    (if (not (null org-agenda-bulk-marked-entries))
-        (let ((entries (reverse org-agenda-bulk-marked-entries))
-              (processed 0)
-              (skipped 0))
-          (dolist (e entries)
-            (let ((pos (text-property-any (point-min) (point-max) 'org-hd-marker e)))
-              (if (not pos)
-                  (progn (message "Skipping removed entry at %s" e)
-                         (cl-incf skipped))
-                (goto-char pos)
-                (let (org-cl-loop-over-headlines-in-active-region) (funcall 'jethro/org-agenda-process-inbox-item))
-                ;; `post-command-hook' is not run yet.  We make sure any
-                ;; pending log note is processed.
-                (when (or (memq 'org-add-log-note (default-value 'post-command-hook))
-                          (memq 'org-add-log-note post-command-hook))
-                  (org-add-log-note))
-                (cl-incf processed))))
-          (org-agenda-redo)
-          (unless org-agenda-persistent-marks (org-agenda-bulk-unmark-all))
-          (message "Acted on %d entries%s%s"
-                   processed
-                   (if (= skipped 0)
-                       ""
-                     (format ", skipped %d (disappeared before their turn)"
-                             skipped))
-                   (if (not org-agenda-persistent-marks) "" " (kept marked)")))))
-
-
-;;;###autoload
-  (defun jethro/org-process-inbox ()
-    "Called in org-agenda-mode, processes all inbox items."
-    (interactive)
-    (org-agenda-bulk-mark-regexp "refile")
-    (jethro/bulk-process-entries))
   )
 
 (use-package! saveplace-pdf-view
@@ -4185,22 +3619,6 @@ the second element is the other tags."
 (use-package dwim-shell-command
   :ensure t)
 
-;; Add lisp directory to load-path
-(add-to-list 'load-path (expand-file-name "lisp" doom-user-dir))
-;; Core productivity modules
-(require 'productivity)
-(require 'productivity_flow)
-(require 'productivity_addons)
-(require 'beancount-helper)
-(require 'kairoam-notes)
-(require 'booxnoter)
-(require 'diary-events)
-(require 'qsv-csv)
-
-;; Android-specific toolbar
-(when IS-ANDROID
-  (require 'android_toolbar))
-
 ;;; Taken from https://xenodium.com/building-your-own-bookmark-launcher/
 ;;;###autoload
 (defun browser-bookmarks (org-file)
@@ -4737,313 +4155,4 @@ the second element is the other tags."
   ("h" (lambda () (interactive) (+evil/window-split-and-follow) (org-open-at-point)) "Horizontal Split")
   ("q" nil "Quit"))
 
-(use-package gptel-prompts
-  :after (gptel)
-  :demand t
-  :config
-  (setq gptel-prompts-directory "~/.doom.d/llm-system-prompts")
-  (gptel-prompts-update)
-  ;; Ensure prompts are updated if prompt files change
-  (gptel-prompts-add-update-watchers))
 
-(with-eval-after-load 'eat
-  (define-key eat-mode-map (kbd "s-p") #'eat-yank)
-  (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank)
-  )
-
-(use-package! claude-code
-  :config
-  (defun my-claude-notify (title message)
-    "Display a macOS notification with sound."
-    (call-process "osascript" nil nil nil
-                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                               message title)))
-
-  (setq claude-code-notification-function #'my-claude-notify)
-  (setq claude-code-startup-delay 0.2)
-  (setq claude-code-terminal-backend 'vterm)
-  (add-hook 'claude-code-start-hook
-            (lambda ()
-              ;; Reduce line spacing to fix vertical bar gaps
-              (setq-local line-spacing 0.1)))
-  )
-
-(use-package claude-code-ide
-  :config
-  ;; (setq claude-code-ide-terminal-backend 'eat)
-  (claude-code-ide-emacs-tools-setup)
-  ;; (define-key vterm-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
-  (define-key prog-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
-  (setq claude-code-ide-use-ide-diff nil)
-  )
-
-(defun diego--vterm-font-setup ()
-  "Configure font settings specifically for vterm buffers, workaround claude-code."
-
-  ;; Apply ASCII replacements for vterm specifically
-  (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
-    (dolist (pair
-             '((#x273B . ?*) ; ✻ TEARDROP-SPOKED ASTERISK
-               (#x273D . ?*) ; ✽ HEAVY TEARDROP-SPOKED ASTERISK
-               (#x2722 . ?+) ; ✢ FOUR TEARDROP-SPOKED ASTERISK
-               (#x2736 . ?+) ; ✶ SIX-POINTED BLACK STAR
-               (#x2733 . ?*) ; ✳ EIGHT SPOKED ASTERISK
-               ))
-      (aset tbl (car pair) (vector (cdr pair))))))
-
-(add-hook 'vterm-mode-hook #'diego--vterm-font-setup)
-
-(defvar sm-subsitutions
-  '((?⏺ . ?\-)
-    (?· . ?.)
-    (?✢ . ?+)
-    (?✳ . ?*)
-    (?∗ . ?*)
-    (?✻ . ?*)
-    (?✽ . ?*)
-    (?╭ . ?+)
-    (?╮ . ?+)
-    (?╰ . ?+)
-    (?╯ . ?+)
-    (?⎿ . ?|)
-    (?│ . ?|)
-    (?🤖 . ?*)))
-
-
-(defun sm-replace-problem-chars (args)
-  (let ((terminal (nth 0 args))
-        (output (nth 1 args)))
-    (dolist (sub sm-subsitutions)
-      (setq output (subst-char-in-string (car sub) (cdr sub) output)))
-    (list terminal output)))
-
-
-(advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
-
-;; Customize cursor type in read-only mode (default is '(box nil nil))
-;; The format is (CURSOR-ON BLINKING-FREQUENCY CURSOR-OFF)
-;; Cursor type options: 'box, 'hollow, 'bar, 'hbar, or nil
-(setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
-
-;; Control eat scrollback size for longer conversations
-;; The default is 131072 characters, which is usually sufficient
-;; For very long Claude sessions, you may want to increase it
-;; WARNING: Setting to nil (unlimited) is NOT recommended with Claude Code
-;; as it can cause severe performance issues with long sessions
-(setq eat-term-scrollback-size 500000)  ; Increase to 500k characters
-;; Then, add the fonts after your setup is complete:
-
-;; important - tell emacs to use our fontset settings
-;; (setq use-default-font-for-symbols nil)
-;; (set-fontset-font t 'unicode (font-spec :family "JuliaMono"))
-
-;; ;; your preferred, default font:
-;; (set-fontset-font t 'symbol "JuliaMono" nil 'prepend)
-
-(add-hook 'claude-code-start-hook
-          (lambda ()
-            ;; Reduce line spacing to fix vertical bar gaps
-            (setq-local line-spacing 0.1))) 
-
-(custom-set-faces
- '(claude-code-repl-face ((t (:family "JuliaMono")))))
-
-(use-package ai-code-interface
-  :config
-  (ai-code-set-backend  'claude-code-ide) ;; use claude-code-ide as backend
-  ;; Optional: Set up Magit integration for AI commands in Magit popups
-  (with-eval-after-load 'magit
-    (ai-code-magit-setup-transients)))
-(use-package gemini-cli
-  :defer t)
-(defun my-gemini-notify (title message)
-  "Display a macOS notification with sound."
-  (call-process "osascript" nil nil nil
-                "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                             message title)))
-
-(setq gemini-cli-notification-function #'my-gemini-notify)
-
-(defun claude-switch-accounts ()
-  "Toggle between default claude account and the ~/.claude333 account."
-  (interactive)
-  (if (string-prefix-p "CLAUDE_CONFIG_DIR=" claude-code-ide-cli-path)
-      ;; Currently using the alternate account → switch to default
-      (progn
-        (setq claude-code-ide-cli-path "claude")
-        (setq claude-code-program        "claude"))
-    ;; Currently using default (or anything else) → switch to alternate
-    (progn
-      (setq claude-code-ide-cli-path "CLAUDE_CONFIG_DIR=~/.claude333 claude")
-      (setq claude-code-program        "CLAUDE_CONFIG_DIR=~/.claude333 claude")))
-
-  (message "Claude CLI now using: %s" claude-code-ide-cli-path))
-
-(use-package! chezmoi
-  :defer t
-  :config
-  (require 'chezmoi-cape)
-  (require 'chezmoi-magit)
-  (require 'chezmoi-dired)
-  (add-to-list 'completion-at-point-functions #'chezmoi-capf)
-  (defun chezmoi--evil-insert-state-enter ()
-    "Run after evil-insert-state-entry."
-    (chezmoi-template-buffer-display nil (point))
-    (remove-hook 'after-change-functions #'chezmoi-template--after-change 1))
-
-  (defun chezmoi--evil-insert-state-exit ()
-    "Run after evil-insert-state-exit."
-    (chezmoi-template-buffer-display nil)
-    (chezmoi-template-buffer-display t)
-    (add-hook 'after-change-functions #'chezmoi-template--after-change nil 1))
-
-  (defun chezmoi-evil ()
-    (if chezmoi-mode
-        (progn
-          (add-hook 'evil-insert-state-entry-hook #'chezmoi--evil-insert-state-enter nil 1)
-          (add-hook 'evil-insert-state-exit-hook #'chezmoi--evil-insert-state-exit nil 1))
-      (progn
-        (remove-hook 'evil-insert-state-entry-hook #'chezmoi--evil-insert-state-enter 1)
-        (remove-hook 'evil-insert-state-exit-hook #'chezmoi--evil-insert-state-exit 1))))
-  (add-hook 'chezmoi-mode-hook #'chezmoi-evil)
-  )
-
-;;; yabai-windmove.el --- Seamless window management between Emacs and yabai -*- lexical-binding: t; -*-
-
-;; Raptor v3: Unified M-hjkl for Emacs windows AND yabai windows
-
-;;; Window Focus (M-hjkl)
-;; Try Emacs windmove first, fall back to yabai
-
-(defun yabai-move-on-error (direction move-fn)
-  "Try MOVE-FN for Emacs windows, fall back to yabai DIRECTION on error."
-  (condition-case nil
-      (funcall move-fn)
-    (error
-     (let ((cmd (pcase direction
-                  ("west"  "window --focus west || window --focus stack.prev")
-                  ("east"  "window --focus east || window --focus stack.next")
-                  ("north" "window --focus north || window --focus stack.next")
-                  ("south" "window --focus south || window --focus stack.prev"))))
-       (call-process-shell-command (concat "yabai -m " cmd) nil 0)))))
-
-(defun yabai-window-left ()
-  (interactive)
-  (yabai-move-on-error "west" #'windmove-left))
-
-(defun yabai-window-right ()
-  (interactive)
-  (yabai-move-on-error "east" #'windmove-right))
-
-(defun yabai-window-up ()
-  (interactive)
-  (yabai-move-on-error "north" #'windmove-up))
-
-(defun yabai-window-down ()
-  (interactive)
-  (yabai-move-on-error "south" #'windmove-down))
-
-;;; Window Swap/Move (M-S-hjkl)
-;; Try evil-window-move, fall back to yabai warp
-
-(defun yabai-swap-on-error (direction move-fn)
-  "Try MOVE-FN to swap Emacs windows, fall back to yabai warp."
-  (if (one-window-p)
-      ;; Only one Emacs window, use yabai
-      (call-process-shell-command
-       (concat "yabai -m window --warp " direction) nil 0)
-    ;; Multiple Emacs windows, use evil-window-move
-    (funcall move-fn)))
-
-(defun yabai-swap-left ()
-  (interactive)
-  (yabai-swap-on-error "west" #'evil-window-move-far-left))
-
-(defun yabai-swap-right ()
-  (interactive)
-  (yabai-swap-on-error "east" #'evil-window-move-far-right))
-
-(defun yabai-swap-up ()
-  (interactive)
-  (yabai-swap-on-error "north" #'evil-window-move-very-top))
-
-(defun yabai-swap-down ()
-  (interactive)
-  (yabai-swap-on-error "south" #'evil-window-move-very-bottom))
-
-;;; Toggle Split (M-;)
-;; Emacs: cycle window split, yabai: toggle split
-
-(defun yabai-toggle-split ()
-  "Toggle window split in Emacs or yabai."
-  (interactive)
-  (if (one-window-p)
-      (call-process-shell-command "yabai -m window --toggle split" nil 0)
-    (window-split-toggle)))
-
-;;; Rotate Layout (M-S-i)
-;; Emacs: rotate windows, yabai: rotate space
-
-(defun yabai-rotate ()
-  "Rotate windows in Emacs or yabai."
-  (interactive)
-  (if (one-window-p)
-      (call-process-shell-command "yabai -m space --rotate 270" nil 0)
-    (evil-window-rotate-upwards)))
-
-;;; Zoom Fullscreen (M-f)
-;; Emacs: maximize buffer, yabai: zoom-fullscreen
-
-(defun yabai-zoom-fullscreen ()
-  "Maximize buffer in Emacs or toggle yabai zoom-fullscreen."
-  (interactive)
-  (if (one-window-p)
-      (call-process-shell-command "yabai -m window --toggle zoom-fullscreen" nil 0)
-    (doom/window-maximize-buffer)))
-
-;;; Balance Windows (M-=)
-;; Emacs: balance-windows, yabai: space --balance
-
-(defun yabai-balance ()
-  "Balance windows in Emacs or yabai."
-  (interactive)
-  (if (one-window-p)
-      (call-process-shell-command "yabai -m space --balance" nil 0)
-    (balance-windows)))
-
-;;; Keybindings (Doom Emacs)
-
-(map! :nvm "M-h" #'yabai-window-left
-      :nvm "M-l" #'yabai-window-right
-      :nvm "M-k" #'yabai-window-up
-      :nvm "M-j" #'yabai-window-down
-
-      :nvm "M-H" #'yabai-swap-left
-      :nvm "M-L" #'yabai-swap-right
-      :nvm "M-K" #'yabai-swap-up
-      :nvm "M-J" #'yabai-swap-down
-
-      :nvm "M-;" #'yabai-toggle-split    ;; 0x23 = semicolon
-      :nvm "M-I" #'yabai-rotate          ;; M-S-i
-      :nvm "M-f" #'yabai-zoom-fullscreen
-      :nvm "M-=" #'yabai-balance)
-
-(after! org
-  (map!
-   :after evil-org
-   :map evil-org-mode-map
-   :nvm "M-h" #'yabai-window-left
-   :nvm "M-l" #'yabai-window-right
-   :nvm "M-k" #'yabai-window-up
-   :nvm "M-j" #'yabai-window-down)
-  )
-
-(after! org
-  (evil-define-key '(normal insert visual motion) 'global
-    (kbd "M-h") 'yabai-window-left
-    (kbd "M-l") 'yabai-window-right
-    (kbd "M-k") 'yabai-window-up
-    (kbd "M-j") 'yabai-window-down)
-  )
-
-(provide 'yabai-windmove)
