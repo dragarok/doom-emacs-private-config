@@ -241,43 +241,44 @@
 
 ;; Prevent citar-org-roam from triggering org-roam-db-sync (prevents slow rebuilds)
 ;; We temporarily make org-roam-db-sync a no-op during citar-org-roam-setup
-(if IS-ANDROID
-    (defadvice! my/citar-org-roam-setup-no-sync (fn &rest args)
-      :around #'citar-org-roam-setup
-      (cl-letf (((symbol-function 'org-roam-db-sync) #'ignore))
-        (apply fn args)))
+(when IS-ANDROID
+  (after! citar
+    ;; Function to open files using browse-url-xdg-open with file:// URLs
+    (defun my-open-file-xdg (file)
+      "Open FILE using browse-url-xdg-open as a file:// URL."
+      (let ((url (concat "file://" (expand-file-name file))))
+        (condition-case err
+            (browse-url-xdg-open url)
+          (error (message "Failed to open %s: %s" file err)))))
 
-  ;; Function to open files using browse-url-xdg-open with file:// URLs
-  (defun my-open-file-xdg (file)
-    "Open FILE using browse-url-xdg-open as a file:// URL."
-    (let ((url (concat "file://" (expand-file-name file))))
-      (condition-case err
-          (browse-url-xdg-open url)
-        (error (message "Failed to open %s: %s" file err)))))
+    (defun my-citar-relativize-parser (field)
+      "Parse FILE-FIELD and relativize paths by removing the fixed base prefix."
+      (let ((paths (or (citar-file--parser-default field)
+                       (citar-file--parser-triplet field))))
+        (when paths
+          (mapcar (lambda (p)
+                    (string-remove-prefix "/Users/alokregmi/Books/Papers/articles/" p))
+                  paths))))
 
-  (defun my-citar-relativize-parser (field)
-    "Parse FILE-FIELD and relativize paths by removing the fixed base prefix."
-    (let ((paths (or (citar-file--parser-default field)
-                     (citar-file--parser-triplet field))))
-      (when paths
-        (mapcar (lambda (p)
-                  (string-remove-prefix "/Users/alokregmi/Books/Papers/articles/" p))
-                paths))))
-
-  ;; Prepend custom parser to Citar's parser list
-  (setq citar-file-parser-functions
-        (cons 'my-citar-relativize-parser
-              citar-file-parser-functions))
+    ;; Prepend custom parser to Citar's parser list
+    (setq citar-file-parser-functions
+          (cons 'my-citar-relativize-parser
+                citar-file-parser-functions))
 
 
-  ;; Configure Citar to use browse-url-xdg-open for PDFs and images
-  (setq citar-file-open-functions
-        '(("pdf" . my-open-file-xdg)
-          ("jpg" . my-open-file-xdg)
-          ("jpeg" . my-open-file-xdg)))
+    ;; Configure Citar to use browse-url-xdg-open for PDFs and images
+    (setq citar-file-open-functions
+          '(("pdf" . my-open-file-xdg)
+            ("jpg" . my-open-file-xdg)
+            ("jpeg" . my-open-file-xdg)))
 
-  (bind-key "M-+" 'citar-open-files)
-  (bind-key "M--" 'citar-open-notes)
+    (bind-key "M-+" 'citar-open-files)
+    (bind-key "M--" 'citar-open-notes))
+  (defadvice! my/citar-org-roam-setup-no-sync (fn &rest args)
+    :around #'citar-org-roam-setup
+    (cl-letf (((symbol-function 'org-roam-db-sync) #'ignore))
+      (apply fn args)))
+
   )
 
 ;; ============================================================
