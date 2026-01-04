@@ -1546,32 +1546,6 @@ N defaults to 1 (largest)."
 ;;     )
 ;;   (add-hook 'org-roam-capture-new-node-hook #'tag-new-org-roam-node))
 #+end_src
-** Org roam create note for project
-
-#+begin_src emacs-lisp
-;;;###autoload
-(defun title-to-org-roam-node (title)
-  "Create an Org-roam note from the current headline and jump to it."
-  (interactive)
-  (let ((node nil)
-        (filetag ""))
-    (setq node (org-roam-node-create :title title))
-    (setq filetag (list "auto"))
-    (if (org-roam-node-file node)
-        (progn
-          (message "Skipping %s, node already exists" title)
-          node)  ; Return node here if it already exists
-      (org-roam-capture- :node node
-                         :keys "r")
-      (org-entry-put (point-min) "PROJ_RESOURCES_DIR" (concat "[[" project-resources-dir title "]]"))
-      (org-roam-tag-add filetag)
-      (org-capture-finalize nil)
-      ;; (kill-whole-line)
-      ;; (org-capture-finalize nil)
-      node)  ; Return node here after creating new node
-    ))
-#+end_src
-
 ** Daily Ritual
 
 #+begin_src elisp
@@ -1706,25 +1680,6 @@ N defaults to 1 (largest)."
         "pd" nil)
   )
 #+end_src
-** Toggle full screen window
-
-#+begin_src elisp
-(defvar full-screen-window-state nil "Current state of full screen window toggle.")
-
-(defun toggle-full-screen-window ()
-  "Toggle the current window between full screen and previous configuration."
-  (interactive)
-  (if full-screen-window-state
-      (progn
-        (winner-undo)
-        (setq full-screen-window-state nil))
-    (progn
-      (winner-mode 1) ; Ensure winner mode is enabled
-      (delete-other-windows) ; Make the current window full screen
-      (setq full-screen-window-state t))))
-
-#+end_src
-
 ** Clock out todo and mark it done in one go
 
 #+begin_src elisp
@@ -1968,11 +1923,12 @@ ease of use.
 (bind-key "C-M-s-n" 'scroll-other-window-down)
 (bind-key "C-M-s-e" 'scroll-other-window)
 ;; (bind-key "C-M-s-:" 'newline-and-indent)
-(bind-key "C-M-s-w" 'toggle-full-screen-window)
+;; (bind-key "C-M-s-w" 'winner-undo)
 (bind-key "C-M-s-c" 'screenshot-as-file-link)
 ;; last set of key bindings
 (bind-key "C-M-s-g" 'clock-out-and-mark-current-todo-done)
 ;; Debugging efficiently
+(define-key global-map (kbd "C-s-u") #'today)
 (define-key global-map (kbd "C-s-(") #'dape-step-out)
 (define-key global-map (kbd "C-s-)") #'dape-step-in)
 (define-key global-map (kbd "C-s-r") #'dape-next)
@@ -1984,13 +1940,13 @@ ease of use.
 (define-key global-map (kbd "C-s-n") #'random-task-select)
 (define-key global-map (kbd "C-s-e") #'priority-time-task-select)
 (define-key global-map (kbd "C-s-c") #'consult-clock-nonimportant-task)
-(define-key global-map (kbd "C-s-i") #'send-to-daily-highlights)
+(define-key global-map (kbd "C-s-p") #'send-to-daily-highlights)
 (define-key global-map (kbd "C-s-i") #'cleanup-gtd-system)
 (define-key global-map (kbd "C-s-o") #'kairoam-toggle)
 (define-key global-map (kbd "C-s-h") #'kairoam-expand-window)
 (define-key global-map (kbd "C-s-d") #'kairoam-fold-window)
 (define-key global-map (kbd "C-s-;") #'kairoam-open-note-to-right)
-(define-key global-map (kbd "C-s-u") #'random-piano-select)
+;; (define-key global-map (kbd "C-s-u") #'random-piano-select)
 (define-key global-map (kbd "C-s-y") #'random-blog-study-select)
 (define-key global-map (kbd "C-s-j") #'random-guitar-select)
 (define-key global-map (kbd "C-s-k") #'random-study-select)
@@ -2892,7 +2848,7 @@ SCHEDULED: %t
   ;; (org-download-enable)
   ;; org-attach method
   (setq-default org-attach-method 'mv
-                org-attach-auto-tag "attach"
+                ;; org-attach-auto-tag "attach"
                 org-attach-store-link-p 't)
   )
 (global-set-key (kbd "<s-print>") 'my-org-download-screenshot)
@@ -4140,7 +4096,27 @@ the second element is the other tags."
   ;; (setq org-roam-node-display-template
   ;;       (concat  "${functiontag:27} ${title} ${othertags}"))
 
-
+  ;;;###autoload
+  (defun title-to-org-roam-node (title)
+    "Create an Org-roam note from the current headline and jump to it."
+    (interactive)
+    (let ((node nil)
+          (filetag ""))
+      (setq node (org-roam-node-create :title title))
+      (setq filetag (list "auto"))
+      (if (org-roam-node-file node)
+          (progn
+            (message "Skipping %s, node already exists" title)
+            node)  ; Return node here if it already exists
+        (org-roam-capture- :node node
+                           :keys "r")
+        (org-entry-put (point-min) "PROJ_RESOURCES_DIR" (concat "[[" project-resources-dir title "]]"))
+        (org-roam-tag-add filetag)
+        (org-capture-finalize nil)
+        ;; (kill-whole-line)
+        ;; (org-capture-finalize nil)
+        node)  ; Return node here after creating new node
+      ))
 
   ;; ;; Keys binding
   (map! :leader
@@ -10411,6 +10387,149 @@ Works with org-roam-dailies if available, otherwise uses simple dated file."
   (add-hook 'chezmoi-mode-hook #'chezmoi-evil)
   )
 #+end_src
+* Yabai Windmove v2 
+
+#+begin_src elisp
+;;; yabai-windmove.el --- Seamless window management between Emacs and yabai -*- lexical-binding: t; -*-
+
+;; Raptor v3: Unified M-hjkl for Emacs windows AND yabai windows
+
+;;; Window Focus (M-hjkl)
+;; Try Emacs windmove first, fall back to yabai
+
+(defun yabai-move-on-error (direction move-fn)
+  "Try MOVE-FN for Emacs windows, fall back to yabai DIRECTION on error."
+  (condition-case nil
+      (funcall move-fn)
+    (error
+     (let ((cmd (pcase direction
+                  ("west"  "window --focus west || window --focus stack.prev")
+                  ("east"  "window --focus east || window --focus stack.next")
+                  ("north" "window --focus north || window --focus stack.next")
+                  ("south" "window --focus south || window --focus stack.prev"))))
+       (call-process-shell-command (concat "yabai -m " cmd) nil 0)))))
+
+(defun yabai-window-left ()
+  (interactive)
+  (yabai-move-on-error "west" #'windmove-left))
+
+(defun yabai-window-right ()
+  (interactive)
+  (yabai-move-on-error "east" #'windmove-right))
+
+(defun yabai-window-up ()
+  (interactive)
+  (yabai-move-on-error "north" #'windmove-up))
+
+(defun yabai-window-down ()
+  (interactive)
+  (yabai-move-on-error "south" #'windmove-down))
+
+;;; Window Swap/Move (M-S-hjkl)
+;; Try evil-window-move, fall back to yabai warp
+
+(defun yabai-swap-on-error (direction move-fn)
+  "Try MOVE-FN to swap Emacs windows, fall back to yabai warp."
+  (if (one-window-p)
+      ;; Only one Emacs window, use yabai
+      (call-process-shell-command
+       (concat "yabai -m window --warp " direction) nil 0)
+    ;; Multiple Emacs windows, use evil-window-move
+    (funcall move-fn)))
+
+(defun yabai-swap-left ()
+  (interactive)
+  (yabai-swap-on-error "west" #'evil-window-move-far-left))
+
+(defun yabai-swap-right ()
+  (interactive)
+  (yabai-swap-on-error "east" #'evil-window-move-far-right))
+
+(defun yabai-swap-up ()
+  (interactive)
+  (yabai-swap-on-error "north" #'evil-window-move-very-top))
+
+(defun yabai-swap-down ()
+  (interactive)
+  (yabai-swap-on-error "south" #'evil-window-move-very-bottom))
+
+;;; Toggle Split (M-;)
+;; Emacs: cycle window split, yabai: toggle split
+
+(defun yabai-toggle-split ()
+  "Toggle window split in Emacs or yabai."
+  (interactive)
+  (if (one-window-p)
+      (call-process-shell-command "yabai -m window --toggle split" nil 0)
+    (window-split-toggle)))
+
+;;; Rotate Layout (M-S-i)
+;; Emacs: rotate windows, yabai: rotate space
+
+(defun yabai-rotate ()
+  "Rotate windows in Emacs or yabai."
+  (interactive)
+  (if (one-window-p)
+      (call-process-shell-command "yabai -m space --rotate 270" nil 0)
+    (evil-window-rotate-upwards)))
+
+;;; Zoom Fullscreen (M-f)
+;; Emacs: maximize buffer, yabai: zoom-fullscreen
+
+(defun yabai-zoom-fullscreen ()
+  "Maximize buffer in Emacs or toggle yabai zoom-fullscreen."
+  (interactive)
+  (if (one-window-p)
+      (call-process-shell-command "yabai -m window --toggle zoom-fullscreen" nil 0)
+    (doom/window-maximize-buffer)))
+
+;;; Balance Windows (M-=)
+;; Emacs: balance-windows, yabai: space --balance
+
+(defun yabai-balance ()
+  "Balance windows in Emacs or yabai."
+  (interactive)
+  (if (one-window-p)
+      (call-process-shell-command "yabai -m space --balance" nil 0)
+    (balance-windows)))
+
+;;; Keybindings (Doom Emacs)
+
+(map! :nvm "M-h" #'yabai-window-left
+      :nvm "M-l" #'yabai-window-right
+      :nvm "M-k" #'yabai-window-up
+      :nvm "M-j" #'yabai-window-down
+
+      :nvm "M-H" #'yabai-swap-left
+      :nvm "M-L" #'yabai-swap-right
+      :nvm "M-K" #'yabai-swap-up
+      :nvm "M-J" #'yabai-swap-down
+
+      :nvm "M-;" #'yabai-toggle-split    ;; 0x23 = semicolon
+      :nvm "M-I" #'yabai-rotate          ;; M-S-i
+      :nvm "M-f" #'yabai-zoom-fullscreen
+      :nvm "M-=" #'yabai-balance)
+
+(after! org
+  (map!
+   :after evil-org
+   :map evil-org-mode-map
+   :nvm "M-h" #'yabai-window-left
+   :nvm "M-l" #'yabai-window-right
+   :nvm "M-k" #'yabai-window-up
+   :nvm "M-j" #'yabai-window-down)
+  )
+
+(after! org
+  (evil-define-key '(normal insert visual motion) 'global
+    (kbd "M-h") 'yabai-window-left
+    (kbd "M-l") 'yabai-window-right
+    (kbd "M-k") 'yabai-window-up
+    (kbd "M-j") 'yabai-window-down)
+  )
+
+(provide 'yabai-windmove)
+#+end_src
 
 * Deprecated
 :PROPERTIES:
@@ -13686,4 +13805,26 @@ restart lsp based on that environment"
   ;;        :debugger 'debugpy
   ;;        :name "Python :: Run Pytest (EHP)"))
   )
+#+end_src
+
+** Toggle full screen window
+
+Problematic since it just full screens the first window.
+Using yabai's direct full screen using alt-f and then using winner undo to go back when needed. 
+
+#+begin_src elisp
+(defvar full-screen-window-state nil "Current state of full screen window toggle.")
+
+(defun toggle-full-screen-window ()
+  "Toggle the current window between full screen and previous configuration."
+  (interactive)
+  (if full-screen-window-state
+      (progn
+        (winner-undo)
+        (setq full-screen-window-state nil))
+    (progn
+      (winner-mode 1) ; Ensure winner mode is enabled
+      (delete-other-windows) ; Make the current window full screen
+      (setq full-screen-window-state t))))
+
 #+end_src
