@@ -810,40 +810,40 @@ Uses rts-flow tracking so cancel/continue work properly.
 
 This is for when you're already doing something and want to
 clock in without navigating to the task. Shows all tasks
-(regular, mundane, study, music, etc.) in one list."
+(regular, mundane, study, music, etc.) in one list.
+
+If your input doesn't match any existing task, it becomes the
+title for a new task (like `org-roam-node-find' behavior)."
   (interactive)
   (let* ((candidates (rts--get-all-task-candidates))
-         (selected (when candidates
-                     (consult--read candidates
-                                    :prompt "Clock into task: "
-                                    :require-match t
-                                    :sort nil
-                                    :category 'org-task))))
-    (if (not selected)
-        (message "No task selected")
+         (selected (consult--read candidates
+                                  :prompt "Clock into task (or type new): "
+                                  :require-match nil
+                                  :sort nil
+                                  :category 'org-task)))
+    (cond
+     ;; No input
+     ((or (null selected) (string-empty-p selected))
+      (message "No task selected"))
+     ;; Matches existing task - clock in
+     ((assoc selected candidates)
       (let ((marker (cdr (assoc selected candidates))))
         (when (and marker (markerp marker) (buffer-live-p (marker-buffer marker)))
           (with-current-buffer (marker-buffer marker)
             (save-excursion
               (goto-char marker)
               (org-back-to-heading t)
-
               (let ((heading (org-get-heading t t t t)))
-                ;; Update LAST_ACCESSED
                 (org-set-property "LAST_ACCESSED" (format-time-string "[%Y-%m-%d %a]"))
-
-                ;; Remember for rts-flow-cancel (no status change on manual clock-in)
                 (setq rts-flow-last-task-marker (copy-marker (point))
                       rts-flow-last-task-heading heading
                       rts-flow-last-task-old-status nil)
-
-                ;; Clock in
                 (org-clock-in)
-
-                ;; Save all org buffers
                 (org-save-all-org-buffers)
-
-                (message "Clocked in: %s" heading)))))))))
+                (message "Clocked in: %s" heading)))))))
+     ;; New task - use input as title
+     (t
+      (rts-flow--add-task-dispatch selected)))))
 
 ;;; ===================================================================
 ;;; Clock Goto - Smart Navigation
@@ -1393,9 +1393,10 @@ One entry point for all additions."
      ((string= choice "Clock Time Direct")
       (add-clock-time-direct)))))
 
-(defun rts-flow--add-task-dispatch ()
-  "Dispatch to appropriate task addition based on destination."
-  (let* ((title (read-string "Task title: "))
+(defun rts-flow--add-task-dispatch (&optional title)
+  "Dispatch to appropriate task addition based on destination.
+If TITLE is provided, use it; otherwise prompt for it."
+  (let* ((title (or title (read-string "Task title: ")))
          (destination (completing-read
                        "Add to: "
                        '("Tasks" "Project" "Study" "Guitar" "Piano" "Mundane")
