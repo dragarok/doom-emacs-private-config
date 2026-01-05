@@ -957,11 +957,11 @@ selected, then the current line."
 
 (bind-key "C-M-s-o" 'bms/org-roam-rg-search)
 (bind-key "C-M-s-s" 'basic-save-buffer)
-(bind-key "C-M-s-j" 'scroll-other-window-down)
-(bind-key "C-M-s-k" 'scroll-other-window)
+;; (bind-key "C-M-s-j" 'scroll-other-window-down)
+;; (bind-key "C-M-s-k" 'scroll-other-window)
 (bind-key "C-M-s-~" '+python/open-ipython-repl)
 (bind-key "C-s-~" '+popup/toggle)
-(bind-key "C-s-t" '+vterm/here)
+(bind-key "C-s-t" '+vterm/here)  ; Changed from C-s-t (now used for rts-flow-select-task)
 (bind-key "C-M-s-t" '+vterm/toggle)
 (bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
 (bind-key "C-M-s-h" 'evil-avy-goto-char-2)
@@ -979,8 +979,8 @@ selected, then the current line."
 (bind-key "C-M-s-z" 'consult-recent-file)
 (bind-key "C-M-s-x" 'consult-buffer)
 (bind-key "C-M-s-a" 'open-bookmark)
-(bind-key "C-s-a" 'open-random-bookmark)
-(bind-key "C-s-u" 'today)
+(bind-key "C-s-'" 'open-random-bookmark)  ; Changed from C-s-a (now used for rts-flow-add)
+(bind-key "C-s-d" 'today)  ; Changed from C-s-u (D = Day/today)
 (bind-key "C-s-w" '+workspace/display)
 (bind-key "C-s-{" '+workspace/switch-left)
 (bind-key "C-s-}" '+workspace/switch-right)
@@ -1002,9 +1002,6 @@ selected, then the current line."
 (bind-key "C-M-s-r" 'org-roam-node-find)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
-(bind-key "C-M-s-!" 'winum-select-window-1)
-(bind-key "C-M-s-@" 'winum-select-window-2)
-(bind-key "C-M-s-#" 'winum-select-window-3)
 (bind-key "C-s-v" 'yank-from-kill-ring)
 ;; (bind-key "C-M-s-$" 'winum-select-window-4)
 ;; (bind-key "C-M-s-%" 'winum-select-window-5)
@@ -1017,35 +1014,38 @@ selected, then the current line."
   (bind-key "C-M-s-c" 'screenshot-as-file-link))
 ;; last set of key bindings
 (bind-key "C-M-s-g" 'clock-out-and-mark-current-todo-done)
-;; Debugging efficiently
-(define-key global-map (kbd "C-s-u") #'today)
-(define-key global-map (kbd "C-s-(") #'dape-step-out)
-(define-key global-map (kbd "C-s-)") #'dape-step-in)
-(define-key global-map (kbd "C-s-r") #'dape-next)
-(define-key global-map (kbd "C-s-s") #'dape-continue)
-(define-key global-map (kbd "C-s-+") #'dape-breakpoint-expression)
-(define-key global-map (kbd "C-s-_") #'dape-repl)
-(define-key global-map (kbd "C-s-|") #'dape-evaluate-expression)
-
-(define-key global-map (kbd "C-s-n") #'random-task-select)
-(define-key global-map (kbd "C-s-e") #'priority-time-task-select)
-(define-key global-map (kbd "C-s-c") #'consult-clock-nonimportant-task)
-(define-key global-map (kbd "C-s-p") #'send-to-daily-highlights)
-(define-key global-map (kbd "C-s-i") #'cleanup-gtd-system)
-(define-key global-map (kbd "C-s-o") #'kairoam-toggle)
-(define-key global-map (kbd "C-s-h") #'kairoam-expand-window)
-(define-key global-map (kbd "C-s-d") #'kairoam-fold-window)
+;;; ===================================================================
+;;; RTS-FLOW Keybindings (Mnemonic)
+;;; ===================================================================
+;; Core Flow Commands
+(define-key global-map (kbd "C-s-n") #'rts-flow)              ; F = Flow (pick new task)
+(define-key global-map (kbd "C-M-s-w") #'rts-flow)              ; F = Flow (pick new task)
+(define-key global-map (kbd "C-s-y") #'rts-flow-continue)     ; R = Resume last task
+(define-key global-map (kbd "C-s-l") #'rts-flow-cancel)       ; X = cancel/undo selection
+(define-key global-map (kbd "C-s-h") #'rts-flow-manual)       ; M = Manual clock-in (consult)
+(define-key global-map (kbd "C-M-s-%") #'rts-flow-manual)          ; A = Add task/beancount/time
+(define-key global-map (kbd "C-s-d") #'rts-flow-clock-out)    ; Q = Quit/clock out
+(define-key global-map (kbd "C-s-g") #'rts-flow-clock-goto)   ; G = Goto clocked task
+(define-key global-map (kbd "C-M-s-g") #'rts-flow-clock-goto)   ; G = Goto clocked task
+(define-key global-map (kbd "C-s-+") #'rts-flow-add)          ; A = Add task/beancount/time
+(define-key global-map (kbd "C-M-s-$") #'rts-flow-add)          ; A = Add task/beancount/time
+(define-key global-map (kbd "C-M-s-+") #'rts-flow-add)          ; A = Add task/beancount/time
+(define-key global-map (kbd "C-s-_") #'rts-flow-set-state)    ; S = State (context + energy)
+;; Direct Selectors (for specific activity types)
+;; (define-key global-map (kbd "C-s-t") #'rts-flow-select-task)    ; T = Task
+;; (define-key global-map (kbd "C-s-b") #'rts-flow-select-book)    ; B = Book
+;; (define-key global-map (kbd "C-s-y") #'rts-flow-select-study)   ; Y = studY
+;; (define-key global-map (kbd "C-s-u") #'rts-flow-select-music)   ; U = mUsic (guitar/piano)
+;; (define-key global-map (kbd "C-s-l") #'rts-flow-select-leisure) ; L = Leisure
+;; (define-key global-map (kbd "C-s-n") #'rts-flow-select-notes)   ; N = Notes (org-roam)
+;; Kairoam Window Management
+(define-key global-map (kbd "C-s-o") #'kairoam-toggle)           ; O = On/Off toggle
+(define-key global-map (kbd "C-s-e") #'kairoam-toggle-size)      ; E = Expand/fold toggle
 (define-key global-map (kbd "C-s-;") #'kairoam-open-note-to-right)
-;; (define-key global-map (kbd "C-s-u") #'random-piano-select)
-(define-key global-map (kbd "C-s-y") #'random-blog-study-select)
-(define-key global-map (kbd "C-s-j") #'random-guitar-select)
-(define-key global-map (kbd "C-s-k") #'random-study-select)
-(define-key global-map (kbd "C-s-l") #'random-leisure-select)
-(define-key global-map (kbd "C-s-m") #'random-music-select)
-(define-key global-map (kbd "C-s-b") #'random-book-select)
+
+;; Utilities
 (define-key global-map (kbd "C-s-?") #'my-org-roam-search)
-(define-key global-map (kbd "C-s-x") #'consult-activate-project-task)
-(define-key global-map (kbd "C-s-z") #'consult-activate-instant-task)
+(define-key global-map (kbd "C-s-p") #'send-to-daily-highlights) ; P = Post to highlights
 
 (map! :leader
       :n ">" #'projectile-find-dir
@@ -1108,23 +1108,6 @@ selected, then the current line."
        :n "r" #'poetry-run
        :n "d" #'scimax-dired/body)
       )
-
-(after! org
-  ;; (define-key org-mode-map (kbd "H--") 'other-window)
-  ;; (define-key org-mode-map (kbd "H-+") 'org-strikethrough-region-or-point)
-  (define-key org-mode-map (kbd "C-M-s-|") 'org-italics-region-or-point)
-  (define-key org-mode-map (kbd "C-M-s-+") 'org-bold-region-or-point)
-  (define-key org-mode-map (kbd "C-M-s-_") 'org-verbatim-region-or-point)
-  (define-key org-mode-map (kbd "C-M-s-(") 'org-code-region-or-point)
-  (define-key org-mode-map (kbd "C-M-s-)") 'org-underline-region-or-point)
-  ;; (define-key org-mode-map (kbd "H-l") 'org-latex-math-region-or-point)
-  )
-
-;; (bind-key "H-F" 'evil-window-split)
-;; (bind-key "H-f" 'evil-window-vsplit)
-;; (bind-key "H-t" '+my/vterm-run-project)
-;; (bind-key "H-;" '+evil-window-split-a)
-;; (bind-key "H-\\" '+evil-window-vsplit-a)
 
 (unless IS-ANDROID
   (setq scihub-homepage "https://sci-hub.st"
