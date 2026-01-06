@@ -10,7 +10,7 @@
 ;; Touch-screen keyboard full control – 3 modes
 ;; ──────────────────────────────────────────────────────────────
 
-(defvar my/keyboard-mode 'normal
+(defvar my/keyboard-mode 'always-on
   "Keyboard mode: 'normal, 'always-on, or 'off.
 - normal: Default behavior, keyboard shows when tapping editable areas
 - always-on: Keyboard always visible regardless of buffer
@@ -45,6 +45,14 @@
 
 ;; Keep old function name as alias for compatibility
 (defalias 'my/toggle-touch-keyboard 'my/cycle-keyboard-mode)
+
+;; Show keyboard at startup if mode is always-on
+(when (eq my/keyboard-mode 'always-on)
+  (add-hook 'emacs-startup-hook
+            (lambda ()
+              (run-with-timer 0.5 nil
+                              (lambda ()
+                                (frame-toggle-on-screen-keyboard nil nil))))))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; Dired xdg-open integration
