@@ -172,16 +172,16 @@ References from files that are already backlinking to NODE are excluded."
                            (member (downcase match) (mapcar #'downcase titles))
                            (not (member f backlink-files)))
                   (magit-insert-section section (org-roam-grep-section)
-                    (oset section file f)
-                    (oset section row row)
-                    (oset section col col)
-                    (insert (propertize (format "%s:%s:%s"
-                                                (truncate-string-to-width (file-name-base f) 15 nil nil t)
-                                                row col) 'font-lock-face 'org-roam-dim)
-                            " "
-                            (org-roam-fontify-like-in-org-mode
-                             (org-roam-unlinked-references-preview-line f row))
-                            "\n"))))))
+                                        (oset section file f)
+                                        (oset section row row)
+                                        (oset section col col)
+                                        (insert (propertize (format "%s:%s:%s"
+                                                                    (truncate-string-to-width (file-name-base f) 15 nil nil t)
+                                                                    row col) 'font-lock-face 'org-roam-dim)
+                                                " "
+                                                (org-roam-fontify-like-in-org-mode
+                                                 (org-roam-unlinked-references-preview-line f row))
+                                                "\n"))))))
           (insert ?\n)))))
 
   (setq org-roam-mode-sections
@@ -307,6 +307,9 @@ References from files that are already backlinking to NODE are excluded."
          (:prefix ("l" . "Roam Alias")
           :desc "Add alias"                    "a" #'org-roam-alias-add
           :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
+
+  ;; Useful for kairoam on phones
+  (map! :map org-roam-mode-map [mouse-1] #'org-roam-preview-visit)
   ) ;; End of use-package! org-roam
 
 ;; ============================================================
