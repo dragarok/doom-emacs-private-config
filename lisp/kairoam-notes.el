@@ -52,7 +52,7 @@
   :type 'integer
   :group 'kairoam)
 
-(defcustom kairoam-folded-height 2
+(defcustom kairoam-folded-height 1
   "Height (lines) for folded windows in mobile mode (thin row)."
   :type 'integer
   :group 'kairoam)
@@ -863,5 +863,8 @@ Works on WIN or selected window."
           (kairoam-fold-window win)
         (kairoam-expand-window win)))))
 
+(when IS-ANDROID
+  (setq kairoam-layout-mode 'mobile)
+  (setq window-min-height 1))
 (provide 'kairoam-notes)
 ;;; kairoam-notes.el ends here
