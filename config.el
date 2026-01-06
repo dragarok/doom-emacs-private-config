@@ -226,6 +226,7 @@
 (require 'org-project-helpers)
 (require 'image-workflow)
 (require 'review-reminders)
+(require 'momentum)
 
 ;; Android-specific toolbar
 (when IS-ANDROID
