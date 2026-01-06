@@ -661,6 +661,7 @@ If node's buffer is already open in a kairoam window, expand that window instead
   (if kairoam-mode
       (progn
         (kairoam--info "kairoam-mode enabled")
+        (message "Kairoam mode enabled (%s layout)" kairoam-layout-mode)
         ;; Install advice for +org/dwim-at-point if it exists
         (when (fboundp '+org/dwim-at-point)
           (advice-add '+org/dwim-at-point :around #'kairoam--advice-dwim-at-point))
