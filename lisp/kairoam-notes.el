@@ -864,7 +864,7 @@ Works on WIN or selected window."
           (kairoam-fold-window win)
         (kairoam-expand-window win)))))
 
-(when IS-ANDROID
+(when (bound-and-true-p IS-POCO)
   (setq kairoam-layout-mode 'mobile)
   (setq window-min-height 1))
 (provide 'kairoam-notes)

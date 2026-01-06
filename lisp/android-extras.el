@@ -7,29 +7,44 @@
 ;;; Code:
 
 ;; ──────────────────────────────────────────────────────────────
-;; Touch-screen keyboard full control – fixed & minimal
+;; Touch-screen keyboard full control – 3 modes
 ;; ──────────────────────────────────────────────────────────────
 
-(defvar my/keyboard-auto-show t
-  "Internal: t = normal Emacs behaviour, nil = completely suppress auto keyboard.")
+(defvar my/keyboard-mode 'normal
+  "Keyboard mode: 'normal, 'always-on, or 'off.
+- normal: Default behavior, keyboard shows when tapping editable areas
+- always-on: Keyboard always visible regardless of buffer
+- off: Keyboard completely suppressed")
 
 (defun my/touch-screen-keyboard-decide (&rest _)
-  "Decide whether Emacs is allowed to show the on-screen keyboard automatically.
-This is called on every tap in a writable buffer."
-  my/keyboard-auto-show)
+  "Decide whether to show keyboard based on current mode."
+  (pcase my/keyboard-mode
+    ('always-on t)      ; Always allow keyboard
+    ('off nil)          ; Never show
+    (_ t)))             ; normal - let Emacs decide
 
 ;; Critical: use `add-function' with :around so we completely override whatever
 ;; Emacs or other packages (Doom, etc.) might have set before or after us.
 (add-function :around touch-screen-keyboard-function #'my/touch-screen-keyboard-decide)
 
-(defun my/toggle-touch-keyboard ()
-  "Toggle automatic on-screen keyboard.
-When OFF → keyboard never appears on tap.
-When ON  → back to normal behaviour."
+(defun my/cycle-keyboard-mode ()
+  "Cycle through keyboard modes: normal -> always-on -> off -> normal."
   (interactive)
-  (setq my/keyboard-auto-show (not my/keyboard-auto-show))
-  (message "Touch keyboard auto-show → %s"
-           (if my/keyboard-auto-show "ON" "OFF")))
+  (setq my/keyboard-mode
+        (pcase my/keyboard-mode
+          ('normal 'always-on)
+          ('always-on 'off)
+          ('off 'normal)))
+  ;; For always-on, immediately show keyboard
+  (when (eq my/keyboard-mode 'always-on)
+    (frame-toggle-on-screen-keyboard nil nil))
+  ;; For off, hide keyboard immediately
+  (when (eq my/keyboard-mode 'off)
+    (frame-toggle-on-screen-keyboard nil t))
+  (message "Keyboard mode: %s" my/keyboard-mode))
+
+;; Keep old function name as alias for compatibility
+(defalias 'my/toggle-touch-keyboard 'my/cycle-keyboard-mode)
 
 ;; ──────────────────────────────────────────────────────────────
 ;; Dired xdg-open integration
