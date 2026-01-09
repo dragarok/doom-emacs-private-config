@@ -170,16 +170,14 @@
 ;; ============================================================
 (if IS-ANDROID
     (progn
-      (setq nextcloud-dir (expand-file-name "/sdcard/"))
-      (setq project-resources-dir (concat nextcloud-dir "workspace/"))
+      (setq project-resources-dir "/sdcard/workspace/resources")
       (setq org-directory (expand-file-name "/sdcard/org/"))
       (setq! citar-bibliography '("/sdcard/org/references/articles.bib"))
       (setq! citar-library-paths '("/sdcard/Books/Papers/articles/"))
       (setq org-roam-directory "/sdcard/org/notes/")
       (setq org-agenda-files '("/sdcard/org/agenda/")))
   (progn
-    (setq nextcloud-dir (expand-file-name "~/"))
-    (setq project-resources-dir (concat nextcloud-dir "projects/"))
+    (setq project-resources-dir "~/workspace/resources/")
     (setq org-directory (expand-file-name "~/org/"))
     (setq! citar-bibliography '("~/org/references/articles.bib"))
     (setq! citar-library-paths '("~/Books/Papers/articles/"))
