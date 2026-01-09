@@ -2048,27 +2048,6 @@ Helper function for universal clock time functions."
         (insert clock-entry "\n")
         (insert ":END:\n")))))
 
-;;; Taken from https://xenodium.com/building-your-own-bookmark-launcher/
-;;;###autoload
-(defun browser-bookmarks (org-file)
-  "Return all links from ORG-FILE."
-  (with-temp-buffer
-    (let (links)
-      (insert-file-contents org-file)
-      (org-mode)
-      (org-element-map (org-element-parse-buffer) 'link
-        (lambda (link)
-          (let* ((raw-link (org-element-property :raw-link link))
-                 (content (org-element-contents link))
-                 (title (substring-no-properties (or (seq-first content) raw-link))))
-            (push (concat title
-                          "\n\n"
-                          (propertize raw-link 'face 'whitespace-space)
-                          "\n\n")
-                  links)))
-        nil nil 'link)
-      (seq-sort 'string-greaterp links))))
-
 
 ;;; ===================================================================
 ;;; Auto-open Links for Study Tasks

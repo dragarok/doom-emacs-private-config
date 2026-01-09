@@ -827,7 +827,7 @@ Ignores files prefixed with 'ln_', 'br_', or 'private_'. Uses Org-roam DB for fi
     (if (zerop num-large)
         (message "No Org-roam notes exceed %d words after filtering." org-roam-autoread-max-words)
       (let ((random-file (seq-random-elt filtered-files)))
-        (find-file-other-window random-file)
+        (find-file random-file)
         (message "Opened random large note: %s (%d words)" (file-name-nondirectory random-file)
                  (count-words-in-file random-file))))))
 
@@ -862,7 +862,7 @@ N defaults to 1 (largest)."
       (let* ((nth-pair (seq-elt sorted-large-files (1- effective-n)))
              (size (car nth-pair))
              (nth-file (cdr nth-pair)))
-        (find-file-other-window nth-file)
+        (find-file nth-file)
         (message "Opened %d%s largest large note: %s (~%d words, %d bytes)"
                  effective-n (if (= effective-n 1) "st" (if (= effective-n 2) "nd" "th"))
                  (file-name-nondirectory nth-file)
@@ -1301,14 +1301,6 @@ selected, then the current line."
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
         org-clone-delete-id t)
   )
-
-(use-package org-clock-convenience
-  :after org
-  :bind (:map org-agenda-mode-map
-              ("C-M-s-<up>" . org-clock-convenience-timestamp-up)
-              ("C-M-s-<down>" . org-clock-convenience-timestamp-down)
-              ("C-M-s-<right>" . org-clock-convenience-fill-gap)
-              ("C-M-s-<left>" . org-clock-convenience-fill-gap-both)))
 
 (after! org
   (defun ibizaman/org-babel-goto-tangle-file ()
