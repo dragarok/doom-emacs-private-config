@@ -178,13 +178,13 @@
       (setq org-roam-directory "/sdcard/org/notes/")
       (setq org-agenda-files '("/sdcard/org/agenda/")))
   (progn
-    (setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
+    (setq nextcloud-dir (expand-file-name "~/"))
     (setq project-resources-dir (concat nextcloud-dir "projects/"))
-    (setq org-directory (expand-file-name "~/Nextcloud/org/"))
-    (setq! citar-bibliography '("~/Nextcloud/org/references/articles.bib"))
+    (setq org-directory (expand-file-name "~/org/"))
+    (setq! citar-bibliography '("~/org/references/articles.bib"))
     (setq! citar-library-paths '("~/Books/Papers/articles/"))
-    (setq org-roam-directory "~/Nextcloud/org/notes/")
-    (setq org-agenda-files '("~/Nextcloud/org/agenda/"))))
+    (setq org-roam-directory "~/org/notes/")
+    (setq org-agenda-files '("~/org/agenda/"))))
 
 (setq! citar-notes-paths '(org-roam-directory))
 
@@ -1688,7 +1688,7 @@ SCHEDULED: %t
         org-download-image-org-width 600
         org-download-annotate-function (lambda (link) "") ;; Don't annotate
         )
-  ;; org-download-image-dir "~/Nextcloud/org/org-images/"
+  ;; org-download-image-dir "~/org/org-images/"
   ;; org-download-delete-image-after-download t
   (setq org-image-actual-width nil)
   (setq org-download-link-format "[[file:%s]]\n"

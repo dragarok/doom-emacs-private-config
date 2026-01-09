@@ -41,7 +41,7 @@
   :prefix "booxnoter-")
 
 (defcustom booxnoter-pdf-destination-dir
-  (expand-file-name "~/Nextcloud/org/handwritten_notes/boox_notes")
+  (expand-file-name "~/org/handwritten_notes/boox_notes")
   "Directory where processed PDF files will be stored."
   :type 'directory
   :group 'booxnoter)
