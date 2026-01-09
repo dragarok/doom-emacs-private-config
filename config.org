@@ -126,22 +126,22 @@ I wanted some inspiring banner and didn't know how to do just the ascii image. S
 ** Org Directory and Org Agenda
 
 #+BEGIN_SRC elisp
-(setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
+(setq nextcloud-dir (expand-file-name "~/"))
 (setq project-resources-dir (concat nextcloud-dir "projects/"))
-(setq org-directory (expand-file-name "~/Nextcloud/org/"))
+(setq org-directory (expand-file-name "~/org/"))
 
-(setq! citar-bibliography '("~/Nextcloud/org/references/articles.bib"))
+(setq! citar-bibliography '("~/org/references/articles.bib"))
 (setq! citar-notes-paths '(org-roam-directory))
 (setq! citar-library-paths '("~/Books/Papers/articles/"))
 
-(setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
+(setq nextcloud-dir (expand-file-name "~/"))
 (setq project-resources-dir (concat nextcloud-dir "projects/"))
-(setq org-roam-directory "~/Nextcloud/org/notes/")
+(setq org-roam-directory "~/org/notes/")
 (setq org-logs-directory (concat org-directory "logs/"))
 (setq org-agenda-directory (concat org-directory "agenda/"))
 (setq org-templates-directory (concat org-directory "templates/"))
 (setq org-lookbacks-directory (concat org-directory "lookbacks/"))
-(setq org-agenda-files '("~/Nextcloud/org/agenda/"))
+(setq org-agenda-files '("~/org/agenda/"))
 (setq org-inbox-file (concat org-agenda-directory "inbox.org"))
 (setq org-bookslog-file (concat org-agenda-directory "log_books.org"))
 (setq org-books-file org-bookslog-file)
@@ -2461,8 +2461,8 @@ the inbox.  Set it as a waiting action and refile to
 
 (after! org (add-to-list 'org-capture-templates
                          '("pn" "New Project" entry
-                           (file "~/Nextcloud/org/agenda/inbox.org")
-                           (file "~/Nextcloud/org/templates/newprojtemplate.org"))
+                           (file "~/org/agenda/inbox.org")
+                           (file "~/org/templates/newprojtemplate.org"))
                          ))
 
 
@@ -2530,34 +2530,34 @@ SCHEDULED: %t
   (add-to-list 'org-capture-templates
                '("rw" "Weekly Review" entry
                  (file+olp+datetree org-weeklyreview-file)
-                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate.org") :jump-to-captured t :tree-type week))
+                 (file "~/org/templates/weeklyreviewtemplate.org") :jump-to-captured t :tree-type week))
 
   (add-to-list 'org-capture-templates
                '("rl" "Last Week Weekly Review" entry
                  (file+olp+datetree org-weeklyreview-file)
-                 (file "~/Nextcloud/org/templates/weeklyreviewtemplate_lastweek.org") :jump-to-captured t :tree-type week))
+                 (file "~/org/templates/weeklyreviewtemplate_lastweek.org") :jump-to-captured t :tree-type week))
   )
 
 (after! org
   (add-to-list 'org-capture-templates
                '("rm" "Monthly Review" entry
                  (file+olp+datetree org-monthlyreview-file)
-                 (file "~/Nextcloud/org/templates/monthlyreviewtemplate.org") :jump-to-captured t :tree-type month)))
+                 (file "~/org/templates/monthlyreviewtemplate.org") :jump-to-captured t :tree-type month)))
 
 (after! org
   (add-to-list 'org-capture-templates
                '("rq" "Quarterly Review" entry
                  (file+olp+datetree org-quarterlyreview-file)
-                 (file "~/Nextcloud/org/templates/quarterlyreviewtemplate.org") :jump-to-captured t :tree-type quarter)))
+                 (file "~/org/templates/quarterlyreviewtemplate.org") :jump-to-captured t :tree-type quarter)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("rd" "Daily Review" entry (file+olp+datetree org-dailyreview-file)
-                           (file "~/Nextcloud/org/templates/dailyreviewtemplate.org")
+                           (file "~/org/templates/dailyreviewtemplate.org")
                            :jump-to-captured t)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("ry" "Daily Review Yesterday" entry (file+olp+datetree org-dailyreview-file)
-                           (file "~/Nextcloud/org/templates/dailyreviewtemplate_yesterday.org")
+                           (file "~/org/templates/dailyreviewtemplate_yesterday.org")
                            :jump-to-captured t)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        REVIEW TEMPLATES DONE                                                    ;;
@@ -2832,14 +2832,14 @@ SCHEDULED: %t
 ** Org Screenshots
 #+BEGIN_SRC elisp
 (after! org
-  (setq org-download-image-dir "~/Nextcloud/org/org-images/"
+  (setq org-download-image-dir "~/org/org-images/"
         org-download-heading-lvl nil
         org-download-delete-image-after-download t
         org-download-screenshot-method "grimshot save area %s"
         org-download-image-org-width 600
         org-download-annotate-function (lambda (link) "") ;; Don't annotate
         )
-  ;; org-download-image-dir "~/Nextcloud/org/org-images/"
+  ;; org-download-image-dir "~/org/org-images/"
   ;; org-download-delete-image-after-download t
   (setq org-image-actual-width nil)
   (setq org-download-link-format "[[file:%s]]\n"
@@ -4875,13 +4875,13 @@ Load the productivity system from lisp/ directory:
 ;;;###autoload
 (defun open-bookmark ()
   (interactive)
-  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org")) "\n") 2)))
+  (let ((url (seq-elt (split-string (completing-read "Open: " (browser-bookmarks "~/org/notes/bookmarks.org")) "\n") 2)))
     (browse-url-firefox url)))
 
 (defun open-random-bookmark ()
   "Open a random bookmark from the bookmarks file."
   (interactive)
-  (let* ((bookmarks (browser-bookmarks "~/Nextcloud/org/notes/bookmarks.org"))
+  (let* ((bookmarks (browser-bookmarks "~/org/notes/bookmarks.org"))
          (random-bookmark (when bookmarks
                             (seq-random-elt bookmarks))))
     (if random-bookmark
@@ -6963,8 +6963,8 @@ the buffer."
 ** Elfeed Defaults
 
 #+begin_src elisp
-(setq rmh-elfeed-org-files (list "~/Nextcloud/org/elfeed/elfeed.org"))
-(setq! elfeed-score-file "~/Nextcloud/org/elfeed/elfeed-score.el")
+(setq rmh-elfeed-org-files (list "~/org/elfeed/elfeed.org"))
+(setq! elfeed-score-file "~/org/elfeed/elfeed-score.el")
 #+end_src
 
 ** Elfeed
@@ -8294,7 +8294,7 @@ evil-paste-pop and evil-paste-pop-next
   :defer)
 
 (after! org
-  (setq org-node-extra-id-dirs '("~/Nextcloud/org"))
+  (setq org-node-extra-id-dirs '("~/org"))
   (setq org-node-creation-fn #'org-node-fakeroam-new-via-roam-capture)
   (setq org-node-slug-fn #'org-node-fakeroam-slugify-via-roam)
   (setq org-node-datestamp-format "%Y%m%d%H%M%S-")

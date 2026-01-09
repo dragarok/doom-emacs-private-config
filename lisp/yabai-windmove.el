@@ -15,10 +15,10 @@
       (funcall move-fn)
     (error
      (let ((cmd (pcase direction
-                  ("west"  "window --focus west || window --focus stack.prev")
-                  ("east"  "window --focus east || window --focus stack.next")
-                  ("north" "window --focus north || window --focus stack.next")
-                  ("south" "window --focus south || window --focus stack.prev"))))
+                  ("west"  "window --focus west || yabai -m window --focus stack.prev || yabai -m window --focus stack.next")
+                  ("east"  "window --focus east || yabai -m window --focus stack.next || yabai -m window --focus stack.prev")
+                  ("north" "window --focus north || yabai -m window --focus stack.next || yabai -m window --focus stack.prev")
+                  ("south" "window --focus south || yabai -m window --focus stack.prev || yabai -m window --focus stack.next"))))
        (call-process-shell-command (concat "yabai -m " cmd) nil 0)))))
 
 (defun yabai-window-left ()

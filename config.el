@@ -28,6 +28,7 @@
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
+(setq doom-localleader-key ",")
 ;; ============================================================
 ;; FONTS - Platform specific
 ;; ============================================================
@@ -170,21 +171,19 @@
 ;; ============================================================
 (if IS-ANDROID
     (progn
-      (setq nextcloud-dir (expand-file-name "/sdcard/"))
-      (setq project-resources-dir (concat nextcloud-dir "workspace/"))
+      (setq project-resources-dir "/sdcard/workspace/resources")
       (setq org-directory (expand-file-name "/sdcard/org/"))
       (setq! citar-bibliography '("/sdcard/org/references/articles.bib"))
       (setq! citar-library-paths '("/sdcard/Books/Papers/articles/"))
       (setq org-roam-directory "/sdcard/org/notes/")
       (setq org-agenda-files '("/sdcard/org/agenda/")))
   (progn
-    (setq nextcloud-dir (expand-file-name "~/Nextcloud/"))
-    (setq project-resources-dir (concat nextcloud-dir "projects/"))
-    (setq org-directory (expand-file-name "~/Nextcloud/org/"))
-    (setq! citar-bibliography '("~/Nextcloud/org/references/articles.bib"))
+    (setq project-resources-dir "~/workspace/resources/")
+    (setq org-directory (expand-file-name "~/org/"))
+    (setq! citar-bibliography '("~/org/references/articles.bib"))
     (setq! citar-library-paths '("~/Books/Papers/articles/"))
-    (setq org-roam-directory "~/Nextcloud/org/notes/")
-    (setq org-agenda-files '("~/Nextcloud/org/agenda/"))))
+    (setq org-roam-directory "~/org/notes/")
+    (setq org-agenda-files '("~/org/agenda/"))))
 
 (setq! citar-notes-paths '(org-roam-directory))
 
@@ -226,6 +225,7 @@
 (require 'org-project-helpers)
 (require 'image-workflow)
 (require 'review-reminders)
+(require 'momentum)
 
 ;; Android-specific toolbar
 (when IS-ANDROID
@@ -294,7 +294,6 @@
 
 (setq org-support-shift-select t)
 
-(setq doom-localleader-key ",")
 
 (setq delete-by-moving-to-trash t)
 
@@ -1679,7 +1678,7 @@ SCHEDULED: %t
         org-download-image-org-width 600
         org-download-annotate-function (lambda (link) "") ;; Don't annotate
         )
-  ;; org-download-image-dir "~/Nextcloud/org/org-images/"
+  ;; org-download-image-dir "~/org/org-images/"
   ;; org-download-delete-image-after-download t
   (setq org-image-actual-width nil)
   (setq org-download-link-format "[[file:%s]]\n"
