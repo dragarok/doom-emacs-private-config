@@ -453,7 +453,6 @@ If in Evil normal mode, switch to insert mode."
 ;; ============================================================
 ;; ORG ROAM MONDAY CAPTURE
 ;; ============================================================
-
 ;;;###autoload
 (defun org-roam-dailies-goto-monday-of-week ()
   "Find the daily-note for the Monday of the current week, creating it if necessary."
@@ -464,6 +463,17 @@ If in Evil normal mode, switch to insert mode."
          (days-back (if (= dow 0) 6 (- dow 1)))
          (monday-time (time-add now (* (- days-back) 86400))))
     (org-roam-dailies--capture monday-time t)))
+
+(defun org-roam-dailies-goto-monday-of-next-week ()
+  "Find the daily-note for the Monday of next week, creating it if necessary."
+  (interactive)
+  (let* ((now (current-time))
+         (decoded (decode-time now))
+         (dow (nth 6 decoded))  ; 0=Sunday, 1=Monday, etc.
+         (days-forward (if (= dow 0) 1 (- 8 dow)))
+         (next-monday-time (time-add now (days-to-time days-forward))))
+    (org-roam-dailies--capture next-monday-time t)))
+
 
 (provide 'org-roam-config)
 ;;; org-roam-config.el ends here
