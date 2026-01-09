@@ -28,6 +28,7 @@
 (setq user-full-name "Alok Regmi"
       user-mail-address "sagar.r.alok@gmail.com")
 
+(setq doom-localleader-key ",")
 ;; ============================================================
 ;; FONTS - Platform specific
 ;; ============================================================
@@ -293,7 +294,6 @@
 
 (setq org-support-shift-select t)
 
-(setq doom-localleader-key ",")
 
 (setq delete-by-moving-to-trash t)
 

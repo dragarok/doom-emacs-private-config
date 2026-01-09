@@ -186,11 +186,15 @@ PROMPT-CAPTION if non-nil, ask for caption."
          (caption (if prompt-caption
                       (read-string "Caption (optional): ")
                     ""))
-         (org-link (format "#+attr_org: :width 600px\n[[file:%s]%s]"
+         (attrs (file-attributes source-file))
+         (mtime (file-attribute-modification-time attrs))
+         (datetime-str (format-time-string "%Y-%m-%d %H:%M" mtime))
+         (description (if (string-empty-p caption)
+                          datetime-str
+                        (format "%s %s" datetime-str caption)))
+         (org-link (format "#+attr_org: :width 600px\n[[file:%s][%s]]"
                            relative-path
-                           (if (string-empty-p caption)
-                               ""
-                             (format "[%s]" caption)))))
+                           description)))
 
     ;; Copy the image
     (copy-file source-file dest-file)
