@@ -93,23 +93,44 @@ Ignores directories in `my/diary-ignore-dirs`."
   (let ((base (file-name-nondirectory name)))
     (not (member base my/diary-ignore-dirs))))
 
+(defun my/diary-get-images-fast-android (date-string)
+  "Use 'fd' to quickly locate images for DATE-STRING on Android.
+Requires 'fd' installed in Termux."
+  (let* ((next-day-time (time-add (date-to-time date-string) (days-to-time 1)))
+         (next-date-string (format-time-string "%Y-%m-%d" next-day-time))
+         (dirs (seq-filter #'file-exists-p (my/diary-all-source-dirs)))
+         (dir-args (mapconcat #'shell-quote-argument dirs " "))
+         (ext-args "-e jpg -e jpeg -e png -e heic -e webp")
+         ;; fd command: search files -> execute ls -t to sort by time
+         (cmd (format "fd %s --type f %s . %s --changed-within \"%s\" --changed-before \"%s\" --absolute-path -X ls -t"
+                      ext-args
+                      "--exclude .thumbnails --exclude .git --exclude cache"
+                      dir-args
+                      date-string
+                      next-date-string)))
+    (when dirs
+      (split-string (shell-command-to-string cmd) "\n" t))))
+
 (defun my/diary-get-images-for-date (date-string)
-  "Get list of images modified on DATE-STRING from all source directories RECURSIVELY.
-Searches `my/diary-photo-source-dir' and `my/diary-photo-extra-dirs'.
-Returns files sorted by modification time (most recent first)."
-  (let ((all-images '()))
-    (dolist (dir (my/diary-all-source-dirs))
-      (when (file-directory-p dir)
-        ;; Use predicate to skip ignored directories
-        (dolist (file (directory-files-recursively dir "." nil #'my/diary-search-predicate))
-          (when (and (my/diary-image-file-p file)
-                     (my/diary-file-modified-on-date-p file date-string))
-            (push file all-images)))))
-    ;; Sort by mtime (newest first)
-    (sort all-images
-          (lambda (a b)
-            (time-less-p (file-attribute-modification-time (file-attributes b))
-                         (file-attribute-modification-time (file-attributes a)))))))
+  "Get list of images modified on DATE-STRING.
+On Android: Uses fast shell 'fd' command (already sorted).
+Other systems: Recursive Lisp search with filtering (sorted by mtime)."
+  (if (eq system-type 'android)
+      (my/diary-get-images-fast-android date-string)
+    ;; Fallback to Lisp recursive search
+    (let ((all-images '()))
+      (dolist (dir (my/diary-all-source-dirs))
+        (when (file-directory-p dir)
+          ;; Use predicate to skip ignored directories
+          (dolist (file (directory-files-recursively dir "." nil #'my/diary-search-predicate))
+            (when (and (my/diary-image-file-p file)
+                       (my/diary-file-modified-on-date-p file date-string))
+              (push file all-images)))))
+      ;; Sort by mtime (newest first)
+      (sort all-images
+            (lambda (a b)
+              (time-less-p (file-attribute-modification-time (file-attributes b))
+                           (file-attribute-modification-time (file-attributes a))))))))
 
 (defun my/diary-generate-unique-name (original-path dest-dir)
   "Generate a unique filename in DEST-DIR based on ORIGINAL-PATH."
