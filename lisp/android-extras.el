@@ -138,7 +138,11 @@ Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
                  (description (if (string-empty-p caption)
                                   datetime-str
                                 (format "%s %s" datetime-str caption)))
-                 (relative-path (file-relative-name dest-file (file-name-directory (buffer-file-name)))))
+                 ;; Use file-truename to resolve symlinks (e.g. ~/org vs /sdcard/org)
+                 ;; ensuring clean relative paths like ../attachments/...
+                 (relative-path (file-relative-name 
+                                 (file-truename dest-file) 
+                                 (file-truename (file-name-directory (buffer-file-name))))))
             
             (unless (file-exists-p dest-dir)
               (make-directory dest-dir t))
