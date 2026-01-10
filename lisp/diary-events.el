@@ -84,6 +84,15 @@ Example:
   "Get list of images modified today."
   (my/diary-get-images-for-date (my/diary-today-string)))
 
+(defvar my/diary-ignore-dirs '(".thumbnails" ".gs" ".gs_fs0" ".stversions" "cache")
+  "List of directory names to ignore during recursive search.")
+
+(defun my/diary-search-predicate (name)
+  "Return t if NAME should be processed.
+Ignores directories in `my/diary-ignore-dirs`."
+  (let ((base (file-name-nondirectory name)))
+    (not (member base my/diary-ignore-dirs))))
+
 (defun my/diary-get-images-for-date (date-string)
   "Get list of images modified on DATE-STRING from all source directories RECURSIVELY.
 Searches `my/diary-photo-source-dir' and `my/diary-photo-extra-dirs'.
@@ -91,7 +100,8 @@ Returns files sorted by modification time (most recent first)."
   (let ((all-images '()))
     (dolist (dir (my/diary-all-source-dirs))
       (when (file-directory-p dir)
-        (dolist (file (directory-files-recursively dir "." nil))
+        ;; Use predicate to skip ignored directories
+        (dolist (file (directory-files-recursively dir "." nil #'my/diary-search-predicate))
           (when (and (my/diary-image-file-p file)
                      (my/diary-file-modified-on-date-p file date-string))
             (push file all-images)))))
