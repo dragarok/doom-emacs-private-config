@@ -83,5 +83,51 @@
 ;; Always confirm before quitting on Android
 (setq confirm-kill-emacs 'y-or-n-p)
 
+;; ──────────────────────────────────────────────────────────────
+;; Camera & Screenshot Attachment
+;; ──────────────────────────────────────────────────────────────
+
+(defvar my/android-media-dirs
+  '("/sdcard/DCIM/Camera"
+    "/sdcard/Pictures/Screenshots"
+    "/sdcard/DCIM/Screenshots")
+  "List of directories to search for recent photos and screenshots.")
+
+(defun my/android-get-latest-media-file ()
+  "Find the most recently modified file in `my/android-media-dirs`."
+  (let ((files '()))
+    (dolist (dir my/android-media-dirs)
+      (when (file-directory-p dir)
+        (dolist (file (directory-files dir t "^[^.]" t)) ; Skip . and ..
+          (unless (file-directory-p file)
+            (push file files)))))
+    (car (sort files
+               (lambda (a b)
+                 (time-less-p (file-attribute-modification-time (file-attributes b))
+                              (file-attribute-modification-time (file-attributes a))))))))
+
+(defun my/org-attach-media ()
+  "Attach the latest photo or screenshot to the current Org node.
+Prompts to open Camera or just use the latest existing file."
+  (interactive)
+  (let ((choice (read-char-choice "Attach: [c]amera or [l]atest? " '(?c ?l))))
+    (when (eq choice ?c)
+      (call-process-shell-command "am start -a android.media.action.STILL_IMAGE_CAMERA")
+      (read-char "Take photo, return to Emacs, and press any key to continue..."))
+    
+    (let ((latest-file (my/android-get-latest-media-file)))
+      (if (and latest-file (file-exists-p latest-file))
+          (let* ((ext (file-name-extension latest-file))
+                 (ts (format-time-string "%Y%m%d_%H%M%S"))
+                 (new-name (format "%s.%s" ts ext)))
+            ;; We manually copy and attach to avoid moving (deleting) the source
+            (org-attach-attach latest-file nil 'cp)
+            ;; Rename the attachment to be cleaner (timestamp based) if needed, 
+            ;; but org-attach-attach keeps filename. Let's rely on standard attach.
+            (insert (format "[[attachment:%s]]" (file-name-nondirectory latest-file)))
+            (org-display-inline-images)
+            (message "Attached: %s" (file-name-nondirectory latest-file)))
+        (error "No media files found in configured directories")))))
+
 (provide 'android-extras)
 ;;; android-extras.el ends here

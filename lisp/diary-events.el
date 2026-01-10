@@ -26,6 +26,14 @@ Example:
           \"~/storage/Download/\"
           \"~/storage/Pictures/WhatsApp/\"))")
 
+;; Automatically add common Android directories if on Android
+(when (eq system-type 'android)
+  (setq my/diary-photo-extra-dirs
+        (append '("/sdcard/DCIM"
+                  "/sdcard/Pictures"
+                  "/sdcard/Download")
+                my/diary-photo-extra-dirs)))
+
 (defvar my/diary-images-dir (expand-file-name "attachments/diary-images" org-directory)
   "Directory where diary images are stored, organized by date.")
 
