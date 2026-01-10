@@ -106,10 +106,12 @@ Optimized for speed on Android by limiting to recent files (last 30 days)."
         (unless (string-empty-p result)
           result)))))
 
+(defvar my/android-captured-images-dir "attachments/captured-images"
+  "Relative path within org-directory to store captured media.")
+
 (defun my/org-attach-media ()
   "Attach the latest photo or screenshot to the current Org node.
-Behaves like diary-events: copies file to attach dir, prompts for caption,
-and inserts a formatted link."
+Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
   (interactive)
   (let ((choice (read-char-choice "Attach: [c]amera or [l]atest? " '(?c ?l))))
     (when (eq choice ?c)
@@ -118,19 +120,28 @@ and inserts a formatted link."
     
     (let ((latest-file (my/android-get-latest-media-file)))
       (if (and latest-file (file-exists-p latest-file))
-          (let* ((attach-dir (org-attach-dir-get-create))
-                 (ext (file-name-extension latest-file))
-                 (ts (format-time-string "%Y%m%d_%H%M%S"))
-                 (new-filename (format "%s.%s" ts ext))
-                 (dest-file (expand-file-name new-filename attach-dir))
-                 (caption (read-string "Caption (optional): "))
-                 (attrs (file-attributes latest-file))
+          (let* ((attrs (file-attributes latest-file))
                  (mtime (file-attribute-modification-time attrs))
+                 (date-str (format-time-string "%Y-%m-%d" mtime))
                  (datetime-str (format-time-string "%Y-%m-%d %H:%M" mtime))
+                 
+                 ;; Destination setup
+                 (ext (file-name-extension latest-file))
+                 (ts (format-time-string "%Y%m%d_%H%M%S" mtime))
+                 (new-filename (format "%s.%s" ts ext))
+                 (dest-root (expand-file-name my/android-captured-images-dir org-directory))
+                 (dest-dir (expand-file-name date-str dest-root))
+                 (dest-file (expand-file-name new-filename dest-dir))
+                 
+                 ;; Link setup
+                 (caption (read-string "Caption (optional): "))
                  (description (if (string-empty-p caption)
                                   datetime-str
                                 (format "%s %s" datetime-str caption)))
                  (relative-path (file-relative-name dest-file (file-name-directory (buffer-file-name)))))
+            
+            (unless (file-exists-p dest-dir)
+              (make-directory dest-dir t))
             
             (copy-file latest-file dest-file)
             (insert (format "[[file:%s][%s]]" relative-path description))
