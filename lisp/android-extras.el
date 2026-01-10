@@ -126,10 +126,13 @@ Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
                  (datetime-str (format-time-string "%Y-%m-%d %H:%M" mtime))
                  
                  ;; Destination setup
+                 ;; Use project root to ensure dest and buffer share the same path prefix (e.g. ~/org)
+                 ;; This fixes the "absolute path" issue when org-directory is /sdcard/org but buffer is ~/org/...
+                 (base-dir (or (doom-project-root) org-directory))
                  (ext (file-name-extension latest-file))
                  (ts (format-time-string "%Y%m%d_%H%M%S" mtime))
                  (new-filename (format "%s.%s" ts ext))
-                 (dest-root (expand-file-name my/android-captured-images-dir org-directory))
+                 (dest-root (expand-file-name my/android-captured-images-dir base-dir))
                  (dest-dir (expand-file-name date-str dest-root))
                  (dest-file (expand-file-name new-filename dest-dir))
                  
@@ -138,7 +141,6 @@ Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
                  (description (if (string-empty-p caption)
                                   datetime-str
                                 (format "%s %s" datetime-str caption)))
-                 ;; Simply calculate relative path without resolving symlinks, mimicking diary-events.el
                  (relative-path (file-relative-name dest-file (file-name-directory (buffer-file-name)))))
             
             (unless (file-exists-p dest-dir)
