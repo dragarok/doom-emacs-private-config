@@ -107,20 +107,20 @@
 
 ;;; Keybindings (Doom Emacs)
 
-(map! :nvm "M-h" #'yabai-window-left
-      :nvm "M-l" #'yabai-window-right
-      :nvm "M-k" #'yabai-window-up
-      :nvm "M-j" #'yabai-window-down
+(map! :invm "M-h" #'yabai-window-left
+      :invm "M-l" #'yabai-window-right
+      :invm "M-k" #'yabai-window-up
+      :invm "M-j" #'yabai-window-down
 
-      :nvm "M-H" #'yabai-swap-left
-      :nvm "M-L" #'yabai-swap-right
-      :nvm "M-K" #'yabai-swap-up
-      :nvm "M-J" #'yabai-swap-down
+      :invm "M-H" #'yabai-swap-left
+      :invm "M-L" #'yabai-swap-right
+      :invm "M-K" #'yabai-swap-up
+      :invm "M-J" #'yabai-swap-down
 
-      :nvm "M-;" #'yabai-toggle-split    ;; 0x23 = semicolon
-      :nvm "M-I" #'yabai-rotate          ;; M-S-i
-      :nvm "M-f" #'yabai-zoom-fullscreen
-      :nvm "M-=" #'yabai-balance)
+      :invm "M-;" #'yabai-toggle-split    ;; 0x23 = semicolon
+      :invm "M-I" #'yabai-rotate          ;; M-S-i
+      :invm "M-f" #'yabai-zoom-fullscreen
+      :invm "M-=" #'yabai-balance)
 
 (after! org
   (map!
