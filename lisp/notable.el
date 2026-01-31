@@ -41,10 +41,22 @@
   (if IS-ANDROID
       (expand-file-name "Documents/notabledb/notable-index.json"
                         (or (getenv "EXTERNAL_STORAGE") "/sdcard"))
-    nil)
+    (expand-file-name "~/Notes/notabledb/notable-index.json"))
   "Path to the Notable index JSON file.
-Only relevant on Android devices."
+On Android: Documents/notabledb/notable-index.json
+On desktop: ~/Notes/notabledb/notable-index.json"
   :type '(choice file (const nil))
+  :group 'notable)
+
+(defcustom notable-export-directory
+  (if IS-ANDROID
+      (expand-file-name "Documents/notable"
+                        (or (getenv "EXTERNAL_STORAGE") "/sdcard"))
+    (expand-file-name "~/Notes/notable"))
+  "Directory where Notable exports are stored.
+On Android: Documents/notable
+On desktop: ~/Notes/notable"
+  :type 'directory
   :group 'notable)
 
 ;;;; Index Reading
@@ -252,6 +264,131 @@ On Android, uses `am start`. On other platforms, just shows the link."
     (when book-id
       (insert (format "[[notable://book-%s][%s]]" book-id (or name "Notable Book"))))))
 
+;;;; View Exported Files (All Devices)
+
+(defun notable--sanitize-filename (name)
+  "Sanitize NAME for use as a filename."
+  (replace-regexp-in-string "[<>:\"/\\|?*]" "_" name))
+
+(defun notable--find-page-exports (page-id)
+  "Find all exported files for PAGE-ID.
+Returns alist of (format . filepath) pairs."
+  (let* ((pages (notable--get-pages))
+         (notebooks (notable--get-notebooks))
+         (page (seq-find (lambda (p) (string= (alist-get 'id p) page-id)) pages))
+         (exports nil))
+    (when page
+      (let* ((nb-id (alist-get 'notebookId page))
+             (notebook (when nb-id
+                         (seq-find (lambda (n) (string= (alist-get 'id n) nb-id)) notebooks)))
+             (page-idx (alist-get 'pageIndex page))
+             (page-name (alist-get 'name page))
+             (folder-path (or (alist-get 'folderPath page)
+                              (when notebook (alist-get 'folderPath notebook)))))
+        (if notebook
+            ;; Page in a book: BookTitle/BookTitle-pN.ext
+            (let* ((book-name (notable--sanitize-filename (alist-get 'name notebook)))
+                   (page-num (if page-idx (1+ page-idx) nil))
+                   (base-dir (expand-file-name
+                              (if folder-path
+                                  (concat folder-path "/" book-name)
+                                book-name)
+                              notable-export-directory))
+                   (file-base (if page-num
+                                  (format "%s-p%d" book-name page-num)
+                                (format "%s-p_" book-name))))
+              (dolist (ext '("pdf" "png" "jpg" "xopp"))
+                (let ((file (expand-file-name (concat file-base "." ext) base-dir)))
+                  (when (file-exists-p file)
+                    (push (cons ext file) exports)))))
+          ;; Quick page: look for quickpage-* or named page
+          (let* ((base-dir (if folder-path
+                               (expand-file-name folder-path notable-export-directory)
+                             notable-export-directory)))
+            ;; Try named page first
+            (when page-name
+              (let ((file-base (notable--sanitize-filename page-name)))
+                (dolist (ext '("pdf" "png" "jpg" "xopp"))
+                  (let ((file (expand-file-name (concat file-base "." ext) base-dir)))
+                    (when (file-exists-p file)
+                      (push (cons ext file) exports))))))
+            ;; Also search for quickpage files if no name or no exports found
+            (when (and (null exports) (file-directory-p base-dir))
+              (dolist (file (directory-files base-dir t "^quickpage-.*\\.\\(pdf\\|png\\|jpg\\|xopp\\)$"))
+                (let ((ext (file-name-extension file)))
+                  (push (cons ext file) exports))))))))
+    (nreverse exports)))
+
+(defun notable--find-book-exports (book-id)
+  "Find all exported files for BOOK-ID.
+Returns alist of (format . filepath) pairs."
+  (let* ((notebooks (notable--get-notebooks))
+         (notebook (seq-find (lambda (n) (string= (alist-get 'id n) book-id)) notebooks))
+         (exports nil))
+    (when notebook
+      (let* ((book-name (notable--sanitize-filename (alist-get 'name notebook)))
+             (folder-path (alist-get 'folderPath notebook))
+             (base-dir (if folder-path
+                           (expand-file-name folder-path notable-export-directory)
+                         notable-export-directory)))
+        ;; Book exports: BookTitle.pdf, BookTitle.xopp (in folder path)
+        (dolist (ext '("pdf" "xopp"))
+          (let ((file (expand-file-name (concat book-name "." ext) base-dir)))
+            (when (file-exists-p file)
+              (push (cons ext file) exports))))
+        ;; Image exports are in BookTitle/ subfolder
+        (let ((img-dir (expand-file-name book-name base-dir)))
+          (when (file-directory-p img-dir)
+            (dolist (file (directory-files img-dir t (concat "^" (regexp-quote book-name) "-p[0-9]+\\.\\(png\\|jpg\\)$")))
+              (let ((ext (file-name-extension file)))
+                (unless (assoc ext exports)
+                  (push (cons (concat ext " (multi)") img-dir) exports))))))))
+    (nreverse exports)))
+
+(defun notable--open-file (file)
+  "Open FILE with appropriate method for current platform."
+  (cond
+   (IS-ANDROID
+    (start-process "xdg-open" nil "xdg-open" file))
+   ((eq system-type 'darwin)
+    (start-process "open" nil "open" file))
+   (t
+    (start-process "xdg-open" nil "xdg-open" file))))
+
+(defun notable-view-page-export ()
+  "View an exported file for a page."
+  (interactive)
+  (let* ((page-id (notable--select-page "View exports for page: "))
+         (exports (notable--find-page-exports page-id)))
+    (if (null exports)
+        (message "No exports found for this page")
+      (let* ((choices (mapcar (lambda (e) (cons (car e) (cdr e))) exports))
+             (selection (if (= (length choices) 1)
+                            (cdar choices)
+                          (let ((fmt (completing-read "Format: " choices nil t)))
+                            (cdr (assoc fmt choices))))))
+        (when selection
+          (if (file-directory-p selection)
+              (dired selection)
+            (notable--open-file selection)))))))
+
+(defun notable-view-book-export ()
+  "View an exported file for a book."
+  (interactive)
+  (let* ((book-id (notable--select-notebook "View exports for book: "))
+         (exports (notable--find-book-exports book-id)))
+    (if (null exports)
+        (message "No exports found for this book")
+      (let* ((choices (mapcar (lambda (e) (cons (car e) (cdr e))) exports))
+             (selection (if (= (length choices) 1)
+                            (cdar choices)
+                          (let ((fmt (completing-read "Format: " choices nil t)))
+                            (cdr (assoc fmt choices))))))
+        (when selection
+          (if (file-directory-p selection)
+              (dired selection)
+            (notable--open-file selection)))))))
+
 ;;;; Selection Helpers
 
 (defun notable--select-folder (prompt &optional allow-empty)
@@ -313,9 +450,9 @@ On Android, uses `am start`. On other platforms, just shows the link."
   "Notable notebook management.
 
 Features available based on device:
-- Boox: Create, Open, Export, Links, Sync
-- Android: Open, Export, Links, Sync
-- Desktop: Links only"
+- Boox: Create, Open, Export, View, Links, Sync
+- Android: Open, Export, View, Links, Sync
+- Desktop: View, Links"
   [:if notable--on-android-p
    :description "Navigation"
    ("o p" "Open page" notable-open-page)
@@ -330,6 +467,9 @@ Features available based on device:
    :description "Export"
    ("e p" "Export page" notable-export-page)
    ("e b" "Export book" notable-export-book)]
+  ["View Exports (all devices)"
+   ("v p" "View page export" notable-view-page-export)
+   ("v b" "View book export" notable-view-book-export)]
   ["Links (all devices)"
    ("l p" "Insert page link" notable-insert-page-link)
    ("l b" "Insert book link" notable-insert-book-link)]
