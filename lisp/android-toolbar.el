@@ -158,6 +158,12 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; ===================================================================
 
       (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-6>" menu-bar-separator)
+      (keymap-set-after (default-value 'tool-bar-map) "<org-roam-dailies-today>"
+        `(menu-item "Dailies Switch" my/org-roam-dailies-cycle-focus
+          :help "Cycle: Today -> Prev Monday -> Next Monday"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/sun-weather-sunny-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
       (keymap-set-after (default-value 'tool-bar-map) "<org-node-random-large>"
         `(menu-item "Random Large Note" org-roam-open-large-note-randomly
           :help "Open a random large org-roam note"

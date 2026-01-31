@@ -474,6 +474,26 @@ If in Evil normal mode, switch to insert mode."
          (next-monday-time (time-add now (days-to-time days-forward))))
     (org-roam-dailies--capture next-monday-time t)))
 
+(defvar my/org-roam-dailies-focus-mode 'today
+  "Current focus mode for dailies: 'today, 'current-monday, or 'next-monday.")
+
+(defun my/org-roam-dailies-cycle-focus ()
+  "Cycle through dailies focus: Today -> Current Monday -> Next Monday -> Today."
+  (interactive)
+  (setq my/org-roam-dailies-focus-mode
+        (pcase my/org-roam-dailies-focus-mode
+          ('today 'current-monday)
+          ('current-monday 'next-monday)
+          ('next-monday 'today)
+          (_ 'today)))
+  
+  (message "Dailies Focus: %s" my/org-roam-dailies-focus-mode)
+  
+  (pcase my/org-roam-dailies-focus-mode
+    ('today (org-roam-dailies-goto-today))
+    ('current-monday (org-roam-dailies-goto-monday-of-week))
+    ('next-monday (org-roam-dailies-goto-monday-of-next-week))))
+
 
 (provide 'org-roam-config)
 ;;; org-roam-config.el ends here

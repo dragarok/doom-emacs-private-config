@@ -89,8 +89,8 @@
 
 (defvar my/android-media-dirs
   '("/sdcard/DCIM/Camera"
+    "/sdcard/Pictures/Twitter"
     "/sdcard/Pictures/Screenshots"
-    "~/PicturesShared/Mac/Screenshots/"
     "/sdcard/DCIM/Screenshots")
   "List of directories to search for recent photos and screenshots.")
 
