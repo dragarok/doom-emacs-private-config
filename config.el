@@ -220,6 +220,7 @@
 (require 'beancount-helper)
 (require 'kairoam-notes)
 (require 'booxnoter)
+(require 'notable)
 (require 'diary-events)
 (require 'qsv-csv)
 (require 'org-project-helpers)
@@ -1666,7 +1667,7 @@ SCHEDULED: %t
         org-export-with-footnotes t
         org-export-with-latex t
         org-export-with-section-numbers nil
-        org-export-with-properties t
+        org-export-with-properties nil
         org-export-with-smart-quotes t
         org-export-backends '(pdf ascii html latex odt pandoc)))
 

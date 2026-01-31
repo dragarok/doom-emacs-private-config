@@ -126,10 +126,10 @@
   (map!
    :after evil-org
    :map evil-org-mode-map
-   :nvm "M-h" #'yabai-window-left
-   :nvm "M-l" #'yabai-window-right
-   :nvm "M-k" #'yabai-window-up
-   :nvm "M-j" #'yabai-window-down))
+   :invm "M-h" #'yabai-window-left
+   :invm "M-l" #'yabai-window-right
+   :invm "M-k" #'yabai-window-up
+   :invm "M-j" #'yabai-window-down))
 
 (after! org
   (evil-define-key '(normal insert visual motion) 'global
