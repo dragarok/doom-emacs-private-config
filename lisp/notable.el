@@ -346,14 +346,24 @@ Returns alist of (format . filepath) pairs."
     (nreverse exports)))
 
 (defun notable--open-file (file)
-  "Open FILE with appropriate method for current platform."
-  (cond
-   (IS-ANDROID
-    (start-process "xdg-open" nil "xdg-open" file))
-   ((eq system-type 'darwin)
-    (start-process "open" nil "open" file))
-   (t
-    (start-process "xdg-open" nil "xdg-open" file))))
+  "Open FILE with appropriate method for current platform.
+XOPPs use external apps. PDFs use external on Android, pdf-tools on Mac/desktop.
+Images open in Emacs."
+  (let ((ext (downcase (or (file-name-extension file) ""))))
+    (cond
+     ;; XOPP always external
+     ((string= ext "xopp")
+      (cond
+       (IS-ANDROID (start-process "xdg-open" nil "xdg-open" file))
+       ((eq system-type 'darwin) (start-process "open" nil "open" file))
+       (t (start-process "xdg-open" nil "xdg-open" file))))
+     ;; PDF: external on Android, Emacs (pdf-tools) elsewhere
+     ((string= ext "pdf")
+      (if IS-ANDROID
+          (start-process "xdg-open" nil "xdg-open" file)
+        (find-file file)))
+     ;; Images and everything else in Emacs
+     (t (find-file file)))))
 
 (defun notable-view-page-export ()
   "View an exported file for a page."
