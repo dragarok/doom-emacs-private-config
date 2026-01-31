@@ -365,39 +365,97 @@ Images open in Emacs."
      ;; Images and everything else in Emacs
      (t (find-file file)))))
 
+(defun notable--get-pages-with-exports ()
+  "Get list of pages that have exports available.
+Returns list of (display-name . (page-id . exports)) pairs."
+  (let* ((pages (notable--get-pages))
+         (notebooks (notable--get-notebooks))
+         (nb-map (mapcar (lambda (n) (cons (alist-get 'id n) (alist-get 'name n))) notebooks))
+         (results nil))
+    (dolist (p pages)
+      (let* ((id (alist-get 'id p))
+             (exports (notable--find-page-exports id)))
+        (when exports
+          (let* ((name (alist-get 'name p))
+                 (nb-id (alist-get 'notebookId p))
+                 (nb-name (cdr (assoc nb-id nb-map)))
+                 (folder-path (alist-get 'folderPath p))
+                 (idx (alist-get 'pageIndex p))
+                 (formats (mapconcat #'car exports ","))
+                 (display (format "%s [%s]"
+                                  (cond
+                                   ((and nb-name idx)
+                                    (format "%s/p%d%s" nb-name (1+ idx)
+                                            (if name (format " (%s)" name) "")))
+                                   (name (if folder-path
+                                             (format "%s/%s" folder-path name)
+                                           name))
+                                   (t (format "[%s]" (substring id 0 8))))
+                                  formats)))
+            (push (cons display (cons id exports)) results)))))
+    (nreverse results)))
+
 (defun notable-view-page-export ()
-  "View an exported file for a page."
+  "View an exported file for a page.
+Only shows pages that have exports available."
   (interactive)
-  (let* ((page-id (notable--select-page "View exports for page: "))
-         (exports (notable--find-page-exports page-id)))
-    (if (null exports)
-        (message "No exports found for this page")
-      (let* ((choices (mapcar (lambda (e) (cons (car e) (cdr e))) exports))
-             (selection (if (= (length choices) 1)
-                            (cdar choices)
-                          (let ((fmt (completing-read "Format: " choices nil t)))
-                            (cdr (assoc fmt choices))))))
-        (when selection
-          (if (file-directory-p selection)
-              (dired selection)
-            (notable--open-file selection)))))))
+  (let ((pages-with-exports (notable--get-pages-with-exports)))
+    (if (null pages-with-exports)
+        (message "No pages with exports found")
+      (let* ((selection (completing-read "View page export: " pages-with-exports nil t))
+             (data (cdr (assoc selection pages-with-exports)))
+             (exports (cdr data)))
+        (when exports
+          (let* ((choices (mapcar (lambda (e) (cons (car e) (cdr e))) exports))
+                 (file (if (= (length choices) 1)
+                           (cdar choices)
+                         (let ((fmt (completing-read "Format: " choices nil t)))
+                           (cdr (assoc fmt choices))))))
+            (when file
+              (if (file-directory-p file)
+                  (dired file)
+                (notable--open-file file)))))))))
+
+(defun notable--get-books-with-exports ()
+  "Get list of books that have exports available.
+Returns list of (display-name . (book-id . exports)) pairs."
+  (let* ((notebooks (notable--get-notebooks))
+         (results nil))
+    (dolist (n notebooks)
+      (let* ((id (alist-get 'id n))
+             (exports (notable--find-book-exports id)))
+        (when exports
+          (let* ((name (alist-get 'name n))
+                 (folder-path (alist-get 'folderPath n))
+                 (formats (mapconcat #'car exports ","))
+                 (display (format "%s [%s]"
+                                  (if folder-path
+                                      (format "%s/%s" folder-path name)
+                                    name)
+                                  formats)))
+            (push (cons display (cons id exports)) results)))))
+    (nreverse results)))
 
 (defun notable-view-book-export ()
-  "View an exported file for a book."
+  "View an exported file for a book.
+Only shows books that have exports available."
   (interactive)
-  (let* ((book-id (notable--select-notebook "View exports for book: "))
-         (exports (notable--find-book-exports book-id)))
-    (if (null exports)
-        (message "No exports found for this book")
-      (let* ((choices (mapcar (lambda (e) (cons (car e) (cdr e))) exports))
-             (selection (if (= (length choices) 1)
-                            (cdar choices)
-                          (let ((fmt (completing-read "Format: " choices nil t)))
-                            (cdr (assoc fmt choices))))))
-        (when selection
-          (if (file-directory-p selection)
-              (dired selection)
-            (notable--open-file selection)))))))
+  (let ((books-with-exports (notable--get-books-with-exports)))
+    (if (null books-with-exports)
+        (message "No books with exports found")
+      (let* ((selection (completing-read "View book export: " books-with-exports nil t))
+             (data (cdr (assoc selection books-with-exports)))
+             (exports (cdr data)))
+        (when exports
+          (let* ((choices (mapcar (lambda (e) (cons (car e) (cdr e))) exports))
+                 (file (if (= (length choices) 1)
+                           (cdar choices)
+                         (let ((fmt (completing-read "Format: " choices nil t)))
+                           (cdr (assoc fmt choices))))))
+            (when file
+              (if (file-directory-p file)
+                  (dired file)
+                (notable--open-file file)))))))))
 
 ;;;; Selection Helpers
 
