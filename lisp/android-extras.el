@@ -152,5 +152,20 @@ Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
             (message "Attached: %s" new-filename))
         (error "No media files found in: %s" (string-join my/android-media-dirs ", "))))))
 
+
+(setq browse-url-browser-function 'browse-url-xdg-open)
+(add-to-list 'org-file-apps '("\\.pdf\\'" . "termux-open %s"))
+(add-to-list 'org-file-apps '("\\.png\\'" . "termux-open %s"))
+(add-to-list 'org-file-apps '("\\.jpg\\'" . "termux-open %s"))
+(add-to-list 'org-file-apps '("\\.jpeg\\'" . "termux-open %s"))
+
+;; Function to open files using browse-url-xdg-open with file:// URLs
+(defun my-open-file-xdg (file)
+  "Open FILE using browse-url-xdg-open as a file:// URL."
+  (let ((url (concat "file://" (expand-file-name file))))
+    (condition-case err
+        (browse-url-xdg-open url)
+      (error (message "Failed to open %s: %s" file err)))))
+
 (provide 'android-extras)
 ;;; android-extras.el ends here
