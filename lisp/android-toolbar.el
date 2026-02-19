@@ -119,12 +119,6 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/add-circle2-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
-      (keymap-set-after (default-value 'tool-bar-map) "<org-attach-media>"
-        `(menu-item "Attach Media" my/org-attach-media
-          :help "Attach photo or screenshot to current Org node"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/camera-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
       ;; ===================================================================
       ;; STATE - Single button for context + energy
       ;; ===================================================================
@@ -217,6 +211,13 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
         `(menu-item "Quit" evil-quit
           :help "Close window/buffer"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/close-circle-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+
+      (keymap-set-after (default-value 'tool-bar-map) "<org-attach-media>"
+        `(menu-item "Attach Media" my/org-attach-media
+          :help "Attach photo or screenshot to current Org node"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/instant-camera-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (message "River Flow toolbar configured with %dx%d icons" icon-size icon-size))))
