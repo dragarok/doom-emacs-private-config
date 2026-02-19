@@ -75,26 +75,27 @@
   :config
   (setq gptel-prompts-directory "~/.doom.d/llm-system-prompts")
   (gptel-prompts-update)
-  (gptel-prompts-add-update-watchers))
+  (gptel-prompts-add-update-watchers)
+  )
 
 ;; ============================================================
 ;; CLAUDE CODE
 ;; ============================================================
 
-(defun my-claude-notify (title message)
-  "Display a macOS notification with sound."
-  (call-process "osascript" nil nil nil
-                "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                             message title)))
+;; (defun my-claude-notify (title message)
+;;   "Display a macOS notification with sound."
+;;   (call-process "osascript" nil nil nil
+;;                 "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
+;;                              message title)))
 
-(use-package! claude-code
-  :config
-  (setq claude-code-notification-function #'my-claude-notify)
-  (setq claude-code-startup-delay 0.2)
-  (setq claude-code-terminal-backend 'vterm)
-  (add-hook 'claude-code-start-hook
-            (lambda ()
-              (setq-local line-spacing 0.1))))
+;; (use-package! claude-code
+;;   :config
+;;   (setq claude-code-notification-function #'my-claude-notify)
+;;   (setq claude-code-startup-delay 0.2)
+;;   (setq claude-code-terminal-backend 'vterm)
+;;   (add-hook 'claude-code-start-hook
+;;             (lambda ()
+;;               (setq-local line-spacing 0.1))))
 
 (use-package claude-code-ide
   :config
@@ -146,17 +147,17 @@
 (advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
 
 ;; Customize cursor type in read-only mode
-(setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
+;; (setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
 
 ;; Control eat scrollback size for longer conversations
 (setq eat-term-scrollback-size 500000)
 
-(add-hook 'claude-code-start-hook
-          (lambda ()
-            (setq-local line-spacing 0.1)))
+;; (add-hook 'claude-code-start-hook
+;;           (lambda ()
+;;             (setq-local line-spacing 0.1)))
 
-(custom-set-faces
- '(claude-code-repl-face ((t (:family "JuliaMono")))))
+;; (custom-set-faces
+;;  '(claude-code-repl-face ((t (:family "JuliaMono")))))
 
 ;; ============================================================
 ;; AI CODE INTERFACE

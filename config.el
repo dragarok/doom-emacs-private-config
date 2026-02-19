@@ -1169,11 +1169,11 @@ selected, then the current line."
   (setq org-tags-exclude-from-inheritance '("project"))
   ;; (setq org-agenda-sorting-strategy
   ;;       '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
-  (setq org-agenda-sorting-strategy
-        '((agenda time-up timestamp-up priority-down)
-          (todo priority-down category-keep)
-          (tags priority-down category-keep)
-          (search category-keep)))
+  ;; (setq org-agenda-sorting-strategy
+  ;;       '((agenda time-up timestamp-up priority-down)
+  ;;         (todo priority-down category-keep)
+  ;;         (tags priority-down category-keep)
+  ;;         (search category-keep)))
 
   (add-to-list 'org-global-properties
                '("Effort". "0:05 0:15 0:30 1:00 2:00 3:00 4:00"))
@@ -1526,7 +1526,7 @@ SCHEDULED: %t
                                       (org-deadline-warning-days 7)
                                       (org-agenda-start-day
                                        (org-today))
-                                      ;; (org-agenda-sorting-strategy '(time-up priority-down effort-down))
+                                      (org-agenda-sorting-strategy '(time-up priority-down effort-down))
                                       )
                                      )
                              (org-time-budgets-in-agenda-maybe)
