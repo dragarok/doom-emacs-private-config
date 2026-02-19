@@ -214,10 +214,11 @@
 
 ;; Termux PATH setup for Android
 (when IS-ANDROID
-  (let ((termux-bin "/data/data/com.termux/files/usr/bin"))
-    ;; Prepend Termux bin to PATH → ssh from Termux wins
-    (setenv "PATH" (concat termux-bin ":" (getenv "PATH")))
-    (setq exec-path (cons termux-bin exec-path))
+  (let ((termux-bin "/data/data/com.termux/files/usr/bin")
+        (home-bin "/data/data/com.termux/files/home/bin"))
+    ;; Prepend ~/bin and Termux bin to PATH
+    (setenv "PATH" (concat home-bin ":" termux-bin ":" (getenv "PATH")))
+    (setq exec-path (cons home-bin (cons termux-bin exec-path)))
 
     ;; Optional: explicitly force ssh program (extra safety)
     (let ((termux-ssh (concat termux-bin "/ssh")))

@@ -31,9 +31,8 @@
   :recipe (:host github :repo "bishesh/emacs-nepali-romanized"))
 
 ;; Claude Code integration
-(package! claude-code
-  :recipe (:host github :repo "stevemolitor/claude-code.el"
-           :files ("*.el" (:exclude "images/*"))))
+(package! claude-code-ide
+  :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
 
 (package! hydra-posframe
   :recipe (:host github :repo "Ladicle/hydra-posframe"))
@@ -115,8 +114,10 @@
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
   (package! mcp-hub
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
-  (package! claude-code-ide
-    :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
+
+  (package! claude-code
+    :recipe (:host github :repo "stevemolitor/claude-code.el"
+             :files ("*.el" (:exclude "images/*"))))
   (package! ai-code)
   (package! gemini-cli
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"

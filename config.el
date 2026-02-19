@@ -232,9 +232,11 @@
 (when IS-ANDROID
   (require 'android-toolbar))
 
+;; AI workflows (shared across platforms, Mac-only parts guarded inside)
+(require 'ai-workflows)
+
 ;; Mac-only modules
 (unless IS-ANDROID
-  (require 'ai-workflows)          ; gptel, claude-code, mcp-hub
   (require 'yabai-windmove)        ; yabai window management
   (require 'chezmoi-config)        ; dotfiles manager
   (require 'prodigy-services)      ; dev server management
