@@ -96,6 +96,133 @@
   (setq claude-code-ide-use-ide-diff nil))
 
 ;; ============================================================
+;; CLAUDE IMAGE ATTACHMENT (local on Android, remote via SSH on Mac)
+;; ============================================================
+
+(defvar my/termux-ssh-key (or (getenv "TERMUX_SSH_KEY") "~/.ssh/id_termux")
+  "SSH key for connecting to Termux. Set via TERMUX_SSH_KEY env var.")
+(defvar my/termux-host (getenv "TERMUX_HOST")
+  "Tailscale IP of the phone running Termux. Set via TERMUX_HOST env var.")
+(defvar my/termux-user (getenv "TERMUX_USER")
+  "Termux SSH user. Set via TERMUX_USER env var.")
+(defvar my/termux-ssh-port (or (getenv "TERMUX_SSH_PORT") "8022")
+  "Termux SSH port. Set via TERMUX_SSH_PORT env var.")
+(defvar my/mac-host (getenv "MAC_HOST")
+  "Tailscale IP of the Mac. Set via MAC_HOST env var.")
+(defvar my/mac-user (getenv "MAC_USER")
+  "Mac SSH user. Set via MAC_USER env var.")
+
+(defvar my/image-screenshot-dirs
+  '("/sdcard/Pictures/Screenshots" "/sdcard/DCIM/Screenshots")
+  "Directories to search for screenshots on Android.")
+
+(defvar my/image-camera-dirs
+  '("/sdcard/DCIM/Camera")
+  "Directories to search for camera photos on Android.")
+
+(defun my/claude--find-latest-local-image (dirs)
+  "Find the most recent image file in DIRS (Android local)."
+  (let* ((globs (mapconcat (lambda (d)
+                             (format "%s/*.png %s/*.jpg %s/*.jpeg %s/*.heic" d d d d))
+                           (seq-filter #'file-exists-p dirs) " "))
+         (cmd (format "ls -t %s 2>/dev/null | grep -v thumbnails | head -1" globs)))
+    (let ((result (string-trim (shell-command-to-string cmd))))
+      (unless (string-empty-p result) result))))
+
+(defun my/claude--paste-into-buffer (image-path)
+  "Paste IMAGE-PATH into the current project's Claude Code vterm buffer.
+On Mac, copies image to clipboard and sends Cmd+V.
+On Android, types the file path directly."
+  (let* ((project (file-name-nondirectory (directory-file-name default-directory)))
+         (buffer-name (format "*claude-code[%s]*" project))
+         (buf (get-buffer buffer-name)))
+    (if buf
+        (with-current-buffer buf
+          (if IS-ANDROID
+              ;; Android: type the path directly
+              (vterm-send-string image-path)
+            ;; Mac: copy to clipboard and paste
+            (call-process "osascript" nil nil nil
+                          "-e" (format "set the clipboard to (read (POSIX file \"%s\") as «class PNGf»)" image-path))
+            (vterm-send-key "v" nil nil t))
+          (message "Attached %s into %s" image-path buffer-name))
+      (kill-new image-path)
+      (message "Copied %s to kill ring (no buffer: %s)" image-path buffer-name))))
+
+;; --- Local functions (Android) ---
+
+(defun my/claude-attach-local-screenshot ()
+  "Attach latest local screenshot to Claude Code (Android)."
+  (interactive)
+  (let ((img (my/claude--find-latest-local-image my/image-screenshot-dirs)))
+    (if img
+        (my/claude--paste-into-buffer img)
+      (message "No screenshots found"))))
+
+(defun my/claude-attach-local-camera ()
+  "Attach latest local camera photo to Claude Code (Android)."
+  (interactive)
+  (let ((img (my/claude--find-latest-local-image my/image-camera-dirs)))
+    (if img
+        (my/claude--paste-into-buffer img)
+      (message "No photos found"))))
+
+;; --- Remote functions (Mac → phone via SSH) ---
+
+(defun my/claude-attach-remote-image (type)
+  "Fetch latest image from phone via SSH/SCP and paste into Claude Code buffer.
+TYPE is 'screenshot or 'camera."
+  (let* ((ssh-cmd (format "ssh -i %s -o ConnectTimeout=5 -o StrictHostKeyChecking=no -p %s %s@%s"
+                          (expand-file-name my/termux-ssh-key)
+                          my/termux-ssh-port my/termux-user my/termux-host))
+         (remote-path (if (eq type 'screenshot) "/tmp/ss.png" "/tmp/img.jpg"))
+         (find-cmd (if (eq type 'screenshot)
+                       "ls -t /sdcard/Pictures/Screenshots/*.png /sdcard/Pictures/Screenshots/*.jpg /sdcard/Pictures/Screenshots/*.jpeg 2>/dev/null | head -1"
+                     "ls -t /sdcard/DCIM/Camera/*.png /sdcard/DCIM/Camera/*.jpg /sdcard/DCIM/Camera/*.jpeg /sdcard/DCIM/Camera/*.heic 2>/dev/null | grep -v thumbnails | head -1"))
+         (scp-cmd (format "%s 'F=$(%s); [ -n \"$F\" ] && scp -i ~/.ssh/mac_tailscale -o ConnectTimeout=5 \"$F\" %s@%s:%s && echo OK || echo FAIL'"
+                          ssh-cmd find-cmd (or my/mac-user (getenv "MAC_USER")) (or my/mac-host (getenv "MAC_HOST")) remote-path)))
+    (message "Fetching %s from phone..." type)
+    (let ((result (string-trim (shell-command-to-string scp-cmd))))
+      (if (string-match-p "OK" result)
+          (my/claude--paste-into-buffer remote-path)
+        (message "Failed to fetch %s from phone: %s" type result)))))
+
+(defun my/claude-attach-remote-screenshot ()
+  "Fetch latest screenshot from phone via SSH and paste into Claude Code (Mac)."
+  (interactive)
+  (my/claude-attach-remote-image 'screenshot))
+
+(defun my/claude-attach-remote-camera ()
+  "Fetch latest camera photo from phone via SSH and paste into Claude Code (Mac)."
+  (interactive)
+  (my/claude-attach-remote-image 'camera))
+
+;; --- Auto-detecting functions (work on both platforms) ---
+
+(defun my/claude-attach-screenshot ()
+  "Attach latest screenshot to Claude Code. Auto-detects platform."
+  (interactive)
+  (if IS-ANDROID
+      (my/claude-attach-local-screenshot)
+    (my/claude-attach-remote-screenshot)))
+
+(defun my/claude-attach-camera ()
+  "Attach latest camera photo to Claude Code. Auto-detects platform."
+  (interactive)
+  (if IS-ANDROID
+      (my/claude-attach-local-camera)
+    (my/claude-attach-remote-camera)))
+
+(defun my/claude-attach-image ()
+  "Attach screenshot or camera photo to Claude Code. Auto-detects platform."
+  (interactive)
+  (let ((type (intern (completing-read "Attach: " '("screenshot" "camera") nil t))))
+    (if (eq type 'screenshot)
+        (my/claude-attach-screenshot)
+      (my/claude-attach-camera))))
+
+
+;; ============================================================
 ;; VTERM/EAT FONT FIXES FOR CLAUDE
 ;; ============================================================
 
