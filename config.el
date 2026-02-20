@@ -1654,7 +1654,52 @@ SCHEDULED: %t
 (after! org
   (setq org-highlight-latex-and-related '(native script entities))
   (add-hook 'org-mode-hook 'org-fragtog-mode)
-  )
+
+  (when IS-ANDROID
+    (let ((texlive "/data/data/com.termux/files/usr/bin/texlive"))
+      (setq org-preview-latex-default-process 'dvisvgm)
+      (setq org-preview-latex-process-alist
+            `((dvisvgm
+               :programs ("latex" "dvisvgm")
+               :description "dvi > svg"
+               :message "you need to install the programs: latex and dvisvgm."
+               :image-input-type "dvi"
+               :image-output-type "svg"
+               :image-size-adjust (1.7 . 1.5)
+               :latex-compiler (,(concat texlive "/latex -interaction nonstopmode -output-directory %o %f"))
+               :image-converter (,(concat texlive "/dvisvgm %f --no-fonts --exact-bbox --scale=%S --output=%O")))
+              (dvipng
+               :programs ("latex" "dvipng")
+               :description "dvi > png"
+               :message "you need to install the programs: latex and dvipng."
+               :image-input-type "dvi"
+               :image-output-type "png"
+               :image-size-adjust (1.0 . 1.0)
+               :latex-compiler (,(concat texlive "/latex -interaction nonstopmode -output-directory %o %f"))
+               :image-converter (,(concat texlive "/dvipng -D %D -T tight -o %O %f"))
+               :transparent-image-converter
+               (,(concat texlive "/dvipng -D %D -T tight -bg Transparent -o %O %f"))))))))
+
+;; Scale LaTeX previews with text-scale-adjust (C-x C-+/C-x C--)
+(defun my/text-scale-adjust-latex-previews ()
+  "Adjust the size of latex preview fragments when changing the
+buffer's text scale."
+  (pcase major-mode
+    ('org-mode
+     (dolist (ov (overlays-in (point-min) (point-max)))
+       (when (eq (overlay-get ov 'org-overlay-type)
+                 'org-latex-overlay)
+         (my/text-scale--resize-fragment ov))))))
+
+(defun my/text-scale--resize-fragment (ov)
+  (overlay-put
+   ov 'display
+   (cons 'image
+         (plist-put
+          (cdr (overlay-get ov 'display))
+          :scale (+ 1.0 (* 0.25 text-scale-mode-amount))))))
+
+(add-hook 'text-scale-mode-hook #'my/text-scale-adjust-latex-previews)
 
 (add-hook! 'org-mode-hook #'org-appear-mode)
 
