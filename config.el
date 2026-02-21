@@ -657,6 +657,12 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (use-package! org-pandoc-import :after org)
   (add-hook 'magit-mode-hook (lambda () (magit-delta-mode +1))))
 
+(after! magit
+  (magit-add-section-hook 'magit-status-sections-hook
+                          'magit-insert-worktrees 
+                          'magit-insert-status-headers t)
+  )
+
 (defun my-magit/delete-merged-branches ()
   (interactive)
   (magit-fetch-all-prune)
