@@ -91,6 +91,8 @@
 
 (use-package claude-code-ide
   :config
+  (if IS-ANDROID
+      (setq claude-code-ide-use-side-window nil))
   (claude-code-ide-emacs-tools-setup)
   (define-key prog-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
   (setq claude-code-ide-use-ide-diff nil))

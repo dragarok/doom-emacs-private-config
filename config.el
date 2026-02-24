@@ -657,29 +657,40 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
   (use-package! org-pandoc-import :after org)
   (add-hook 'magit-mode-hook (lambda () (magit-delta-mode +1))))
 
+
+;;;###autoload
+(defun my/projectile-switch-to-worktree ()
+  "Switch to the projectile project for the worktree at point."
+  (interactive)
+  (let ((path (magit-section-value-if 'worktree)))
+    (if path
+        (let ((dir (file-name-as-directory (expand-file-name path))))
+          (projectile-add-known-project dir)
+          (projectile-switch-project-by-name dir))
+      (user-error "No worktree at point"))))
+
+
+(defun my/projectile-switch-to-worktree-select ()
+  "Select a git worktree from a completing-read menu and switch to it."
+  (interactive)
+  (let* ((worktrees (magit-list-worktrees))
+         (candidates (mapcar (lambda (wt)
+                               (let* ((path (car wt))                                                                                                              (branch (or (nth 2 wt) "(detached)"))
+                                      (dir (file-name-as-directory (expand-file-name path))))
+                                 (cons (format "%-20s %s" branch dir) dir)))
+                             worktrees))
+         (choice (completing-read "Switch to worktree: " candidates nil t))
+         (dir (cdr (assoc choice candidates))))
+    (projectile-add-known-project dir)
+    (projectile-switch-project-by-name dir)))
+
 (after! magit
   (magit-add-section-hook 'magit-status-sections-hook
                           'magit-insert-worktrees 
                           'magit-insert-status-headers t)
+  (with-eval-after-load 'magit
+    (define-key magit-worktree-section-map (kbd "C-<return>") #'my/projectile-switch-to-worktree))
   )
-
-(defun my-magit/delete-merged-branches ()
-  (interactive)
-  (magit-fetch-all-prune)
-  (let* ((default-branch
-          (read-string "Default branch: " (magit-get-current-branch)))
-         (merged-branches
-          (magit-git-lines "branch"
-                           "--format" "%(refname:short)"
-                           "--merged"
-                           default-branch))
-         (branches-to-delete
-          (remove default-branch merged-branches)))
-    (if branches-to-delete
-        (if (yes-or-no-p (concat "Delete branches? ["
-                                 (mapconcat 'identity branches-to-delete ", ") "]"))
-            (magit-branch-delete branches-to-delete))
-      (message "Nothing to delete"))))
 
 (defun window-split-toggle ()
   "Toggle between horizontal and vertical split with two windows."
@@ -1018,6 +1029,7 @@ selected, then the current line."
 ;; scroll other window, useful when working with multiple files
 (bind-key "C-M-s-n" 'scroll-other-window-down)
 (bind-key "C-M-s-e" 'scroll-other-window)
+(bind-key "C-M-s-|" 'my/projectile-switch-to-worktree-select)
 ;; (bind-key "C-M-s-:" 'newline-and-indent)
 ;; (bind-key "C-M-s-w" 'winner-undo)
 (unless IS-ANDROID
