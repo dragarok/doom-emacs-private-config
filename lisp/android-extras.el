@@ -166,6 +166,6 @@ Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
     (condition-case err
         (browse-url-xdg-open url)
       (error (message "Failed to open %s: %s" file err)))))
-
+(set-fontset-font t 'devanagari "Noto Sans Devanagari")
 (provide 'android-extras)
 ;;; android-extras.el ends here
