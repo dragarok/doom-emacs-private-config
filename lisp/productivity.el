@@ -423,47 +423,47 @@ EXTRA-TAG can be used to filter further (e.g., 'blog' for blog posts)."
    ((eq selector-type 'lazy-low-effort) (list "Lazy Task" "😴" "teal"))
    (t (list "Activity" "📝" "gray"))))
 
+(defun rts--posframe-width ()
+  "Return a responsive posframe width based on frame size.
+Uses 70% of frame columns, clamped between 40 and 80."
+  (max 40 (min 80 (/ (* (frame-width) 70) 100))))
+
 (defun rts--show-unified-posframe (heading priority tags status selector-type)
   "Show selected item in a posframe with appropriate styling."
   (require 'posframe)
   (let* ((buffer (get-buffer-create "*Item Selected*"))
-         (parent-frame (selected-frame))
          (activity-info (rts--get-activity-info tags selector-type))
          (activity-name (nth 0 activity-info))
          (emoji (nth 1 activity-info))
          (border-color (nth 2 activity-info))
-         (childframe-pixel-width (* 80 (frame-char-width parent-frame)))
-         (childframe-pixel-height (* 6 (frame-char-height parent-frame)))
-         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
-         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
-         (center-position (cons center-x center-y)))
+         (w (rts--posframe-width)))
 
     (with-current-buffer buffer
-      (erase-buffer)
-      (insert (propertize (format "%s %s SELECTED" emoji (upcase activity-name))
-                          'face 'font-lock-keyword-face))
-      (center-line)
-      (insert "\n\n")
-      (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
-      (center-line)
-      (insert "\n")
-      (insert (propertize (format "Status: %s | Priority: %s"
-                                  (or status "No status")
-                                  (or priority "No priority"))
-                          'face 'font-lock-variable-name-face))
-      (center-line)
-      (insert "\n")
-      (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) ""))
-                          'face 'font-lock-comment-face))
-      (center-line)
-      (setq buffer-read-only t)
-      (set (make-local-variable 'face-remapping-alist)
-           '((default (:height 200) default))))
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize (format "%s %s SELECTED" emoji (upcase activity-name))
+                            'face 'font-lock-keyword-face))
+        (center-line)
+        (insert "\n\n")
+        (insert (propertize (format "%s" heading) 'face 'font-lock-function-name-face))
+        (center-line)
+        (insert "\n")
+        (insert (propertize (format "Status: %s | Priority: %s"
+                                    (or status "No status")
+                                    (or priority "No priority"))
+                            'face 'font-lock-variable-name-face))
+        (center-line)
+        (insert "\n")
+        (insert (propertize (format "%s" (if tags (format " :%s:" (string-join tags ":")) ""))
+                            'face 'font-lock-comment-face))
+        (center-line)
+        (setq buffer-read-only t)
+        (set (make-local-variable 'face-remapping-alist)
+             '((default (:height 200) default)))))
 
     (posframe-show buffer
-                   :position center-position
-                   :width 80
-                   :height 10
+                   :poshandler 'posframe-poshandler-frame-center
+                   :width w
                    :border-width 2
                    :border-color border-color
                    :accept-focus nil)

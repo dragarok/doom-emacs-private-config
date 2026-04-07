@@ -82,15 +82,15 @@
       (micro-experiments--log-to-daily input)
       (message "Logged to daily note."))))
 
+(defun micro-experiments--posframe-width ()
+  "Return a responsive posframe width based on frame size.
+Uses 70% of frame columns, clamped between 30 and 54."
+  (max 30 (min 54 (/ (* (frame-width) 70) 100))))
+
 (defun micro-experiments--show-posframe (category task emoji)
   "Flash TASK from CATEGORY with EMOJI in a centered posframe."
-  (let* ((buffer (get-buffer-create "*Micro Experiment*"))
-         (parent-frame (selected-frame))
-         (childframe-pixel-width (* 60 (frame-char-width parent-frame)))
-         (childframe-pixel-height (* 5 (frame-char-height parent-frame)))
-         (center-x (/ (- (frame-pixel-width parent-frame) childframe-pixel-width) 2))
-         (center-y (/ (- (frame-pixel-height parent-frame) childframe-pixel-height) 2))
-         (center-position (cons center-x center-y)))
+  (let* ((w (micro-experiments--posframe-width))
+         (buffer (get-buffer-create "*Micro Experiment*")))
 
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
@@ -99,10 +99,13 @@
                             'face 'font-lock-keyword-face))
         (center-line)
         (insert "\n\n")
-        (insert (propertize task 'face 'font-lock-function-name-face))
-        (center-line)
-        (insert "\n")
-        (insert (propertize "~ 5 min or less. Just do it. ~"
+        ;; Wrap task text to fit within the posframe width
+        (let ((start (point)))
+          (insert (propertize task 'face 'font-lock-function-name-face))
+          (let ((fill-column (- w 4)))
+            (fill-region start (point) 'center)))
+        (insert "\n\n")
+        (insert (propertize "~ Just do it. ~"
                             'face 'font-lock-comment-face))
         (center-line)
         (setq buffer-read-only t)
@@ -111,9 +114,8 @@
 
     (require 'posframe)
     (posframe-show buffer
-                   :position center-position
-                   :width 60
-                   :height 5
+                   :poshandler 'posframe-poshandler-frame-center
+                   :width w
                    :border-width 3
                    :border-color "#e0a030"
                    :accept-focus nil)
