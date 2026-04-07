@@ -39,7 +39,7 @@
        :ui
        ;;deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
-       doom-dashboard    ; a nifty splash screen for Emacs
+       dashboard    ; a nifty splash screen for Emacs
        (:unless IS-ANDROID smooth-scroll)
        ;; doom-quit         ; DOOM quit-message prompts when you quit Emacs
        (emoji +unicode)  ; emoji support on all platforms
@@ -55,7 +55,7 @@
        (popup +defaults)   ; tame sudden yet inevitable temporary windows
        ;; tabs              ; a tab bar for Emacs
        (:unless IS-ANDROID (treemacs +lsp))  ; a project drawer, like neotree but cooler
-       (:unless IS-ANDROID unicode)  ; extended unicode support for various languages
+       unicode  ; extended unicode support for various languages
        (:unless IS-ANDROID (vc-gutter +pretty))  ; vcs diff in the fringe
        ;; vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        (:unless IS-ANDROID (window-select +numbers))  ; visually switch windows
@@ -74,6 +74,7 @@
        ;;parinfer          ; turn lisp into python, sort of
        ;; rotate-text       ; cycle region at point between text candidates
        snippets          ; my elves. They type so I don't have to
+       (whitespace +guess +trim)  ; a butler for your whitespace
        (:unless IS-ANDROID word-wrap)  ; soft wrapping with language-aware indent
 
        :emacs
@@ -82,6 +83,7 @@
        (:unless IS-ANDROID (ibuffer +icons))  ; interactive buffer management
        (:if IS-ANDROID (ibuffer))
        (:unless IS-ANDROID (undo +tree))
+       (:unless IS-ANDROID tramp)             ; remote files at your arthritic fingertips
        (:if IS-ANDROID undo)  ; persistent, smarter undo for your inevitable mistakes
        (:unless IS-ANDROID vc)  ; version-control and Emacs, sitting in a tree
 
@@ -114,7 +116,6 @@
        ;;make              ; run make tasks from Emacs
        (:unless IS-ANDROID pass)  ; password manager for nerds
        (:unless IS-ANDROID pdf)   ; pdf enhancements
-       (:unless IS-ANDROID prodigy)  ; FIXME managing external services & code builders
        ;;taskrunner        ; taskrunner for all your projects
        (:unless IS-ANDROID terraform)  ; infrastructure as code
        ;;tmux              ; an API for interacting with tmux
@@ -123,7 +124,7 @@
 
        :os
        (:if (featurep :system 'macos) macos)  ; improve compatibility with macOS
-       ;;tty               ; improve the terminal Emacs experience
+       (:unless IS-ANDROID (tty +osc))               ; improve the terminal Emacs experience
 
        :lang
        ;;agda              ; types of types of types of types...
@@ -163,17 +164,18 @@
        ;;ledger            ; be audit you can be
        ;;lua               ; one-based indices? one-based indices
        (:unless IS-ANDROID (markdown +grip))  ; writing docs for people to ignore
+       (:if IS-ANDROID markdown)  ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        ;;nix               ; I hereby declare "nix geht mehr!"
        ;;ocaml             ; an objective camel
        (:unless IS-ANDROID
-         (org +dragndrop +hugo +jupyter +noter +pandoc +pomodoro +present +pretty +roam2))
+         (org +dragndrop +hugo +jupyter +noter +pandoc +present +pretty +roam2))
        (:if IS-ANDROID
            (org +pretty +roam2))  ; organize your plain life in plain text
        ;;php               ; perl's insecure younger brother
        ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
-       (:unless IS-ANDROID (python +tree-sitter +lsp +pyright +pyenv))
+       (:unless IS-ANDROID (python +tree-sitter +lsp +uv))
        (:if IS-ANDROID (python +pyenv))  ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
        ;;racket            ; a DSL for DSLs
@@ -200,7 +202,7 @@
        ;;(wanderlust +gmail)
 
        :app
-       (:unless IS-ANDROID calendar)
+       calendar
        ;; emms
        (:unless IS-ANDROID everywhere)  ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize

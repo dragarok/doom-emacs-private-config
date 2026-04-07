@@ -123,49 +123,6 @@
 (unless IS-ANDROID
   (define-key input-decode-map [?\C-i] [C-i]))
 
-;; ascii art taken from https://www.asciiart.eu/space/telescopes (Telescope by Dokusan)
-(defun doom-dashboard-widget-banner ()
-  (let ((point (point)))
-    (mapc (lambda (line)
-            (insert (propertize (+doom-dashboard--center +doom-dashboard--width line)
-                                'face 'bold))
-            (insert "\n"))
-          '("             _              "
-            "           /(_))            "
-            "         _/   /             "
-            "        //   /              "
-            "       //   /               "
-            "      /\\__/                "
-            "      \\O_/=-0             "
-            "  _  /|| \\              "
-            "   \\\\/()_) \\.              "
-            "  ^^  <__> \\()             "
-            "    //||\\\\              "
-            "     //_||_\\\\               "
-            "    // \\||/ \\\\              "
-            "   //   ||   \\\\             "
-            "  \\/    |/    \\/            "
-            "  /     |      \\            "
-            " /      |       \\           "
-            "        |                   "
-            "-----LIGHT-----            "))
-    (when (and (display-graphic-p)
-               (stringp fancy-splash-image)
-               (file-readable-p fancy-splash-image))
-      (let ((image (create-image (fancy-splash-image-file))))
-        (add-text-properties
-         point (point) `(display ,image rear-nonsticky (display)))
-        (save-excursion
-          (goto-char point)
-          (insert (make-string
-                   (truncate
-                    (max 0 (+ 1 (/ (- +doom-dashboard--width
-                                      (car (image-size image nil)))
-                                   2))))
-                   ? ))))
-      (insert (make-string (or (cdr +doom-dashboard-banner-padding) 0)
-                           ?\n)))))
-
 ;; ============================================================
 ;; PATHS - Platform specific
 ;; ============================================================
@@ -1139,25 +1096,25 @@ selected, then the current line."
 (setq! org-agenda-category-icon-alist
        `(
          ;; Tasks that are still not classified but will be in the future
-         ("Inbox" ,(list (nerd-icons-mdicon "nf-md-checkbox_blank_badge" :height 1.2)) nil nil :ascent center)
+         ("Inbox" ,(nerd-icons-mdicon "nf-md-checkbox_blank_badge" :height 1.2) nil nil :ascent center)
          ;; Reminders of dates for something important
-         ("Events" ,(list (nerd-icons-mdicon "nf-md-calendar_clock" :height 1.2)) nil nil :ascent center)
+         ("Events" ,(nerd-icons-mdicon "nf-md-calendar_clock" :height 1.2) nil nil :ascent center)
          ;; Long term tasks whose output is not immediately known
-         ("ToTheMoon" ,(list (nerd-icons-mdicon "nf-md-rocket_launch_outline" :height 1.2)) nil nil :ascent center)
+         ("ToTheMoon" ,(nerd-icons-mdicon "nf-md-rocket_launch_outline" :height 1.2) nil nil :ascent center)
          ;; Short term tasks that show immediate improvements
-         ("ToImprove" ,(list (nerd-icons-mdicon "nf-md-motorbike" :height 1.2)) nil nil :ascent center)
+         ("ToImprove" ,(nerd-icons-mdicon "nf-md-motorbike" :height 1.2) nil nil :ascent center)
          ;; Something I do just for the sake of doing it
-         ("Hobby" ,(list (nerd-icons-mdicon "nf-md-spa" :height 1.2)) nil nil :ascent center)
+         ("Hobby" ,(nerd-icons-mdicon "nf-md-spa" :height 1.2) nil nil :ascent center)
          ;; Health related tasks
-         ("Fitness" ,(list (nerd-icons-faicon "nf-fa-heartbeat" :height 1.2)) nil nil :ascent center)
+         ("Fitness" ,(nerd-icons-faicon "nf-fa-heartbeat" :height 1.2) nil nil :ascent center)
          ;; Tasks that don't fall into any category
-         ("Normal" ,(list (nerd-icons-mdicon "nf-md-laptop" :height 1.2)) nil nil :ascent center)
+         ("Normal" ,(nerd-icons-mdicon "nf-md-laptop" :height 1.2) nil nil :ascent center)
          ;; Something that is not too valuable in terms of information
-         ("Mundane" ,(list (nerd-icons-mdicon "nf-md-emoticon_sad_outline" :height 1.2)) nil nil :ascent center)
+         ("Mundane" ,(nerd-icons-mdicon "nf-md-emoticon_sad_outline" :height 1.2) nil nil :ascent center)
          ;; Birthdays and Anniversaries
-         ("Celebration" ,(list (nerd-icons-mdicon "nf-md-cake" :height 1.2)) nil nil :ascent center)
+         ("Celebration" ,(nerd-icons-mdicon "nf-md-cake" :height 1.2) nil nil :ascent center)
          ;; Birthdays and Anniversaries
-         ("EHP" ,(list (nerd-icons-faicon "nf-fa-key" :height 1.2)) nil nil :ascent center)
+         ("EHP" ,(nerd-icons-faicon "nf-fa-key" :height 1.2) nil nil :ascent center)
          ))
 
 

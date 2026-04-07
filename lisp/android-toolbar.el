@@ -18,6 +18,7 @@
 ;;; Code:
 
 (require 'productivity_flow)
+(require 'micro-experiments)
 
 (defun rts-flow-setup-toolbar ()
   "Set up the simplified River Flow toolbar with device-appropriate icon sizes.
@@ -60,6 +61,23 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
         `(menu-item "Open Right" kairoam-open-note-to-right
           :help "Open note to right"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/fold-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      ;; ===================================================================
+      ;; MICRO EXPERIMENT - One tap, one task, go do it
+      ;; ===================================================================
+
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-micro-1>" menu-bar-separator)
+      (keymap-set-after (default-value 'tool-bar-map) "<micro-experiments-pick>"
+        `(menu-item "Micro" micro-experiments-pick
+          :help "Pick a random 5-min task. Just do it."
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/lightning-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<micro-experiments-log>"
+        `(menu-item "Log" micro-experiments-log
+          :help "Log what you're working on to daily note"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/blog-blogger-blogging-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================

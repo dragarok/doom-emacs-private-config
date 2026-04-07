@@ -22,7 +22,7 @@
       :size 0.3
       :quit nil
       :ttl nil)
-    (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
+    ;; (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
     (gptel-make-ollama
         "Ollama"
       :host "localhost:11434"
