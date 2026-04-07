@@ -97,17 +97,14 @@ Uses 70% of frame columns, clamped between 30 and 54."
         (erase-buffer)
         (insert (propertize (format "%s %s" emoji (upcase category))
                             'face 'font-lock-keyword-face))
-        (center-line)
         (insert "\n\n")
-        ;; Wrap task text to fit within the posframe width
         (let ((start (point)))
           (insert (propertize task 'face 'font-lock-function-name-face))
           (let ((fill-column (- w 4)))
-            (fill-region start (point) 'center)))
+            (fill-region start (point))))
         (insert "\n\n")
         (insert (propertize "~ Just do it. ~"
                             'face 'font-lock-comment-face))
-        (center-line)
         (setq buffer-read-only t)
         (set (make-local-variable 'face-remapping-alist)
              '((default (:height 220) default)))))
