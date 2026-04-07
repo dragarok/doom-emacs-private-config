@@ -35,10 +35,13 @@
   (pcase category
     ("Kitchen" "🍳")
     ("Body" "💪")
+    ("Habits that I haven't been doing" "🔄")
     ("Cleaning" "🧹")
     ("Hygiene" "🚿")
     ("Logging" "📝")
+    ("Transition" "🌊")
     ("Reset" "🧘")
+    ("Weekly Review (Sunday evening)" "📋")
     (_ "⚡")))
 
 (defun micro-experiments--log-to-daily (entry)
@@ -130,7 +133,7 @@ All other tasks flash a posframe."
          (category (car pick))
          (task (cdr pick))
          (emoji (micro-experiments--category-emoji category)))
-    (if (string= category "Logging")
+    (if (member category '("Logging" "Weekly Review (Sunday evening)"))
         (micro-experiments--handle-logging task)
       (micro-experiments--show-posframe category task emoji))))
 
