@@ -217,6 +217,35 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/zen-brush-symbol-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      ;; ===================================================================
+      ;; ARROW KEYS - Cursor navigation
+      ;; ===================================================================
+
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-arrows>" menu-bar-separator)
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-left>"
+        `(menu-item "Left" left-char
+          :help "Move left"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/left-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-down>"
+        `(menu-item "Down" next-line
+          :help "Move down"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/down-arrow-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-up>"
+        `(menu-item "Up" previous-line
+          :help "Move up"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/up-arrow-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-right>"
+        `(menu-item "Right" right-char
+          :help "Move right"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/right-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
       (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-8>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-9>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<keyboard>"
