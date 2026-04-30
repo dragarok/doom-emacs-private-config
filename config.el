@@ -191,9 +191,10 @@
 (require 'review-reminders)
 (require 'momentum)
 
-;; Android-specific toolbar
+;; Android-specific toolbar and homepage
 (when IS-ANDROID
-  (require 'android-toolbar))
+  (require 'android-toolbar)
+  (require 'android-homepage))
 
 ;; AI workflows (shared across platforms, Mac-only parts guarded inside)
 (require 'ai-workflows)
