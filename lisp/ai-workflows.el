@@ -64,7 +64,15 @@
   (use-package evil-ghostel
     :ensure t
     :after (ghostel evil)
-    :hook (ghostel-mode . evil-ghostel-mode))
+    :hook (ghostel-mode . evil-ghostel-mode)
+    :config
+    (evil-define-key* 'insert evil-ghostel-mode-map
+                      (kbd "C-v")
+                      (defalias 'evil-ghostel--passthrough-ctrl-v
+                        (lambda ()
+                          (interactive)
+                          (evil-ghostel--passthrough-ctrl "v"))
+                        "Send C-v to the terminal or fall back to evil.")))
   (use-package! claude-code
     :config
     ;; Use ghostel (libghostty-powered terminal emulator):

@@ -1099,29 +1099,24 @@ selected, then the current line."
         scihub-download-directory "~/pdfs"
         scihub-open-after-download nil))
 
-(setq! org-agenda-category-icon-alist
-       `(
-         ;; Tasks that are still not classified but will be in the future
-         ("Inbox" ,(nerd-icons-mdicon "nf-md-checkbox_blank_badge" :height 1.2) nil nil :ascent center)
-         ;; Reminders of dates for something important
-         ("Events" ,(nerd-icons-mdicon "nf-md-calendar_clock" :height 1.2) nil nil :ascent center)
-         ;; Long term tasks whose output is not immediately known
-         ("ToTheMoon" ,(nerd-icons-mdicon "nf-md-rocket_launch_outline" :height 1.2) nil nil :ascent center)
-         ;; Short term tasks that show immediate improvements
-         ("ToImprove" ,(nerd-icons-mdicon "nf-md-motorbike" :height 1.2) nil nil :ascent center)
-         ;; Something I do just for the sake of doing it
-         ("Hobby" ,(nerd-icons-mdicon "nf-md-spa" :height 1.2) nil nil :ascent center)
-         ;; Health related tasks
-         ("Fitness" ,(nerd-icons-faicon "nf-fa-heartbeat" :height 1.2) nil nil :ascent center)
-         ;; Tasks that don't fall into any category
-         ("Normal" ,(nerd-icons-mdicon "nf-md-laptop" :height 1.2) nil nil :ascent center)
-         ;; Something that is not too valuable in terms of information
-         ("Mundane" ,(nerd-icons-mdicon "nf-md-emoticon_sad_outline" :height 1.2) nil nil :ascent center)
-         ;; Birthdays and Anniversaries
-         ("Celebration" ,(nerd-icons-mdicon "nf-md-cake" :height 1.2) nil nil :ascent center)
-         ;; Birthdays and Anniversaries
-         ("EHP" ,(nerd-icons-faicon "nf-fa-key" :height 1.2) nil nil :ascent center)
-         ))
+(setq org-agenda-category-icon-alist
+      `(("Inbox"       ,(nerd-icons-mdicon "nf-md-checkbox_blank_badge" :height 1.2))
+        ("Events"      ,(nerd-icons-mdicon "nf-md-calendar_clock" :height 1.2))
+        ("ToTheMoon"   ,(nerd-icons-mdicon "nf-md-rocket_launch_outline" :height 1.2))
+        ("ToImprove"   ,(nerd-icons-mdicon "nf-md-motorbike" :height 1.2))
+        ("Hobby"       ,(nerd-icons-mdicon "nf-md-spa" :height 1.2))
+        ("Fitness"     ,(nerd-icons-faicon "nf-fa-heartbeat" :height 1.2))
+        ("Normal"      ,(nerd-icons-mdicon "nf-md-laptop" :height 1.2))
+        ("Mundane"     ,(nerd-icons-mdicon "nf-md-emoticon_sad_outline" :height 1.2))
+        ("Celebration" ,(nerd-icons-mdicon "nf-md-cake" :height 1.2))
+        ("EHP"         ,(nerd-icons-faicon "nf-fa-key" :height 1.2))))
+
+;; org-agenda-get-category-icon expects image files; override for text icons
+(defadvice! my/org-agenda-get-category-icon-a (category)
+  :override #'org-agenda-get-category-icon
+  (cl-dolist (entry org-agenda-category-icon-alist)
+    (when (string-match-p (car entry) category)
+      (cl-return (cadr entry)))))
 
 
 (after! org
@@ -1144,8 +1139,9 @@ selected, then the current line."
   (org-edna-mode))
 
 (after! org
-  (setq org-agenda-tags-column 40)
-  (setq org-agenda-buffer-name "kai-agenda")
+  (setq org-agenda-tags-column 100)
+  ;; (setq org-agenda-buffer-name "kai-agenda")
+  (setq org-agenda-start-with-log-mode t)
   (setq org-tags-column 40)
   (setq org-agenda-start-with-log-mode t)
   (setq org-columns-default-format "%40ITEM(Task) %Effort(EE){:} %CLOCKSUM(Time Spent) %SCHEDULED(Scheduled) %DEADLINE(Deadline) %TAGS")
@@ -1153,10 +1149,12 @@ selected, then the current line."
   ;; (setq org-agenda-sorting-strategy
   ;;       '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
   ;; (setq org-agenda-sorting-strategy
-  ;;       '((agenda time-up timestamp-up priority-down)
-  ;;         (todo priority-down category-keep)
-  ;;         (tags priority-down category-keep)
-  ;;         (search category-keep)))
+  ;;       '((agenda time-up) (todo time-up) (tags time-up) (search time-up)))
+  (setq org-agenda-sorting-strategy
+        '((agenda time-up timestamp-up priority-down)
+          (todo priority-down category-keep)
+          (tags priority-down category-keep)
+          (search category-keep)))
 
   (add-to-list 'org-global-properties
                '("Effort". "0:05 0:15 0:30 1:00 2:00 3:00 4:00"))
@@ -1946,7 +1944,8 @@ appropriate.  In tables, insert a new row or end the table."
   (message "Current major-mode: %s, buffer: %s" major-mode (buffer-name))
   (unless (eq major-mode 'org-agenda-mode)
     (org-agenda "" "k"))
-  (org-agenda-redo-all))
+  ;; (org-agenda-redo-all)
+  )
 
 (defun my-scratch (&optional p)
   (interactive "P")
