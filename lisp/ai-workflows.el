@@ -58,6 +58,18 @@
   ;; (use-package! gptel-integrations
   ;;   :after (gptel mcp-hub))
 
+  ;; ghostel for ghostty backend useful for ai workflows
+  (use-package ghostel
+    :ensure t)
+  (use-package evil-ghostel
+    :ensure t
+    :after (ghostel evil)
+    :hook (ghostel-mode . evil-ghostel-mode))
+  (use-package! claude-code
+    :config
+    ;; Use ghostel (libghostty-powered terminal emulator):
+    (setq claude-code-terminal-backend 'ghostel))
+
   (use-package! gptel-magit
     :when (modulep! :tools magit)
     :hook (magit-mode . gptel-magit-install))
@@ -79,15 +91,6 @@
 ;;   (call-process "osascript" nil nil nil
 ;;                 "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
 ;;                              message title)))
-
-;; (use-package! claude-code
-;;   :config
-;;   (setq claude-code-notification-function #'my-claude-notify)
-;;   (setq claude-code-startup-delay 0.2)
-;;   (setq claude-code-terminal-backend 'vterm)
-;;   (add-hook 'claude-code-start-hook
-;;             (lambda ()
-;;               (setq-local line-spacing 0.1))))
 
 (use-package claude-code-ide
   :config

@@ -116,8 +116,11 @@
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
 
   (package! claude-code
-    :recipe (:host github :repo "stevemolitor/claude-code.el"
+    :recipe (:host github :repo "stevemolitor/claude-code.el" :branch "main" :depth 1
              :files ("*.el" (:exclude "images/*"))))
+
+  (package! ghostel)
+  (package! evil-ghostel)
   (package! ai-code)
   (package! gemini-cli
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"

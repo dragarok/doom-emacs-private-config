@@ -29,6 +29,12 @@
       user-mail-address "sagar.r.alok@gmail.com")
 
 (setq doom-localleader-key ",")
+
+;; In case you don't use right to left languages at all
+(setq-default bidi-display-reordering 'left-to-right
+              bidi-paragraph-direction 'left-to-right)
+(setq bidi-inhibit-bpa t)
+
 ;; ============================================================
 ;; FONTS - Platform specific
 ;; ============================================================
@@ -1460,11 +1466,6 @@ SCHEDULED: %t
     (insert "\n")))
 
 (after! org
-  (add-hook 'org-agenda-finalize-hook
-            (lambda () (remove-text-properties
-                        (point-min) (point-max) '(mouse-face t))))
-  )
-(after! org
   (require 'org-time-budgets)
   (setq org-time-budgets '((:title "EHP" :match "+work" :budget "30:00" :blocks (workday week))
                            (:title "EHP Deep Work" :match "+work+deepwork" :budget "13:00" :blocks (workday week))
@@ -2324,3 +2325,14 @@ appropriate.  In tables, insert a new row or end the table."
   ("v" (lambda () (interactive) (+evil/window-vsplit-and-follow) (org-open-at-point)) "Vertical Split")
   ("h" (lambda () (interactive) (+evil/window-split-and-follow) (org-open-at-point)) "Horizontal Split")
   ("q" nil "Quit"))
+
+;;; More quality of life improvements from here https://emacsredux.com/blog/2026/04/07/stealing-from-the-best-emacs-configs/
+
+(setq redisplay-skip-fontification-on-input t)
+
+(setq read-process-output-max (* 4 1024 1024)) ; 4MB
+
+(setq-default cursor-in-non-selected-windows nil)
+(setq highlight-nonselected-windows nil)
+
+(setq save-interprogram-paste-before-kill t)
