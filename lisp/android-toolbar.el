@@ -62,17 +62,17 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; CORE FLOW COMMANDS - The essentials
       ;; ===================================================================
 
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-1>" menu-bar-separator)
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-1>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow>"
         `(menu-item "FLOW" rts-flow
           :help "Pick new task (context/energy aware)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/water-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/flow-chart-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-continue>"
         `(menu-item "Continue" rts-flow-continue
           :help "Continue last task"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/play-button-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/debug-continue-small-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-cancel>"
@@ -85,30 +85,31 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; CLOCK OPERATIONS
       ;; ===================================================================
 
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-2>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-manual>"
         `(menu-item "Manual Clock" rts-flow-manual
           :help "Clock into any task via search"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/clock-circle-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/time-add-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-2>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-clock-out>"
         `(menu-item "Clock Out" rts-flow-clock-out
           :help "Smart clock out (auto-DONE for habits)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/done-1477-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/time-check-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-clock-3>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-clock-goto>"
         `(menu-item "Goto Task" rts-flow-clock-goto
           :help "Jump to clocked/last interacted task"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/find-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/time-oclock-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================
       ;; ADD THINGS
       ;; ===================================================================
 
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-3>" menu-bar-separator)
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-3>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-add>"
         `(menu-item "Add" rts-flow-add
           :help "Add task, beancount entry, or clock time"
@@ -130,7 +131,7 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; NAVIGATION (Agenda and Find Node moved to homepage)
       ;; ===================================================================
 
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-5>" menu-bar-separator)
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-5>" menu-bar-separator)
       ;; (keymap-set-after (default-value 'tool-bar-map) "<org-agenda>"
       ;;   `(menu-item "Agenda" my-org-agenda
       ;;     :help "Open org agenda"

@@ -218,10 +218,11 @@
 (when IS-ANDROID
   (let ((termux-bin "/data/data/com.termux/files/usr/bin")
         (home-bin "/data/data/com.termux/files/home/bin")
+        (termux-local-bin "/data/data/com.termux/files/home/.local/bin")
         (texlive-bin "/data/data/com.termux/files/usr/bin/texlive"))
     ;; Prepend ~/bin, texlive, and Termux bin to PATH
-    (setenv "PATH" (concat home-bin ":" texlive-bin ":" termux-bin ":" (getenv "PATH")))
-    (setq exec-path (cons home-bin (cons texlive-bin (cons termux-bin exec-path))))
+    (setenv "PATH" (concat home-bin ":" termux-local-bin ":" texlive-bin ":" termux-bin ":" (getenv "PATH")))
+    (setq exec-path (cons home-bin (cons termux-local-bin (cons texlive-bin (cons termux-bin exec-path)))))
 
     ;; Claude Code needs a writable tmp dir — /tmp doesn't exist on Android
     (let ((claude-tmp (concat home-bin "/../.claude-tmp")))
