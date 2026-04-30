@@ -95,17 +95,16 @@
 
 ;;; Rendering
 
-(defvar android-homepage-col-width 26)
+(defvar android-homepage-columns 3)
 
 (defun android-homepage--render-row (buttons)
-  "Render a row of BUTTONS (up to 3)."
-  (let ((cw android-homepage-col-width)
-        (indent 2))
-    (insert (make-string indent ?\s))
+  "Render a row of BUTTONS using pixel-based alignment."
+  (let* ((ncols android-homepage-columns)
+         (pad 0.03))
     (dotimes (i (length buttons))
-      (let ((btn (nth i buttons)))
-        (when (> i 0)
-          (indent-to (+ indent (* i cw))))
+      (let* ((btn (nth i buttons))
+             (pos (+ pad (/ (float i) ncols))))
+        (insert (propertize " " 'display `(space :align-to (,pos . text))))
         (insert (propertize (plist-get btn :icon) 'face 'android-homepage-icon))
         (insert " ")
         (let ((action (plist-get btn :action)))
@@ -115,12 +114,12 @@
                               'face 'android-homepage-title
                               'help-echo (plist-get btn :desc)))))
     (insert "\n")
-    (insert (make-string (+ indent 3) ?\s))
     (dotimes (i (length buttons))
-      (let ((btn (nth i buttons)))
-        (when (> i 0)
-          (indent-to (+ indent (* i cw) 3)))
-        (insert (propertize (plist-get btn :desc) 'face 'android-homepage-desc))))
+      (let* ((btn (nth i buttons))
+             (pos (+ pad (/ (float i) ncols))))
+        (insert (propertize " " 'display `(space :align-to (,pos . text))))
+        (insert (propertize (plist-get btn :desc)
+                            'face 'android-homepage-desc))))
     (insert "\n")))
 
 (defun android-homepage-widget ()
