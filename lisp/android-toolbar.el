@@ -223,25 +223,25 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
 
       (keymap-set-after (default-value 'tool-bar-map) "<separator-arrows>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<arrow-left>"
-        `(menu-item "Left" left-char
+        `(menu-item "Left" ,(lambda () (interactive) (execute-kbd-macro (kbd "<left>")))
           :help "Move left"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/left-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (keymap-set-after (default-value 'tool-bar-map) "<arrow-down>"
-        `(menu-item "Down" next-line
+        `(menu-item "Down" ,(lambda () (interactive) (execute-kbd-macro (kbd "<down>")))
           :help "Move down"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/down-arrow-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (keymap-set-after (default-value 'tool-bar-map) "<arrow-up>"
-        `(menu-item "Up" previous-line
+        `(menu-item "Up" ,(lambda () (interactive) (execute-kbd-macro (kbd "<up>")))
           :help "Move up"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/up-arrow-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (keymap-set-after (default-value 'tool-bar-map) "<arrow-right>"
-        `(menu-item "Right" right-char
+        `(menu-item "Right" ,(lambda () (interactive) (execute-kbd-macro (kbd "<right>")))
           :help "Move right"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/right-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
