@@ -23,103 +23,104 @@
   '((t :inherit font-lock-comment-face))
   "Button descriptions.")
 
+;;; Toggle between homepage and last buffer
+
+(defvar android-homepage--last-buffer nil)
+
+(defun android-homepage-toggle ()
+  "Toggle between homepage and the last non-dashboard buffer."
+  (interactive)
+  (if (+dashboard-buffer-p (current-buffer))
+      (when-let ((buf (or (and (buffer-live-p android-homepage--last-buffer)
+                               android-homepage--last-buffer)
+                          (other-buffer (current-buffer) t))))
+        (switch-to-buffer buf))
+    (setq android-homepage--last-buffer (current-buffer))
+    (+dashboard/open (selected-frame))))
+
 ;;; Section definitions
 
 (defun android-homepage--sections ()
   "Build the homepage button grid."
-  (list
-   (list "River Flow"
+  (let ((sections
          (list
-          (list :icon (nerd-icons-faicon "nf-fa-tint")
-                :title "Flow" :desc "Pick new task" :action 'rts-flow)
-          (list :icon (nerd-icons-faicon "nf-fa-play")
-                :title "Continue" :desc "Resume last" :action 'rts-flow-continue)
-          (list :icon (nerd-icons-faicon "nf-fa-times")
-                :title "Cancel" :desc "Undo selection" :action 'rts-flow-cancel)
-          (list :icon (nerd-icons-faicon "nf-fa-clock_o")
-                :title "Manual Clock" :desc "Clock any task" :action 'rts-flow-manual)
-          (list :icon (nerd-icons-faicon "nf-fa-check_circle")
-                :title "Clock Out" :desc "Smart clock out" :action 'rts-flow-clock-out)
-          (list :icon (nerd-icons-faicon "nf-fa-crosshairs")
-                :title "Goto Task" :desc "Jump to task" :action 'rts-flow-clock-goto)))
+          (list "River Flow"
+                (list
+                 (list :icon (nerd-icons-faicon "nf-fa-tint")
+                       :title "Flow" :desc "Pick new task" :action 'rts-flow)
+                 (list :icon (nerd-icons-faicon "nf-fa-play")
+                       :title "Continue" :desc "Resume last" :action 'rts-flow-continue)
+                 (list :icon (nerd-icons-faicon "nf-fa-times")
+                       :title "Cancel" :desc "Undo selection" :action 'rts-flow-cancel)
+                 (list :icon (nerd-icons-faicon "nf-fa-clock_o")
+                       :title "Manual Clock" :desc "Clock any task" :action 'rts-flow-manual)
+                 (list :icon (nerd-icons-faicon "nf-fa-check_circle")
+                       :title "Clock Out" :desc "Smart clock out" :action 'rts-flow-clock-out)
+                 (list :icon (nerd-icons-faicon "nf-fa-crosshairs")
+                       :title "Goto Task" :desc "Jump to task" :action 'rts-flow-clock-goto)))
 
-   (list "Quick Actions"
-         (list
-          (list :icon (nerd-icons-faicon "nf-fa-plus_circle")
-                :title "Add" :desc "Task / Bean / Clock" :action 'rts-flow-add)
-          (list :icon (nerd-icons-faicon "nf-fa-compass")
-                :title "State" :desc "Context + Energy" :action 'rts-flow-set-state)
-          (list :icon (nerd-icons-faicon "nf-fa-bolt")
-                :title "Micro" :desc "5-min task" :action 'micro-experiments-pick)
-          (list :icon (nerd-icons-faicon "nf-fa-pencil")
-                :title "Log" :desc "Daily note" :action 'micro-experiments-log)))
+          (list "Quick Actions"
+                (list
+                 (list :icon (nerd-icons-faicon "nf-fa-plus_circle")
+                       :title "Add" :desc "Task / Bean / Clock" :action 'rts-flow-add)
+                 (list :icon (nerd-icons-faicon "nf-fa-compass")
+                       :title "State" :desc "Context + Energy" :action 'rts-flow-set-state)
+                 (list :icon (nerd-icons-faicon "nf-fa-bolt")
+                       :title "Micro" :desc "5-min task" :action 'micro-experiments-pick)
+                 (list :icon (nerd-icons-faicon "nf-fa-pencil")
+                       :title "Log" :desc "Daily note" :action 'micro-experiments-log)))
 
-   (list "Navigate"
-         (list
-          (list :icon (nerd-icons-faicon "nf-fa-calendar")
-                :title "Agenda" :desc "Org agenda" :action 'my-org-agenda)
-          (list :icon (nerd-icons-faicon "nf-fa-search")
-                :title "Find Node" :desc "Org-roam search" :action 'org-roam-node-find)
-          (list :icon (nerd-icons-faicon "nf-fa-sun_o")
-                :title "Dailies" :desc "Cycle focus" :action 'my/org-roam-dailies-cycle-focus)
-          (list :icon (nerd-icons-faicon "nf-fa-random")
-                :title "Random" :desc "Random note" :action 'org-roam-node-random)))
+          (list "Navigate"
+                (list
+                 (list :icon (nerd-icons-faicon "nf-fa-calendar")
+                       :title "Agenda" :desc "Org agenda" :action 'my-org-agenda)
+                 (list :icon (nerd-icons-faicon "nf-fa-search")
+                       :title "Find Node" :desc "Org-roam search" :action 'org-roam-node-find)
+                 (list :icon (nerd-icons-faicon "nf-fa-sun_o")
+                       :title "Dailies" :desc "Cycle focus" :action 'my/org-roam-dailies-cycle-focus)
+                 (list :icon (nerd-icons-faicon "nf-fa-random")
+                       :title "Random" :desc "Random note" :action 'org-roam-node-random)))
 
-   (list "Windows"
-         (list
-          (list :icon (nerd-icons-faicon "nf-fa-expand")
-                :title "Toggle Size" :desc "Expand / fold" :action 'kairoam-toggle-size)
-          (list :icon (nerd-icons-faicon "nf-fa-balance_scale")
-                :title "Balance" :desc "Balance windows" :action 'kairoam-balance)
-          (list :icon (nerd-icons-faicon "nf-fa-toggle_on")
-                :title "Kairoam" :desc "Toggle on/off" :action 'kairoam-toggle)
-          (list :icon (nerd-icons-faicon "nf-fa-columns")
-                :title "Open Right" :desc "Note to right" :action 'kairoam-open-note-to-right)))
-
-   (list "Tools"
-         (list
-          (list :icon (nerd-icons-faicon "nf-fa-list")
-                :title "Buffers" :desc "Buffer list" :action 'ibuffer)
-          (list :icon (nerd-icons-faicon "nf-fa-leaf")
-                :title "Zen" :desc "Writeroom" :action 'global-writeroom-mode)
-          (list :icon (nerd-icons-faicon "nf-fa-camera")
-                :title "Camera" :desc "Attach media" :action 'my/org-attach-media)
-          (list :icon (nerd-icons-faicon "nf-fa-keyboard_o")
-                :title "Keyboard" :desc "Toggle input" :action 'my/toggle-touch-keyboard)))))
+          (list "Tools"
+                (list
+                 (list :icon (nerd-icons-faicon "nf-fa-list")
+                       :title "Buffers" :desc "Buffer list" :action 'ibuffer)
+                 (list :icon (nerd-icons-faicon "nf-fa-leaf")
+                       :title "Zen" :desc "Writeroom" :action 'global-writeroom-mode)
+                 (list :icon (nerd-icons-faicon "nf-fa-camera")
+                       :title "Camera" :desc "Attach media" :action 'my/org-attach-media)
+                 (list :icon (nerd-icons-faicon "nf-fa-keyboard_o")
+                       :title "Keyboard" :desc "Toggle input" :action 'my/toggle-touch-keyboard))))))
+    sections))
 
 ;;; Rendering
 
-(defvar android-homepage-col-width 38)
+(defvar android-homepage-col-width 26)
 
-(defun android-homepage--render-row (left &optional right)
-  "Render a button row with LEFT and optionally RIGHT button."
+(defun android-homepage--render-row (buttons)
+  "Render a row of BUTTONS (up to 3)."
   (let ((cw android-homepage-col-width)
-        (indent 4))
+        (indent 2))
     (insert (make-string indent ?\s))
-    (insert (propertize (plist-get left :icon) 'face 'android-homepage-icon))
-    (insert " ")
-    (let ((action (plist-get left :action)))
-      (insert-text-button (plist-get left :title)
-                          'action `(lambda (_) (call-interactively #',action))
-                          'follow-link t
-                          'face 'android-homepage-title
-                          'help-echo (plist-get left :desc)))
-    (when right
-      (indent-to (+ indent cw))
-      (insert (propertize (plist-get right :icon) 'face 'android-homepage-icon))
-      (insert " ")
-      (let ((action (plist-get right :action)))
-        (insert-text-button (plist-get right :title)
-                            'action `(lambda (_) (call-interactively #',action))
-                            'follow-link t
-                            'face 'android-homepage-title
-                            'help-echo (plist-get right :desc))))
+    (dotimes (i (length buttons))
+      (let ((btn (nth i buttons)))
+        (when (> i 0)
+          (indent-to (+ indent (* i cw))))
+        (insert (propertize (plist-get btn :icon) 'face 'android-homepage-icon))
+        (insert " ")
+        (let ((action (plist-get btn :action)))
+          (insert-text-button (plist-get btn :title)
+                              'action `(lambda (_) (call-interactively #',action))
+                              'follow-link t
+                              'face 'android-homepage-title
+                              'help-echo (plist-get btn :desc)))))
     (insert "\n")
     (insert (make-string (+ indent 3) ?\s))
-    (insert (propertize (plist-get left :desc) 'face 'android-homepage-desc))
-    (when right
-      (indent-to (+ indent cw 3))
-      (insert (propertize (plist-get right :desc) 'face 'android-homepage-desc)))
+    (dotimes (i (length buttons))
+      (let ((btn (nth i buttons)))
+        (when (> i 0)
+          (indent-to (+ indent (* i cw) 3)))
+        (insert (propertize (plist-get btn :desc) 'face 'android-homepage-desc))))
     (insert "\n")))
 
 (defun android-homepage-widget ()
@@ -129,13 +130,13 @@
     (dolist (section sections)
       (let* ((header (car section))
              (buttons (cadr section))
-             (pairs (seq-partition buttons 2)))
+             (rows (seq-partition buttons 3)))
         (+dashboard-insert
          (propertize (format "━━  %s  ━━" (upcase header))
                      'face 'android-homepage-section))
         (insert "\n")
-        (dolist (pair pairs)
-          (android-homepage--render-row (car pair) (cadr pair))
+        (dolist (row rows)
+          (android-homepage--render-row row)
           (insert "\n"))))))
 
 ;;; Activate — swap the default shortmenu for our grid
