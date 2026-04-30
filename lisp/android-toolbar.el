@@ -42,43 +42,10 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
                       (t 64))))
 
       ;; ===================================================================
-      ;; KAIROAM - Window Management
-      ;; ===================================================================
-
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-kai-1>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-toggle-size>"
-        `(menu-item "Toggle Size" kairoam-toggle-size
-          :help "Smart toggle: expand if folded, fold if expanded"
-          :visible (derived-mode-p 'org-mode)
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/expand-alt-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-balance>"
-        `(menu-item "Balance" kairoam-balance
-          :help "Balance Kairoam windows"
-          :visible (derived-mode-p 'org-mode)
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/balance-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-toggle>"
-        `(menu-item "Kairoam Toggle" kairoam-toggle
-          :help "Toggle Kairoam mode on/off"
-          :visible (derived-mode-p 'org-mode)
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/toggle-on-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-open-right>"
-        `(menu-item "Open Right" kairoam-open-note-to-right
-          :help "Open note to right"
-          :visible (derived-mode-p 'org-mode)
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/fold-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      ;; ===================================================================
       ;; MICRO EXPERIMENT - One tap, one task, go do it
       ;; ===================================================================
 
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-micro-1>" menu-bar-separator)
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<separator-micro-1>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<micro-experiments-pick>"
         `(menu-item "Micro" micro-experiments-pick
           :help "Pick a random 5-min task. Just do it."
@@ -183,33 +150,33 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================
-      ;; ORG-ROAM EXTRAS
+      ;; ORG-ROAM EXTRAS (moved to homepage)
       ;; ===================================================================
 
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-6>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<org-roam-dailies-today>"
-        `(menu-item "Dailies Switch" my/org-roam-dailies-cycle-focus
-          :help "Cycle: Today -> Prev Monday -> Next Monday"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/sun-weather-sunny-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-6>" menu-bar-separator)
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<org-roam-dailies-today>"
+      ;;   `(menu-item "Dailies Switch" my/org-roam-dailies-cycle-focus
+      ;;     :help "Cycle: Today -> Prev Monday -> Next Monday"
+      ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/sun-weather-sunny-svgrepo-com.svg"
+      ;;                   :height ,icon-size :width ,icon-size)))
 
-      (keymap-set-after (default-value 'tool-bar-map) "<org-node-random-large>"
-        `(menu-item "Random Large Note" org-roam-open-large-note-randomly
-          :help "Open a random large org-roam note"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/random-1dice-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<org-node-random-large>"
+      ;;   `(menu-item "Random Large Note" org-roam-open-large-note-randomly
+      ;;     :help "Open a random large org-roam note"
+      ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/random-1dice-svgrepo-com.svg"
+      ;;                   :height ,icon-size :width ,icon-size)))
 
-      (keymap-set-after (default-value 'tool-bar-map) "<org-node-random>"
-        `(menu-item "Random Note" org-roam-node-random
-          :help "Open a random org-roam note"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/shuffle-random-mix-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<org-node-random>"
+      ;;   `(menu-item "Random Note" org-roam-node-random
+      ;;     :help "Open a random org-roam note"
+      ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/shuffle-random-mix-svgrepo-com.svg"
+      ;;                   :height ,icon-size :width ,icon-size)))
 
-      (keymap-set-after (default-value 'tool-bar-map) "<org-roam-ui>"
-        `(menu-item "Graph UI" org-roam-ui-open
-          :help "Open org-roam graph UI"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/graph-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<org-roam-ui>"
+      ;;   `(menu-item "Graph UI" org-roam-ui-open
+      ;;     :help "Open org-roam graph UI"
+      ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/graph-svgrepo-com.svg"
+      ;;                   :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================
       ;; UTILITIES
@@ -298,6 +265,39 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
         `(menu-item "Attach Media" my/org-attach-media
           :help "Attach photo or screenshot to current Org node"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/instant-camera-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      ;; ===================================================================
+      ;; KAIROAM - Window Management (org-mode only)
+      ;; ===================================================================
+
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-kai-1>" menu-bar-separator)
+      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-toggle-size>"
+        `(menu-item "Toggle Size" kairoam-toggle-size
+          :help "Smart toggle: expand if folded, fold if expanded"
+          :visible (derived-mode-p 'org-mode)
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/expand-alt-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-balance>"
+        `(menu-item "Balance" kairoam-balance
+          :help "Balance Kairoam windows"
+          :visible (derived-mode-p 'org-mode)
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/balance-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-toggle>"
+        `(menu-item "Kairoam Toggle" kairoam-toggle
+          :help "Toggle Kairoam mode on/off"
+          :visible (derived-mode-p 'org-mode)
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/toggle-on-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<kairoam-open-right>"
+        `(menu-item "Open Right" kairoam-open-note-to-right
+          :help "Open note to right"
+          :visible (derived-mode-p 'org-mode)
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/fold-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       (message "River Flow toolbar configured with %dx%d icons" icon-size icon-size))))

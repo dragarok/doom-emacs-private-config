@@ -65,10 +65,14 @@
                        :title "Add" :desc "Task / Bean / Clock" :action 'rts-flow-add)
                  (list :icon (nerd-icons-faicon "nf-fa-compass")
                        :title "State" :desc "Context + Energy" :action 'rts-flow-set-state)
+                 (list :icon (nerd-icons-faicon "nf-fa-info_circle")
+                       :title "Show State" :desc "View current" :action 'rts-flow-show-state)
                  (list :icon (nerd-icons-faicon "nf-fa-bolt")
                        :title "Micro" :desc "5-min task" :action 'micro-experiments-pick)
                  (list :icon (nerd-icons-faicon "nf-fa-pencil")
-                       :title "Log" :desc "Daily note" :action 'micro-experiments-log)))
+                       :title "Log" :desc "Daily note" :action 'micro-experiments-log)
+                 (list :icon (nerd-icons-faicon "nf-fa-lightbulb_o")
+                       :title "Forgotten" :desc "Resurface note" :action 'rts-flow-surface-forgotten-note)))
 
           (list "Navigate"
                 (list
@@ -79,7 +83,11 @@
                  (list :icon (nerd-icons-faicon "nf-fa-sun_o")
                        :title "Dailies" :desc "Cycle focus" :action 'my/org-roam-dailies-cycle-focus)
                  (list :icon (nerd-icons-faicon "nf-fa-random")
-                       :title "Random" :desc "Random note" :action 'org-roam-node-random)))
+                       :title "Random" :desc "Random note" :action 'org-roam-node-random)
+                 (list :icon (nerd-icons-faicon "nf-fa-dice")
+                       :title "Random Big" :desc "Large note" :action 'org-roam-open-large-note-randomly)
+                 (list :icon (nerd-icons-faicon "nf-fa-share_alt")
+                       :title "Graph" :desc "Org-roam graph" :action 'org-roam-ui-open)))
 
           (list "Tools"
                 (list
@@ -90,7 +98,11 @@
                  (list :icon (nerd-icons-faicon "nf-fa-camera")
                        :title "Camera" :desc "Attach media" :action 'my/org-attach-media)
                  (list :icon (nerd-icons-faicon "nf-fa-keyboard_o")
-                       :title "Keyboard" :desc "Toggle input" :action 'my/toggle-touch-keyboard))))))
+                       :title "Keyboard" :desc "Toggle input" :action 'my/toggle-touch-keyboard)
+                 (list :icon (nerd-icons-faicon "nf-fa-image")
+                       :title "Diary" :desc "Browse photos" :action 'my/diary-browse-images)
+                 (list :icon (nerd-icons-faicon "nf-fa-bar_chart")
+                       :title "Neglect" :desc "Weekly report" :action 'rts-flow-weekly-neglect-report))))))
     sections))
 
 ;;; Rendering
