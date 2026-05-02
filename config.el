@@ -160,6 +160,8 @@
 (setq org-books-file org-bookslog-file)
 (setq org-recurring-file (concat org-agenda-directory "recurring.org"))
 (setq org-projects-file (concat org-agenda-directory "projects.org"))
+(setq org-mundane-tasks-file (concat org-agenda-directory "mundane.org"))
+(setq org-blogsnvideos-file (concat org-agenda-directory "log_blogsnvideos.org"))
 (setq org-tasks-file (concat org-agenda-directory "tasks.org"))
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
 (setq org-motto-file (concat org-agenda-directory "motto.org"))
@@ -1065,7 +1067,13 @@ selected, then the current line."
        :n "p" #'(lambda ()
                   (interactive)
                   (switch-to-buffer (find-file-noselect org-projects-file)))
-       :n "r" #'(lambda ()
+       :n "m" #'(lambda ()
+                  (interactive)
+                  (switch-to-buffer (find-file-noselect org-mundane-tasks-file)))
+       :n "v" #'(lambda ()
+                  (interactive)
+                  (switch-to-buffer (find-file-noselect org-blogsnvideos-file)))
+       :n "h" #'(lambda ()
                   (interactive)
                   (switch-to-buffer (find-file-noselect org-recurring-file)))
        :n "D" (if IS-ANDROID #'ignore #'dash-docs-activate-docset)
@@ -1311,9 +1319,9 @@ selected, then the current line."
 
 
 (after! org (add-to-list 'org-capture-templates
-                         '("pn" "New Project" entry
-                           (file org-inbox-file)
-                           (file (concat org-templates-directory "newprojtemplate.org")))
+                         `("pn" "New Project" entry
+                           (file ,org-inbox-file)
+                           (file ,(concat org-templates-directory "newprojtemplate.org")))
                          ))
 
 

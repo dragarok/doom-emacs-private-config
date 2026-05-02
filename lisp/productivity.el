@@ -1767,9 +1767,18 @@ This is an alias for calling consult-clock-nonimportant-task with prefix argumen
   (consult-clock-nonimportant-task t))
 
 (defun rts--get-all-task-candidates ()
-  "Get formatted candidates from base tasks AND mundane/leisure tasks.
+  "Get formatted candidates from base tasks, active tasks, AND mundane/leisure tasks.
 Returns list of (display . marker) pairs with duplicates removed."
   (let* ((base-tasks (rts--get-base-tasks 'tasks))
+         (active-tasks (let ((files (delq nil (list org-tasks-file org-projects-file))))
+                         (when files
+                           (org-ql-select
+                             files
+                             '(and (todo "NEXT")
+                                   (not (scheduled :to today))
+                                   (not (deadline :to 7)))
+                             :action 'element-with-markers
+                             :sort '(priority)))))
          (mundane-tasks (org-ql-select
                           (org-agenda-files)
                           '(and (not (done))
@@ -1788,7 +1797,7 @@ Returns list of (display . marker) pairs with duplicates removed."
                          (unless (gethash key seen-positions)
                            (puthash key t seen-positions)
                            t)))
-                     (append base-tasks mundane-tasks)))
+                     (append base-tasks active-tasks mundane-tasks)))
          (candidates (mapcar
                       (lambda (task)
                         (let* ((heading (org-element-property :raw-value task))
