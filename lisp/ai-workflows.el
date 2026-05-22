@@ -121,12 +121,12 @@
   "Last Claude buffer visited by `my/claude-cycle-sessions'.")
 
 (defun my/claude--session-buffers ()
-  "Return all live Claude/ghostel session buffers across all workspaces."
+  "Return all live Claude session buffers across all workspaces."
   (seq-filter
    (lambda (buf)
      (let ((name (buffer-name buf)))
-       (or (string-prefix-p "*claude-code[" name)
-           (string-prefix-p "*ghostel:" name))))
+       (or (string-prefix-p "*claude:" name)
+           (string-prefix-p "*claude-code[" name))))
    (buffer-list)))
 
 (defun my/claude--workspace-for-buffer (buf)
