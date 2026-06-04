@@ -34,6 +34,11 @@
 (package! claude-code-ide
   :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
 
+(package! claude-code
+  :recipe (:host github :repo "stevemolitor/claude-code.el" :branch "main" :depth 1
+           :files ("*.el" (:exclude "images/*"))))
+
+
 (package! hydra-posframe
   :recipe (:host github :repo "Ladicle/hydra-posframe"))
 
@@ -115,17 +120,13 @@
   (package! mcp-hub
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
 
-  (package! claude-code
-    :recipe (:host github :repo "stevemolitor/claude-code.el" :branch "main" :depth 1
-             :files ("*.el" (:exclude "images/*"))))
-
-  (package! ghostel)
-  (package! evil-ghostel)
   (package! ai-code)
   (package! gemini-cli
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"
              :files ("*.el" (:exclude "demo.gif"))))
 
+(package! ghostel)
+(package! evil-ghostel)
   ;; Search
   (package! consult-web
     :recipe (:host github :repo "armindarvish/consult-web" :files (:defaults "sources/*.el")))
