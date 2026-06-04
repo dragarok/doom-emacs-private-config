@@ -136,6 +136,8 @@
     :recipe (:host github :repo "dragarok/chezmoi.el"
              :files (:defaults "extensions/*.el"))))
 
+;; Podcast scene for claude-podcast.el (learn-while-you-wait autoplay)
+(package! elfeed)
 ;; (package! elfeed-tube
 ;;   :recipe (:host github :repo "karthink/elfeed-tube"))
 ;; (package! elfeed-tube-mpv

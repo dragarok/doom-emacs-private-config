@@ -58,21 +58,21 @@
   ;; (use-package! gptel-integrations
   ;;   :after (gptel mcp-hub))
 
-;; ghostel for ghostty backend useful for ai workflows
-(use-package ghostel
-  :ensure t)
-(use-package evil-ghostel
-  :ensure t
-  :after (ghostel evil)
-  :hook (ghostel-mode . evil-ghostel-mode)
-  :config
-  (evil-define-key* 'insert evil-ghostel-mode-map
-    (kbd "C-v")
-    (defalias 'evil-ghostel--passthrough-ctrl-v
-      (lambda ()
-        (interactive)
-        (evil-ghostel--passthrough-ctrl "v"))
-      "Send C-v to the terminal or fall back to evil.")))
+  ;; ghostel for ghostty backend useful for ai workflows
+  (use-package ghostel
+    :ensure t)
+  (use-package evil-ghostel
+    :ensure t
+    :after (ghostel evil)
+    :hook (ghostel-mode . evil-ghostel-mode)
+    :config
+    (evil-define-key* 'insert evil-ghostel-mode-map
+      (kbd "C-v")
+      (defalias 'evil-ghostel--passthrough-ctrl-v
+        (lambda ()
+          (interactive)
+          (evil-ghostel--passthrough-ctrl "v"))
+        "Send C-v to the terminal or fall back to evil.")))
 
   (use-package! gptel-magit
     :when (modulep! :tools magit)
@@ -100,15 +100,61 @@
   :config
   ;; Use ghostel (libghostty-powered terminal emulator):
   (if IS-MAC
-  (setq claude-code-terminal-backend 'ghostel)))
+      (setq claude-code-terminal-backend 'ghostel)))
 
 (use-package claude-code-ide
   :config
-  (if IS-ANDROID
-      (setq claude-code-ide-use-side-window nil))
+  ;; (if IS-ANDROID
+  ;;     (setq claude-code-ide-use-side-window nil))
+  (setq claude-code-ide-use-side-window nil)
   (claude-code-ide-emacs-tools-setup)
   (define-key prog-mode-map (kbd "s-TAB") #'claude-code-ide-menu)
   (setq claude-code-ide-use-ide-diff nil))
+
+(map! :leader
+      (:prefix ("l" . "llm")
+       :desc "Cycle Claude sessions" "c" #'my/claude-cycle-sessions))
+
+;; ============================================================
+;; CYCLE CLAUDE BUFFERS ACROSS WORKSPACES
+;; ============================================================
+
+(defvar my/claude-cycle--last-buffer nil
+  "Last Claude buffer visited by `my/claude-cycle-sessions'.")
+
+(defun my/claude--session-buffers ()
+  "Return all live Claude session buffers across all workspaces."
+  (seq-filter
+   (lambda (buf)
+     (let ((name (buffer-name buf)))
+       (or (string-prefix-p "*claude:" name)
+           (string-prefix-p "*claude-code[" name))))
+   (buffer-list)))
+
+(defun my/claude--workspace-for-buffer (buf)
+  "Find the workspace name that contains BUF, or nil."
+  (cl-loop for name in (+workspace-list-names)
+           when (memq buf (persp-buffers (persp-get-by-name name)))
+           return name))
+
+(defun my/claude-cycle-sessions ()
+  "Cycle through Claude Code sessions across workspaces.
+Switches to the workspace containing the next buffer and displays it
+without stealing focus from the current window layout."
+  (interactive)
+  (let ((bufs (my/claude--session-buffers)))
+    (unless bufs
+      (user-error "No Claude sessions found"))
+    (let* ((sorted (sort bufs (lambda (a b) (string< (buffer-name a) (buffer-name b)))))
+           (current (cl-position my/claude-cycle--last-buffer sorted))
+           (next-idx (if current (mod (1+ current) (length sorted)) 0))
+           (next-buf (nth next-idx sorted))
+           (ws (my/claude--workspace-for-buffer next-buf)))
+      (when ws
+        (+workspace/switch-to ws))
+      (display-buffer next-buf '(display-buffer-use-some-window))
+      (setq my/claude-cycle--last-buffer next-buf)
+      (message "Claude: %s [%s]" (buffer-name next-buf) (or ws "none")))))
 
 ;; ============================================================
 ;; CLAUDE IMAGE ATTACHMENT (local on Android, remote via SSH on Mac)

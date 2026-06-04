@@ -214,6 +214,9 @@
        (:unless IS-ANDROID (default +bindings))
        (:if IS-ANDROID (default +bindings +smartparens)))
 
+;; Machine-local values (Tailscale IPs etc.) — git-ignored, one per device
+(load (expand-file-name "local.el" doom-user-dir) t t)
+
 ;; Termux PATH setup for Android
 (when IS-ANDROID
   (let ((termux-bin "/data/data/com.termux/files/usr/bin")
@@ -223,6 +226,10 @@
     ;; Prepend ~/bin, texlive, and Termux bin to PATH
     (setenv "PATH" (concat home-bin ":" termux-local-bin ":" texlive-bin ":" termux-bin ":" (getenv "PATH")))
     (setq exec-path (cons home-bin (cons termux-local-bin (cons texlive-bin (cons termux-bin exec-path)))))
+
+    ;; Android Emacs exports LANG=en_US.utf8 — a spelling macOS doesn't have,
+    ;; so mosh/ssh sessions spawned from vterm break. Match Termux instead.
+    (setenv "LANG" "en_US.UTF-8")
 
     ;; Claude Code needs a writable tmp dir — /tmp doesn't exist on Android
     (let ((claude-tmp (concat home-bin "/../.claude-tmp")))

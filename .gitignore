@@ -4,3 +4,6 @@
 tmp/
 custom.el
 bookmarks
+
+# Machine-local values (Tailscale IPs etc.) — recreate per device
+/local.el
