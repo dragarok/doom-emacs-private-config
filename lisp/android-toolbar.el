@@ -20,13 +20,6 @@
 (require 'productivity_flow)
 (require 'micro-experiments)
 
-(defun android-toolbar-claude-code ()
-  "Launch Claude Code: choose new session or continue existing."
-  (interactive)
-  (pcase (read-char-choice "Claude Code: [n]ew session  [c]ontinue " '(?n ?c))
-    (?n (call-interactively #'claude-code-ide))
-    (?c (call-interactively #'claude-code-ide-continue))))
-
 (defun rts-flow-setup-toolbar ()
   "Set up the simplified River Flow toolbar with device-appropriate icon sizes.
 POCO devices use 64x64, ONYX e-readers use 80x80."
@@ -197,14 +190,19 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================
-      ;; CLAUDE CODE
+      ;; MAC EMACS (claude-mac: mosh window into the Mac)
       ;; ===================================================================
 
       (keymap-set-after (default-value 'tool-bar-map) "<separator-claude>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<claude-code>"
-        `(menu-item "Claude Code" android-toolbar-claude-code
-          :help "Launch Claude Code (new or continue)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/claude-code-svgrepo-com.svg"
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-connect>"
+        `(menu-item "Mac" claude-mac
+          :help "Connect/jump to the active remote Emacs over mosh (grabs keyboard)"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/data-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-keys>"
+        `(menu-item "Keys" claude-mac-toggle
+          :help "Toggle keyboard passthrough to the active remote Emacs"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/security-priority-solid-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================

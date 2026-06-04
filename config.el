@@ -196,10 +196,87 @@
 ;; Android-specific toolbar and homepage
 (when IS-ANDROID
   (require 'android-toolbar)
-  (require 'android-homepage))
+  (require 'android-homepage)
+  (require 'claude-mac))                    ; mosh window into the Mac Emacs
 
 ;; AI workflows (shared across platforms, Mac-only parts guarded inside)
 (require 'ai-workflows)
+
+;; Reload-robustness: on config reload, persp-mode's cl-defstruct setf-setter
+;; for `persp-window-conf' can momentarily be void, and a window op then errors
+;; ("Symbol's function definition is void: (setf persp-window-conf)").  Define
+;; the setter symbol so that path never breaks.  NOTE: the body uses plain
+;; `aset' + `cl-struct-slot-offset' (a function) -- NOT `setf
+;; (cl-struct-slot-value ...)', whose macro tries to resolve the `perspective'
+;; struct at THIS file's load time (before persp-mode is loaded) and errors
+;; "Unknown type perspective".
+(with-eval-after-load 'persp-mode
+  (let ((sym (intern "(setf persp-window-conf)")))
+    (unless (fboundp sym)
+      (defalias sym
+        (lambda (newval persp)
+          (aset persp (cl-struct-slot-offset 'perspective 'window-conf) newval)
+          newval)))))
+
+;; Robustness: stop Emacs ABORTING in the bidi (bidirectional-text) engine.
+;; Repeated daemon crashes are all `emacs_abort' inside the bidi resolver
+;; (`bidi_resolve_brackets'/`bidi_resolve_weak'/`bidi_resolve_explicit') while
+;; redisplaying the Claude TUI as it streams output.  Doom already sets
+;; `bidi-inhibit-bpa' t and a left-to-right base globally (see doom-start.el),
+;; and the crash happened anyway -- those keep the resolver running, just
+;; simplified.  The only thing that keeps redisplay OUT of the aborting
+;; resolver is turning reordering off, which is safe here because terminal
+;; text is grid-positioned and left-to-right (logical order == visual order).
+;; Scope it to ghostel terminal buffers only -- never globally, so org/markdown
+;; and any RTL text elsewhere keep full bidi support.
+(unless IS-ANDROID
+  (add-hook 'ghostel-mode-hook
+            (lambda () (setq-local bidi-display-reordering nil))))
+
+;; Master Claude workspace: many Claude sessions in one adaptive grid,
+;; pinned terminal width (so they never garble across phone + monitor),
+;; and chime/popup/auto-switch when a session is waiting for input.
+;; Mac only — the phone reaches it remotely through claude-mac instead.
+(unless IS-ANDROID
+  (require 'claude-workspace)
+  (claude-workspace-pin-width-mode 1)       ; pin width (no claude-code dependency)
+  (with-eval-after-load 'claude-code        ; chime/popup/auto-switch on input-wait
+    (claude-workspace-attention-mode 1))
+  (map! :leader :desc "Master Claude workspace" "o C" #'claude-workspace-transient)
+  (map! :leader :desc "Switch Claude session"    "v x" #'claude-workspace-cycle-session)
+  (map! :leader :desc "Jump to waiting Claude"    "v u" #'claude-workspace-jump-to-attention)
+  (map! :leader :desc "Expand → project workspace" "v e" #'claude-workspace-expand-to-project)
+  (map! :leader :desc "Collapse → master-claude"   "v m" #'claude-workspace-collapse)
+  (map! :leader :desc "Expand session ↓ into empty slot" "v z" #'claude-workspace-expand-down))
+(when IS-ANDROID                            ; on the phone, SPC o C goes to the remote machine
+  (map! :leader :desc "Remote Emacs (mosh)"  "o C" #'claude-mac)
+  (map! :leader :desc "Switch remote machine" "o M" #'claude-mac-switch-machine))
+
+;; Podcast autoplay: learn while you wait on agents (pauses when you type).
+;; Needs `brew install mpv' and the elfeed package (doom sync + restart).
+;; DEFERRED 5 minutes after startup so it never touches daemon/frame init
+;; (the commands are autoloaded, so the keys work immediately on demand).
+(autoload 'claude-podcast-transient "claude-podcast" nil t)
+(autoload 'claude-podcast-toggle-play "claude-podcast" nil t)
+(autoload 'claude-podcast-toggle-star "claude-podcast" nil t)
+(map! :leader :desc "Podcast" "o p" #'claude-podcast-transient)
+(map! :leader :desc "Podcast pause/resume" "v p" #'claude-podcast-toggle-play)
+(defvar my/claude-podcast--autoenabled nil
+  "Non-nil once the deferred podcast auto-enable ran.  Survives config
+reloads, so `doom/reload' can never silently re-enable the mode after
+you turned it off (the old random-playback bug).")
+(run-with-timer
+ (* 5 60) nil
+ (lambda ()
+   (unless my/claude-podcast--autoenabled
+     (setq my/claude-podcast--autoenabled t)
+     (require 'claude-podcast)
+     (when IS-ANDROID                          ; phone: never auto-START audio,
+       (setq claude-podcast-auto-start nil))   ; only resume what YOU started
+     (claude-podcast-mode 1)                   ; auto-on; toggle with SPC o p t
+     (with-eval-after-load 'elfeed
+       (claude-podcast-setup-feeds)
+       (map! :map elfeed-search-mode-map :n "m" #'claude-podcast-toggle-star)))))
 
 ;; Mac-only modules
 (unless IS-ANDROID
