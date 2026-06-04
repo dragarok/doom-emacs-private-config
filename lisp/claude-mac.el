@@ -84,12 +84,14 @@ Adding the PC later is one entry here plus its env var in local.el:
 
 (defun claude-mac--command (machine)
   "Build the mosh command attaching to MACHINE's Emacs daemon.
-The LANG/LC_ALL prefix fixes the en_US.utf8 locale Android Emacs
-exports; COLORTERM=truecolor gives the remote tty frame 24-bit
-colors (Emacs 28+)."
+No locale prefix: init.el sets LANG=en_US.UTF-8 in Emacs's environment
+on Android, vterm passes it to this process, mosh forwards it to the
+remote.  (A bare LANG=... prefix would break anyway: vterm runs this
+string via `exec', which takes a program, not shell grammar.)
+COLORTERM=truecolor gives the remote tty frame 24-bit colors."
   (let ((p (cdr machine)))
     (concat
-     "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 mosh"
+     "mosh"
      " --ssh=\"ssh -i " (plist-get p :ssh-key) "\""
      " " (plist-get p :user) "@" (claude-mac--host machine)
      " -- bash -l -c 'COLORTERM=truecolor "
@@ -168,8 +170,15 @@ Recreates the connection if it died.  Keyboard is handed over."
       (setq buf nil))
     (if buf
         (switch-to-buffer buf)
-      (let ((vterm-shell (claude-mac--command machine))
-            (vterm-kill-buffer-on-exit nil))
+      (let* ((cmd (claude-mac--command machine))
+             (vterm-shell cmd)
+             (vterm-kill-buffer-on-exit nil)
+             ;; same effect as typing "LANG=... LC_ALL=... mosh" in a shell,
+             ;; injected at the env layer because vterm execs the command
+             ;; (a bare LANG= prefix would die with "exec: LANG=...: not found")
+             (vterm-environment (append '("LANG=en_US.UTF-8" "LC_ALL=en_US.UTF-8")
+                                        vterm-environment)))
+        (message "claude-mac[%s]: %s" (car machine) cmd)
         (setq buf (vterm bufname))))
     (delete-other-windows)
     (with-current-buffer buf
