@@ -197,7 +197,15 @@
 (when IS-ANDROID
   (require 'android-toolbar)
   (require 'android-homepage)
-  (require 'claude-mac))                    ; mosh window into the Mac Emacs
+  (require 'claude-mac)                     ; mosh window into the Mac Emacs
+
+  ;; Smaller font in vterm buffers ONLY — more columns for the remote
+  ;; Emacs and cheaper redraws; all other buffers keep the touch size.
+  (defvar my/vterm-font-scale 0.7
+    "Relative font height in vterm buffers (1.0 = same as everywhere).")
+  (defun my/vterm-shrink-font ()
+    (face-remap-add-relative 'default :height my/vterm-font-scale))
+  (add-hook 'vterm-mode-hook #'my/vterm-shrink-font))
 
 ;; AI workflows (shared across platforms, Mac-only parts guarded inside)
 (require 'ai-workflows)
