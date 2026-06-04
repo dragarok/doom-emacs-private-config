@@ -24,16 +24,16 @@
       :ttl nil)
     ;; (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
     (gptel-make-ollama
-        "Ollama"
-      :host "localhost:11434"
-      :models '("gemma3:latest")
-      :stream t)
+     "Ollama"
+     :host "localhost:11434"
+     :models '("gemma3:latest")
+     :stream t)
     (gptel-make-anthropic "Claude"
-      :stream t
-      :key (auth-source-pick-first-password :user "anthroapi"))
+                          :stream t
+                          :key (auth-source-pick-first-password :user "anthroapi"))
     (gptel-make-gemini "Gemini"
-      :stream t
-      :key (auth-source-pick-first-password :user "geminiapi"))
+                       :stream t
+                       :key (auth-source-pick-first-password :user "geminiapi"))
     (gptel-make-gh-copilot "Copilot")
 
     (map! :leader
@@ -73,10 +73,6 @@
           (interactive)
           (evil-ghostel--passthrough-ctrl "v"))
         "Send C-v to the terminal or fall back to evil.")))
-  (use-package! claude-code
-    :config
-    ;; Use ghostel (libghostty-powered terminal emulator):
-    (setq claude-code-terminal-backend 'ghostel))
 
   (use-package! gptel-magit
     :when (modulep! :tools magit)
@@ -99,6 +95,12 @@
 ;;   (call-process "osascript" nil nil nil
 ;;                 "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
 ;;                              message title)))
+
+(use-package! claude-code
+  :config
+  ;; Use ghostel (libghostty-powered terminal emulator):
+  (if IS-MAC
+      (setq claude-code-terminal-backend 'ghostel)))
 
 (use-package claude-code-ide
   :config
