@@ -29,8 +29,7 @@
 (require 'vterm)
 
 (declare-function evil-emacs-state "evil-states")
-(declare-function evil-change-state "evil-core")
-(defvar evil-state)
+(declare-function evil-force-normal-state "evil-commands")
 
 (defgroup claude-mac nil
   "Window into remote Emacs machines from Android."
@@ -65,13 +64,16 @@ Adding the PC later is one entry here plus its env var in local.el:
   :type 'string :group 'claude-mac)
 
 (defcustom claude-mac-flush-escape t
-  "Send ESC to the remote on each keyboard handover (both directions).
-A pending prefix key or half-delivered escape sequence on the remote --
-easy to produce when the keyboard changes hands mid-chord -- makes the
-first keys after a handover misfire.  ESC flushes that state (and drops
-remote evil into normal state) so both sides start from a known point.
-Caveat: if the remote focus is a Claude TUI, ESC clears its input box /
-interrupts a running turn; set to nil if that ever bites."
+  "Flush BOTH sides on each keyboard handover (both directions).
+Remote (Mac): an ESC is sent through the wire, clearing any pending
+prefix key or half-delivered escape sequence there.  Local (Android):
+the queued-but-unprocessed input is discarded (`discard-input') so keys
+typed around the toggle cannot leak across the boundary, and on release
+local evil lands fresh in normal state -- the Android-side \"ESC\".
+Without this, one side stays stale and its pending keys pass to the
+other after the handover.
+Caveat: if the remote focus is a Claude TUI, the ESC clears its input
+box / interrupts a running turn; set to nil if that ever bites."
   :type 'boolean :group 'claude-mac)
 
 (defun claude-mac--machine ()
@@ -109,9 +111,6 @@ COLORTERM=truecolor gives the remote tty frame 24-bit colors."
 
 ;;; Keyboard passthrough ------------------------------------------------
 
-(defvar-local claude-mac--prev-evil-state nil
-  "Evil state to restore when passthrough is turned off.")
-
 (defun claude-mac--make-sender (keystr)
   "Return a command that sends KEYSTR (\"C-c\", \"M-x\", ...) to vterm."
   (let ((ctrl (string-prefix-p "C-" keystr))
@@ -145,22 +144,23 @@ Only `claude-mac-toggle-key' stays local."
   (if claude-mac-passthrough-mode
       (progn
         (when (bound-and-true-p evil-local-mode)
-          ;; re-entering while already in emacs-state must not clobber the
-          ;; state we will restore on release
-          (unless (eq evil-state 'emacs)
-            (setq claude-mac--prev-evil-state evil-state))
           (evil-emacs-state))
-        ;; flush the remote BEFORE the first forwarded key: a pending prefix
-        ;; or partial escape sequence there makes the first keys misfire
+        ;; fresh handover on BOTH sides: drop any queued local keys so they
+        ;; cannot leak through to the Mac, then flush the remote of pending
+        ;; prefix/partial sequences before the first forwarded key
         (when claude-mac-flush-escape
+          (discard-input)
           (ignore-errors (vterm-send-escape)))
         (message "Keyboard → %s (release: %s or toolbar)"
                  claude-mac-active-machine claude-mac-toggle-key))
-    ;; releasing: leave the remote in a clean state too, not mid-sequence
+    ;; releasing: same both-sides flush on the way out -- remote left clean
+    ;; (not mid-sequence), local queue dropped so trailing keys do not spill,
+    ;; and local evil lands FRESH in normal state (the Android-side ESC)
     (when claude-mac-flush-escape
-      (ignore-errors (vterm-send-escape)))
+      (ignore-errors (vterm-send-escape))
+      (discard-input))
     (when (bound-and-true-p evil-local-mode)
-      (evil-change-state (or claude-mac--prev-evil-state 'normal)))
+      (evil-force-normal-state))
     (message "Keyboard → local Android Emacs")))
 
 (defvar claude-mac-mode-map

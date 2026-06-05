@@ -366,6 +366,15 @@ you turned it off (the old random-playback bug).")
   (setq persp-add-buffer-on-after-change-major-mode t)
   )
 
+;; One Emacs, two keyboards: the Mac GUI and the phone's mosh tty frame each
+;; get their own kboard, and Emacs LOCKS the other terminal's frames while one
+;; is mid-command ("Frame is locked; see 'multiple-terminals-merge-keyboards'").
+;; Locked-out phone keys are refused/queued -- ghostel never sees them as
+;; typed input, so the phone never gets the type-to-snap-to-prompt behaviour
+;; the Mac gets.  Same human on both keyboards: merge them (Emacs 31+).
+(when (boundp 'multiple-terminals-merge-keyboards)
+  (setq multiple-terminals-merge-keyboards t))
+
 (setq doom-scratch-initial-major-mode 'org-mode)
 
 (setq bookmark-default-file (expand-file-name "bookmarks" doom-user-dir))
