@@ -15,6 +15,12 @@
 ;; `claude-mac-active-machine'.  Each machine gets its own buffer
 ;; (*claude-mac[mac]*, *claude-mac[pc]*, ...), so sessions can coexist.
 ;;
+;; The connection lives in its own Doom workspace
+;; (`claude-mac-workspace-name', default "ssh-claude"): `claude-mac'
+;; always opens there, and releasing the keyboard hops back to the
+;; workspace you came from -- the claude window stays full-screen and
+;; undisturbed while you do other work.
+;;
 ;; When `claude-mac-passthrough-mode' is on, the buffer is put in evil
 ;; emacs-state and the keys vterm keeps local (`vterm-keymap-exceptions':
 ;; C-c C-x C-u C-g C-h C-l M-x M-o C-y M-y) are forwarded to the remote.
@@ -31,6 +37,13 @@
 (declare-function evil-emacs-state "evil-states")
 (declare-function evil-force-normal-state "evil-commands")
 (defvar claude-mac--blocked)            ; defvar-local below, used earlier
+(defvar claude-mac-mode)                ; define-minor-mode below, used earlier
+
+;; Doom workspace (persp-mode) API, same seam claude-workspace.el uses.
+(declare-function +workspace-current-name "ignore")
+(declare-function +workspace-switch "ignore")
+(declare-function +workspace-list-names "ignore")
+(declare-function persp-add-buffer "persp-mode")
 
 (defgroup claude-mac nil
   "Window into remote Emacs machines from Android."
@@ -62,6 +75,14 @@ Adding the PC later is one entry here plus its env var in local.el:
 
 (defcustom claude-mac-toggle-key "C-\\"
   "Key that toggles keyboard passthrough (the only key kept local)."
+  :type 'string :group 'claude-mac)
+
+(defcustom claude-mac-workspace-name "ssh-claude"
+  "Doom workspace that hosts the claude-mac connection buffer.
+`claude-mac' always opens the connection in this workspace (creating it
+if needed), and releasing the keyboard returns you to the workspace you
+came from -- so the claude window sits undisturbed, full-screen, in its
+own workspace while you work elsewhere."
   :type 'string :group 'claude-mac)
 
 (defcustom claude-mac-flush-escape t
@@ -166,7 +187,13 @@ Only `claude-mac-toggle-key' stays local."
     ;; keyboard is local now: the buffer becomes a pure VIEWER (see
     ;; `claude-mac--blocked-key') -- nothing reaches the remote
     (setq claude-mac--blocked claude-mac-mode)
-    (message "Keyboard → local Android Emacs (buffer is view-only)")))
+    ;; ... and you are DONE here: hop back to the workspace you came from,
+    ;; leaving the claude window undisturbed in its own workspace
+    (let ((ws (and claude-mac-mode (claude-mac--leave-workspace))))
+      (if ws
+          (message "Keyboard → local · back to %s (claude-mac waits in %s)"
+                   ws claude-mac-workspace-name)
+        (message "Keyboard → local Android Emacs (buffer is view-only)")))))
 
 ;;; Blocked state: passthrough off => NOTHING reaches the remote ----------
 
@@ -219,6 +246,41 @@ you hand the keyboard over."
   (setq claude-mac--blocked
         (and claude-mac-mode (not claude-mac-passthrough-mode))))
 
+;;; Dedicated workspace ---------------------------------------------------
+
+(defvar claude-mac--previous-workspace nil
+  "Workspace you were in before `claude-mac', to return to on release.")
+
+(defun claude-mac--ensure-workspace ()
+  "Switch to `claude-mac-workspace-name', remembering where you came from.
+Creates the workspace on first use.  No-op without Doom workspaces."
+  (when (and (fboundp '+workspace-current-name)
+             (fboundp '+workspace-switch))
+    (let ((cur (+workspace-current-name)))
+      (unless (equal cur claude-mac-workspace-name)
+        (setq claude-mac--previous-workspace cur)
+        (+workspace-switch claude-mac-workspace-name t)))))
+
+(defun claude-mac--leave-workspace ()
+  "Return to the workspace you were in before `claude-mac'.
+Falls back to the first other workspace if that one is gone.  Returns
+the workspace name switched to, or nil when there is nowhere to go
+\(ssh-claude is the only workspace, or no Doom workspaces) -- the
+caller keeps its usual message then."
+  (when (and (fboundp '+workspace-current-name)
+             (fboundp '+workspace-switch)
+             (equal (+workspace-current-name) claude-mac-workspace-name))
+    (let* ((names (and (fboundp '+workspace-list-names)
+                       (+workspace-list-names)))
+           (target (if (member claude-mac--previous-workspace names)
+                       claude-mac--previous-workspace
+                     (seq-find (lambda (n)
+                                 (not (equal n claude-mac-workspace-name)))
+                               names))))
+      (when target
+        (+workspace-switch target)
+        target))))
+
 ;;; Entry points ---------------------------------------------------------
 
 ;;;###autoload
@@ -226,6 +288,7 @@ you hand the keyboard over."
   "Open (or jump back to) the mosh window into the active machine.
 Recreates the connection if it died.  Keyboard is handed over."
   (interactive)
+  (claude-mac--ensure-workspace)
   (let* ((machine (claude-mac--machine))
          (bufname (claude-mac--buffer-name (car machine)))
          (buf (get-buffer bufname)))
@@ -245,6 +308,8 @@ Recreates the connection if it died.  Keyboard is handed over."
                                         vterm-environment)))
         (message "claude-mac[%s]: %s" (car machine) cmd)
         (setq buf (vterm bufname))))
+    (when (fboundp 'persp-add-buffer)        ; buffer belongs to ssh-claude
+      (ignore-errors (persp-add-buffer buf)))
     (delete-other-windows)
     (with-current-buffer buf
       (claude-mac-mode 1)
