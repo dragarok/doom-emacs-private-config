@@ -30,6 +30,7 @@
 
 (declare-function evil-emacs-state "evil-states")
 (declare-function evil-force-normal-state "evil-commands")
+(defvar claude-mac--blocked)            ; defvar-local below, used earlier
 
 (defgroup claude-mac nil
   "Window into remote Emacs machines from Android."
@@ -143,6 +144,7 @@ Only `claude-mac-toggle-key' stays local."
     (user-error "claude-mac-passthrough-mode only works in vterm buffers"))
   (if claude-mac-passthrough-mode
       (progn
+        (setq claude-mac--blocked nil)
         (when (bound-and-true-p evil-local-mode)
           (evil-emacs-state))
         ;; fresh handover on BOTH sides: drop any queued local keys so they
@@ -161,7 +163,46 @@ Only `claude-mac-toggle-key' stays local."
       (discard-input))
     (when (bound-and-true-p evil-local-mode)
       (evil-force-normal-state))
-    (message "Keyboard → local Android Emacs")))
+    ;; keyboard is local now: the buffer becomes a pure VIEWER (see
+    ;; `claude-mac--blocked-key') -- nothing reaches the remote
+    (setq claude-mac--blocked claude-mac-mode)
+    (message "Keyboard → local Android Emacs (buffer is view-only)")))
+
+;;; Blocked state: passthrough off => NOTHING reaches the remote ----------
+
+(defvar-local claude-mac--blocked nil
+  "Non-nil while the keyboard is local in a claude-mac buffer.
+Activates `claude-mac--blocked-map' so no key reaches the remote.")
+
+(defun claude-mac--blocked-key ()
+  "Swallow a key that would have gone to the remote; say how to type.
+With passthrough off, HALF a keyboard is worse than none: plain keys
+\(i, SPC, letters) would reach the remote through vterm's insert
+bindings while the exception keys (ESC, C-x, M-x ...) stay local --
+so you can poke the remote Emacs by accident but cannot send the ESC
+to fix it.  Blocked means blocked: the buffer is a pure viewer until
+you hand the keyboard over."
+  (interactive)
+  (message "Keys are LOCAL — %s (or toolbar) hands the keyboard to %s"
+           claude-mac-toggle-key claude-mac-active-machine))
+
+(defvar claude-mac--blocked-map
+  (let ((map (make-sparse-keymap)))
+    ;; stub by COMMAND REMAP, not by key: whatever key or evil state routes
+    ;; to a vterm send command, the stub catches it -- robust against
+    ;; evil-collection's rebinds and future vterm bindings
+    (dolist (cmd '(vterm--self-insert vterm-send-return vterm-send-tab
+                   vterm-send-space vterm-send-backspace vterm-send-delete
+                   vterm-send-escape vterm-send-up vterm-send-down
+                   vterm-send-left vterm-send-right vterm-yank
+                   vterm-yank-primary vterm-yank-pop vterm-send-next
+                   vterm-send-prior vterm-clear vterm-undo))
+      (define-key map (vector 'remap cmd) #'claude-mac--blocked-key))
+    map)
+  "Command remaps stubbing every vterm send command while blocked.")
+
+(add-to-list 'emulation-mode-map-alists
+             `((claude-mac--blocked . ,claude-mac--blocked-map)))
 
 (defvar claude-mac-mode-map
   (let ((map (make-sparse-keymap)))
@@ -172,7 +213,11 @@ Only `claude-mac-toggle-key' stays local."
 
 (define-minor-mode claude-mac-mode
   "Marker mode for claude-mac connection buffers."
-  :keymap claude-mac-mode-map)
+  :keymap claude-mac-mode-map
+  ;; entering the mode with passthrough off starts blocked (viewer);
+  ;; leaving the mode always unblocks
+  (setq claude-mac--blocked
+        (and claude-mac-mode (not claude-mac-passthrough-mode))))
 
 ;;; Entry points ---------------------------------------------------------
 
