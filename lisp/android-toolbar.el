@@ -137,6 +137,37 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/node-0-connections-svgrepo-com.svg"
       ;;                   :height ,icon-size :width ,icon-size)))
 
+      ;; ===================================================================
+      ;; ARROW KEYS - Cursor navigation
+      ;; ===================================================================
+
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-arrows>" menu-bar-separator)
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-left>"
+        `(menu-item "Left" ,(lambda () (interactive) (execute-kbd-macro (kbd "<left>")))
+          :help "Move left"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/left-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-down>"
+        `(menu-item "Down" ,(lambda () (interactive) (execute-kbd-macro (kbd "<down>")))
+          :help "Move down"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/down-arrow-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-up>"
+        `(menu-item "Up" ,(lambda () (interactive) (execute-kbd-macro (kbd "<up>")))
+          :help "Move up"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/up-arrow-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<arrow-right>"
+        `(menu-item "Right" ,(lambda () (interactive) (execute-kbd-macro (kbd "<right>")))
+          :help "Move right"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/right-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-8>" menu-bar-separator)
+
       (keymap-set-after (default-value 'tool-bar-map) "<home>"
         `(menu-item "Home" android-homepage-toggle
           :help "Toggle homepage / last buffer"
@@ -190,22 +221,6 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================
-      ;; MAC EMACS (claude-mac: mosh window into the Mac)
-      ;; ===================================================================
-
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-claude>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-connect>"
-        `(menu-item "Mac" claude-mac
-          :help "Connect/jump to the active remote Emacs over mosh (grabs keyboard)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/terminal-alt-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-keys>"
-        `(menu-item "Keys" claude-mac-toggle
-          :help "Toggle keyboard passthrough to the active remote Emacs"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/keyboard-shortcuts-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      ;; ===================================================================
       ;; SAVE
       ;; ===================================================================
 
@@ -216,36 +231,6 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/save-floppy-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
-      ;; ===================================================================
-      ;; ARROW KEYS - Cursor navigation
-      ;; ===================================================================
-
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-arrows>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<arrow-left>"
-        `(menu-item "Left" ,(lambda () (interactive) (execute-kbd-macro (kbd "<left>")))
-          :help "Move left"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/left-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<arrow-down>"
-        `(menu-item "Down" ,(lambda () (interactive) (execute-kbd-macro (kbd "<down>")))
-          :help "Move down"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/down-arrow-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<arrow-up>"
-        `(menu-item "Up" ,(lambda () (interactive) (execute-kbd-macro (kbd "<up>")))
-          :help "Move up"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/up-arrow-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<arrow-right>"
-        `(menu-item "Right" ,(lambda () (interactive) (execute-kbd-macro (kbd "<right>")))
-          :help "Move right"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/right-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-8>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-9>" menu-bar-separator)
       (keymap-set-after (default-value 'tool-bar-map) "<keyboard>"
         `(menu-item "Keyboard" my/toggle-touch-keyboard
@@ -265,6 +250,23 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :help "Attach photo or screenshot to current Org node"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/instant-camera-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
+
+      ;; ===================================================================
+      ;; MAC EMACS (claude-mac: mosh window into the Mac)
+      ;; ===================================================================
+
+      (keymap-set-after (default-value 'tool-bar-map) "<separator-claude>" menu-bar-separator)
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-connect>"
+        `(menu-item "Mac" claude-mac
+          :help "Connect/jump to the active remote Emacs over mosh (grabs keyboard)"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/terminal-alt-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-keys>"
+        `(menu-item "Keys" claude-mac-toggle
+          :help "Toggle keyboard passthrough to the active remote Emacs"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/keyboard-shortcuts-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
 
       ;; ===================================================================
       ;; KAIROAM - Window Management (org-mode only)
