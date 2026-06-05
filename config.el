@@ -77,8 +77,8 @@
      (setq doom-theme 'doom-gruvbox-light)
      (load-theme 'doom-gruvbox-light t))
     ('dark
-     (setq doom-theme 'doom-pine)
-     (load-theme 'doom-pine t))))
+     (setq doom-theme 'doom-tomorrow-night)
+     (load-theme 'doom-tomorrow-night t))))
 
 ;; Theme - Platform specific
 (cond
