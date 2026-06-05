@@ -197,12 +197,12 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-connect>"
         `(menu-item "Mac" claude-mac
           :help "Connect/jump to the active remote Emacs over mosh (grabs keyboard)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/data-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/terminal-alt-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-keys>"
         `(menu-item "Keys" claude-mac-toggle
           :help "Toggle keyboard passthrough to the active remote Emacs"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/security-priority-solid-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/keyboard-shortcuts-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================

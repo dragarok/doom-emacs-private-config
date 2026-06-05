@@ -38,8 +38,8 @@
 
 (defcustom claude-mac-machines
   '((mac :user "alokregmi"
-         :ssh-key "/data/data/com.termux/files/home/.ssh/mac_tailscale"
-         :emacsclient "/opt/homebrew/bin/emacsclient"))
+     :ssh-key "/data/data/com.termux/files/home/.ssh/mac_tailscale"
+     :emacsclient "/opt/homebrew/bin/emacsclient"))
   "Remote machines reachable over mosh.
 Each entry is (NAME :user USER :ssh-key KEYFILE :emacsclient PATH
 [:host IP]).  To keep Tailscale IPs out of the repo, omit :host and
