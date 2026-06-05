@@ -64,6 +64,16 @@ Adding the PC later is one entry here plus its env var in local.el:
   "Key that toggles keyboard passthrough (the only key kept local)."
   :type 'string :group 'claude-mac)
 
+(defcustom claude-mac-flush-escape t
+  "Send ESC to the remote on each keyboard handover (both directions).
+A pending prefix key or half-delivered escape sequence on the remote --
+easy to produce when the keyboard changes hands mid-chord -- makes the
+first keys after a handover misfire.  ESC flushes that state (and drops
+remote evil into normal state) so both sides start from a known point.
+Caveat: if the remote focus is a Claude TUI, ESC clears its input box /
+interrupts a running turn; set to nil if that ever bites."
+  :type 'boolean :group 'claude-mac)
+
 (defun claude-mac--machine ()
   "Return the active machine entry (NAME . PLIST), erroring if undefined."
   (or (assq claude-mac-active-machine claude-mac-machines)
@@ -135,10 +145,20 @@ Only `claude-mac-toggle-key' stays local."
   (if claude-mac-passthrough-mode
       (progn
         (when (bound-and-true-p evil-local-mode)
-          (setq claude-mac--prev-evil-state evil-state)
+          ;; re-entering while already in emacs-state must not clobber the
+          ;; state we will restore on release
+          (unless (eq evil-state 'emacs)
+            (setq claude-mac--prev-evil-state evil-state))
           (evil-emacs-state))
+        ;; flush the remote BEFORE the first forwarded key: a pending prefix
+        ;; or partial escape sequence there makes the first keys misfire
+        (when claude-mac-flush-escape
+          (ignore-errors (vterm-send-escape)))
         (message "Keyboard → %s (release: %s or toolbar)"
                  claude-mac-active-machine claude-mac-toggle-key))
+    ;; releasing: leave the remote in a clean state too, not mid-sequence
+    (when claude-mac-flush-escape
+      (ignore-errors (vterm-send-escape)))
     (when (bound-and-true-p evil-local-mode)
       (evil-change-state (or claude-mac--prev-evil-state 'normal)))
     (message "Keyboard → local Android Emacs")))
