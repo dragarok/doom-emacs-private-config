@@ -60,13 +60,25 @@
 (defvar ghostel-full-redraw)
 (defvar ghostel--process)
 (defvar ghostel--force-next-redraw)
+(defvar ghostel--term)
+(defvar ghostel--windows-needing-snap)
+(defvar ghostel--input-mode)
+(defvar ghostel--scroll-positions)
+(defvar ghostel--last-anchor-position)
 (declare-function ghostel--window-adjust-process-window-size "ghostel")
 (declare-function ghostel--delayed-redraw "ghostel")
+(declare-function ghostel--mode-enabled "ghostel")
+(declare-function ghostel--invalidate "ghostel")
 
 ;; Doom workspace (persp-mode) API.
 (declare-function +workspace-current-name "ignore")
 (declare-function +workspace-switch "ignore")
 (declare-function persp-add-buffer "persp-mode")
+(declare-function persp-remove-buffer "persp-mode")
+(declare-function persp-get-by-name "persp-mode")
+(declare-function persp-persps "persp-mode")
+(declare-function persp-name "persp-mode")
+(declare-function persp-buffers "persp-mode")
 
 ;; projectile / magit.
 (declare-function projectile-relevant-known-projects "projectile")
@@ -105,15 +117,14 @@ Capped at 2 because 3 stacked terminals are too short to be usable."
 This is the heart of the multi-display strategy: Claude's TUI corrupts when
 its width changes (each SIGWINCH forces a full, uncleared redraw).  Emacs
 normally sizes a terminal to the SMALLEST window showing it, so opening the
-same session on a narrow phone shrinks it everywhere.  By pinning the width
-\(see `claude-workspace-pin-width-mode'), the terminal renders identically
-on every display and never reflows.
+same session on a narrow phone would shrink it everywhere.  The width is
+pinned unconditionally (see `claude-workspace--adjust-window-size'); the
+HEIGHT keeps stock smallest-window behavior, which guarantees no window is
+ever shorter than the terminal screen.
 
 Also used as the per-cell column budget when choosing how many grid columns
 fit: a wide monitor fits several fixed-width sessions side by side, a phone
-fits one.  Set this to your narrowest display's width (run
-`claude-workspace-pin-to-current-width' on your phone) so it is readable
-everywhere."
+fits one.  Set it to fit your narrowest display."
   :type 'integer)
 
 (defcustom claude-workspace-min-cell-height 22
@@ -151,6 +162,43 @@ helps avoid the resize/overflow corruption, at some CPU cost."
   :type 'boolean)
 
 
+;;;; Debug log
+
+(defvar claude-workspace-debug t
+  "When non-nil, record every claude-workspace decision in a capped list.
+Dump it with `claude-workspace-write-log' and read the file.  Cheap:
+one formatted string per decision, no window or buffer side effects.")
+
+(defvar claude-workspace--log-entries nil
+  "Most-recent-first list of debug log lines (capped at ~4000).")
+
+(defun claude-workspace--frame-desc (&optional frame)
+  "Short identity string for FRAME: \"gui\" or \"tty:/dev/ttysN\"."
+  (let ((f (or frame (selected-frame))))
+    (if (display-graphic-p f)
+        "gui"
+      (format "tty:%s" (or (frame-parameter f 'tty) "?")))))
+
+(defun claude-workspace--log (fmt &rest args)
+  "Record a timestamped debug line when `claude-workspace-debug' is on."
+  (when claude-workspace-debug
+    (push (concat (format-time-string "%H:%M:%S.%3N ")
+                  (apply #'format fmt args))
+          claude-workspace--log-entries)
+    (let ((tail (nthcdr 4000 claude-workspace--log-entries)))
+      (when tail (setcdr tail nil)))))
+
+(defun claude-workspace-write-log ()
+  "Write the debug log to ~/claude-workspace-debug.log (oldest first)."
+  (interactive)
+  (let ((file (expand-file-name "~/claude-workspace-debug.log")))
+    (with-temp-file file
+      (insert (mapconcat #'identity (reverse claude-workspace--log-entries) "\n")))
+    (message "claude-workspace: wrote %d log lines to %s"
+             (length claude-workspace--log-entries) file)
+    file))
+
+
 ;;;; Session state
 
 (defvar claude-workspace--sessions nil
@@ -167,15 +215,6 @@ shows the active session, never an empty placeholder.")
 
 (defvar claude-workspace--last-applied-dims nil
   "The (COLS . ROWS) most recently laid out, used to avoid needless rebuilds.")
-
-(defvar claude-workspace--adapt-pending nil
-  "Non-nil while a deferred auto-relayout is already scheduled.")
-
-(defvar-local claude-workspace--pinned nil
-  "Non-nil in a managed Claude buffer whose terminal width is pinned.")
-
-(defvar claude-workspace--saved-adjust-fn nil
-  "Saved global `window-adjust-process-window-size-function'.")
 
 (defun claude-workspace--capacity ()
   "Maximum number of sessions the grid will hold."
@@ -195,6 +234,26 @@ shows the active session, never an empty placeholder.")
   (max 0 (- (claude-workspace--capacity)
             (length claude-workspace--sessions))))
 
+(defun claude-workspace--set-frame-session (buf &optional frame)
+  "Remember BUF as the active session, globally AND for FRAME.
+The global `claude-workspace--last-session' is shared by every frame, so
+on its own it makes one frame chase another's selection (the phone gets
+re-tiled to whatever session the Mac last focused).  The frame parameter
+keeps each frame sticky to ITS OWN session."
+  (when (buffer-live-p buf)
+    (setq claude-workspace--last-session buf)
+    (set-frame-parameter frame 'claude-workspace-session buf)))
+
+(defun claude-workspace--frame-session (&optional frame)
+  "The session FRAME last had selected, else the global last session.
+Used as the paging/mislaid anchor so each frame follows its own session."
+  (let ((fb (frame-parameter frame 'claude-workspace-session)))
+    (if (and (buffer-live-p fb) (memq fb claude-workspace--sessions))
+        fb
+      (and (buffer-live-p claude-workspace--last-session)
+           (memq claude-workspace--last-session claude-workspace--sessions)
+           claude-workspace--last-session))))
+
 (defun claude-workspace--harden-session-buffer (buf)
   "Apply robustness settings to managed session buffer BUF."
   (when (buffer-live-p buf)
@@ -211,9 +270,20 @@ shows the active session, never an empty placeholder.")
       ;; (Also set via `ghostel-mode-hook'; mirrored here so already-open
       ;; sessions are hardened the moment the grid re-hardens them.)
       (setq-local bidi-display-reordering nil)
-      ;; mark for width pinning so the adjust function recognises it
-      (when (bound-and-true-p claude-workspace-pin-width-mode)
-        (setq claude-workspace--pinned t)))))
+      ;; Kill jit-lock in the terminal buffer.  ghostel paints its own
+      ;; faces; any jit-lock client races the many-redraws-per-second
+      ;; full-buffer rewrite and signals args-out-of-range DURING
+      ;; REDISPLAY, which aborts the window update and leaves every
+      ;; window of this buffer clamped at point-min.  Observed live:
+      ;; emojify-mode registers `emojify-redisplay-emojis-in-region'
+      ;; in `jit-lock-functions', and emoji rendering only runs on
+      ;; GRAPHICAL displays -- which is why sessions froze exactly
+      ;; while the Mac GUI client was open and worked the moment it
+      ;; was closed.
+      (when (bound-and-true-p emojify-mode) (emojify-mode -1))
+      (when (bound-and-true-p jit-lock-mode) (jit-lock-mode nil))
+      (setq-local jit-lock-functions nil)
+      (setq-local fontification-functions nil))))
 
 (defun claude-workspace--add-session (buf)
   "Append BUF to the managed session list if room and not already present.
@@ -224,9 +294,33 @@ Returns non-nil if added."
     (setq claude-workspace--sessions
           (append claude-workspace--sessions (list buf)))
     (claude-workspace--harden-session-buffer buf)
-    (when (fboundp 'persp-add-buffer)
-      (ignore-errors (persp-add-buffer buf)))
+    (claude-workspace--claim-buffer buf)
     t))
+
+(defun claude-workspace--claim-buffer (buf)
+  "Make BUF a member of the master-claude persp ONLY (the F5 root fix).
+`persp-add-buffer-on-after-change-major-mode' auto-joins new buffers to
+whatever persp is current when they spawn -- frequently `main' or a
+project workspace.  A session leaked into another persp ends up inside
+that persp's saved window-configuration, and persp's `window-state-put'
+on every Mac client open/close then clamps its windows to `point-min'
+\(the observed \"Window too small to accommodate state\" failures).
+Owning sessions exclusively in master-claude keeps every other persp's
+saved wconf free of session windows."
+  (when (and (buffer-live-p buf) (fboundp 'persp-add-buffer))
+    (ignore-errors
+      (let ((target (and (fboundp 'persp-get-by-name)
+                         (persp-get-by-name claude-workspace-name))))
+        (when (and target (not (eq target :nil)))
+          (persp-add-buffer buf target nil)))
+      (when (and (fboundp 'persp-persps) (fboundp 'persp-remove-buffer))
+        (dolist (p (persp-persps))
+          (when (and p
+                     (not (equal (persp-name p) claude-workspace-name))
+                     (memq buf (persp-buffers p)))
+            (claude-workspace--log "claim %s out of persp %s"
+                                   (buffer-name buf) (persp-name p))
+            (persp-remove-buffer buf p t t)))))))
 
 
 ;;;; Adaptive grid dimensions
@@ -322,22 +416,47 @@ minibuffer is selected, e.g. `emacsclient -e'."
         (nreverse row-major)))))
 
 (defun claude-workspace--snap-to-bottom (win)
-  "Anchor the Claude session in WIN at its live prompt (bottom of buffer).
-A plain `set-window-point' is not enough: rebuilding the grid splits
-windows, and ghostel's own window-start heuristic explicitly \"misfires ...
-window split layouts\" (see ghostel.el), leaving the cell scrolled to the
-TOP.  `recenter' is a hard `window-start' primitive that ghostel accepts as
-a deliberate viewport position, so `point-max' (the prompt) becomes the last
-visible line and the cell then keeps following the live output.  Verified
-live: a window forced to `point-min' lands back at the prompt after this."
+  "Anchor the Claude session in WIN at its live prompt.
+Uses ghostel's OWN viewport-snap seam: mark WIN in
+`ghostel--windows-needing-snap' and schedule a redraw -- exactly what
+ghostel's `ghostel--reshow-snap' does when a window (re)shows a buffer.
+The next redraw then pins `window-start' to the viewport start, so
+ghostel keeps classifying WIN as FOLLOWING the live prompt and every
+later redraw re-anchors it.
+
+Never `recenter' or raw `set-window-start' here (or anywhere): moving
+`window-start' under ghostel makes its scroll heuristic misclassify
+WIN as deliberately scrolled into the scrollback, and the content-key
+restore then walks it toward the top of the buffer.  This seam is one
+of exactly two window-start writers in v2 (the other is the clamp
+rescue), and both only ever move a window toward the prompt."
   (when (window-live-p win)
     (let ((buf (window-buffer win)))
       (when (and (bufferp buf) (buffer-live-p buf)
                  (string-prefix-p "*claude:" (buffer-name buf)))
-        (with-selected-window win
-          (goto-char (point-max))
-          (set-window-point win (point-max))
-          (ignore-errors (recenter -1 t)))))))
+        (with-current-buffer buf
+          (when (and (boundp 'ghostel--windows-needing-snap)
+                     (fboundp 'ghostel--invalidate)
+                     (bound-and-true-p ghostel--term))
+            (claude-workspace--log "snap %s win-on=%s"
+                                   (buffer-name buf)
+                                   (claude-workspace--frame-desc (window-frame win)))
+            (cl-pushnew win ghostel--windows-needing-snap)
+            ;; Drop any stale "user scrolled here" record for WIN.
+            ;; A redisplay clamp to `point-min' gets LAUNDERED into a
+            ;; legitimate-looking scroll position (the saved content
+            ;; key matches the banner that really is at point-min),
+            ;; after which every redraw faithfully restores WIN to
+            ;; the top.  The snap must beat that restore.
+            (when (boundp 'ghostel--scroll-positions)
+              (setq ghostel--scroll-positions
+                    (assq-delete-all win ghostel--scroll-positions)))
+            ;; Survive DEC 2026 synchronized-output: without this the
+            ;; whole redraw body (and our snap with it) is skipped
+            ;; while Claude is streaming.
+            (when (boundp 'ghostel--force-next-redraw)
+              (setq ghostel--force-next-redraw t))
+            (ghostel--invalidate)))))))
 
 (defun claude-workspace--select-session-window (win)
   "Select WIN and anchor its Claude session at the BOTTOM (the live prompt)
@@ -403,15 +522,19 @@ placeholders, and selects the first live session window."
          (sessions claude-workspace--sessions)
          (count (length sessions))
          (npages (max 1 (ceiling (max count 1) cells)))
-         ;; page so the active session stays visible; never an all-empty page
-         (anchor (or (and (buffer-live-p claude-workspace--last-session)
-                          (cl-position claude-workspace--last-session sessions
-                                       :test #'eq))
+         ;; page so THIS FRAME's active session stays visible (per-frame
+         ;; anchor: the phone must not get re-paged to the Mac's session)
+         (anchor-buf (claude-workspace--frame-session))
+         (anchor (or (and anchor-buf
+                          (cl-position anchor-buf sessions :test #'eq))
                      0))
          (page (max 0 (min (/ anchor cells) (1- npages))))
          (start (* page cells))
          (wins (claude-workspace--grid-windows cols rows))
          (focus nil))
+    (claude-workspace--log "relayout %s dims=%s page=%d anchor=%s"
+                           (claude-workspace--frame-desc) dims page
+                           (and anchor-buf (buffer-name anchor-buf)))
     (setq claude-workspace--page page
           claude-workspace--last-applied-dims dims)
     ;; remember what this frame is laid out for, so auto-relayout fires only
@@ -438,15 +561,11 @@ placeholders, and selects the first live session window."
         (claude-workspace--snap-to-bottom w)))
     ;; focus the active (last-selected) session if it's visible, so collapsing
     ;; back from a project workspace lands on that project's session
-    (let ((target (or (and (buffer-live-p claude-workspace--last-session)
-                           (get-buffer-window claude-workspace--last-session))
+    (let ((target (or (and anchor-buf (get-buffer-window anchor-buf))
                       focus
                       (car (cl-remove-if-not #'window-live-p wins)))))
       (when (window-live-p target)
         (claude-workspace--select-session-window target)))
-    ;; pin newly-displayed sessions to the current fixed width
-    (when (bound-and-true-p claude-workspace-pin-width-mode)
-      (claude-workspace--repin))
     ;; tint idle unfocused sessions, untint the focused one
     (claude-workspace--refresh-attention)))
 
@@ -641,7 +760,7 @@ by a page (DELTA = +/- cells); on a phone (one cell) it steps one session."
                                         :test #'eq))
                       0))
              (next (max 0 (min (+ cur (* delta cells)) (1- n)))))
-        (setq claude-workspace--last-session (nth next sessions))
+        (claude-workspace--set-frame-session (nth next sessions))
         (claude-workspace--relayout)
         (let ((win (get-buffer-window claude-workspace--last-session)))
           (when (window-live-p win) (select-window win)))))))
@@ -664,7 +783,7 @@ phone where a single session fills the screen."
              (next (mod (+ cur (if backward -1 1)) n))
              (buf (nth next sessions))
              (win (get-buffer-window buf)))   ; already visible on this frame?
-        (setq claude-workspace--last-session buf)
+        (claude-workspace--set-frame-session buf)
         (if (window-live-p win)
             ;; grid (monitor/Mac): just move focus to the next cell in sequence
             (claude-workspace--select-session-window win)
@@ -766,9 +885,8 @@ position; `--continue' resumes the most recent conversation there."
               (setf (nth pos claude-workspace--sessions) new)
               (claude-workspace--harden-session-buffer new)
               ;; focus the RESTARTED session, not the first one
-              (setq claude-workspace--last-session new)
-              (when (fboundp 'persp-add-buffer)
-                (ignore-errors (persp-add-buffer new))))
+              (claude-workspace--set-frame-session new)
+              (claude-workspace--claim-buffer new))
           ;; spawn failed: just drop the dead entry
           (setq claude-workspace--sessions
                 (cl-remove-if-not #'buffer-live-p claude-workspace--sessions))))
@@ -828,7 +946,7 @@ Do your file/magit/dired work in that workspace, then collapse back."
         (cur (current-buffer)))
     (unless dir (user-error "Not on a Claude session"))
     (when (memq cur claude-workspace--sessions)
-      (setq claude-workspace--last-session cur))
+      (claude-workspace--set-frame-session cur))
     (let* ((root (file-name-as-directory (expand-file-name dir)))
            (name (file-name-nondirectory (directory-file-name root)))
            (existed (and (fboundp '+workspace-exists-p) (+workspace-exists-p name))))
@@ -887,82 +1005,32 @@ churn the grid every time you press \\[execute-extended-command]."
       (> (minibuffer-depth) 0)
       (claude-workspace--child-or-mini-frame-p (selected-frame))))
 
-(defun claude-workspace--frame-mislaid-p (frame)
-  "Non-nil only when FRAME's master-claude grid should be auto-re-tiled:
-the display size changed, or it IS a pure grid that is wrongly filled.
-Never true while a file / magit / dired / popup is open -- so opening those
-in the workspace is left untouched.  Also never true while the grid is
-deliberately expanded (`claude-workspace-expand-down'), so the expansion is
-left alone until you toggle back."
-  (and (frame-live-p frame)
-       (not (frame-parameter frame 'claude-workspace-expanded))
-       (with-selected-frame frame
-         (and (claude-workspace--in-workspace-p)
-              (let* ((d (claude-workspace--auto-dims))
-                     (applied (frame-parameter frame 'claude-workspace-dims)))
-                (cond
-                 ;; display (size class) changed -> re-tile for the new display
-                 ((not (equal d applied)) t)
-                 ;; user has opened something non-grid -> hands off
-                 ((not (claude-workspace--pure-grid-p frame)) nil)
-                 ;; pure grid on an unchanged display: fix only if mis-filled
-                 (t (let* ((cells (max 1 (* (car d) (cdr d))))
-                           (wins (window-list frame 'no-minibuf))
-                           (shown (mapcar #'window-buffer wins))
-                           (n (length claude-workspace--sessions))
-                           (shown-sessions (cl-count-if
-                                            (lambda (b) (memq b claude-workspace--sessions))
-                                            shown))
-                           (anchor (and (buffer-live-p claude-workspace--last-session)
-                                        claude-workspace--last-session)))
-                      (or (/= (length wins) cells)
-                          (< shown-sessions (min cells n))
-                          (and anchor (> n 0) (not (memq anchor shown))))))))))))
-
-(defun claude-workspace--adapt-frame (frame &optional force)
-  "Relayout FRAME for its display if it shows master-claude and needs it.
-With FORCE, relayout even if the window count already matches.  Never fires
-while a transient/minibuffer is up (would kill the popup)."
-  (when (and claude-workspace-auto-relayout-on-resize
-             (frame-live-p frame)
-             (not (claude-workspace--suppress-relayout-p)))
-    (with-selected-frame frame
-      (when (and (claude-workspace--in-workspace-p)
-                 (or force (claude-workspace--frame-mislaid-p frame)))
-        (claude-workspace--relayout)))))
-
-(defun claude-workspace--maybe-adapt (&optional frame)
-  "`window-size-change-functions' entry: adapt FRAME (debounced).
-Wrapped so an error here can never break frame creation/resize."
-  (with-demoted-errors "claude-workspace maybe-adapt: %S"
-    (let ((frame (if (framep frame) frame (selected-frame))))
-      (when (and claude-workspace-auto-relayout-on-resize
-                 (not claude-workspace--adapt-pending)
-                 (not (claude-workspace--suppress-relayout-p))
-                 (claude-workspace--frame-mislaid-p frame))
-        (setq claude-workspace--adapt-pending t)
-        (run-at-time 0.1 nil
-                     (lambda ()
-                       (setq claude-workspace--adapt-pending nil)
-                       (claude-workspace--adapt-frame frame)))))))
-
 (defun claude-workspace--on-activate (&optional _)
-  "Force a relayout for the current frame when master-claude is activated.
-persp may have restored another frame's window config, so we always re-tile."
-  (when claude-workspace-auto-relayout-on-resize
-    (let ((frame (selected-frame)))
-      (run-at-time 0 nil
-                   (lambda ()
-                     (with-demoted-errors "claude-workspace on-activate: %S"
-                       (claude-workspace--adapt-frame frame t)))))))
+  "Re-tile the grid when the master-claude workspace is activated.
+persp restores the workspace's saved window config FIRST (it may be
+stale, sized for another display, or partially clamped); relayouting
+right after overwrites whatever the restore did, and the relayout's
+snap tail re-anchors every cell.  v2: relayout fires from HERE and
+from explicit commands ONLY -- never from resize events (display
+geometry is stock-managed; re-tiling on resize was a churn source)."
+  (let ((frame (selected-frame)))
+    (run-at-time 0 nil
+                 (lambda ()
+                   (with-demoted-errors "claude-workspace on-activate: %S"
+                     (when (and (frame-live-p frame)
+                                (not (claude-workspace--suppress-relayout-p)))
+                       (with-selected-frame frame
+                         (when (claude-workspace--in-workspace-p)
+                           (claude-workspace--log "on-activate %s -> relayout"
+                                                  (claude-workspace--frame-desc frame))
+                           (claude-workspace--relayout)))))))))
 
 (defun claude-workspace--on-focus-change ()
-  "Adapt the newly-focused frame and refresh attention tints.
+  "Refresh attention tints when frame focus changes.  Nothing else.
 Wrapped so an error can never break frame focus / creation."
   (with-demoted-errors "claude-workspace on-focus: %S"
     (when (and (frame-focus-state)
                (not (claude-workspace--child-or-mini-frame-p (selected-frame))))
-      (claude-workspace--adapt-frame (selected-frame))
       (claude-workspace--refresh-attention))))
 
 (defun claude-workspace--note-selection (&optional frame)
@@ -979,101 +1047,232 @@ never break a window selection / frame creation."
       (unless (claude-workspace--child-or-mini-frame-p frame)
         (let ((buf (window-buffer (frame-selected-window frame))))
           (when (memq buf claude-workspace--sessions)
-            (setq claude-workspace--last-session buf))
+            (claude-workspace--set-frame-session buf frame))
           (claude-workspace--refresh-attention))))))
 
-(add-hook 'window-size-change-functions #'claude-workspace--maybe-adapt)
+;; v2 NOTE: there is deliberately NO resize handling here.  With stock
+;; smallest-window sizing a frame resize (the Android keyboard, a
+;; monitor change) flows through `window--adjust-process-windows' ->
+;; our PTY owner -> ghostel's native resize redraw, which re-anchors
+;; every window itself (`ghostel--redraw-resize-active').  The v1
+;; resize/adapt layers (always-anchor advice, resnap-on-frame-resize,
+;; maybe-adapt/frame-mislaid-p) are gone: each one fought ghostel and
+;; each was a churn source.  Exactly TWO window-start writers survive,
+;; both prompt-ward: the relayout snap tail, and the rescue below.
+
+(defun claude-workspace--rescue-clamped-windows (buffer)
+  "Rescue managed windows of BUFFER clamped at `point-min' (and only those).
+A managed terminal window sitting at the LITERAL top of the buffer is
+never a real user state: a used session has hundreds of scrollback
+lines above the prompt and nobody reads the welcome banner.  But
+clamps to `point-min' keep arriving from outside ghostel's control --
+persp-mode's failed window-state restores on every Mac client
+open/close (\"Window too small to accommodate state\" leaves the
+window at point-min), C-level frame-resize marker adjustment, dying
+frames.  Worse, ghostel LAUNDERS the clamp: its post-clamp capture
+saves a content key that genuinely matches the banner at point-min,
+so `ghostel--position-mangled-p' sees a legitimate scroll position
+and every later redraw faithfully restores the window to the top.
+
+So, before each redraw: any managed char/semi-char window whose
+`window-start' is `point-min' goes through ghostel's snap seam, with
+`ghostel--force-next-redraw' so the rescue also lands during DEC 2026
+synchronized-output streaks.  Scrollback reading is untouched -- a
+real reading position is never byte 1."
+  (when (and (buffer-live-p buffer)
+             (memq buffer claude-workspace--sessions))
+    (with-current-buffer buffer
+      (when (and (bound-and-true-p ghostel--term)
+                 (boundp 'ghostel--input-mode)
+                 (memq ghostel--input-mode '(char semi-char))
+                 (boundp 'ghostel--windows-needing-snap)
+                 ;; a buffer this empty has no scrollback to clamp into
+                 (> (point-max) 2000))
+        (dolist (w (get-buffer-window-list buffer nil t))
+          (when (= (window-start w) (point-min))
+            (claude-workspace--log "clamp-rescue %s win-on=%s"
+                                   (buffer-name buffer)
+                                   (claude-workspace--frame-desc (window-frame w)))
+            ;; Repair the POINTS first, prompt-ward.  A clamped window
+            ;; has `window-point' (and usually buffer point) clamped to
+            ;; `point-min' too.  Left alone, `ghostel--anchor-window'
+            ;; copies the broken buffer point into `window-point', and
+            ;; redisplay then recomputes `window-start' right back to
+            ;; `point-min' TO KEEP POINT VISIBLE -- an eternal loop in
+            ;; which every rescue is undone within one redisplay cycle.
+            ;; (Proven live: post-redraw ws == anchor, 50ms later ws ==
+            ;; 1 again, buffer point stuck at 1.)  With the points at
+            ;; `point-max' the anchored start survives redisplay and
+            ;; the next render resumes normal cursor tracking.
+            (when (= (window-point w) (point-min))
+              (set-window-point w (point-max)))
+            (cl-pushnew w ghostel--windows-needing-snap)
+            (when (boundp 'ghostel--scroll-positions)
+              (setq ghostel--scroll-positions
+                    (assq-delete-all w ghostel--scroll-positions)))
+            (when (boundp 'ghostel--force-next-redraw)
+              (setq ghostel--force-next-redraw t))))
+        ;; the shared buffer point feeds `ghostel--anchor-window's PT
+        ;; argument for EVERY window -- repair it too
+        (when (= (point) (point-min))
+          (goto-char (point-max)))))))
+
+(defun claude-workspace--reap-zombie-frames ()
+  "Delete minibuffer-only tty frames that are not their terminal's top frame.
+persp's failed frame deactivations leave these behind on the phone's
+tty (observed live: an invisible frame whose only window was the
+minibuffer).  Their stranded windows are walked by
+`window--adjust-process-windows' and can poison PTY sizing.
+Conservative on purpose: a real frame always has a non-minibuffer
+window, and we never touch the terminal's live top frame.  Runs from
+an idle timer -- NEVER synchronously inside `delete-frame-functions',
+which persp also occupies (re-entry there is undefined behavior)."
+  (dolist (f (frame-list))
+    (when (and (frame-live-p f)
+               (frame-parameter f 'tty)
+               (not (eq f (ignore-errors (tty-top-frame (frame-terminal f)))))
+               (= 1 (length (window-list f t)))
+               (window-minibuffer-p (frame-root-window f)))
+      (claude-workspace--log "reap zombie frame %s"
+                             (claude-workspace--frame-desc f))
+      (ignore-errors (delete-frame f t)))))
+
+(defvar claude-workspace--reaper-timer
+  (run-with-idle-timer 30 t #'claude-workspace--reap-zombie-frames)
+  "Idle timer that reaps zombie tty frames (see the reaper's docstring).")
+
+(defun claude-workspace--harden-on-ghostel-mode ()
+  "`ghostel-mode-hook': harden Claude session buffers at creation.
+Runs the jit-lock/emojify/bidi hardening BEFORE the buffer's first GUI
+redisplay, so emojify's jit-lock client never gets a chance to crash
+redisplay in a freshly spawned session (it only registers via
+`after-change-major-mode-hook', which runs before this hook's caller
+returns -- the ordering still works because the kill is idempotent and
+also re-applied at adopt time)."
+  (when (string-prefix-p "*claude:" (buffer-name))
+    (claude-workspace--harden-session-buffer (current-buffer))))
+(add-hook 'ghostel-mode-hook #'claude-workspace--harden-on-ghostel-mode)
+
+(defun claude-workspace--repair-point-after-redraw (buffer)
+  "Undo the clamped-point reimport after each ghostel redraw.
+THE mechanism behind \"sessions break only on the focused phone window
+and only while the Mac client is open\" (proven live, June 2026):
+ghostel renders inside `with-selected-window' on its preferred render
+window, which PREFERS GUI windows.  The full-redraw erase clamps every
+NON-selected window's `window-point' to `point-min' -- including the
+daemon's selected window when the user is focused on the session (the
+phone, always).  When `with-selected-window' exits, Emacs re-imports
+that clamped window-point into the buffer's point;
+`ghostel--anchor-window' has then already propagated pt=1 into every
+window, and redisplay recomputes every `window-start' back to
+`point-min' to keep point visible.  Rescue loops forever because each
+rescue is undone within one redisplay cycle.  With the Mac client
+closed, the render window IS the selected window, point tracks the
+rewrite, and everything works -- the F8 baseline.
+
+Repair: after each redraw, while the session is in char/semi-char
+\(point belongs to the terminal cursor, never to the user), put any
+`point-min' buffer point / window-point back at `point-max'.  Runs
+inside the redraw's timer call, i.e. BEFORE the next redisplay."
+  (when (and (buffer-live-p buffer)
+             (memq buffer claude-workspace--sessions))
+    (with-current-buffer buffer
+      (when (and (bound-and-true-p ghostel--term)
+                 (boundp 'ghostel--input-mode)
+                 (memq ghostel--input-mode '(char semi-char))
+                 (> (point-max) 2000))
+        ;; (Deliberately unlogged: the reimport recurs on EVERY redraw
+        ;; while the user's selected window shows the session, so this
+        ;; repair firing constantly is the expected steady state.)
+        (when (= (point) (point-min))
+          (goto-char (point-max)))
+        (dolist (w (get-buffer-window-list buffer nil t))
+          (when (= (window-point w) (point-min))
+            (set-window-point w (point-max))))))))
+
+(with-eval-after-load 'ghostel
+  (advice-add 'ghostel--delayed-redraw :before
+              #'claude-workspace--rescue-clamped-windows)
+  (advice-add 'ghostel--delayed-redraw :after
+              #'claude-workspace--repair-point-after-redraw))
+
 (add-hook 'window-selection-change-functions #'claude-workspace--note-selection)
 (add-hook 'persp-activated-functions #'claude-workspace--on-activate)
 (remove-function after-focus-change-function #'claude-workspace--on-focus-change)
 (add-function :after after-focus-change-function #'claude-workspace--on-focus-change)
 
 
-;;;; Pinned terminal width (multi-display safety)
+;;;; PTY sizing: stock smallest-window, width pinned (v2)
 
-;; Emacs sizes a terminal process to the SMALLEST window displaying it
-;; (`window-adjust-process-window-size-function' -> ...-smallest).  ghostel
-;; honours that.  So opening a session on a narrow phone shrinks the PTY
-;; everywhere, and Claude's TUI -- which redraws destructively on every
-;; width change -- garbles.  We wrap that function: for pinned Claude
-;; buffers we always report `claude-workspace-fixed-width' columns (height
-;; still follows the window), so the width never changes no matter how many
-;; displays show the session.  Non-Claude terminals are unaffected.
+;; The unmanaged baseline works flawlessly BECAUSE of stock Emacs
+;; geometry: the PTY follows the smallest window showing the buffer, so
+;; no window is ever SHORTER than the terminal screen (the one deadly
+;; mismatch -- the prompt ends up below the window's bottom edge).  v2
+;; keeps that geometry untouched and pins only the WIDTH (width changes
+;; reflow the Claude TUI destructively; `-smallest' minimizes width and
+;; height independently, so a narrow display would reflow everyone).
+;; There is no per-device height logic and no minor-mode toggle: the
+;; v1 "height follows the user's frame" layer is what caused the PTY
+;; thrash (the WINDOWS arg Emacs passes is already global; the thrash
+;; came purely from keying the answer on which frame last saw a
+;; command).  Sizing is reactive and caller-independent.
+
+(defvar-local claude-workspace--pty-size nil
+  "(COLS . ROWS) last size this session's PTY was given, for log/guard.")
+
+(defun claude-workspace--window-screen-lines (w)
+  "Rows window W can actually display -- ghostel's own metric.
+`window-screen-lines' (NOT `window-body-height') honors face-remap
+`:height'; mixing the two metrics can size the PTY taller than the
+window can show and re-introduce window-shorter-than-screen through
+the attention tint's face-remap."
+  (with-selected-window w (floor (window-screen-lines))))
 
 (defun claude-workspace--adjust-window-size (process windows)
-  "Like the smallest-window default, but pin width for Claude buffers."
+  "Stock smallest-window sizing with the WIDTH pinned for Claude sessions.
+Width: always `claude-workspace-fixed-width'.  Height: smallest
+`claude-workspace--window-screen-lines' across ALL windows currently
+showing the buffer on ANY frame -- computed from global state, never
+from the per-call WINDOWS argument, so the answer is caller-independent.
+Guard: while a minibuffer is active, keep the previous size (ghostel's
+own rows-only minibuffer guard is bypassed for alt-screen apps like the
+Claude TUI, so without this every vertico/M-x/transient open+close
+would be a full-TUI SIGWINCH).  Non-Claude terminals fall through to
+the stock function."
   (let ((buf (process-buffer process)))
     (if (and (buffer-live-p buf)
-             (buffer-local-value 'claude-workspace--pinned buf)
+             (string-prefix-p "*claude:" (buffer-name buf))
              (integerp claude-workspace-fixed-width))
-        (let* ((base (window-adjust-process-window-size-smallest process windows))
-               (rows (if (consp base) (cdr base) 24)))
-          (cons claude-workspace-fixed-width (max 1 rows)))
+        (let* ((wins (get-buffer-window-list buf 'nomini t))
+               (rows (and wins
+                          (apply #'min
+                                 (mapcar #'claude-workspace--window-screen-lines
+                                         wins))))
+               (cur (buffer-local-value 'claude-workspace--pty-size buf))
+               (size (and rows
+                          (cons claude-workspace-fixed-width (max 1 rows)))))
+          (cond
+           ((null size) cur)                       ; not displayed: keep
+           ((and cur (active-minibuffer-window)) cur)
+           (t
+            (unless (equal size cur)
+              (claude-workspace--log "pty %s %s -> %s" (buffer-name buf) cur size)
+              (with-current-buffer buf
+                (setq claude-workspace--pty-size size)))
+            size)))
       (window-adjust-process-window-size-smallest process windows))))
 
-(defun claude-workspace--repin ()
-  "Push the pinned size to every managed session's terminal right now.
-Calls the backend's window-size-adjust directly (ghostel skips no-op
-window changes, so merely re-showing the buffer is not enough)."
-  (dolist (b claude-workspace--sessions)
-    (when (buffer-live-p b)
-      (with-current-buffer b
-        (let ((proc (and (boundp 'ghostel--process) ghostel--process))
-              (wins (get-buffer-window-list b nil t)))
-          (when (and (process-live-p proc) wins
-                     (fboundp 'ghostel--window-adjust-process-window-size))
-            (ignore-errors
-              (ghostel--window-adjust-process-window-size proc wins))))))))
-
-;;;###autoload
-(define-minor-mode claude-workspace-pin-width-mode
-  "Pin managed Claude terminals to `claude-workspace-fixed-width' columns.
-Stops a session from reflowing to the smallest window when shown on
-multiple displays at once (phone + monitor), which is what corrupts the
-Claude TUI.  Recommended on."
-  :global t
-  :group 'claude-workspace
-  (if claude-workspace-pin-width-mode
-      (progn
-        (unless (eq (default-value 'window-adjust-process-window-size-function)
-                    #'claude-workspace--adjust-window-size)
-          (setq claude-workspace--saved-adjust-fn
-                (default-value 'window-adjust-process-window-size-function)))
-        (setq-default window-adjust-process-window-size-function
-                      #'claude-workspace--adjust-window-size)
-        (dolist (b claude-workspace--sessions)
-          (when (buffer-live-p b)
-            (with-current-buffer b (setq claude-workspace--pinned t))))
-        (claude-workspace--repin)
-        (message "Claude width pinned to %d columns" claude-workspace-fixed-width))
-    (setq-default window-adjust-process-window-size-function
-                  (or claude-workspace--saved-adjust-fn
-                      #'window-adjust-process-window-size-smallest))
-    (claude-workspace--repin)
-    (message "Claude width unpinned")))
-
-;;;###autoload
-(defun claude-workspace-pin-to-current-width ()
-  "Pin Claude's fixed width to the current window's body width.
-Run this on your narrowest display (e.g. your phone) so sessions stay
-readable everywhere and never reflow."
-  (interactive)
-  (let ((w (max 20 (window-body-width))))
-    (setq claude-workspace-fixed-width w)
-    (unless claude-workspace-pin-width-mode
-      (claude-workspace-pin-width-mode 1))
-    (claude-workspace--repin)
-    (message "Pinned Claude width to %d columns" w)))
+;; Always installed -- ghostel's per-buffer wrapper chains to the default
+;; value, so this is the single source of truth for Claude PTY sizes.
+(setq-default window-adjust-process-window-size-function
+              #'claude-workspace--adjust-window-size)
 
 ;;;###autoload
 (defun claude-workspace-set-fixed-width (width)
-  "Set the pinned Claude terminal WIDTH (columns) and re-apply."
+  "Set the pinned Claude terminal WIDTH (columns) and re-tile."
   (interactive (list (read-number "Fixed Claude width (columns): "
                                   claude-workspace-fixed-width)))
   (setq claude-workspace-fixed-width (max 20 width))
-  (unless claude-workspace-pin-width-mode
-    (claude-workspace-pin-width-mode 1))
-  (claude-workspace--repin)
   (claude-workspace--relayout)
   (message "Fixed Claude width set to %d columns" claude-workspace-fixed-width))
 
@@ -1192,13 +1391,38 @@ not on you, so it shows a calm badge instead of the orange needs-you tint.")
                             (if (stringp desc) desc "working…"))
                     'face 'claude-workspace-working-face)))
 
-(defun claude-workspace--ghostel-redraw ()
+(defun claude-workspace--ghostel-redraw (&optional retries)
   "Force ghostel to repaint the current buffer, so the font/colors are clean
-after a tint is added or removed (a plain face-remap leaves stale glyphs)."
+after a tint is added or removed (a plain face-remap leaves stale glyphs).
+
+Never forces THROUGH a synchronized-output window.  Tints flip exactly
+while a session is RUNNING (hooks fire during the run; submitting input
+clears the tint), which is when the TUI is mid-frame -- and a redraw
+forced against a half-rewritten frame makes ghostel's window-start
+restore clamp every window showing the session to the TOP of the
+scrollback (the \"jumps to the top while it is working\" bug; idle
+sessions never hit it because they are never mid-frame).  So when
+synchronized output is active the repaint RETRIES shortly (default 8
+times, ~2.4s) until the frame settles, then gives up until the next
+status change: a briefly stale tint beats yanked windows."
   (when (and (boundp 'ghostel--force-next-redraw)
              (fboundp 'ghostel--delayed-redraw))
-    (setq ghostel--force-next-redraw t)
-    (ignore-errors (ghostel--delayed-redraw (current-buffer)))))
+    (if (and (fboundp 'ghostel--mode-enabled)
+             (bound-and-true-p ghostel--term)
+             (ignore-errors (ghostel--mode-enabled ghostel--term 2026)))
+        (let ((buf (current-buffer))
+              (left (1- (or retries 8))))
+          (claude-workspace--log "redraw deferred (sync-output) %s left=%d"
+                                 (buffer-name) left)
+          (when (> left 0)
+            (run-at-time 0.3 nil
+                         (lambda ()
+                           (when (buffer-live-p buf)
+                             (with-current-buffer buf
+                               (claude-workspace--ghostel-redraw left)))))))
+      (claude-workspace--log "redraw FORCED %s" (buffer-name))
+      (setq ghostel--force-next-redraw t)
+      (ignore-errors (ghostel--delayed-redraw (current-buffer))))))
 
 (defun claude-workspace--apply-status (buf)
   "Reconcile BUF's tint + mode-line with its logical state.  Idempotent;
@@ -1216,7 +1440,19 @@ a code reload or an external mode-line change can never leave a session stuck
 tinted.  Forces a ghostel redraw whenever the tint is added or removed."
   (when (buffer-live-p buf)
     (with-current-buffer buf
-      (let* ((focused (eq buf (window-buffer (selected-window))))
+      ;; FOCUSED must be judged across EVERY live frame, not against
+      ;; `(selected-window)': hook events and timers run with whatever
+      ;; frame the daemon considers selected (usually the GUI frame), so
+      ;; with a phone tty frame attached the session you are LOOKING AT
+      ;; there judged "unfocused" -> tint applied -> you select/type ->
+      ;; "focused" -> tint removed -> ... and every flip forced a full
+      ;; ghostel redraw.  That flapping storm is what kept clamping the
+      ;; phone's window to the top of the scrollback.
+      (let* ((focused (cl-some (lambda (f)
+                                 (and (frame-live-p f)
+                                      (eq buf (window-buffer
+                                               (frame-selected-window f)))))
+                               (frame-list)))
              (reason (and (stringp claude-workspace--needs-attention)
                           claude-workspace--needs-attention))
              (want (cond
@@ -1228,6 +1464,10 @@ tinted.  Forces a ghostel redraw whenever the tint is added or removed."
         (pcase want
           ('orange
            (unless claude-workspace--tinted
+             (claude-workspace--log "tint+ %s (sel-frame=%s sel-buf=%s)"
+                                    (buffer-name)
+                                    (claude-workspace--frame-desc)
+                                    (buffer-name (window-buffer (selected-window))))
              (when (eq claude-workspace--saved-mode-line :unset)
                (setq claude-workspace--saved-mode-line mode-line-format))
              (setq claude-workspace--bg-cookie
@@ -1241,6 +1481,7 @@ tinted.  Forces a ghostel redraw whenever the tint is added or removed."
                (force-mode-line-update t))))
           ('badge
            (when claude-workspace--tinted          ; a badge never tints
+             (claude-workspace--log "tint- %s (badge)" (buffer-name))
              (when claude-workspace--bg-cookie
                (face-remap-remove-relative claude-workspace--bg-cookie)
                (setq claude-workspace--bg-cookie nil))
@@ -1258,6 +1499,8 @@ tinted.  Forces a ghostel redraw whenever the tint is added or removed."
            (unless (and (not claude-workspace--tinted)
                         (eq claude-workspace--saved-mode-line :unset))
              (when claude-workspace--tinted
+               (claude-workspace--log "tint- %s (clear, focused=%s)"
+                                      (buffer-name) focused)
                (when claude-workspace--bg-cookie
                  (face-remap-remove-relative claude-workspace--bg-cookie)
                  (setq claude-workspace--bg-cookie nil))
@@ -1348,7 +1591,7 @@ give it work (or it will tint again when you look away)."
                           (lambda (b) (> (cl-position b sessions :test #'eq) cur))
                           waiting)
                          (car waiting))))
-        (setq claude-workspace--last-session target)
+        (claude-workspace--set-frame-session target)
         (claude-workspace--focus-session target)   ; refresh untints the focused one
         (message "→ %s  (%d waiting)"
                  (claude-workspace--session-project target)
@@ -1520,6 +1763,8 @@ unlike the terminal bell.  Returns nil so other event-hook functions still run."
          (bufname (plist-get event :buffer-name))
          (buf (and bufname (get-buffer bufname))))
     (when (and buf (memq buf claude-workspace--sessions))
+      (claude-workspace--log "event %s %s (sel-frame=%s)"
+                             type bufname (claude-workspace--frame-desc))
       (cond
        ;; it is working again (you gave it work, OR it auto-resumed and is
        ;; running tools) -> clear the orange.  Clear the working badge too,
@@ -1613,15 +1858,13 @@ moment you submit input (RET) to the session.  No tinting while it works."
                (car d) (cdr d)
                (if claude-workspace-force-dims " forced" "")
                claude-workspace-fixed-width
-               (if (bound-and-true-p claude-workspace-pin-width-mode)
-                   " pinned" ""))))
+               " pinned")))
    ["Workspace"
     ("o" "Open / relayout grid" claude-workspace-open)
     ("a" "Add session(s)…" claude-workspace-add)
     ("A" "Adopt running sessions" claude-workspace-adopt)]
    ["Layout / width"
     ("l" "Set layout (force/auto)" claude-workspace-set-layout)
-    ("w" "Pin width to this window" claude-workspace-pin-to-current-width)
     ("W" "Set fixed width…" claude-workspace-set-fixed-width)
     ("n" "Next page" claude-workspace-next-page)
     ("p" "Previous page" claude-workspace-prev-page)
@@ -1637,8 +1880,7 @@ moment you submit input (RET) to the session.  No tinting while it works."
    ["Teardown / modes"
     ("k" "Kill this slot" claude-workspace-kill-slot)
     ("R" "Reset (kill all)" claude-workspace-reset)
-    ("t" "Toggle attention mode" claude-workspace-attention-mode)
-    ("P" "Toggle width pinning" claude-workspace-pin-width-mode)]])
+    ("t" "Toggle attention mode" claude-workspace-attention-mode)]])
 
 (provide 'claude-workspace)
 ;;; claude-workspace.el ends here

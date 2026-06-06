@@ -241,13 +241,15 @@
   (add-hook 'ghostel-mode-hook
             (lambda () (setq-local bidi-display-reordering nil))))
 
-;; Master Claude workspace: many Claude sessions in one adaptive grid,
-;; pinned terminal width (so they never garble across phone + monitor),
-;; and chime/popup/auto-switch when a session is waiting for input.
+;; Master Claude workspace v2 ("Isolation-First, Stock-Smallest"): many
+;; Claude sessions in one adaptive grid + chime/popup/auto-switch when a
+;; session is waiting for input.  PTY geometry is stock smallest-window
+;; with only the WIDTH pinned (installed at require; no mode to enable) —
+;; the proven-reliable baseline behavior.  Design:
+;; docs/superpowers/specs/2026-06-06-claude-workspace-redesign-design.md
 ;; Mac only — the phone reaches it remotely through claude-mac instead.
 (unless IS-ANDROID
   (require 'claude-workspace)
-  (claude-workspace-pin-width-mode 1)       ; pin width (no claude-code dependency)
   (with-eval-after-load 'claude-code        ; chime/popup/auto-switch on input-wait
     (claude-workspace-attention-mode 1))
   (map! :leader :desc "Master Claude workspace" "o C" #'claude-workspace-transient)
