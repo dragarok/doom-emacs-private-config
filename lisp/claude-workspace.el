@@ -471,25 +471,65 @@ so focusing always lands where you type, not at the top."
        (let ((name (buffer-name (window-buffer win))))
          (and name (string-prefix-p " *claude-slot-" name)))))
 
+(defun claude-workspace--release-other-views (buf)
+  "Swap BUF out of every OTHER frame's windows; return how many.
+The PTY height follows the SMALLEST window showing the session on any
+display, so a Mac grid cell caps how many lines the phone can see (and
+vice versa).  Releasing the other displays' views is the explicit,
+user-invoked way to hand the session's full geometry to the current
+display.  Each displaced window is marked with the
+`claude-workspace-displaced' window-parameter and shows a placeholder;
+`claude-workspace--restore-released-views' (run by the expand toggle
+and by every relayout) puts the session back."
+  (let ((n 0) (i 90))
+    (dolist (w (get-buffer-window-list buf 'nomini t))
+      (unless (eq (window-frame w) (selected-frame))
+        (set-window-parameter w 'claude-workspace-displaced buf)
+        (set-window-buffer w (claude-workspace--placeholder (cl-incf i)))
+        (claude-workspace--log "release %s from %s" (buffer-name buf)
+                               (claude-workspace--frame-desc (window-frame w)))
+        (cl-incf n)))
+    n))
+
+(defun claude-workspace--restore-released-views (buf)
+  "Undo `claude-workspace--release-other-views' for BUF on every frame.
+Only restores windows still showing the placeholder we put there -- if
+the user opened something else in that window meanwhile, leave it."
+  (dolist (f (frame-list))
+    (when (frame-live-p f)
+      (dolist (w (window-list f 'nomini))
+        (when (eq (window-parameter w 'claude-workspace-displaced) buf)
+          (set-window-parameter w 'claude-workspace-displaced nil)
+          (when (and (buffer-live-p buf)
+                     (claude-workspace--placeholder-window-p w))
+            (set-window-buffer w buf)
+            (claude-workspace--log "restore %s to %s" (buffer-name buf)
+                                   (claude-workspace--frame-desc f))))))))
+
 ;;;###autoload
 (defun claude-workspace-expand-down ()
-  "Grow the current session DOWN into the empty slot(s) directly below it so
-you can read its full context, then toggle back.
-Only absorbs EMPTY placeholder slots in the same column -- never hides another
-session.  Because the grid is built columns-first, the other columns keep
-their layout.  Call again (or open/relayout the grid) to restore the uniform
-grid; auto-relayout leaves an expanded grid alone until then."
+  "Give the current session more lines: absorb empty slots below AND
+release the session from every other display, so the PTY grows to THIS
+window's height (the smallest-window rule otherwise caps it at the
+smallest grid cell anywhere -- which is why an expanded window used to
+keep showing the same number of lines).  On a phone (one cell) it
+purely releases the other displays' cap.  Only absorbs EMPTY
+placeholder slots -- never hides another session locally.  Call again
+\(or relayout) to restore everything everywhere."
   (interactive)
   (if (frame-parameter nil 'claude-workspace-expanded)
-      ;; already expanded -> restore the uniform grid (relayout clears the flag)
-      (progn (claude-workspace--relayout)
-             (message "Grid restored"))
-    (let ((win (selected-window))
-          (absorbed 0))
-      (unless (memq (window-buffer win) claude-workspace--sessions)
+      ;; already expanded -> restore other displays + the uniform grid
+      (progn
+        (dolist (b claude-workspace--sessions)
+          (claude-workspace--restore-released-views b))
+        (claude-workspace--relayout)
+        (message "Grid restored everywhere"))
+    (let* ((win (selected-window))
+           (buf (window-buffer win))
+           (absorbed 0))
+      (unless (memq buf claude-workspace--sessions)
         (user-error "Not on a Claude session"))
-      ;; set the flag BEFORE deleting windows so the debounced auto-relayout
-      ;; (window-size-change) leaves the expansion alone
+      ;; set the flag BEFORE deleting windows so nothing re-tiles mid-way
       (set-frame-parameter nil 'claude-workspace-expanded t)
       (catch 'done
         (while t
@@ -499,22 +539,33 @@ grid; auto-relayout leaves an expanded grid alone until then."
                      (claude-workspace--placeholder-window-p below))
                 (progn (delete-window below) (setq absorbed (1+ absorbed)))
               (throw 'done nil)))))
-      (if (> absorbed 0)
-          (progn
-            (select-window win)
-            (claude-workspace--snap-to-bottom win)
-            (message "Expanded into %d empty slot%s below — repeat to restore"
-                     absorbed (if (= absorbed 1) "" "s")))
-        ;; nothing absorbed -> undo the flag
-        (set-frame-parameter nil 'claude-workspace-expanded nil)
-        (message "No empty slot directly below to expand into")))))
+      (let ((released (claude-workspace--release-other-views buf)))
+        (if (or (> absorbed 0) (> released 0))
+            (progn
+              (select-window win)
+              (claude-workspace--snap-to-bottom win)
+              (message "Expanded%s%s — repeat to restore"
+                       (if (> absorbed 0)
+                           (format " into %d slot%s below" absorbed
+                                   (if (= absorbed 1) "" "s"))
+                         "")
+                       (if (> released 0)
+                           (format ", released %d other view%s" released
+                                   (if (= released 1) "" "s"))
+                         "")))
+          (set-frame-parameter nil 'claude-workspace-expanded nil)
+          (message "Nothing to expand into (no empty slot below, no other views)"))))))
 
 (defun claude-workspace--relayout ()
   "Redraw the grid in the current workspace from the session list.
 Picks dimensions from the current display, pages if there are more
 sessions than cells, fills cells with sessions and the rest with
-placeholders, and selects the first live session window."
+placeholders, and selects the first live session window.  Also undoes
+any expand-down view release on OTHER frames -- relayout means \"back
+to normal everywhere\"."
   (claude-workspace--prune)
+  (dolist (b claude-workspace--sessions)
+    (claude-workspace--restore-released-views b))
   (let* ((dims (claude-workspace--auto-dims))
          (cols (car dims))
          (rows (cdr dims))
