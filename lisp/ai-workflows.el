@@ -24,16 +24,16 @@
       :ttl nil)
     ;; (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
     (gptel-make-ollama
-     "Ollama"
-     :host "localhost:11434"
-     :models '("gemma3:latest")
-     :stream t)
+        "Ollama"
+      :host "localhost:11434"
+      :models '("gemma3:latest")
+      :stream t)
     (gptel-make-anthropic "Claude"
-                          :stream t
-                          :key (auth-source-pick-first-password :user "anthroapi"))
+      :stream t
+      :key (auth-source-pick-first-password :user "anthroapi"))
     (gptel-make-gemini "Gemini"
-                       :stream t
-                       :key (auth-source-pick-first-password :user "geminiapi"))
+      :stream t
+      :key (auth-source-pick-first-password :user "geminiapi"))
     (gptel-make-gh-copilot "Copilot")
 
     (map! :leader
@@ -101,110 +101,113 @@
   ;; Use ghostel (libghostty-powered terminal emulator):
   (if IS-MAC
       (setq claude-code-terminal-backend 'ghostel))
+  (if IS-LINUX
+      (setq claude-code-terminal-backend 'ghostel))
+  )
 
-  ;; --------------------------------------------------------------
-  ;; TEMP FIX -- remove once stevemolitor/claude-code.el#142 lands.
-  ;; ghostel >= 0.22 replaced `ghostel--copy-mode-active' with
-  ;; `ghostel--input-mode' and `ghostel-copy-mode-exit' with
-  ;; `ghostel-readonly-exit'.  claude-code.el's three ghostel
-  ;; read-only methods still reference the old names, so its resize
-  ;; advice errored on every window-size change:
-  ;;   Error adjusting window size: (void-variable ghostel--copy-mode-active)
-  ;; and the swallowed error kept SIGWINCH from reaching the PTY
-  ;; (TUI stuck at the 80-column default).  Redefining the methods
-  ;; here (same specializers) replaces the package's copies without
-  ;; touching the package, so Doom updates can't wipe the fix.
-  ;; --------------------------------------------------------------
-  (defun my/claude-ghostel-in-copy-mode-p ()
-    "Non-nil when the current ghostel buffer is in copy/Emacs (read-only) mode.
+;; --------------------------------------------------------------
+;; TEMP FIX -- remove once stevemolitor/claude-code.el#142 lands.
+;; ghostel >= 0.22 replaced `ghostel--copy-mode-active' with
+;; `ghostel--input-mode' and `ghostel-copy-mode-exit' with
+;; `ghostel-readonly-exit'.  claude-code.el's three ghostel
+;; read-only methods still reference the old names, so its resize
+;; advice errored on every window-size change:
+;;   Error adjusting window size: (void-variable ghostel--copy-mode-active)
+;; and the swallowed error kept SIGWINCH from reaching the PTY
+;; (TUI stuck at the 80-column default).  Redefining the methods
+;; here (same specializers) replaces the package's copies without
+;; touching the package, so Doom updates can't wipe the fix.
+;; --------------------------------------------------------------
+(defun my/claude-ghostel-in-copy-mode-p ()
+  "Non-nil when the current ghostel buffer is in copy/Emacs (read-only) mode.
 Handles both ghostel >= 0.22 (`ghostel--input-mode') and older
 releases (`ghostel--copy-mode-active')."
-    (if (boundp 'ghostel--input-mode)
-        (memq ghostel--input-mode '(copy emacs))
-      (bound-and-true-p ghostel--copy-mode-active)))
+  (if (boundp 'ghostel--input-mode)
+      (memq ghostel--input-mode '(copy emacs))
+    (bound-and-true-p ghostel--copy-mode-active)))
 
-  (cl-defmethod claude-code--term-in-read-only-p ((_backend (eql ghostel)))
-    "Check if ghostel terminal is in read-only mode."
-    (my/claude-ghostel-in-copy-mode-p))
+(cl-defmethod claude-code--term-in-read-only-p ((_backend (eql ghostel)))
+  "Check if ghostel terminal is in read-only mode."
+  (my/claude-ghostel-in-copy-mode-p))
 
-  (cl-defmethod claude-code--term-read-only-mode ((_backend (eql ghostel)))
-    "Switch ghostel terminal to read-only mode."
-    (claude-code--ensure-ghostel)
-    (unless (my/claude-ghostel-in-copy-mode-p)
-      (ghostel-copy-mode)))
+(cl-defmethod claude-code--term-read-only-mode ((_backend (eql ghostel)))
+  "Switch ghostel terminal to read-only mode."
+  (claude-code--ensure-ghostel)
+  (unless (my/claude-ghostel-in-copy-mode-p)
+    (ghostel-copy-mode)))
 
-  (cl-defmethod claude-code--term-interactive-mode ((_backend (eql ghostel)))
-    "Switch ghostel terminal back to interactive mode."
-    (claude-code--ensure-ghostel)
-    (when (my/claude-ghostel-in-copy-mode-p)
-      (if (fboundp 'ghostel-readonly-exit)
-          (ghostel-readonly-exit)
-        (ghostel-copy-mode-exit))
-      ;; Exiting copy mode restores the saved keymap; re-apply ours.
-      (claude-code--term-setup-keymap 'ghostel)))
+(cl-defmethod claude-code--term-interactive-mode ((_backend (eql ghostel)))
+  "Switch ghostel terminal back to interactive mode."
+  (claude-code--ensure-ghostel)
+  (when (my/claude-ghostel-in-copy-mode-p)
+    (if (fboundp 'ghostel-readonly-exit)
+        (ghostel-readonly-exit)
+      (ghostel-copy-mode-exit))
+    ;; Exiting copy mode restores the saved keymap; re-apply ours.
+    (claude-code--term-setup-keymap 'ghostel)))
 
-  ;; Ported from claude-code-ide.el (a9485f7): ghostel manages resizing
-  ;; natively, so the vterm/eat "signal only on width change" reflow
-  ;; workaround stays OFF for it.  Suppressing height-only SIGWINCHes
-  ;; also recreates the window-height != PTY-rows mismatch behind the
-  ;; phone scroll bugs, and its advice was the code path that hit the
-  ;; void-variable error on every resize.
-  (when (eq claude-code-terminal-backend 'ghostel)
-    (setq claude-code-optimize-window-resize nil))
+;; Ported from claude-code-ide.el (a9485f7): ghostel manages resizing
+;; natively, so the vterm/eat "signal only on width change" reflow
+;; workaround stays OFF for it.  Suppressing height-only SIGWINCHes
+;; also recreates the window-height != PTY-rows mismatch behind the
+;; phone scroll bugs, and its advice was the code path that hit the
+;; void-variable error on every resize.
+(when (eq claude-code-terminal-backend 'ghostel)
+  (setq claude-code-optimize-window-resize nil))
 
-  ;; Ported from claude-code-ide.el (cc50839): route insert-state ESC to
-  ;; evil (not the terminal) in Claude ghostel buffers, so keys can't get
-  ;; locked in when Claude enters the alternate screen.  Belt-and-braces
-  ;; with the CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN env var below; C-g
-  ;; still sends a real ESC to Claude (claude-code binds it to
-  ;; `claude-code--ghostel-send-escape').
-  (add-hook 'claude-code-start-hook
-            (defun my/claude-ghostel-esc-to-evil ()
-              (when (and (eq claude-code-terminal-backend 'ghostel)
-                         (bound-and-true-p evil-ghostel-mode)
-                         (boundp 'evil-ghostel--escape-mode))
-                (setq-local evil-ghostel--escape-mode 'evil))))
+;; Ported from claude-code-ide.el (cc50839): route insert-state ESC to
+;; evil (not the terminal) in Claude ghostel buffers, so keys can't get
+;; locked in when Claude enters the alternate screen.  Belt-and-braces
+;; with the CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN env var below; C-g
+;; still sends a real ESC to Claude (claude-code binds it to
+;; `claude-code--ghostel-send-escape').
+(add-hook 'claude-code-start-hook
+          (defun my/claude-ghostel-esc-to-evil ()
+            (when (and (eq claude-code-terminal-backend 'ghostel)
+                       (bound-and-true-p evil-ghostel-mode)
+                       (boundp 'evil-ghostel--escape-mode))
+              (setq-local evil-ghostel--escape-mode 'evil))))
 
-  ;; Ported from claude-code-ide.el's `sync-terminal-dimensions': manual
-  ;; escape hatch when the TUI is stuck at the wrong size (e.g. 80 cols
-  ;; after a missed SIGWINCH).
-  (defun my/claude-ghostel-resync-size ()
-    "Force the Claude ghostel PTY size to match its window."
-    (interactive)
-    (let* ((buf (if (derived-mode-p 'ghostel-mode)
-                    (current-buffer)
-                  (cl-find-if (lambda (b)
-                                (and (string-prefix-p "*claude" (buffer-name b))
-                                     (eq (buffer-local-value 'major-mode b)
-                                         'ghostel-mode)))
-                              (buffer-list))))
-           (win (and buf (get-buffer-window buf t)))
-           (proc (and buf (get-buffer-process buf))))
-      (unless (and win proc)
-        (user-error "No visible Claude ghostel buffer with a live process"))
-      (with-current-buffer buf
-        (ghostel--window-adjust-process-window-size proc (list win)))
-      (message "Resynced %s to %dx%d" (buffer-name buf)
-               (window-body-width win) (window-body-height win))))
+;; Ported from claude-code-ide.el's `sync-terminal-dimensions': manual
+;; escape hatch when the TUI is stuck at the wrong size (e.g. 80 cols
+;; after a missed SIGWINCH).
+(defun my/claude-ghostel-resync-size ()
+  "Force the Claude ghostel PTY size to match its window."
+  (interactive)
+  (let* ((buf (if (derived-mode-p 'ghostel-mode)
+                  (current-buffer)
+                (cl-find-if (lambda (b)
+                              (and (string-prefix-p "*claude" (buffer-name b))
+                                   (eq (buffer-local-value 'major-mode b)
+                                       'ghostel-mode)))
+                            (buffer-list))))
+         (win (and buf (get-buffer-window buf t)))
+         (proc (and buf (get-buffer-process buf))))
+    (unless (and win proc)
+      (user-error "No visible Claude ghostel buffer with a live process"))
+    (with-current-buffer buf
+      (ghostel--window-adjust-process-window-size proc (list win)))
+    (message "Resynced %s to %dx%d" (buffer-name buf)
+             (window-body-width win) (window-body-height win))))
 
-  ;; Keep Claude's TUI compatible with the claude-workspace grid.  Claude
-  ;; Code >=2.1.x ships two things that break it in a ghostel buffer:
-  ;;   1. A fullscreen pager that runs on the terminal alternate screen
-  ;;      (DECSET 1049).  Under alt-screen, evil-ghostel's `auto' ESC routing
-  ;;      sends ESC to the terminal, so you can't reach evil normal state
-  ;;      ("keys locked in"), and Claude's virtual scroll replaces the
-  ;;      Emacs/evil scrollback the grid relies on.
-  ;;   2. The agent view (`<- for agents', left arrow): pressing left opens a
-  ;;      fullscreen agents browser that re-enters alt-screen and re-locks the
-  ;;      keys -- present even with `/tui default', so disabling the alt screen
-  ;;      alone is not enough.
-  ;; Both are turned off via env vars (verified real in the 2.1.x binary).
-  ;; Scoped to this hook, so `claude' in a plain terminal keeps both if you
-  ;; want them there.
-  (add-hook 'claude-code-process-environment-functions
-            (lambda (&rest _)
-              (list "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1"
-                    "CLAUDE_CODE_DISABLE_AGENT_VIEW=1"))))
+;; Keep Claude's TUI compatible with the claude-workspace grid.  Claude
+;; Code >=2.1.x ships two things that break it in a ghostel buffer:
+;;   1. A fullscreen pager that runs on the terminal alternate screen
+;;      (DECSET 1049).  Under alt-screen, evil-ghostel's `auto' ESC routing
+;;      sends ESC to the terminal, so you can't reach evil normal state
+;;      ("keys locked in"), and Claude's virtual scroll replaces the
+;;      Emacs/evil scrollback the grid relies on.
+;;   2. The agent view (`<- for agents', left arrow): pressing left opens a
+;;      fullscreen agents browser that re-enters alt-screen and re-locks the
+;;      keys -- present even with `/tui default', so disabling the alt screen
+;;      alone is not enough.
+;; Both are turned off via env vars (verified real in the 2.1.x binary).
+;; Scoped to this hook, so `claude' in a plain terminal keeps both if you
+;; want them there.
+(add-hook 'claude-code-process-environment-functions
+          (lambda (&rest _)
+            (list "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1"
+                  "CLAUDE_CODE_DISABLE_AGENT_VIEW=1"))))
 
 (use-package claude-code-ide
   :config
