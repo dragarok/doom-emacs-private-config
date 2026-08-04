@@ -80,7 +80,7 @@
     :recipe (:host github
              :repo "tecosaur/org-pandoc-import"
              :files ("*.el" "filters" "preprocessors")))
-  (package! ox-json)
+  ;; (package! ox-json)
 
   ;; LaTeX
   (package! laas)
