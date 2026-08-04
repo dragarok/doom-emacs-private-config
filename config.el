@@ -63,10 +63,10 @@
         doom-serif-font (font-spec :family "Iosevka Nerd Font" :size 15)
         doom-big-font (font-spec :family "mononoki" :size 22)))
  (IS-LINUX
-  (setq doom-font (font-spec :family "Maple Mono SC NF" :size 19)
-        doom-variable-pitch-font (font-spec :family "RobotoMono Nerd Font" :size 19)
-        doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 19)
-        doom-big-font (font-spec :family "Maple Mono SC NF" :size 25))))
+  (setq doom-font (font-spec :family "Maple Mono SC NF" :size 16)
+        doom-variable-pitch-font (font-spec :family "RobotoMono Nerd Font" :size 16)
+        doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 16)
+        doom-big-font (font-spec :family "Maple Mono SC NF" :size 20))))
 
 ;;;###autoload
 (defun my/apply-theme (appearance)
