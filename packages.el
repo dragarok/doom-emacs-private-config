@@ -56,6 +56,7 @@
   ;; Web and browser integration
   (package! org-web-tools)
   (package! grab-x-link)
+  (package! ox-hugo)
 
   ;; Git enhancements
   (package! magit-delta
@@ -125,8 +126,8 @@
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"
              :files ("*.el" (:exclude "demo.gif"))))
 
-(package! ghostel)
-(package! evil-ghostel)
+  (package! ghostel)
+  (package! evil-ghostel)
   ;; Search
   (package! consult-web
     :recipe (:host github :repo "armindarvish/consult-web" :files (:defaults "sources/*.el")))

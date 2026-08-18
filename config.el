@@ -239,7 +239,10 @@
 ;; and any RTL text elsewhere keep full bidi support.
 (unless IS-ANDROID
   (add-hook 'ghostel-mode-hook
-            (lambda () (setq-local bidi-display-reordering nil))))
+            (lambda () (setq-local bidi-display-reordering nil)))
+  (use-package! ox-hugo
+    :after ox)
+  )
 
 ;; Master Claude workspace v2 ("Isolation-First, Stock-Smallest"): many
 ;; Claude sessions in one adaptive grid + chime/popup/auto-switch when a
@@ -2440,3 +2443,11 @@ appropriate.  In tables, insert a new row or end the table."
 (setq highlight-nonselected-windows nil)
 
 (setq save-interprogram-paste-before-kill t)
+
+;; GC tuning for always-streaming claude/ghostel sessions (2026-08-11).
+;; gcmh's default 1GB busy threshold let dead markers pile up between
+;; collections — ghostel redraws degraded to O(markers) per insert (Emacs
+;; pegged at ~80% CPU) and each GC pause was ~0.5s. 64MB keeps GCs short
+;; and frequent; gcmh still raises/lowers around idle as usual.
+(after! gcmh
+  (setq gcmh-high-cons-threshold (* 64 1024 1024)))

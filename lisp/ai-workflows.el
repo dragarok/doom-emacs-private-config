@@ -60,7 +60,14 @@
 
   ;; ghostel for ghostty backend useful for ai workflows
   (use-package ghostel
-    :ensure t)
+    :ensure t
+    :config
+    ;; 30fps redraws (0.033) across several streaming claude buffers pegs the
+    ;; Emacs daemon at ~80% CPU on this 16GB box; 10fps is visually fine for
+    ;; bulk TUI output. Keystroke echo stays snappy via the immediate-redraw
+    ;; path, capped at 10fps too (keystroke echo worst case ~100ms).
+    (setq ghostel-timer-delay 0.1
+          ghostel-immediate-redraw-interval 0.1))
   (use-package evil-ghostel
     :ensure t
     :after (ghostel evil)
@@ -207,7 +214,7 @@ releases (`ghostel--copy-mode-active')."
 (add-hook 'claude-code-process-environment-functions
           (lambda (&rest _)
             (list "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1"
-                  "CLAUDE_CODE_DISABLE_AGENT_VIEW=1"))))
+                  "CLAUDE_CODE_DISABLE_AGENT_VIEW=1")))
 
 (use-package claude-code-ide
   :config
