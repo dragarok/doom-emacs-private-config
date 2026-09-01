@@ -274,12 +274,12 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-prev>"
         `(menu-item "Prev" claude-remote-prev-session
           :help "Previous Claude session on the remote machine"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/left-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/backward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-next>"
         `(menu-item "Next" claude-remote-next-session
           :help "Next Claude session on the remote machine"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/right-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/forward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-talk>"
         `(menu-item "Talk" claude-remote-talk

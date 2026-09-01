@@ -76,20 +76,11 @@ remote.  `ssh' is the fallback for machines that lack it."
     (kai :user "alokregmi"
      :emacsclient "/usr/bin/emacsclient"
      :transport mosh
-     ;; kai's mosh came from the official package extracted into ~/.local
-     ;; (no root on that box), and its non-interactive PATH is only
-     ;; /usr/local/sbin:/usr/local/bin:/usr/bin -- so the client has to be
-     ;; told where mosh-server lives.  Drop this line if mosh ever gets
-     ;; installed properly there with `sudo pacman -S mosh'.
-     :mosh-server "/home/alokregmi/.local/bin/mosh-server"
      :label "Kai"))
   "Remote machines reachable over mosh or ssh.
 Each entry is (NAME :user USER [:host IP] [:ssh-key FILE]
-[:emacsclient PATH] [:transport mosh|ssh] [:mosh-server PATH]
-[:label STRING] [:next-form FORM] [:prev-form FORM]).
-
-`:mosh-server' is only needed when mosh-server is somewhere the remote's
-non-interactive PATH does not reach.
+[:emacsclient PATH] [:transport mosh|ssh] [:label STRING]
+[:next-form FORM] [:prev-form FORM]).
 
 `:ssh-key' defaults to `claude-remote-ssh-key', `:transport' to
 `claude-remote-default-transport'.
@@ -216,9 +207,7 @@ the inner `bash -l -c ...' is wrapped in double quotes as well; for
          (ec (or (plist-get p :emacsclient) "emacsclient"))
          (remote (format "bash -l -c 'COLORTERM=truecolor %s -t'" ec)))
     (pcase (or (plist-get p :transport) claude-remote-default-transport)
-      ('mosh (format "mosh%s --ssh=\"ssh -i %s\" %s@%s -- %s"
-                     (let ((srv (plist-get p :mosh-server)))
-                       (if srv (format " --server=%s" srv) ""))
+      ('mosh (format "mosh --ssh=\"ssh -i %s\" %s@%s -- %s"
                      key user host remote))
       ('ssh  (format (concat "ssh -t -i %s -o ServerAliveInterval=30"
                              " -o ServerAliveCountMax=6 %s@%s \"%s\"")
