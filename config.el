@@ -193,19 +193,24 @@
 (require 'review-reminders)
 (require 'momentum)
 
+;; Windows into the other machines' Emacs daemons.  Loaded everywhere, not
+;; just on the phone: the same commands drive kai from the Mac.  Only the
+;; toolbar and keybindings below are Android-only.
+(require 'claude-remote)
+
 ;; Android-specific toolbar and homepage
 (when IS-ANDROID
   (require 'android-toolbar)
   (require 'android-homepage)
-  (require 'claude-remote)                  ; mosh/ssh windows into Mac + Kai
 
-  ;; Smaller font in vterm buffers ONLY — more columns for the remote
+  ;; Smaller font in the terminal buffers ONLY — more columns for the remote
   ;; Emacs and cheaper redraws; all other buffers keep the touch size.
-  (defvar my/vterm-font-scale 0.77
-    "Relative font height in vterm buffers (1.0 = same as everywhere).")
-  (defun my/vterm-shrink-font ()
-    (face-remap-add-relative 'default :height my/vterm-font-scale))
-  (add-hook 'vterm-mode-hook #'my/vterm-shrink-font))
+  ;; ghostel, not vterm: that is what claude-remote runs on now.
+  (defvar my/remote-term-font-scale 0.77
+    "Relative font height in terminal buffers (1.0 = same as everywhere).")
+  (defun my/remote-term-shrink-font ()
+    (face-remap-add-relative 'default :height my/remote-term-font-scale))
+  (add-hook 'ghostel-mode-hook #'my/remote-term-shrink-font))
 
 ;; AI workflows (shared across platforms, Mac-only parts guarded inside)
 (require 'ai-workflows)

@@ -1,10 +1,9 @@
 ;;; claude-remote.el --- Windows into remote Emacs machines from Android -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; Full-screen vterm running mosh/ssh -> emacsclient -t into a remote
-;; machine's Emacs daemon (Mac, kai, ...), with a passthrough mode that
-;; hands the whole keyboard to the remote Emacs (like vterm's
-;; emacs-mode, plus the exception keys).
+;; Full-screen ghostel terminal running mosh/ssh -> emacsclient -t into a
+;; remote machine's Emacs daemon (Mac, kai, ...), with a passthrough mode
+;; that hands the whole keyboard to the remote Emacs.
 ;;
 ;;   claude-remote-mac / claude-remote-kai - toggle ONE machine (toolbar)
 ;;   claude-remote                         - connect to the ACTIVE machine
@@ -23,23 +22,38 @@
 ;; keyboard and drops you back in the local Android workspace.  Nothing
 ;; is ever "switched away" -- you hop between three places.
 ;;
-;; When `claude-remote-passthrough-mode' is on, the buffer is put in evil
-;; emacs-state and the keys vterm keeps local (`vterm-keymap-exceptions':
-;; C-c C-x C-u C-g C-h C-l M-x M-o C-y M-y) are forwarded to the remote.
-;; Only `claude-remote-toggle-key' stays local.
+;; WHY GHOSTEL AND NOT VTERM.  The two keyboard states this needs are
+;; ghostel's own input modes, so there is nothing to hand-roll:
 ;;
-;; The command forces LANG=en_US.UTF-8 on the client side (Android Emacs
-;; exports en_US.utf8, a spelling macOS doesn't have) and COLORTERM
-;; =truecolor so the remote tty frame renders 24-bit colors (Emacs 28+).
+;;   passthrough on  -> `ghostel-char-mode'   every key goes to the
+;;                      remote, including C-c / C-x / M-x, which is
+;;                      exactly what driving a remote Emacs wants.
+;;   passthrough off -> `ghostel-emacs-mode'  read-only buffer, terminal
+;;                      still streaming: you watch the remote work and
+;;                      can search/copy the scrollback, and no key can
+;;                      reach the remote by accident.
+;;
+;; Under vterm this file had to forward `vterm-keymap-exceptions' by hand
+;; and stub out every vterm send command to build a viewer that was worse
+;; (frozen, unsearchable) than the one ghostel ships.  Only ONE key stays
+;; local in char mode: `claude-remote-toggle-key'.
+;;
+;; Commands are passed to `ghostel-exec' as PROGRAM plus an ARGS list.
+;; ghostel shell-quotes each element, so the mosh/ssh command never has
+;; to survive a round of shell parsing on the way out -- the quoting bugs
+;; that a single command string invites cannot happen here.
+;;
+;; LANG=en_US.UTF-8 is forced on the client side (Android Emacs exports
+;; en_US.utf8, a spelling macOS does not have) and COLORTERM=truecolor so
+;; the remote tty frame renders 24-bit colors.
 
 ;;; Code:
 
-(require 'vterm)
+(require 'ghostel)
 (require 'seq)
 
 (declare-function evil-emacs-state "evil-states")
 (declare-function evil-force-normal-state "evil-commands")
-(defvar claude-remote--blocked)         ; defvar-local below, used earlier
 (defvar claude-remote-mode)             ; define-minor-mode below, used earlier
 
 ;; Doom workspace (persp-mode) API, same seam claude-workspace.el uses.
@@ -57,8 +71,11 @@
 (defcustom claude-remote-ssh-key
   "/data/data/com.termux/files/home/.ssh/mac_tailscale"
   "Private key used for every machine that does not set its own `:ssh-key'.
-This is the Termux key whose public half sits in ~/.ssh/authorized_keys
-on each remote machine, so one key reaches the whole fleet."
+Defaults to the Termux key whose public half sits in ~/.ssh/authorized_keys
+on each remote machine, so one key reaches the whole fleet.  Devices that
+are not the phone override it in local.el, e.g. on the Mac:
+
+  (setq claude-remote-ssh-key \"/Users/alokregmi/.ssh/id_kai\")"
   :type 'string :group 'claude-remote)
 
 (defcustom claude-remote-default-transport 'mosh
@@ -189,71 +206,71 @@ remote Claude prompt and leave sending to you."
         (user-error "No host for `%s': (setenv \"%s\" \"<ip>\") in local.el"
                     (car machine) env))))
 
-(defun claude-remote--command (machine)
-  "Build the command attaching to MACHINE's Emacs daemon.
-No locale prefix: init.el sets LANG=en_US.UTF-8 in Emacs's environment
-on Android, vterm passes it to this process, which forwards it to the
-remote.  COLORTERM=truecolor gives the remote tty frame 24-bit colors.
-
-Quoting note: vterm runs this string as `/bin/sh -c \"... exec CMD\"',
-so ordinary shell grammar applies here.  For `ssh' the remote command
-has to survive TWO parsings (local sh, then the remote login shell), so
-the inner `bash -l -c ...' is wrapped in double quotes as well; for
-`mosh' the client re-quotes its own arguments, so it must not be."
+(defun claude-remote--program+args (machine)
+  "Return (PROGRAM . ARGS) attaching to MACHINE's Emacs daemon.
+An argv list, not a command string: `ghostel-exec' shell-quotes every
+element, so nothing here is re-parsed by a shell on the way out and the
+remote command cannot be mangled by quoting.  The one place a shell IS
+involved is the far end -- ssh concatenates its command arguments and
+hands them to the remote login shell -- hence the single quotes inside
+that one argument, and only there."
   (let* ((p (cdr machine))
          (key (or (plist-get p :ssh-key) claude-remote-ssh-key))
-         (user (plist-get p :user))
-         (host (claude-remote--host machine))
+         (target (format "%s@%s" (plist-get p :user) (claude-remote--host machine)))
          (ec (or (plist-get p :emacsclient) "emacsclient"))
-         (remote (format "bash -l -c 'COLORTERM=truecolor %s -t'" ec)))
+         (remote (format "COLORTERM=truecolor %s -t" ec)))
     (pcase (or (plist-get p :transport) claude-remote-default-transport)
-      ('mosh (format "mosh --ssh=\"ssh -i %s\" %s@%s -- %s"
-                     key user host remote))
-      ('ssh  (format (concat "ssh -t -i %s -o ServerAliveInterval=30"
-                             " -o ServerAliveCountMax=6 %s@%s \"%s\"")
-                     key user host remote))
+      ('mosh (cons "mosh"
+                   (list (format "--ssh=ssh -i %s" key) target
+                         "--" "bash" "-l" "-c" remote)))
+      ('ssh  (cons "ssh"
+                   (list "-t" "-i" key
+                         "-o" "ServerAliveInterval=30"
+                         "-o" "ServerAliveCountMax=6"
+                         target
+                         (format "bash -l -c '%s'" remote))))
       (other (user-error "Unknown :transport `%s' for machine `%s'"
                          other (car machine))))))
 
 ;;; Keyboard passthrough ---------------------------------------------------
-
-(defun claude-remote--make-sender (keystr)
-  "Return a command that sends KEYSTR (\"C-c\", \"M-x\", ...) to vterm."
-  (let ((ctrl (string-prefix-p "C-" keystr))
-        (meta (string-prefix-p "M-" keystr))
-        (base (substring keystr 2)))
-    (lambda ()
-      (interactive)
-      (vterm-send-key base nil meta ctrl))))
+;;
+;; ghostel char mode already sends every key to the remote, so the only
+;; thing this map exists for is to keep ONE key local.  It is registered in
+;; `emulation-mode-map-alists' AFTER ghostel's own char-mode entry, and
+;; `add-to-list' pushes to the front, so it outranks char mode -- which is
+;; the whole point: in char mode ghostel would otherwise send C-\ too.
 
 (defvar claude-remote-passthrough-mode-map
   (let ((map (make-sparse-keymap)))
-    ;; forward the keys vterm normally keeps for itself
-    (dolist (k vterm-keymap-exceptions)
-      (define-key map (kbd k) (claude-remote--make-sender k)))
-    ;; the one local key: release the keyboard
     (define-key map (kbd claude-remote-toggle-key)
                 #'claude-remote-passthrough-mode)
     map)
-  "Keymap forwarding vterm's exception keys to the remote.")
+  "The one key kept local while the remote has the keyboard.")
 
-;; highest precedence, above evil's state maps
 (add-to-list 'emulation-mode-map-alists
              `((claude-remote-passthrough-mode
                 . ,claude-remote-passthrough-mode-map)))
 
+(defun claude-remote--send (string)
+  "Send STRING to the remote through the current connection buffer."
+  (when (derived-mode-p 'ghostel-mode)
+    (ghostel-send-string string)))
+
 (define-minor-mode claude-remote-passthrough-mode
-  "Hand the whole keyboard to the remote Emacs.
-Only `claude-remote-toggle-key' stays local."
+  "Hand the whole keyboard to the remote Emacs (ghostel char mode).
+Only `claude-remote-toggle-key' stays local.  Turning it off puts the
+buffer in ghostel Emacs mode: read-only, but the terminal keeps
+streaming, so you go on watching the remote work."
   :lighter " [→REMOTE]"
-  (unless (derived-mode-p 'vterm-mode)
+  (unless (derived-mode-p 'ghostel-mode)
     (setq claude-remote-passthrough-mode nil)
-    (user-error "claude-remote-passthrough-mode only works in vterm buffers"))
+    (user-error "claude-remote-passthrough-mode only works in ghostel buffers"))
   (let ((label (claude-remote--label
                 (or claude-remote--machine-name claude-remote-active-machine))))
     (if claude-remote-passthrough-mode
         (progn
-          (setq claude-remote--blocked nil)
+          (unless (eq ghostel--input-mode 'char)
+            (ghostel-char-mode))
           (when (bound-and-true-p evil-local-mode)
             (evil-emacs-state))
           ;; fresh handover on BOTH sides: drop any queued local keys so they
@@ -261,20 +278,23 @@ Only `claude-remote-toggle-key' stays local."
           ;; pending prefix/partial sequences before the first forwarded key
           (when claude-remote-flush-escape
             (discard-input)
-            (ignore-errors (vterm-send-escape)))
+            (ignore-errors (claude-remote--send "\e")))
           (message "Keyboard → %s (release: %s or its toolbar button)"
                    label claude-remote-toggle-key))
       ;; releasing: same both-sides flush on the way out -- remote left clean
       ;; (not mid-sequence), local queue dropped so trailing keys do not spill,
       ;; and local evil lands FRESH in normal state (the Android-side ESC)
       (when claude-remote-flush-escape
-        (ignore-errors (vterm-send-escape))
+        (ignore-errors (claude-remote--send "\e"))
         (discard-input))
+      ;; keyboard is local now: read-only viewer, still streaming.  Blocked
+      ;; means blocked -- `ghostel-readonly-fast-exit' is off in these buffers
+      ;; (see `claude-remote-connect'), so a stray letter cannot drop you back
+      ;; into a mode where keys reach the remote.
+      (unless (eq ghostel--input-mode 'emacs)
+        (ghostel-emacs-mode))
       (when (bound-and-true-p evil-local-mode)
         (evil-force-normal-state))
-      ;; keyboard is local now: the buffer becomes a pure VIEWER (see
-      ;; `claude-remote--blocked-key') -- nothing reaches the remote
-      (setq claude-remote--blocked claude-remote-mode)
       ;; ... and you are DONE here: hop back to the local workspace you came
       ;; from, leaving this connection undisturbed in its own workspace
       (let ((ws (and claude-remote-mode (claude-remote--leave-workspace))))
@@ -282,49 +302,13 @@ Only `claude-remote-toggle-key' stays local."
             (message "Keyboard → local · back to %s (%s waits in %s)"
                      ws label (claude-remote--workspace-name
                                claude-remote--machine-name))
-          (message "Keyboard → local Android Emacs (buffer is view-only)"))))))
-
-;;; Blocked state: passthrough off => NOTHING reaches the remote -----------
-
-(defvar-local claude-remote--blocked nil
-  "Non-nil while the keyboard is local in a claude-remote buffer.
-Activates `claude-remote--blocked-map' so no key reaches the remote.")
-
-(defun claude-remote--blocked-key ()
-  "Swallow a key that would have gone to the remote; say how to type.
-With passthrough off, HALF a keyboard is worse than none: plain keys
-\(i, SPC, letters) would reach the remote through vterm's insert
-bindings while the exception keys (ESC, C-x, M-x ...) stay local --
-so you can poke the remote Emacs by accident but cannot send the ESC
-to fix it.  Blocked means blocked: the buffer is a pure viewer until
-you hand the keyboard over."
-  (interactive)
-  (message "Keys are LOCAL — %s (or the toolbar button) hands the keyboard to %s"
-           claude-remote-toggle-key
-           (claude-remote--label (or claude-remote--machine-name
-                                     claude-remote-active-machine))))
-
-(defvar claude-remote--blocked-map
-  (let ((map (make-sparse-keymap)))
-    ;; stub by COMMAND REMAP, not by key: whatever key or evil state routes
-    ;; to a vterm send command, the stub catches it -- robust against
-    ;; evil-collection's rebinds and future vterm bindings
-    (dolist (cmd '(vterm--self-insert vterm-send-return vterm-send-tab
-                   vterm-send-space vterm-send-backspace vterm-send-delete
-                   vterm-send-escape vterm-send-up vterm-send-down
-                   vterm-send-left vterm-send-right vterm-yank
-                   vterm-yank-primary vterm-yank-pop vterm-send-next
-                   vterm-send-prior vterm-clear vterm-undo))
-      (define-key map (vector 'remap cmd) #'claude-remote--blocked-key))
-    map)
-  "Command remaps stubbing every vterm send command while blocked.")
-
-(add-to-list 'emulation-mode-map-alists
-             `((claude-remote--blocked . ,claude-remote--blocked-map)))
+          (message "Keyboard → local Android Emacs (buffer is read-only)"))))))
 
 (defvar claude-remote-mode-map
   (let ((map (make-sparse-keymap)))
-    ;; re-enter passthrough with the same key when it's off
+    ;; re-enter passthrough with the same key when it's off.  A minor-mode
+    ;; map outranks the read-only mode's local map, so this works from the
+    ;; viewer too.
     (define-key map (kbd claude-remote-toggle-key)
                 #'claude-remote-passthrough-mode)
     map)
@@ -332,11 +316,7 @@ you hand the keyboard over."
 
 (define-minor-mode claude-remote-mode
   "Marker mode for claude-remote connection buffers."
-  :keymap claude-remote-mode-map
-  ;; entering the mode with passthrough off starts blocked (viewer);
-  ;; leaving the mode always unblocks
-  (setq claude-remote--blocked
-        (and claude-remote-mode (not claude-remote-passthrough-mode))))
+  :keymap claude-remote-mode-map)
 
 ;;; One workspace per machine ----------------------------------------------
 
@@ -390,6 +370,13 @@ caller keeps its usual message then."
 
 ;;; Entry points -----------------------------------------------------------
 
+(defun claude-remote--live-p (buf)
+  "Non-nil when BUF holds a running connection."
+  (and (buffer-live-p buf)
+       (let ((proc (or (buffer-local-value 'ghostel--process buf)
+                       (get-buffer-process buf))))
+         (and proc (process-live-p proc)))))
+
 ;;;###autoload
 (defun claude-remote-connect (&optional name)
   "Open (or jump back to) the connection into machine NAME.
@@ -400,27 +387,39 @@ the keyboard over."
   (let* ((name (or name claude-remote-active-machine))
          (machine (claude-remote--machine name))
          (bufname (claude-remote--buffer-name name))
-         (buf (get-buffer bufname)))
+         (buf (get-buffer bufname))
+         (fresh nil))
     (setq claude-remote-active-machine name)
     (claude-remote--ensure-workspace name)
     ;; dead connection -> start fresh
-    (when (and buf (not (process-live-p (get-buffer-process buf))))
+    (when (and buf (not (claude-remote--live-p buf)))
       (kill-buffer buf)
       (setq buf nil))
-    (if buf
-        (switch-to-buffer buf)
-      (let* ((cmd (claude-remote--command machine))
-             (vterm-shell cmd)
-             (vterm-kill-buffer-on-exit nil)
-             ;; same effect as typing "LANG=... LC_ALL=... mosh" in a shell,
-             ;; injected at the env layer so it applies to the whole process
-             (vterm-environment (append '("LANG=en_US.UTF-8" "LC_ALL=en_US.UTF-8")
-                                        vterm-environment)))
-        (message "claude-remote[%s]: %s" name cmd)
-        (setq buf (vterm bufname))))
+    (unless buf
+      (setq buf (get-buffer-create bufname) fresh t))
+    (switch-to-buffer buf)
+    (delete-other-windows)              ; also sizes the pty to a full window
+    (when fresh
+      (let* ((cmd (claude-remote--program+args machine))
+             ;; Android Emacs exports en_US.utf8, a spelling macOS lacks
+             (ghostel-environment (append '("LANG=en_US.UTF-8" "LC_ALL=en_US.UTF-8")
+                                          ghostel-environment)))
+        (message "claude-remote[%s]: %s %s" name (car cmd)
+                 (string-join (cdr cmd) " "))
+        (ghostel-exec buf (car cmd) (cdr cmd)))
+      (with-current-buffer buf
+        ;; ghostel-mode has just been set, which killed local variables --
+        ;; so these two have to come after `ghostel-exec', not before.
+        ;; Keep OUR buffer name: ghostel renames buffers from the terminal's
+        ;; title report (OSC 2), and the remote Emacs reports one.  The
+        ;; per-machine name is how every other command finds this buffer.
+        (setq-local ghostel-buffer-name-function nil)
+        ;; Blocked means blocked: without this, any self-inserting key would
+        ;; bounce the read-only viewer back into a mode that types at the
+        ;; remote -- exactly the half-a-keyboard state this avoids.
+        (setq-local ghostel-readonly-fast-exit nil)))
     (when (fboundp 'persp-add-buffer)      ; buffer belongs to this workspace
       (ignore-errors (persp-add-buffer buf)))
-    (delete-other-windows)
     (with-current-buffer buf
       (setq claude-remote--machine-name name)
       (claude-remote-mode 1)
@@ -505,12 +504,9 @@ See `claude-remote-toggle-machine'." name)))))
 This buffer when it is one, else the last one you entered, else any live
 connection -- so the buttons keep working from anywhere on the phone."
   (or (and claude-remote-mode (current-buffer))
-      (and (buffer-live-p claude-remote--last-buffer)
-           (process-live-p (get-buffer-process claude-remote--last-buffer))
+      (and (claude-remote--live-p claude-remote--last-buffer)
            claude-remote--last-buffer)
-      (seq-find (lambda (b)
-                  (and (buffer-live-p b)
-                       (process-live-p (get-buffer-process b))))
+      (seq-find #'claude-remote--live-p
                 (delq nil
                       (mapcar (lambda (m)
                                 (get-buffer (claude-remote--buffer-name (car m))))
@@ -519,14 +515,13 @@ connection -- so the buttons keep working from anywhere on the phone."
 
 (defun claude-remote--send-eval (buf form)
   "Evaluate FORM (a string) in the Emacs on the other end of BUF.
-Sent as `M-:' FORM RET.  `M-:' is one of the keys ghostel and vterm hand
-back to Emacs instead of to the terminal, so this reaches the remote
-Emacs even while the focus sits inside a running Claude session -- and
-evaluating a form needs no completion round-trip, unlike `M-x'."
+Sent as `M-:' FORM RET (ESC is the terminal's meta prefix).  `M-:' is
+one of the keys ghostel hands back to Emacs instead of to the terminal
+\(`ghostel-keymap-exceptions'), so this reaches the remote Emacs even
+while the focus sits inside a running Claude session -- and evaluating a
+form needs no completion round-trip, unlike `M-x'."
   (with-current-buffer buf
-    (vterm-send-key ":" nil t nil)      ; M-:
-    (vterm-send-string form)
-    (vterm-send-return)))
+    (claude-remote--send (concat "\e:" form "\r"))))
 
 (defun claude-remote--session-form (buf key fallback)
   "Per-machine KEY (`:next-form'/`:prev-form') for BUF, else FALLBACK."
@@ -573,9 +568,10 @@ nil or NO-SUBMIT (a prefix argument) is given, so you can review first."
     (if (string-empty-p (string-trim text))
         (message "Nothing to say — cancelled")
       (with-current-buffer buf
-        (vterm-send-string text)
-        (unless (or no-submit (not claude-remote-talk-submit))
-          (vterm-send-return)))
+        (claude-remote--send
+         (if (or no-submit (not claude-remote-talk-submit))
+             text
+           (concat text "\r"))))
       (message "→ %s: %s" label
                (truncate-string-to-width text 40 nil nil "…")))))
 

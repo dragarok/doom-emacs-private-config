@@ -48,6 +48,12 @@
 
 ;; File handling
 (package! vlf :recipe (:host github :repo "m00natic/vlfi" :files ("*.el")))
+
+;; Terminal.  Shared, NOT Mac-only: claude-remote runs the phone's windows
+;; into the other machines on ghostel, so Android needs it too (it ships a
+;; prebuilt Android module).  Leaving this Mac-only made `doom sync' on the
+;; phone drop the package that `claude-remote' hard-requires.
+(package! ghostel)
 ;; ============================================================
 ;; MAC-ONLY PACKAGES
 ;; ============================================================
@@ -126,7 +132,6 @@
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"
              :files ("*.el" (:exclude "demo.gif"))))
 
-  (package! ghostel)
   (package! evil-ghostel)
   ;; Search
   (package! consult-web
