@@ -127,7 +127,7 @@
   (package! mcp-hub
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
 
-  (package! ai-code)
+  ;; (package! ai-code)
   (package! gemini-cli
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"
              :files ("*.el" (:exclude "demo.gif"))))
