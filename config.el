@@ -197,7 +197,7 @@
 (when IS-ANDROID
   (require 'android-toolbar)
   (require 'android-homepage)
-  (require 'claude-mac)                     ; mosh window into the Mac Emacs
+  (require 'claude-remote)                  ; mosh/ssh windows into Mac + Kai
 
   ;; Smaller font in vterm buffers ONLY — more columns for the remote
   ;; Emacs and cheaper redraws; all other buffers keep the touch size.
@@ -250,7 +250,7 @@
 ;; with only the WIDTH pinned (installed at require; no mode to enable) —
 ;; the proven-reliable baseline behavior.  Design:
 ;; docs/superpowers/specs/2026-06-06-claude-workspace-redesign-design.md
-;; Mac only — the phone reaches it remotely through claude-mac instead.
+;; Mac only — the phone reaches it remotely through claude-remote instead.
 (unless IS-ANDROID
   (require 'claude-workspace)
   (with-eval-after-load 'claude-code        ; chime/popup/auto-switch on input-wait
@@ -261,9 +261,18 @@
   (map! :leader :desc "Expand → project workspace" "v e" #'claude-workspace-expand-to-project)
   (map! :leader :desc "Collapse → master-claude"   "v m" #'claude-workspace-collapse)
   (map! :leader :desc "Expand session ↓ into empty slot" "v z" #'claude-workspace-expand-down))
-(when IS-ANDROID                            ; on the phone, SPC o C goes to the remote machine
-  (map! :leader :desc "Remote Emacs (mosh)"  "o C" #'claude-mac)
-  (map! :leader :desc "Switch remote machine" "o M" #'claude-mac-switch-machine))
+(when IS-ANDROID   ; on the phone, these reach OUT to the machines doing the work
+  ;; Each machine is its own destination, not a mode you switch into: mac and
+  ;; kai keep separate connections/workspaces, so you hop between them (and
+  ;; back to local Android) without ever tearing one down.
+  (map! :leader :desc "Remote Emacs (active)"   "o C" #'claude-remote)
+  (map! :leader :desc "Remote Emacs → Mac"      "o 1" #'claude-remote-mac)
+  (map! :leader :desc "Remote Emacs → Kai"      "o 2" #'claude-remote-kai)
+  (map! :leader :desc "Switch active machine"   "o M" #'claude-remote-switch-machine)
+  ;; drive the remote machine's Claude sessions from the phone
+  (map! :leader :desc "Remote: next Claude session" "v n" #'claude-remote-next-session)
+  (map! :leader :desc "Remote: prev Claude session" "v p" #'claude-remote-prev-session)
+  (map! :leader :desc "Remote: talk into session"   "v t" #'claude-remote-talk))
 
 ;; Podcast autoplay: learn while you wait on agents (pauses when you type).
 ;; Needs `brew install mpv' and the elfeed package (doom sync + restart).

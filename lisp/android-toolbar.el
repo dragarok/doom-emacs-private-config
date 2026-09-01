@@ -252,19 +252,39 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
                         :height ,icon-size :width ,icon-size)))
 
       ;; ===================================================================
-      ;; MAC EMACS (claude-mac: mosh window into the Mac)
+      ;; REMOTE EMACS (claude-remote: one window per machine, all at once)
       ;; ===================================================================
+      ;; Two machine buttons + three that drive whichever machine you last
+      ;; entered.  Mac and Kai each keep their own connection, workspace and
+      ;; keyboard state, so tapping between them never tears one down: tap
+      ;; the machine you are already driving to hand the keyboard back to
+      ;; Android, tap the other to land straight in it.
 
       (keymap-set-after (default-value 'tool-bar-map) "<separator-claude>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-connect>"
-        `(menu-item "Mac" claude-mac
-          :help "Connect/jump to the active remote Emacs over mosh (grabs keyboard)"
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-mac>"
+        `(menu-item "Mac" claude-remote-mac
+          :help "Mac: jump in (grabs keyboard), or tap again to release it"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/terminal-alt-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
-      (keymap-set-after (default-value 'tool-bar-map) "<claude-mac-keys>"
-        `(menu-item "Keys" claude-mac-toggle
-          :help "Toggle keyboard passthrough to the active remote Emacs"
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-kai>"
+        `(menu-item "Kai" claude-remote-kai
+          :help "Kai: jump in (grabs keyboard), or tap again to release it"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/keyboard-shortcuts-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-prev>"
+        `(menu-item "Prev" claude-remote-prev-session
+          :help "Previous Claude session on the remote machine"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/left-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-next>"
+        `(menu-item "Next" claude-remote-next-session
+          :help "Next Claude session on the remote machine"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/right-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-talk>"
+        `(menu-item "Talk" claude-remote-talk
+          :help "Dictate into the remote Claude session (keyboard mic key)"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/microphone-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
 

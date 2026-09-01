@@ -291,11 +291,11 @@ idle auto-start won't pick a new episode until you play again."
 (defun claude-podcast--session-buffer-p (buf)
   "Non-nil if BUF is a Claude session terminal.
 Matches local Claude Code sessions (*claude:...*) and remote
-claude-mac windows (*claude-mac[...]*) on Android."
+claude-remote windows (*claude-remote[...]*) on Android."
   (and (bufferp buf)
        (let ((name (buffer-name buf)))
          (or (string-prefix-p "*claude:" name)
-             (string-prefix-p "*claude-mac[" name)))))
+             (string-prefix-p "*claude-remote[" name)))))
 
 (defun claude-podcast--agent-working-p ()
   "Non-nil if the gate is satisfied: either we don't require a working agent,
