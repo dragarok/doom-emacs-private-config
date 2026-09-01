@@ -287,6 +287,26 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/microphone-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      ;; The three grid actions worth a thumb: interrupt, spawn, repair.
+      ;; They drive the machine you are connected to (sent as an eval, so
+      ;; they land even while the focus sits inside a Claude TUI), and fall
+      ;; back to the local grid when nothing is connected.
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-escape>"
+        `(menu-item "Esc" claude-remote-escape
+          :help "Send ESC: interrupt the running turn, or back out of a prompt"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/logout-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-add>"
+        `(menu-item "Add" claude-remote-add-session
+          :help "Add Claude session(s) to the remote grid (asks which project)"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/add-circle-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-refresh>"
+        `(menu-item "Refresh" claude-remote-refresh-session
+          :help "Restart this session with --continue (fixes a garbled display)"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
 
       ;; ===================================================================
       ;; KAIROAM - Window Management (org-mode only)

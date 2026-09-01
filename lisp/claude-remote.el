@@ -165,6 +165,28 @@ needs no completion round-trip.  Override per machine with `:next-form'."
 See `claude-remote-next-form'.  Override per machine with `:prev-form'."
   :type 'string :group 'claude-remote)
 
+(defcustom claude-remote-escape-form "(claude-workspace-send-escape)"
+  "Elisp evaluated ON THE REMOTE to send ESC to its current Claude session.
+ESC is how you interrupt a running turn or back out of a Claude prompt.
+Sent as an eval rather than as a bare ESC through the wire because the
+remote focus is not always inside the TUI -- from a placeholder cell a
+raw ESC would land in evil instead.  Override per machine with
+`:escape-form'."
+  :type 'string :group 'claude-remote)
+
+(defcustom claude-remote-add-form "(claude-workspace-add)"
+  "Elisp evaluated ON THE REMOTE to add Claude session(s) to its grid.
+This one prompts on the remote (which project?), so the button that
+sends it also jumps you into the connection first -- your typing has to
+reach the remote minibuffer.  Override per machine with `:add-form'."
+  :type 'string :group 'claude-remote)
+
+(defcustom claude-remote-refresh-form "(claude-workspace-refresh-session)"
+  "Elisp evaluated ON THE REMOTE to restart its current session with --continue.
+The repair for a session whose display has gone garbled -- the same
+conversation comes back.  Override per machine with `:refresh-form'."
+  :type 'string :group 'claude-remote)
+
 (defcustom claude-remote-talk-submit t
   "When non-nil, `claude-remote-talk' presses RET after the dictated text.
 Set to nil (or call with a prefix argument) to drop the text into the
@@ -574,6 +596,62 @@ nil or NO-SUBMIT (a prefix argument) is given, so you can review first."
            (concat text "\r"))))
       (message "→ %s: %s" label
                (truncate-string-to-width text 40 nil nil "…")))))
+
+(defun claude-remote--drive (key fallback local label &optional enter)
+  "Run one Claude-grid action on whichever machine you are driving.
+KEY is the per-machine plist override (`:escape-form' and friends) and
+FALLBACK the default form string; LABEL names the action in the echo
+area.  When a connection is live the form is evaluated ON THE REMOTE --
+that is what makes these work while you are watching an SSH session from
+the phone -- and when none is, LOCAL (a command symbol) runs here
+instead, so the same button serves the machine that hosts the grid.
+ENTER non-nil first jumps into the connection and takes the keyboard,
+for actions that go on to prompt on the remote.
+
+The forms travel as `M-:', not as the local chord: see
+`claude-remote--send-eval' for why a leader chord would be typed into
+the Claude TUI instead of reaching the remote Emacs."
+  (let ((buf (ignore-errors (claude-remote--target-buffer))))
+    (cond
+     (buf
+      (when enter
+        (claude-remote-connect (buffer-local-value 'claude-remote--machine-name buf))
+        (setq buf (claude-remote--target-buffer)))
+      (claude-remote--send-eval
+       buf (claude-remote--session-form buf key fallback))
+      (message "%s → %s"
+               (claude-remote--label
+                (buffer-local-value 'claude-remote--machine-name buf))
+               label))
+     ((fboundp local) (call-interactively local))
+     (t (user-error "No claude-remote connection — tap Mac or Kai first")))))
+
+;;;###autoload
+(defun claude-remote-escape ()
+  "Send ESC to the Claude session on the machine you are driving.
+Interrupts a running turn, or backs out of a permission prompt, without
+you having to grab the keyboard first."
+  (interactive)
+  (claude-remote--drive :escape-form claude-remote-escape-form
+                        'claude-workspace-send-escape "ESC"))
+
+;;;###autoload
+(defun claude-remote-add-session ()
+  "Add Claude session(s) to the grid on the machine you are driving.
+Jumps into the connection on the way, because the remote then asks which
+project and your keystrokes have to reach it."
+  (interactive)
+  (claude-remote--drive :add-form claude-remote-add-form
+                        'claude-workspace-add "add session(s)" t))
+
+;;;###autoload
+(defun claude-remote-refresh-session ()
+  "Restart the remote machine\='s current session with `--continue'.
+The fix for a session whose terminal display has gone garbled: the same
+conversation comes back in the same grid slot."
+  (interactive)
+  (claude-remote--drive :refresh-form claude-remote-refresh-form
+                        'claude-workspace-refresh-session "refresh (--continue)"))
 
 ;;; Backwards compatibility (pre-rename names) -----------------------------
 
