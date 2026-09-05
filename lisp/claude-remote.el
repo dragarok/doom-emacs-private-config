@@ -196,13 +196,15 @@ remote Claude prompt and leave sending to you."
   :type 'boolean :group 'claude-remote)
 
 (defcustom claude-remote-paste-function "claude-workspace-send-text"
-  "Function called ON THE REMOTE to paste text into its Claude session.
-`claude-remote-paste' sends `(FUNCTION \"TEXT\" SUBMIT)' down the eval
-channel, so the remote needs this file's companion
-`claude-workspace-send-text' -- the same assumption
-`claude-remote-escape-form' already makes about
-`claude-workspace-send-escape'.  Override per machine with
-`:paste-function'."
+  "Function PREFERRED on the remote for pasting into its Claude session.
+`claude-remote-paste' sends a form that calls it when the remote has it
+and drives the session's ghostel buffer itself when it does not, so a
+machine that has not pulled this repo's `claude-workspace-send-text' --
+or has pulled it into a daemon that has not re-read the file -- still
+takes the paste.  That is deliberately unlike `claude-remote-escape-form'
+and friends, which simply assume their remote half exists: those lose a
+keystroke when they are wrong, this would lose your clipboard.  Override
+per machine with `:paste-function'."
   :type 'string :group 'claude-remote)
 
 (defcustom claude-remote-paste-submit nil
@@ -641,18 +643,31 @@ paste."
          (substring-no-properties text))))
 
 (defun claude-remote--paste-form (fn text submit)
-  "Build the form that makes the remote call FN on TEXT, RET when SUBMIT.
+  "Build the form that pastes TEXT on the remote, RET too when SUBMIT.
+FN names the remote helper to prefer, but the form does NOT depend on it
+existing.  It has to not: the helper ships in this repo, and a machine
+that has not pulled it -- or has pulled it into a daemon that has not
+re-read the file -- would otherwise answer a paste with `void-function\='
+and drop the clipboard on the floor.  So the form asks, and falls back to
+driving the session\='s ghostel buffer itself, which is stock.
+
 TEXT rides across as BASE64, and it has to.  The form is not sent to the
-remote, it is TYPED into its `M-:' minibuffer, where smartparens is live
+remote, it is TYPED into its `M-:\=' minibuffer, where smartparens is live
 and a literal RET submits: a lone quote or paren anywhere in your
 clipboard would be auto-paired into the form, a newline would send it
 half-typed and scatter the rest of the clipboard into whatever had
 focus.  The base64 alphabet has none of those, so the form keeps its own
-parens and its one pair of quotes balanced no matter what you copied."
-  (format "(%s (decode-coding-string (base64-decode-string \"%s\") 'utf-8) %s)"
-          fn
-          (base64-encode-string (encode-coding-string text 'utf-8) t)
-          (if submit "t" "nil")))
+parens and its quotes balanced no matter what you copied."
+  (let ((b64 (base64-encode-string (encode-coding-string text 'utf-8) t))
+        (sub (if submit "t" "nil")))
+    (concat
+     "(let ((s (decode-coding-string (base64-decode-string \"" b64 "\") 'utf-8)))"
+     " (if (fboundp '" fn ")"
+     " (" fn " s " sub ")"
+     " (with-current-buffer"
+     " (or (ignore-errors (claude-workspace-target-session)) (current-buffer))"
+     " (ghostel-paste-string s)"
+     " (when " sub " (ghostel-send-string \"\\r\")))))")))
 
 (defun claude-remote--paste-ok-p (text)
   "Return non-nil when TEXT is short enough to paste, or you say so."
