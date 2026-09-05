@@ -269,7 +269,7 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-kai>"
         `(menu-item "Kai" claude-remote-kai
           :help "Kai: jump in (grabs keyboard), or tap again to release it"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/keyboard-shortcuts-svgrepo-com.svg"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/3d-collection-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-prev>"
         `(menu-item "Prev" claude-remote-prev-session
@@ -281,11 +281,11 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :help "Next Claude session on the remote machine"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/forward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
-      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-talk>"
-        `(menu-item "Talk" claude-remote-talk
-          :help "Dictate into the remote Claude session (keyboard mic key)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/microphone-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
+      ;; (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-talk>"
+      ;;   `(menu-item "Talk" claude-remote-talk
+      ;;     :help "Dictate into the remote Claude session (keyboard mic key)"
+      ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/microphone-svgrepo-com.svg"
+      ;;                   :height ,icon-size :width ,icon-size)))
 
 
       ;; ===================================================================
