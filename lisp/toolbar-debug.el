@@ -1,37 +1,32 @@
-;;; toolbar-debug.el --- Find the form that breaks the toolbar setup -*- lexical-binding: t -*-
+;;; toolbar-debug.el --- Find the form that breaks the toolbar -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; Throwaway.  `M-x rts-flow-setup-toolbar' dies with nothing but "Symbol's
+;; Throwaway.  Loading `android-toolbar' dies with nothing but "Symbol's
 ;; function definition is void: nil", which names no function because the
-;; function IS nil -- something evaluated a form whose head was nil.  The
-;; only thing that can say WHERE is the backtrace, and a phone is a bad
-;; place to read one.
+;; function IS nil -- something evaluated a form whose head was nil.  Only
+;; a backtrace can say where, and a phone is a bad place to read one.
 ;;
-;;   M-x rts-toolbar-debug
+;; This file deliberately does NOT require android-toolbar: that require is
+;; the thing that blows up, and a load-time one here would take this file
+;; down with it before it could report anything.
 ;;
-;; This runs the same setup with a debugger that captures the backtrace
-;; into a plain buffer you can read, scroll and copy, and with every
-;; `keymap-set-after' counted on the way past so the last button through
-;; the door brackets the bad form even if the backtrace is unhelpful.
+;;   M-x rts-toolbar-debug-load    load android-toolbar.el and catch the
+;;                                 backtrace -- START HERE, the error is at
+;;                                 load time
+;;   M-x rts-toolbar-debug         same, but for `rts-flow-setup-toolbar'
+;;                                 alone, once the file does load
 ;;
-;; Read the frames top-down: the first line is this file's own debugger,
-;; the SECOND is the nil that was called, and the third and fourth name the
-;; function and the call that did it.  That is the answer.
-;;
-;; If it reports no error at all, the setup is innocent and the fault is in
-;; REDISPLAY -- one of the `:visible' or `:image' forms, which Emacs
-;; re-evaluates every time it draws the bar.
+;; Both leave their findings in a `*toolbar-debug*' buffer you can read,
+;; scroll and copy.  Read the frames top-down: line 1 is this file's own
+;; debugger, line 2 is the nil that got called AND WHAT WAS PASSED TO IT,
+;; and the lines under it name the form that did it.  That is the answer.
 ;;
 ;; Delete this file once the offending form is fixed.
 
 ;;; Code:
 
 (require 'seq)
-;; Soft: if android-toolbar itself dies partway through loading, the defun
-;; is already in place (it sits above the auto-setup at the file's foot), so
-;; there is still something to run -- and a hard `require' here would only
-;; re-raise the very error we are trying to name.
-(require 'android-toolbar nil t)
+
 (declare-function rts-flow-setup-toolbar "android-toolbar")
 
 (defvar rts-toolbar-debug--step 0
@@ -54,8 +49,8 @@
 
 (defun rts-toolbar-debug--format-frames (frames)
   "Render FRAMES, as `backtrace-frames' returns them, one call per line.
-Arguments are truncated: the point of this is to fit the answer on a
-phone screen, not to reproduce the debugger."
+Arguments are truncated: the point is to fit the answer on a phone
+screen, not to reproduce the debugger."
   (mapconcat
    (lambda (frame)
      (format "  %s(%s)"
@@ -69,8 +64,8 @@ phone screen, not to reproduce the debugger."
 
 (defun rts-toolbar-debug--debugger (&rest args)
   "Debugger that records ARGS and the backtrace, then unwinds.
-Named rather than anonymous so it can be handed to `backtrace-frames'
-as the base to trim at -- that is what keeps this machinery out of the
+Named rather than anonymous so it can be handed to `backtrace-frames' as
+the base to trim at -- that is what keeps this machinery out of the
 frames you are meant to read."
   (setq rts-toolbar-debug--error args
         rts-toolbar-debug--frames
@@ -78,89 +73,148 @@ frames you are meant to read."
          (backtrace-frames 'rts-toolbar-debug--debugger)))
   (throw 'rts-toolbar-debug--captured nil))
 
-;;;###autoload
-(defun rts-toolbar-debug ()
-  "Run the River Flow toolbar setup and report what makes it die.
-Leaves the backtrace and the list of buttons that did get set in a
-`*toolbar-debug*' buffer, which is readable and copyable on a phone in a
-way the debugger\='s own window is not."
-  (interactive)
-  (unless (fboundp 'rts-flow-setup-toolbar)
-    (user-error "rts-flow-setup-toolbar is not defined — android-toolbar never loaded"))
-  (let ((graphic (display-graphic-p))
-        (fallback nil))
-    ;; Pass 1 -- safe.  A `condition-case' always yields the error object
-    ;; and, with the advice on, the count of buttons that got set first.
-    (setq rts-toolbar-debug--step 0
-          rts-toolbar-debug--key nil
-          rts-toolbar-debug--log nil
-          rts-toolbar-debug--error nil
-          rts-toolbar-debug--frames nil)
+(defun rts-toolbar-debug--run (thunk)
+  "Run THUNK twice and return the error it dies on, or nil.
+Twice, and the reason is not obvious: an error with a `condition-case'
+around it counts as HANDLED, and `debug-on-error' does not call the
+debugger for handled errors -- so the safe pass that yields the error
+object can never yield frames.  Pass 1 catches, pass 2 lets it fly with
+the debugger installed.  Both passes run the same thunk, which is fine
+for the two things this file runs: loading a file and setting keymap
+entries are equally happy to happen twice."
+  (setq rts-toolbar-debug--step 0
+        rts-toolbar-debug--key nil
+        rts-toolbar-debug--log nil
+        rts-toolbar-debug--error nil
+        rts-toolbar-debug--frames nil)
+  (let ((fallback nil))
     (advice-add 'keymap-set-after :before #'rts-toolbar-debug--record)
     (unwind-protect
-        (condition-case err
-            (rts-flow-setup-toolbar)
-          (error (setq fallback err)))
+        (condition-case err (funcall thunk) (error (setq fallback err)))
       (advice-remove 'keymap-set-after #'rts-toolbar-debug--record))
-    ;; Pass 2 -- for the backtrace, and it has to be a SECOND pass: an
-    ;; error with a `condition-case' around it counts as handled, and
-    ;; `debug-on-error' does not call the debugger for handled errors, so
-    ;; pass 1 can never produce frames.  Here nothing catches, the debugger
-    ;; runs, and the report is written from the unwind so it survives even
-    ;; if the debugger does not run and the error escapes instead.  Re-running
-    ;; the setup is safe: `keymap-set-after' on the same keys just overwrites.
-    (unwind-protect
-        (when fallback
-          (catch 'rts-toolbar-debug--captured
-            (let ((debugger #'rts-toolbar-debug--debugger)
-                  (debug-on-error t)
-                  (debug-ignored-errors nil)
-                  (inhibit-debugger nil))
-              (rts-flow-setup-toolbar))))
-      (rts-toolbar-debug--report graphic fallback))))
+    (when fallback
+      (catch 'rts-toolbar-debug--captured
+        (let ((debugger #'rts-toolbar-debug--debugger)
+              (debug-on-error t)
+              (debug-ignored-errors nil)
+              (inhibit-debugger nil))
+          (funcall thunk))))
+    fallback))
 
-(defun rts-toolbar-debug--report (graphic fallback)
-  "Write the findings to `*toolbar-debug*' and echo the headline.
-GRAPHIC is what `display-graphic-p' said; FALLBACK is an error caught by
-`condition-case' when the debugger never ran."
-  (let ((err (or rts-toolbar-debug--error fallback)))
-    (with-current-buffer (get-buffer-create "*toolbar-debug*")
-      (erase-buffer)
-      (cond
-       ((not graphic)
-        (insert "display-graphic-p was nil, so the whole setup body was skipped\n"
-                "and this run proves nothing.  Run it from the graphical Emacs.\n\n"))
-       (err
-        (insert (format "FAILED after %d buttons.\n\n" rts-toolbar-debug--step)
-                (format "Last button set : %s\n" (or rts-toolbar-debug--key "(none)"))
-                (format "Error           : %S\n\n" err))
-        (if rts-toolbar-debug--frames
-            (insert "Backtrace — line 1 is this debugger, line 2 is the nil that\n"
-                    "got called, and lines 3-4 name the function that called it:\n\n"
-                    rts-toolbar-debug--frames "\n\n")
-          (insert "No backtrace: the debugger never ran, so all we have is the\n"
-                  "error above and the button count below.\n\n"))
-        (insert (if (zerop rts-toolbar-debug--step)
-                    (concat "It never reached the first button, so the culprit is the\n"
-                            "`setopt' pair at the top of rts-flow-setup-toolbar.\n\n")
-                  (concat "The broken form is the one RIGHT AFTER that button in\n"
-                          "lisp/android-toolbar.el.\n\n"))))
-       (t
-        (insert (format "Ran clean: all %d buttons set, no error.\n\n"
-                        rts-toolbar-debug--step)
-                "So the setup is innocent and the error comes from REDISPLAY --\n"
+(defun rts-toolbar-debug--report (what err)
+  "Write the findings about WHAT to `*toolbar-debug*' and echo a headline.
+ERR is the error caught by the safe pass, or nil when there was none."
+  (with-current-buffer (get-buffer-create "*toolbar-debug*")
+    (erase-buffer)
+    (insert (format "%s\n%s\n\n" what (make-string (length what) ?=)))
+    (unless (display-graphic-p)
+      (insert "NOTE: display-graphic-p is nil, so the toolbar body is skipped\n"
+              "entirely and a clean result here proves nothing.  Run this from\n"
+              "the graphical Emacs.\n\n"))
+    (if (not err)
+        (insert "Ran clean: no error.\n\n"
+                "If the toolbar still misbehaves, the fault is in REDISPLAY --\n"
                 "one of the `:visible' or `:image' forms, which Emacs evaluates\n"
-                "every time it draws the tool bar rather than while building it.\n\n")))
-      (insert "Buttons set, in order:\n")
+                "every time it draws the bar rather than while building it.\n\n")
+      (insert (format "Error : %S\n\n" err))
+      (when rts-toolbar-debug--form
+        (insert (format "Died on the form at line %d:\n\n  %s\n\n"
+                        rts-toolbar-debug--line
+                        (truncate-string-to-width
+                         (format "%S" rts-toolbar-debug--form) 300 nil nil "…"))))
+      (if rts-toolbar-debug--frames
+          (insert "Backtrace — line 1 is this debugger, line 2 is the nil that\n"
+                  "got called and what was passed to it, and the lines under it\n"
+                  "name the form that called it:\n\n"
+                  rts-toolbar-debug--frames "\n\n")
+        (insert "No backtrace: the debugger never ran, so all we have is the\n"
+                "error above.\n\n")))
+    (insert (format "Loaded already? productivity_flow:%s  micro-experiments:%s  android-toolbar:%s\n"
+                    (featurep 'productivity_flow)
+                    (featurep 'micro-experiments)
+                    (featurep 'android-toolbar)))
+    (insert (format "Buttons set before it stopped: %d%s\n"
+                    rts-toolbar-debug--step
+                    (if rts-toolbar-debug--key
+                        (format " (last: %s)" rts-toolbar-debug--key)
+                      "")))
+    (when rts-toolbar-debug--log
+      (insert "\nButtons set, in order:\n")
       (dolist (line (nreverse rts-toolbar-debug--log))
-        (insert line "\n"))
-      (goto-char (point-min))
-      (display-buffer (current-buffer)))
-    (message "%s"
-             (cond ((not graphic) "Not a graphical frame — see *toolbar-debug*")
-                   (err (format "FAILED after %s — see *toolbar-debug*"
-                                (or rts-toolbar-debug--key "0 buttons (the setopt)")))
-                   (t "Setup ran clean — see *toolbar-debug*")))))
+        (insert line "\n")))
+    (goto-char (point-min))
+    (display-buffer (current-buffer)))
+  (message "%s — see *toolbar-debug*" (if err "FAILED" "Ran clean")))
+
+(defvar rts-toolbar-debug-file
+  (expand-file-name "lisp/android-toolbar.el"
+                    (or (bound-and-true-p doom-user-dir) "~/.doom.d/"))
+  "Source file to step through.  The .el, deliberately: if stepping the
+source runs clean while `load' does not, the answer is a stale .elc or
+.eln left behind by the Emacs upgrade, not the code.")
+
+(defvar rts-toolbar-debug--form nil
+  "Top-level form the file died on.")
+(defvar rts-toolbar-debug--line nil
+  "Line `rts-toolbar-debug--form' starts on.")
+
+(defun rts-toolbar-debug--step-file (file)
+  "Eval FILE one top-level form at a time, stopping at the first failure.
+`load' can only ever blame the whole file -- a top-level error leaves
+nothing but `load-with-code-conversion' in the frames -- so the form and
+its line number have to be recovered by reading them one at a time."
+  (setq rts-toolbar-debug--form nil
+        rts-toolbar-debug--line nil)
+  (with-temp-buffer
+    (insert-file-contents file)
+    (emacs-lisp-mode)
+    (goto-char (point-min))
+    (let ((err nil) (done nil))
+      (while (not (or err done))
+        (forward-comment (buffer-size))  ; land on the form, not the blurb above it
+        (let ((line (line-number-at-pos))
+              (form nil))
+          (condition-case _ (setq form (read (current-buffer)))
+            (end-of-file (setq done t)))
+          (unless done
+            (setq err (rts-toolbar-debug--run (lambda () (eval form t))))
+            (when err
+              (setq rts-toolbar-debug--form form
+                    rts-toolbar-debug--line line)))))
+      err)))
+
+;;;###autoload
+(defun rts-toolbar-debug-load ()
+  "Step through android-toolbar.el and report the form that kills it.
+Start here: the error fires while the file is being LOADED, which is why
+`require' and `M-x rts-flow-setup-toolbar' both show it -- the file runs
+the setup itself on the way past its own foot."
+  (interactive)
+  (rts-toolbar-debug--report
+   (format "Stepping %s" (abbreviate-file-name rts-toolbar-debug-file))
+   (rts-toolbar-debug--step-file rts-toolbar-debug-file)))
+
+;;;###autoload
+(defun rts-toolbar-debug-load-file ()
+  "Plain `load' of android-toolbar, for comparison with the stepper.
+If this fails where `rts-toolbar-debug-load' succeeds, the source is
+innocent and you are loading a stale .elc or .eln."
+  (interactive)
+  (rts-toolbar-debug--report
+   "Plain load of android-toolbar"
+   (rts-toolbar-debug--run (lambda () (load "android-toolbar" nil t)))))
+
+;;;###autoload
+(defun rts-toolbar-debug ()
+  "Run `rts-flow-setup-toolbar' alone and report what makes it die.
+Only useful once the file itself loads; until then use
+`rts-toolbar-debug-load'."
+  (interactive)
+  (unless (fboundp 'rts-flow-setup-toolbar)
+    (user-error "rts-flow-setup-toolbar is not defined — run rts-toolbar-debug-load first"))
+  (rts-toolbar-debug--report
+   "Running rts-flow-setup-toolbar"
+   (rts-toolbar-debug--run #'rts-flow-setup-toolbar)))
 
 (provide 'toolbar-debug)
 ;;; toolbar-debug.el ends here
