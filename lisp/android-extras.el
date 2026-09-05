@@ -70,11 +70,11 @@
   (define-key dired-mode-map (kbd "C-c o") #'my-dired-open-xdg))
 
 ;; ──────────────────────────────────────────────────────────────
-;; Vterm Termux shell
+;; Ghostel Termux shell
 ;; ──────────────────────────────────────────────────────────────
 
-(after! vterm
-  (setq vterm-shell "/data/data/com.termux/files/usr/bin/bash"))
+(after! ghostel
+  (setq ghostel-shell "/data/data/com.termux/files/usr/bin/bash"))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; Android UI settings
@@ -109,48 +109,95 @@ Optimized for speed on Android by limiting to recent files (last 30 days)."
 (defvar my/android-captured-images-dir "attachments/captured-images"
   "Relative path within org-directory to store captured media.")
 
-(defun my/org-attach-media ()
+(defvar my/org-attach-media--pending nil
+  "Camera shot in flight: (MARKER . TIME), or nil.
+Set when the camera app is launched from `my/org-attach-media'; the
+next tap of the same button finishes the attachment.  Android hides
+the keyboard when you come back from the camera, so the old
+\"press any key to continue\" could never be answered.")
+
+(defvar my/org-attach-media-pending-timeout 900
+  "Seconds after which a pending camera shot is forgotten.")
+
+(defun my/org-attach-media--pending-p ()
+  "Non-nil when a camera shot launched recently is still waiting."
+  (and my/org-attach-media--pending
+       (buffer-live-p (marker-buffer (car my/org-attach-media--pending)))
+       (< (float-time (time-since (cdr my/org-attach-media--pending)))
+          my/org-attach-media-pending-timeout)))
+
+(defun my/org-attach-media (&optional arg)
   "Attach the latest photo or screenshot to the current Org node.
-Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/."
-  (interactive)
-  (let ((choice (read-char-choice "Attach: [c]amera or [l]atest? " '(?c ?l))))
-    (when (eq choice ?c)
-      (call-process-shell-command "am start -a android.media.action.STILL_IMAGE_CAMERA")
-      (read-char "Take photo, return to Emacs, and press any key to continue..."))
-    
-    (let ((latest-file (my/android-get-latest-media-file)))
-      (if (and latest-file (file-exists-p latest-file))
-          (let* ((attrs (file-attributes latest-file))
-                 (mtime (file-attribute-modification-time attrs))
-                 (date-str (format-time-string "%Y-%m-%d" mtime))
-                 (datetime-str (format-time-string "%Y-%m-%d %H:%M" mtime))
-                 
-                 ;; Destination setup
-                 ;; Use project root to ensure dest and buffer share the same path prefix (e.g. ~/org)
-                 ;; This fixes the "absolute path" issue when org-directory is /sdcard/org but buffer is ~/org/...
-                 (base-dir (or (doom-project-root) org-directory))
-                 (ext (file-name-extension latest-file))
-                 (ts (format-time-string "%Y%m%d_%H%M%S" mtime))
-                 (new-filename (format "%s.%s" ts ext))
-                 (dest-root (expand-file-name my/android-captured-images-dir base-dir))
-                 (dest-dir (expand-file-name date-str dest-root))
-                 (dest-file (expand-file-name new-filename dest-dir))
-                 
-                 ;; Link setup
-                 (caption (read-string "Caption (optional): "))
-                 (description (if (string-empty-p caption)
-                                  datetime-str
-                                (format "%s %s" datetime-str caption)))
-                 (relative-path (file-relative-name dest-file (file-name-directory (buffer-file-name)))))
-            
-            (unless (file-exists-p dest-dir)
-              (make-directory dest-dir t))
-            
-            (copy-file latest-file dest-file)
-            (insert (format "[[file:%s][%s]]" relative-path description))
-            (org-display-inline-images)
-            (message "Attached: %s" new-filename))
-        (error "No media files found in: %s" (string-join my/android-media-dirs ", "))))))
+Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/.
+
+Choosing [c]amera opens the camera app and returns immediately.  Take
+the photo, come back to Emacs and tap this button again: the new photo
+is attached at the point where you started.  With prefix ARG, forget a
+pending camera shot instead."
+  (interactive "P")
+  (cond
+   ((and arg my/org-attach-media--pending)
+    (setq my/org-attach-media--pending nil)
+    (message "Camera attachment cancelled"))
+   ;; Second tap: the camera shot is waiting to be attached.
+   ((my/org-attach-media--pending-p)
+    (let* ((marker (car my/org-attach-media--pending))
+           (since (cdr my/org-attach-media--pending))
+           (latest (my/android-get-latest-media-file)))
+      (if (and latest
+               (time-less-p since (file-attribute-modification-time
+                                   (file-attributes latest))))
+          (progn
+            (setq my/org-attach-media--pending nil)
+            (unless (eq (current-buffer) (marker-buffer marker))
+              (pop-to-buffer-same-window (marker-buffer marker)))
+            (goto-char marker)
+            (my/org-attach-media--attach-file latest))
+        (message "No new photo yet -- take one and tap again (C-u to cancel)"))))
+   (t
+    (let ((choice (read-char-choice "Attach: [c]amera or [l]atest? " '(?c ?l))))
+      (if (eq choice ?c)
+          (progn
+            (setq my/org-attach-media--pending (cons (point-marker) (current-time)))
+            (call-process-shell-command "am start -a android.media.action.STILL_IMAGE_CAMERA")
+            (message "Take the photo, come back, and tap the camera button again"))
+        (let ((latest (my/android-get-latest-media-file)))
+          (if (and latest (file-exists-p latest))
+              (my/org-attach-media--attach-file latest)
+            (error "No media files found in: %s"
+                   (string-join my/android-media-dirs ", ")))))))))
+
+(defun my/org-attach-media--attach-file (latest-file)
+  "Copy LATEST-FILE under the captured-images dir and link it at point."
+  (let* ((attrs (file-attributes latest-file))
+         (mtime (file-attribute-modification-time attrs))
+         (date-str (format-time-string "%Y-%m-%d" mtime))
+         (datetime-str (format-time-string "%Y-%m-%d %H:%M" mtime))
+         ;; Destination setup
+         ;; Use project root to ensure dest and buffer share the same path prefix (e.g. ~/org)
+         ;; This fixes the "absolute path" issue when org-directory is /sdcard/org but buffer is ~/org/...
+         (base-dir (or (doom-project-root) org-directory))
+         (ext (file-name-extension latest-file))
+         (ts (format-time-string "%Y%m%d_%H%M%S" mtime))
+         (new-filename (format "%s.%s" ts ext))
+         (dest-root (expand-file-name my/android-captured-images-dir base-dir))
+         (dest-dir (expand-file-name date-str dest-root))
+         (dest-file (expand-file-name new-filename dest-dir))
+         (relative-path (file-relative-name dest-file (file-name-directory (buffer-file-name)))))
+    ;; Coming back from the camera app leaves the keyboard hidden; the
+    ;; caption prompt needs it.
+    (when (fboundp 'frame-toggle-on-screen-keyboard)
+      (frame-toggle-on-screen-keyboard nil nil))
+    (let* ((caption (read-string "Caption (optional): "))
+           (description (if (string-empty-p caption)
+                            datetime-str
+                          (format "%s %s" datetime-str caption))))
+      (unless (file-exists-p dest-dir)
+        (make-directory dest-dir t))
+      (copy-file latest-file dest-file)
+      (insert (format "[[file:%s][%s]]" relative-path description))
+      (org-display-inline-images)
+      (message "Attached: %s" new-filename))))
 
 
 (setq browse-url-browser-function 'browse-url-xdg-open)

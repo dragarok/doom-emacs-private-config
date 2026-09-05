@@ -91,7 +91,6 @@
        eshell            ; the elisp shell that works everywhere
        ;;shell             ; simple shell REPL for Emacs
        ;;term              ; basic terminal emulator for Emacs
-       vterm             ; the best terminal emulation in Emacs
 
        :checkers
        (:unless IS-ANDROID (syntax +childframe))  ; tasing you for every semicolon you forget
@@ -228,7 +227,7 @@
     (setq exec-path (cons home-bin (cons termux-local-bin (cons texlive-bin (cons termux-bin exec-path)))))
 
     ;; Android Emacs exports LANG=en_US.utf8 — a spelling macOS doesn't have,
-    ;; so mosh/ssh sessions spawned from vterm break. Match Termux instead.
+    ;; so mosh/ssh sessions spawned from a terminal buffer break. Match Termux instead.
     (setenv "LANG" "en_US.UTF-8")
 
     ;; Claude Code needs a writable tmp dir — /tmp doesn't exist on Android

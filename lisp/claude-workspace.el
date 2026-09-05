@@ -1915,7 +1915,6 @@ unlike the terminal bell.  Returns nil so other event-hook functions still run."
 
 (defvar claude-workspace--submit-fns
   '(claude-code--ghostel-send-return
-    claude-code--vterm-send-return
     claude-code--eat-send-return)
   "Backend functions that SUBMIT input to a Claude session (the RET key).
 Advised to clear a session's tint the instant you hand it input.")

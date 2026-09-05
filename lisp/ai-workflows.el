@@ -154,7 +154,7 @@ releases (`ghostel--copy-mode-active')."
     (claude-code--term-setup-keymap 'ghostel)))
 
 ;; Ported from claude-code-ide.el (a9485f7): ghostel manages resizing
-;; natively, so the vterm/eat "signal only on width change" reflow
+;; natively, so the eat "signal only on width change" reflow
 ;; workaround stays OFF for it.  Suppressing height-only SIGWINCHes
 ;; also recreates the window-height != PTY-rows mismatch behind the
 ;; phone scroll bugs, and its advice was the code path that hit the
@@ -218,6 +218,7 @@ releases (`ghostel--copy-mode-active')."
 
 (use-package claude-code-ide
   :config
+  (setq claude-code-ide-terminal-backend 'ghostel)
   ;; (if IS-ANDROID
   ;;     (setq claude-code-ide-use-side-window nil))
   (setq claude-code-ide-use-side-window nil)
@@ -305,8 +306,8 @@ without stealing focus from the current window layout."
       (unless (string-empty-p result) result))))
 
 (defun my/claude--paste-into-buffer (image-path)
-  "Paste IMAGE-PATH into the current project's Claude Code vterm buffer.
-On Mac, copies image to clipboard and sends Cmd+V.
+  "Paste IMAGE-PATH into the current project's Claude Code ghostel buffer.
+On Mac, copies image to clipboard and sends Ctrl+V.
 On Android, types the file path directly."
   (let* ((project (file-name-nondirectory (directory-file-name default-directory)))
          (buffer-name (format "*claude-code[%s]*" project))
@@ -315,11 +316,11 @@ On Android, types the file path directly."
         (with-current-buffer buf
           (if IS-ANDROID
               ;; Android: type the path directly
-              (vterm-send-string image-path)
+              (ghostel-send-string image-path)
             ;; Mac: copy to clipboard and paste
             (call-process "osascript" nil nil nil
                           "-e" (format "set the clipboard to (read (POSIX file \"%s\") as «class PNGf»)" image-path))
-            (vterm-send-key "v" nil nil t))
+            (ghostel-send-key "v" "ctrl"))
           (message "Attached %s into %s" image-path buffer-name))
       (kill-new image-path)
       (message "Copied %s to kill ring (no buffer: %s)" image-path buffer-name))))
@@ -398,11 +399,11 @@ TYPE is 'screenshot or 'camera."
 
 
 ;; ============================================================
-;; VTERM/EAT FONT FIXES FOR CLAUDE
+;; GHOSTEL/EAT FONT FIXES FOR CLAUDE
 ;; ============================================================
 
-(defun diego--vterm-font-setup ()
-  "Configure font settings specifically for vterm buffers, workaround claude-code."
+(defun diego--ghostel-font-setup ()
+  "Configure font settings specifically for ghostel buffers, workaround claude-code."
   (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
     (dolist (pair
              '((#x273B . ?*) ; TEARDROP-SPOKED ASTERISK
@@ -413,7 +414,7 @@ TYPE is 'screenshot or 'camera."
                ))
       (aset tbl (car pair) (vector (cdr pair))))))
 
-(add-hook 'vterm-mode-hook #'diego--vterm-font-setup)
+(add-hook 'ghostel-mode-hook #'diego--ghostel-font-setup)
 
 (defvar sm-subsitutions
   '((?⏺ . ?\-)

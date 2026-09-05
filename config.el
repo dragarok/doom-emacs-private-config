@@ -123,7 +123,7 @@
   (add-to-list 'org-file-apps '("\\.jpeg\\'" . "termux-open %s"))
 
   ;; Load Android-specific modules (from lisp/)
-  (require 'android-extras))       ; keyboard control, dired xdg-open, vterm shell
+  (require 'android-extras))       ; keyboard control, dired xdg-open, ghostel shell
 
 ;; Separate C-i from TAB (only needed on Mac GUI)
 (unless IS-ANDROID
@@ -205,12 +205,49 @@
 
   ;; Smaller font in the terminal buffers ONLY — more columns for the remote
   ;; Emacs and cheaper redraws; all other buffers keep the touch size.
-  ;; ghostel, not vterm: that is what claude-remote runs on now.
+  ;; ghostel is what claude-remote runs on.
   (defvar my/remote-term-font-scale 0.77
     "Relative font height in terminal buffers (1.0 = same as everywhere).")
   (defun my/remote-term-shrink-font ()
     (face-remap-add-relative 'default :height my/remote-term-font-scale))
   (add-hook 'ghostel-mode-hook #'my/remote-term-shrink-font))
+
+;; Terminal: ghostel everywhere (the :term vterm module is gone).  Both
+;; commands are thin covers over ghostel's own `ghostel-project', kept
+;; under the vterm muscle memory: SPC o t toggles a popup at the project
+;; root, SPC o T opens the same buffer in the current window.
+(after! ghostel
+  ;; persp-mode tracks buffers by name; a title-driven rename loses them.
+  (setq ghostel-buffer-name-function nil)
+  (add-to-list 'doom-real-buffer-modes 'ghostel-mode))
+(set-popup-rule! "^\\*.*-ghostel\\*" :vslot -5 :size 0.35 :select t :modeline nil :quit nil :ttl nil)
+
+(defun my/ghostel--project-buffer ()
+  "The `ghostel-project' buffer for the current project, if it exists."
+  (when-let* ((project (project-current)))
+    (let ((default-directory (project-root project)))
+      (get-buffer (project-prefixed-buffer-name
+                   (string-trim ghostel-buffer-name "*" "*"))))))
+
+(defun my/ghostel-toggle (&optional arg)
+  "Toggle a ghostel popup at the project root.  ARG is passed to `ghostel-project'."
+  (interactive "P")
+  (require 'ghostel)
+  (if-let* ((buf (and (null arg) (my/ghostel--project-buffer)))
+            (win (get-buffer-window buf)))
+      (delete-window win)
+    (ghostel-project arg)))
+
+(defun my/ghostel-here (&optional arg)
+  "Open the project's ghostel buffer in the current window.  ARG is passed to `ghostel-project'."
+  (interactive "P")
+  (require 'ghostel)
+  (let (display-buffer-alist)
+    (ghostel-project arg)))
+
+(map! :leader
+      :desc "Toggle ghostel popup" "o t" #'my/ghostel-toggle
+      :desc "Open ghostel here"    "o T" #'my/ghostel-here)
 
 ;; AI workflows (shared across platforms, Mac-only parts guarded inside)
 (require 'ai-workflows)
@@ -717,9 +754,6 @@ _p_rev       _u_pper              _=_: upper/lower       _r_esolve
     (let ((explicit-shell-file-name "C:/Windows/System32/bash.exe"))
       (shell))))
 
-(custom-set-faces!
-  '(vterm-color-black :foreground "OrangeRed3" :background "BlueViolet"))
-
 (after! org
   (setq org-format-latex-options
         (plist-put org-format-latex-options
@@ -1086,8 +1120,8 @@ selected, then the current line."
 ;; (bind-key "C-M-s-k" 'scroll-other-window)
 (bind-key "C-M-s-~" '+python/open-ipython-repl)
 (bind-key "C-s-~" '+popup/toggle)
-(bind-key "C-s-t" '+vterm/here)  ; Changed from C-s-t (now used for rts-flow-select-task)
-(bind-key "C-M-s-t" '+vterm/toggle)
+(bind-key "C-s-t" 'my/ghostel-here)
+(bind-key "C-M-s-t" 'my/ghostel-toggle)
 (bind-key "C-M-s-\"" 'evil-avy-goto-char-timer)
 (bind-key "C-M-s-h" 'evil-avy-goto-char-2)
 (bind-key "C-M-s-v" 'consult-flycheck)
@@ -1114,7 +1148,6 @@ selected, then the current line."
             (interactive)
             (org-save-all-org-buffers)
             (org-agenda-redo)))
-;; (bind-key "C-M-s-t" '+my/vterm-run-project)
 (bind-key "C-M-s-q" '+workspace/close-window-or-workspace)
 (bind-key "C-M-s-l" '+workspace/load)
 (bind-key "C-M-s-/" 'consult-ripgrep)

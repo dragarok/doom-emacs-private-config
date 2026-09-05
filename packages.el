@@ -54,6 +54,7 @@
 ;; prebuilt Android module).  Leaving this Mac-only made `doom sync' on the
 ;; phone drop the package that `claude-remote' hard-requires.
 (package! ghostel)
+(package! evil-ghostel)
 ;; ============================================================
 ;; MAC-ONLY PACKAGES
 ;; ============================================================
@@ -132,7 +133,6 @@
     :recipe (:host github :repo "linchen2chris/gemini-cli.el"
              :files ("*.el" (:exclude "demo.gif"))))
 
-  (package! evil-ghostel)
   ;; Search
   (package! consult-web
     :recipe (:host github :repo "armindarvish/consult-web" :files (:defaults "sources/*.el")))
