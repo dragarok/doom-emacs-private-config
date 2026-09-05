@@ -458,13 +458,13 @@ TYPE is 'screenshot or 'camera."
 ;; ============================================================
 
 (unless IS-ANDROID
-  (use-package ai-code
-    :config
-    (ai-code-set-backend  'claude-code-ide)
-    (global-auto-revert-mode 1)
-    (setq auto-revert-interval 1)
-    (with-eval-after-load 'magit
-      (ai-code-magit-setup-transients)))
+  ;; (use-package ai-code
+  ;;   :config
+  ;;   (ai-code-set-backend  'claude-code-ide)
+  ;;   (global-auto-revert-mode 1)
+  ;;   (setq auto-revert-interval 1)
+  ;;   (with-eval-after-load 'magit
+  ;;     (ai-code-magit-setup-transients)))
 
   (use-package gemini-cli
     :defer t)

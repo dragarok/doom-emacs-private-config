@@ -261,11 +261,27 @@
   (with-eval-after-load 'claude-code        ; chime/popup/auto-switch on input-wait
     (claude-workspace-attention-mode 1))
   (map! :leader :desc "Master Claude workspace" "o C" #'claude-workspace-transient)
-  (map! :leader :desc "Switch Claude session"    "v x" #'claude-workspace-cycle-session)
-  (map! :leader :desc "Jump to waiting Claude"    "v u" #'claude-workspace-jump-to-attention)
-  (map! :leader :desc "Expand → project workspace" "v e" #'claude-workspace-expand-to-project)
-  (map! :leader :desc "Collapse → master-claude"   "v m" #'claude-workspace-collapse)
-  (map! :leader :desc "Expand session ↓ into empty slot" "v z" #'claude-workspace-expand-down))
+  ;; SPC y is the Claude prefix -- a free leader key, unlike SPC v, which
+  ;; already carries the inbox and the podcast.  Everything the grid does
+  ;; sits one chord deep here under the same letters the transient uses,
+  ;; and the phone binds the SAME letters to its remote equivalents below,
+  ;; so the muscle memory carries across machines.  Add and Refresh ask
+  ;; nothing (see `claude-workspace-ask-session-count' /
+  ;; `claude-workspace-refresh-confirm'), so they are single keystrokes in
+  ;; practice; a prefix arg brings each prompt back.  ESC is bound too
+  ;; because inside the session C-g already sends it -- this is the one
+  ;; that reaches the session from a placeholder cell or any other window.
+  (map! :leader
+        (:prefix ("y" . "claude")
+         :desc "Master Claude menu"            "y" #'claude-workspace-transient
+         :desc "Add session(s)"                "a" #'claude-workspace-add
+         :desc "Refresh session (--continue)"  "r" #'claude-workspace-refresh-session
+         :desc "Send ESC to session"           "i" #'claude-workspace-send-escape
+         :desc "Switch Claude session"         "x" #'claude-workspace-cycle-session
+         :desc "Jump to waiting Claude"        "u" #'claude-workspace-jump-to-attention
+         :desc "Expand → project workspace"    "e" #'claude-workspace-expand-to-project
+         :desc "Collapse → master-claude"      "m" #'claude-workspace-collapse
+         :desc "Expand session ↓ into empty slot" "z" #'claude-workspace-expand-down)))
 (when IS-ANDROID   ; on the phone, these reach OUT to the machines doing the work
   ;; Each machine is its own destination, not a mode you switch into: mac and
   ;; kai keep separate connections/workspaces, so you hop between them (and
@@ -274,10 +290,19 @@
   (map! :leader :desc "Remote Emacs → Mac"      "o 1" #'claude-remote-mac)
   (map! :leader :desc "Remote Emacs → Kai"      "o 2" #'claude-remote-kai)
   (map! :leader :desc "Switch active machine"   "o M" #'claude-remote-switch-machine)
-  ;; drive the remote machine's Claude sessions from the phone
-  (map! :leader :desc "Remote: next Claude session" "v n" #'claude-remote-next-session)
-  (map! :leader :desc "Remote: prev Claude session" "v p" #'claude-remote-prev-session)
-  (map! :leader :desc "Remote: talk into session"   "v t" #'claude-remote-talk))
+  ;; Drive the remote machine's Claude sessions from the phone, under the
+  ;; SAME SPC y letters the Mac uses for the local grid: a, r and i are the
+  ;; add / refresh / ESC you already know, just travelling over the wire.
+  (map! :leader
+        (:prefix ("y" . "claude")
+         :desc "Remote Emacs (active)"          "y" #'claude-remote
+         :desc "Remote: add session(s)"         "a" #'claude-remote-add-session
+         :desc "Remote: refresh (--continue)"   "r" #'claude-remote-refresh-session
+         :desc "Remote: send ESC to session"    "i" #'claude-remote-escape
+         :desc "Remote: switch Claude session"  "x" #'claude-remote-next-session
+         :desc "Remote: next Claude session"    "n" #'claude-remote-next-session
+         :desc "Remote: prev Claude session"    "p" #'claude-remote-prev-session
+         :desc "Remote: talk into session"      "t" #'claude-remote-talk)))
 
 ;; Podcast autoplay: learn while you wait on agents (pauses when you type).
 ;; Needs `brew install mpv' and the elfeed package (doom sync + restart).

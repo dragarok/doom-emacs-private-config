@@ -69,6 +69,8 @@
 (declare-function ghostel--delayed-redraw "ghostel")
 (declare-function ghostel--mode-enabled "ghostel")
 (declare-function ghostel--invalidate "ghostel")
+(declare-function ghostel-send-string "ghostel")
+(declare-function claude-code-send-escape "claude-code")
 
 ;; Doom workspace (persp-mode) API.
 (declare-function +workspace-current-name "ignore")
@@ -148,6 +150,22 @@ you want on a phone: one Claude, full width, never a cramped grid."
 (defcustom claude-workspace-adopt-on-open t
   "When non-nil, `claude-workspace-open' pulls any already-running Claude
 sessions that are not yet on the grid into free slots."
+  :type 'boolean)
+
+(defcustom claude-workspace-ask-session-count nil
+  "When non-nil, `claude-workspace-add' asks how many sessions per project.
+Nil (the default) gives each project you pick exactly one session, so the
+command is a single prompt: choose project(s), RET, done -- which is what
+the bound key and the toolbar button are for.  A prefix argument asks
+anyway, for the rare time you want several sessions of one project."
+  :type 'boolean)
+
+(defcustom claude-workspace-refresh-confirm nil
+  "When non-nil, `claude-workspace-refresh-session' asks before restarting.
+Nil (the default) restarts straight away: the command is a recovery
+reflex for a garbled session, and `--continue' resumes the very same
+conversation, so there is nothing to lose by not asking.  A prefix
+argument asks anyway."
   :type 'boolean)
 
 (defcustom claude-workspace-auto-relayout-on-resize t
@@ -696,9 +714,12 @@ Return the new Claude buffer, or nil on failure."
                   root))
           (projectile-relevant-known-projects)))
 
-(defun claude-workspace--read-plan (free)
+(defun claude-workspace--read-plan (free &optional ask-count)
   "Interactively build a spawn plan: a list of (ROOT . COUNT).
-FREE is the number of free slots; the plan never exceeds it."
+FREE is the number of free slots; the plan never exceeds it.
+ASK-COUNT non-nil asks how many sessions of each project to start;
+otherwise every project chosen gets one session and the command is a
+single prompt (see `claude-workspace-ask-session-count')."
   (let* ((cands (claude-workspace--project-candidates))
          (chosen (completing-read-multiple
                   (format "Add Claude in project(s) [%d free slot%s]: "
@@ -713,6 +734,7 @@ FREE is the number of free slots; the plan never exceeds it."
                               (expand-file-name disp))))
                (count (cond
                        ((null root) 0)
+                       ((not ask-count) 1)
                        ((<= remaining 1) 1)
                        (t (max 1 (min remaining
                                       (read-number
@@ -740,17 +762,21 @@ Claude sessions that are not already on the grid."
   (claude-workspace--relayout))
 
 ;;;###autoload
-(defun claude-workspace-add (&optional plan)
+(defun claude-workspace-add (&optional plan ask-count)
   "Add Claude sessions to the next free slots.
-Interactively prompts for projectile project(s) and how many sessions of
-each.  PLAN, when given non-interactively, is a list of (ROOT . COUNT)."
-  (interactive)
+Interactively prompts for projectile project(s) -- one session each, no
+follow-up question, so the bound key is a single prompt.  A prefix
+argument (or `claude-workspace-ask-session-count') also asks how many
+sessions of each, as ASK-COUNT does non-interactively.  PLAN, when given
+non-interactively, is a list of (ROOT . COUNT) and skips prompting."
+  (interactive (list nil (or current-prefix-arg
+                             claude-workspace-ask-session-count)))
   (claude-workspace--ensure-workspace)
   (let ((free (claude-workspace--free-count)))
     (when (zerop free)
       (user-error "Already holding the maximum of %d Claude sessions"
                   (claude-workspace--capacity)))
-    (let ((plan (or plan (claude-workspace--read-plan free)))
+    (let ((plan (or plan (claude-workspace--read-plan free ask-count)))
           (remaining free)
           (started 0))
       (cl-block done
@@ -913,20 +939,26 @@ Called interactively, offers a couple of presets."
     (message "All sessions cleared")))
 
 ;;;###autoload
-(defun claude-workspace-refresh-session ()
+(defun claude-workspace-refresh-session (&optional confirm)
   "Recover a garbled session: kill it and restart `claude --continue' in place.
 Use this if a window resize corrupts the terminal display.  The session is
 restarted in the same project directory and restored to the same grid
-position; `--continue' resumes the most recent conversation there."
-  (interactive)
-  (let* ((cur (current-buffer))
-         (pos (cl-position cur claude-workspace--sessions :test #'eq))
-         (dir (claude-workspace--current-dir)))
+position; `--continue' resumes the most recent conversation there.
+Restarts without asking; CONFIRM (a prefix argument, or
+`claude-workspace-refresh-confirm') brings back the yes/no prompt."
+  (interactive (list (or current-prefix-arg claude-workspace-refresh-confirm)))
+  ;; Acts on point's session, or -- so the bound key and the toolbar button
+  ;; still land from a placeholder cell -- on this frame's current one.
+  (let* ((cur (claude-workspace-target-session))
+         (pos (and cur (cl-position cur claude-workspace--sessions :test #'eq)))
+         (dir (and cur (with-current-buffer cur
+                         (claude-workspace--current-dir)))))
     (unless (and pos dir)
-      (user-error "Not on a managed Claude session"))
-    (when (yes-or-no-p (format "Restart this session with --continue in %s? "
-                               (file-name-nondirectory
-                                (directory-file-name dir))))
+      (user-error "No managed Claude session to refresh"))
+    (when (or (not confirm)
+              (yes-or-no-p (format "Restart this session with --continue in %s? "
+                                   (file-name-nondirectory
+                                    (directory-file-name dir)))))
       (let ((claude-code-confirm-kill nil)
             (kill-buffer-query-functions nil))
         (when (buffer-live-p cur) (kill-buffer cur)))
@@ -943,6 +975,37 @@ position; `--continue' resumes the most recent conversation there."
                 (cl-remove-if-not #'buffer-live-p claude-workspace--sessions))))
       (claude-workspace--relayout)
       (message "Session restarted with --continue"))))
+
+;;;###autoload
+(defun claude-workspace-target-session ()
+  "The managed session a grid-wide command should act on.
+Point\='s own session when you are in one, else the session this frame
+last had selected -- so the command still lands from a placeholder cell,
+the echo area, or anywhere else on the frame."
+  (let ((buf (or (and (memq (current-buffer) claude-workspace--sessions)
+                      (current-buffer))
+                 (claude-workspace--frame-session)
+                 (car (cl-remove-if-not #'buffer-live-p
+                                        claude-workspace--sessions)))))
+    (and (buffer-live-p buf) buf)))
+
+;;;###autoload
+(defun claude-workspace-send-escape ()
+  "Send ESC to the current Claude session -- interrupt it, or back out of a prompt.
+Inside the session `C-g' already does this (claude-code binds it); this
+is the version that works from OUTSIDE the session window, which is what
+a leader key and the Android toolbar need."
+  (interactive)
+  (let ((buf (claude-workspace-target-session)))
+    (unless buf
+      (user-error "No live Claude session to interrupt"))
+    (with-current-buffer buf
+      (cond
+       ((and (derived-mode-p 'ghostel-mode) (fboundp 'ghostel-send-string))
+        (ghostel-send-string "\e"))
+       ((fboundp 'claude-code-send-escape) (claude-code-send-escape))
+       (t (user-error "No way to send ESC to %s" (buffer-name buf)))))
+    (message "ESC → %s" (buffer-name buf))))
 
 
 ;;;; From inside a session: jump to its project
@@ -1927,7 +1990,8 @@ moment you submit input (RET) to the session.  No tinting while it works."
     ("m" "Collapse → master grid" claude-workspace-collapse)
     ("g" "Magit (this project)" claude-workspace-magit)
     ("d" "Dired (this project)" claude-workspace-dired)
-    ("r" "Refresh (--continue)" claude-workspace-refresh-session)]
+    ("r" "Refresh (--continue)" claude-workspace-refresh-session)
+    ("i" "Send ESC (interrupt / back out)" claude-workspace-send-escape)]
    ["Teardown / modes"
     ("k" "Kill this slot" claude-workspace-kill-slot)
     ("R" "Reset (kill all)" claude-workspace-reset)
