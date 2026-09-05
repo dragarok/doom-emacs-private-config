@@ -306,6 +306,15 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :help "Restart this session with --continue (fixes a garbled display)"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
+      ;; The phone's clipboard has no other road to the remote: a link or an
+      ;; error copied in another Android app cannot be pasted into a session
+      ;; you are only watching.  This carries it over as one bracketed paste
+      ;; and leaves RET to you.
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-paste>"
+        `(menu-item "Paste" claude-remote-paste
+          :help "Paste the Android clipboard into the remote Claude prompt"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/paste-clipboard.svg"
+                        :height ,icon-size :width ,icon-size)))
 
 
       ;; ===================================================================

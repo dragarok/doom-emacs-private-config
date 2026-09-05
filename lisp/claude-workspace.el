@@ -1007,6 +1007,39 @@ a leader key and the Android toolbar need."
        (t (user-error "No way to send ESC to %s" (buffer-name buf)))))
     (message "ESC → %s" (buffer-name buf))))
 
+;;;###autoload
+(defun claude-workspace-send-text (text &optional submit)
+  "Paste TEXT into the current Claude session, pressing RET when SUBMIT.
+TEXT travels as a BRACKETED paste, which is the whole point: a multi-line
+snippet then lands in the prompt as one block instead of submitting a
+separate message per newline, the way typed-in newlines would.
+
+Like `claude-workspace-send-escape', this works from OUTSIDE the session
+window -- so a leader key, the Android toolbar, or `claude-remote-paste'
+reaching in from the phone over `M-:' can all use it without the focus
+having to be inside the TUI first."
+  (interactive (list (read-string "Paste into session: ")
+                     (not current-prefix-arg)))
+  (let ((buf (claude-workspace-target-session)))
+    (unless buf
+      (user-error "No live Claude session to paste into"))
+    (when (string-empty-p (string-trim text))
+      (user-error "Nothing to paste"))
+    (with-current-buffer buf
+      (cond
+       ((and (derived-mode-p 'ghostel-mode) (fboundp 'ghostel-paste-string))
+        (ghostel-paste-string text)
+        (when submit (ghostel-send-string "\r")))
+       ;; claude-code.el's eat backend: no paste helper, so bracket it here.
+       ((and (derived-mode-p 'eat-mode)
+             (fboundp 'eat-term-send-string)
+             (bound-and-true-p eat-terminal))
+        (eat-term-send-string eat-terminal (concat "\e[200~" text "\e[201~"))
+        (when submit (eat-term-send-string eat-terminal "\r")))
+       (t (user-error "No way to paste into %s" (buffer-name buf)))))
+    (message "Pasted %d chars → %s%s"
+             (length text) (buffer-name buf) (if submit " + RET" ""))))
+
 
 ;;;; From inside a session: jump to its project
 

@@ -314,6 +314,7 @@
          :desc "Add session(s)"                "a" #'claude-workspace-add
          :desc "Refresh session (--continue)"  "r" #'claude-workspace-refresh-session
          :desc "Send ESC to session"           "i" #'claude-workspace-send-escape
+         :desc "Paste clipboard into session"  "v" #'claude-workspace-send-text
          :desc "Switch Claude session"         "x" #'claude-workspace-cycle-session
          :desc "Jump to waiting Claude"        "u" #'claude-workspace-jump-to-attention
          :desc "Expand → project workspace"    "e" #'claude-workspace-expand-to-project
@@ -339,7 +340,12 @@
          :desc "Remote: switch Claude session"  "x" #'claude-remote-next-session
          :desc "Remote: next Claude session"    "n" #'claude-remote-next-session
          :desc "Remote: prev Claude session"    "p" #'claude-remote-prev-session
-         :desc "Remote: talk into session"      "t" #'claude-remote-talk)))
+         :desc "Remote: talk into session"      "t" #'claude-remote-talk
+         ;; v mirrors the Mac's SPC y v, and is the way a link or an error
+         ;; copied in another Android app gets into the remote prompt at
+         ;; all: the phone's clipboard cannot reach the remote by itself.
+         :desc "Remote: paste clipboard"        "v" #'claude-remote-paste
+         :desc "Remote: paste at remote cursor" "V" #'claude-remote-paste-raw)))
 
 ;; Podcast autoplay: learn while you wait on agents (pauses when you type).
 ;; Needs `brew install mpv' and the elfeed package (doom sync + restart).
