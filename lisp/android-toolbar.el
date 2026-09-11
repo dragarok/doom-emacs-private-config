@@ -25,8 +25,21 @@
 POCO devices use 64x64, ONYX e-readers use 80x80."
   (interactive)
   (when (display-graphic-p)
-    (setopt tool-bar-style 'image
-            tool-bar-position 'bottom)
+    ;; NOT `setopt'.  It type-checks by running the value through the
+    ;; variable's custom widget, and `tool-bar-style' is a C variable whose
+    ;; `custom-type' lives in cus-start.el and is simply absent here -- so
+    ;; the check converts a nil type into the widget `(nil)', asks it to
+    ;; :match, and applies its nil :match property.  Calling nil is exactly
+    ;; the (void-function nil) that took the whole file, and with it Emacs
+    ;; startup, down on Android: Emacs 31 skipped the check when the type
+    ;; was missing, Emacs 32 does not.  Neither variable needs `setopt'
+    ;; anyway -- below is precisely what their setters do.
+    (setq-default tool-bar-style 'image)
+    (setq-default tool-bar-position 'bottom)
+    ;; `tool-bar-position' only takes effect as a frame parameter; this is
+    ;; the body of its own :set, and it seeds `default-frame-alist' too, so
+    ;; frames made later come up with the bar at the bottom as well.
+    (modify-all-frames-parameters '((tool-bar-position . bottom)))
 
     ;; Determine icon size based on device
     (let ((icon-size (cond
@@ -305,6 +318,15 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
         `(menu-item "Refresh" claude-remote-refresh-session
           :help "Restart this session with --continue (fixes a garbled display)"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+      ;; The phone's clipboard has no other road to the remote: a link or an
+      ;; error copied in another Android app cannot be pasted into a session
+      ;; you are only watching.  This carries it over as one bracketed paste
+      ;; and leaves RET to you.
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-paste>"
+        `(menu-item "Paste" claude-remote-paste
+          :help "Paste the Android clipboard into the remote Claude prompt"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/paste-clipboard.svg"
                         :height ,icon-size :width ,icon-size)))
 
 

@@ -17,6 +17,18 @@
 ;; Platform detection for conditional module loading
 (defconst IS-ANDROID (eq system-type 'android))
 
+;; Doom core and :ui dashboard live in two repos that `doom upgrade' can
+;; leave a step apart.  When core is the newer half it no longer defines
+;; `doom-version', but the dashboard still formats it into the mode line
+;; (`+dashboard-mode' does `(format "DOOM v%s" doom-version)'), so entering
+;; the buffer dies with (void-variable doom-version) -- and since the
+;; dashboard IS the startup buffer, the splash screen never comes up.
+;; Define it here, before any module loads, so the phone boots on whichever
+;; half of the upgrade it is currently sitting on.  Harmless once the two
+;; repos line up again: the core's own definition wins.
+(unless (boundp 'doom-version)
+  (defvar doom-version "unknown"))
+
 ;; (add-to-list 'default-frame-alist '(undecorated-round . t))
 
 (doom! :input

@@ -10,6 +10,8 @@
 ;;   claude-remote-next-session            - remote: next Claude session
 ;;   claude-remote-prev-session            - remote: previous Claude session
 ;;   claude-remote-talk                    - dictate/type into the session
+;;   claude-remote-paste                   - Android clipboard -> the session
+;;   claude-remote-paste-raw               - Android clipboard -> remote cursor
 ;;   C-\                                   - toggle keyboard passthrough
 ;;
 ;; MULTIPLE MACHINES AT ONCE.  Every machine in `claude-remote-machines'
@@ -192,6 +194,32 @@ conversation comes back.  Override per machine with `:refresh-form'."
 Set to nil (or call with a prefix argument) to drop the text into the
 remote Claude prompt and leave sending to you."
   :type 'boolean :group 'claude-remote)
+
+(defcustom claude-remote-paste-function "claude-workspace-send-text"
+  "Function PREFERRED on the remote for pasting into its Claude session.
+`claude-remote-paste' sends a form that calls it when the remote has it
+and drives the session's ghostel buffer itself when it does not, so a
+machine that has not pulled this repo's `claude-workspace-send-text' --
+or has pulled it into a daemon that has not re-read the file -- still
+takes the paste.  That is deliberately unlike `claude-remote-escape-form'
+and friends, which simply assume their remote half exists: those lose a
+keystroke when they are wrong, this would lose your clipboard.  Override
+per machine with `:paste-function'."
+  :type 'string :group 'claude-remote)
+
+(defcustom claude-remote-paste-submit nil
+  "When non-nil, `claude-remote-paste' presses RET after the pasted text.
+Off by default: what you paste from the phone is usually the first half
+of a message you still want to type onto.  A prefix argument flips
+whichever way this is set."
+  :type 'boolean :group 'claude-remote)
+
+(defcustom claude-remote-paste-confirm-above 4000
+  "Ask before pasting more than this many characters, nil to never ask.
+The text crosses the wire as keystrokes into the remote's `M-:' prompt,
+so a novel-sized clipboard is a long time with the connection tied up."
+  :type '(choice (const :tag "Never ask" nil) integer)
+  :group 'claude-remote)
 
 ;;; Machine lookup ---------------------------------------------------------
 
@@ -596,6 +624,120 @@ nil or NO-SUBMIT (a prefix argument) is given, so you can review first."
            (concat text "\r"))))
       (message "→ %s: %s" label
                (truncate-string-to-width text 40 nil nil "…")))))
+
+;;; Clipboard -> remote session ---------------------------------------------
+
+(defun claude-remote--clipboard ()
+  "Text to paste: the Android system clipboard, else the latest kill.
+Emacs on Android exposes the system clipboard as the CLIPBOARD selection,
+so whatever you copied in Chrome, Termux or any other app is reachable
+here without a round trip through termux-api.  The kill ring is both the
+fallback for the desktops this file also loads on and the answer when the
+selection owner has gone away.  Returns nil when there is nothing to
+paste."
+  (let ((text (or (ignore-errors (gui-get-selection 'CLIPBOARD 'UTF8_STRING))
+                  (ignore-errors (gui-get-selection 'CLIPBOARD))
+                  (ignore-errors (current-kill 0 t)))))
+    (and (stringp text)
+         (not (string-empty-p (string-trim text)))
+         (substring-no-properties text))))
+
+(defun claude-remote--paste-form (fn text submit)
+  "Build the form that pastes TEXT on the remote, RET too when SUBMIT.
+FN names the remote helper to prefer, but the form does NOT depend on it
+existing.  It has to not: the helper ships in this repo, and a machine
+that has not pulled it -- or has pulled it into a daemon that has not
+re-read the file -- would otherwise answer a paste with `void-function\='
+and drop the clipboard on the floor.  So the form asks, and falls back to
+driving the session\='s ghostel buffer itself, which is stock.
+
+TEXT rides across as BASE64, and it has to.  The form is not sent to the
+remote, it is TYPED into its `M-:\=' minibuffer, where smartparens is live
+and a literal RET submits: a lone quote or paren anywhere in your
+clipboard would be auto-paired into the form, a newline would send it
+half-typed and scatter the rest of the clipboard into whatever had
+focus.  The base64 alphabet has none of those, so the form keeps its own
+parens and its quotes balanced no matter what you copied."
+  (let ((b64 (base64-encode-string (encode-coding-string text 'utf-8) t))
+        (sub (if submit "t" "nil")))
+    (concat
+     "(let ((s (decode-coding-string (base64-decode-string \"" b64 "\") 'utf-8)))"
+     " (if (fboundp '" fn ")"
+     " (" fn " s " sub ")"
+     " (with-current-buffer"
+     " (or (ignore-errors (claude-workspace-target-session)) (current-buffer))"
+     " (ghostel-paste-string s)"
+     " (when " sub " (ghostel-send-string \"\\r\")))))")))
+
+(defun claude-remote--paste-ok-p (text)
+  "Return non-nil when TEXT is short enough to paste, or you say so."
+  (or (null claude-remote-paste-confirm-above)
+      (<= (length text) claude-remote-paste-confirm-above)
+      (yes-or-no-p (format "Paste %d characters over the wire? "
+                           (length text)))))
+
+;;;###autoload
+(defun claude-remote-paste (&optional flip-submit)
+  "Paste the Android clipboard into the Claude session you are driving.
+This is the missing half of `claude-remote-talk': that one dictates or
+types a fresh message, this one hands over text you copied somewhere
+else on the phone -- a link, an error, a paragraph from a browser.
+
+The text is delivered as ONE bracketed paste (see
+`claude-workspace-send-text' on the remote), so a multi-line clipboard
+lands in the prompt as a block rather than submitting a message per
+line.  RET is left to you unless `claude-remote-paste-submit' is on;
+FLIP-SUBMIT (a prefix argument) reverses that either way.
+
+Sent over the same `M-:' eval channel as the other grid buttons, so it
+lands whether or not the remote focus is inside the TUI, and without you
+having to take the keyboard first.  With no connection live it pastes
+into the local grid instead, which is what makes the same key work on
+the machine that hosts the sessions."
+  (interactive "P")
+  (let* ((text (or (claude-remote--clipboard)
+                   (user-error "Clipboard and kill ring are both empty")))
+         (submit (if flip-submit
+                     (not claude-remote-paste-submit)
+                   claude-remote-paste-submit))
+         (buf (ignore-errors (claude-remote--target-buffer))))
+    (unless (claude-remote--paste-ok-p text)
+      (user-error "Paste cancelled"))
+    (cond
+     (buf
+      (let* ((name (buffer-local-value 'claude-remote--machine-name buf))
+             (fn (or (plist-get (cdr (assq name claude-remote-machines))
+                                :paste-function)
+                     claude-remote-paste-function)))
+        (claude-remote--send-eval buf (claude-remote--paste-form fn text submit))
+        (message "→ %s: pasted %d chars%s" (claude-remote--label name)
+                 (length text) (if submit " + RET" ""))))
+     ((fboundp 'claude-workspace-send-text)
+      (claude-workspace-send-text text submit))
+     (t (user-error "No claude-remote connection — tap Mac or Kai first")))))
+
+;;;###autoload
+(defun claude-remote-paste-raw ()
+  "Type the Android clipboard straight into the connection, as a paste.
+The escape hatch for everything `claude-remote-paste' does not target:
+a shell on the remote, its minibuffer, a file you have open there.  The
+text goes down the wire as a bracketed paste to whatever currently has
+the remote's focus, so nothing needs `claude-workspace' on the far end --
+but nothing steers it into the Claude session either."
+  (interactive)
+  (let ((text (or (claude-remote--clipboard)
+                  (user-error "Clipboard and kill ring are both empty")))
+        (buf (claude-remote--target-buffer)))
+    (unless (claude-remote--paste-ok-p text)
+      (user-error "Paste cancelled"))
+    (with-current-buffer buf
+      (if (fboundp 'ghostel-paste-string)
+          (ghostel-paste-string text)
+        (claude-remote--send text)))
+    (message "→ %s: typed %d chars at the cursor"
+             (claude-remote--label
+              (buffer-local-value 'claude-remote--machine-name buf))
+             (length text))))
 
 (defun claude-remote--drive (key fallback local label &optional enter)
   "Run one Claude-grid action on whichever machine you are driving.
