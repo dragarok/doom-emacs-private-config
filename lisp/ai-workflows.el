@@ -10,107 +10,39 @@
 ;; GPTEL - Main LLM Interface (Mac-only)
 ;; ============================================================
 
-(unless IS-ANDROID
-  (use-package! gptel
-    :config
-    (setq gptel-display-buffer-action nil)
-    (set-popup-rule!
-      (lambda (bname _action)
-        (and (null gptel-display-buffer-action)
-             (buffer-local-value 'gptel-mode (get-buffer bname))))
-      :select t
-      :size 0.3
-      :quit nil
-      :ttl nil)
-    ;; (setq! gptel-api-key (auth-source-pick-first-password :user "chatgapi"))
-    (gptel-make-ollama
-        "Ollama"
-      :host "localhost:11434"
-      :models '("gemma3:latest")
-      :stream t)
-    (gptel-make-anthropic "Claude"
-      :stream t
-      :key (auth-source-pick-first-password :user "anthroapi"))
-    (gptel-make-gemini "Gemini"
-      :stream t
-      :key (auth-source-pick-first-password :user "geminiapi"))
-    (gptel-make-gh-copilot "Copilot")
 
-    (map! :leader
-          (:prefix ("l" . "llm")
-           :desc "Add text to context"        "a" #'gptel-add
-           :desc "Explain"                    "e" #'gptel-quick
-           :desc "Add file to context"        "f" #'gptel-add-file
-           :desc "Open gptel"                 "l" #'gptel
-           :desc "Send to gptel"              "s" #'gptel-send
-           :desc "Open gptel menu"            "m" #'gptel-menu
-           :desc "Rewrite"                    "r" #'gptel-rewrite
-           :desc "Org: set topic"             "o" #'gptel-org-set-topic
-           :desc "Org: set properties"        "O" #'gptel-org-set-properties)))
-
-  ;; (use-package! mcp-hub
-  ;;   :init
-  ;;   (setq mcp-hub-servers
-  ;;         '(("maitreyamcp" .
-  ;;            (:command "/Users/alokregmi/.pyenv/versions/mcpdev/bin/python"
-  ;;             :args ("/Users/alokregmi/workspace/personal/maitreyamcp_dev/modules/maitreyamcp_python/python_server.py"))))))
-
-  ;; (use-package! gptel-integrations
-  ;;   :after (gptel mcp-hub))
-
-  ;; ghostel for ghostty backend useful for ai workflows
-  (use-package ghostel
-    :ensure t
-    :config
-    ;; 30fps redraws (0.033) across several streaming claude buffers pegs the
-    ;; Emacs daemon at ~80% CPU on this 16GB box; 10fps is visually fine for
-    ;; bulk TUI output. Keystroke echo stays snappy via the immediate-redraw
-    ;; path, capped at 10fps too (keystroke echo worst case ~100ms).
-    (setq ghostel-timer-delay 0.1
-          ghostel-immediate-redraw-interval 0.1))
-  (use-package evil-ghostel
-    :ensure t
-    :after (ghostel evil)
-    :hook (ghostel-mode . evil-ghostel-mode)
-    :config
-    (evil-define-key* 'insert evil-ghostel-mode-map
-      (kbd "C-v")
-      (defalias 'evil-ghostel--passthrough-ctrl-v
-        (lambda ()
-          (interactive)
-          (evil-ghostel--passthrough-ctrl "v"))
-        "Send C-v to the terminal or fall back to evil.")))
-
-  (use-package! gptel-magit
-    :when (modulep! :tools magit)
-    :hook (magit-mode . gptel-magit-install))
-
-  (use-package gptel-prompts
-    :after (gptel)
-    :demand t
-    :config
-    (setq gptel-prompts-directory "~/.doom.d/llm-system-prompts")
-    (gptel-prompts-update)
-    (gptel-prompts-add-update-watchers)))
+;; ghostel for ghostty backend useful for ai workflows
+(use-package ghostel
+  :ensure t
+  :config
+  ;; 30fps redraws (0.033) across several streaming claude buffers pegs the
+  ;; Emacs daemon at ~80% CPU on this 16GB box; 10fps is visually fine for
+  ;; bulk TUI output. Keystroke echo stays snappy via the immediate-redraw
+  ;; path, capped at 10fps too (keystroke echo worst case ~100ms).
+  (setq ghostel-timer-delay 0.1
+        ghostel-immediate-redraw-interval 0.1))
+(use-package evil-ghostel
+  :ensure t
+  :after (ghostel evil)
+  :hook (ghostel-mode . evil-ghostel-mode)
+  :config
+  (evil-define-key* 'insert evil-ghostel-mode-map
+    (kbd "C-v")
+    (defalias 'evil-ghostel--passthrough-ctrl-v
+      (lambda ()
+        (interactive)
+        (evil-ghostel--passthrough-ctrl "v"))
+      "Send C-v to the terminal or fall back to evil.")))
 
 ;; ============================================================
 ;; CLAUDE CODE
 ;; ============================================================
 
-;; (defun my-claude-notify (title message)
-;;   "Display a macOS notification with sound."
-;;   (call-process "osascript" nil nil nil
-;;                 "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-;;                              message title)))
 
+;; Use ghostel (libghostty-powered terminal emulator):
 (use-package! claude-code
   :config
-  ;; Use ghostel (libghostty-powered terminal emulator):
-  (if IS-MAC
-      (setq claude-code-terminal-backend 'ghostel))
-  (if IS-LINUX
-      (setq claude-code-terminal-backend 'ghostel))
-  )
+  (setq claude-code-terminal-backend 'ghostel))
 
 ;; --------------------------------------------------------------
 ;; TEMP FIX -- remove once stevemolitor/claude-code.el#142 lands.
@@ -397,90 +329,25 @@ TYPE is 'screenshot or 'camera."
         (my/claude-attach-screenshot)
       (my/claude-attach-camera))))
 
-
 ;; ============================================================
-;; GHOSTEL/EAT FONT FIXES FOR CLAUDE
-;; ============================================================
-
-(defun diego--ghostel-font-setup ()
-  "Configure font settings specifically for ghostel buffers, workaround claude-code."
-  (let ((tbl (or buffer-display-table (setq buffer-display-table (make-display-table)))))
-    (dolist (pair
-             '((#x273B . ?*) ; TEARDROP-SPOKED ASTERISK
-               (#x273D . ?*) ; HEAVY TEARDROP-SPOKED ASTERISK
-               (#x2722 . ?+) ; FOUR TEARDROP-SPOKED ASTERISK
-               (#x2736 . ?+) ; SIX-POINTED BLACK STAR
-               (#x2733 . ?*) ; EIGHT SPOKED ASTERISK
-               ))
-      (aset tbl (car pair) (vector (cdr pair))))))
-
-(add-hook 'ghostel-mode-hook #'diego--ghostel-font-setup)
-
-(defvar sm-subsitutions
-  '((?⏺ . ?\-)
-    (?· . ?.)
-    (?✢ . ?+)
-    (?✳ . ?*)
-    (?∗ . ?*)
-    (?✻ . ?*)
-    (?✽ . ?*)
-    (?╭ . ?+)
-    (?╮ . ?+)
-    (?╰ . ?+)
-    (?╯ . ?+)
-    (?⎿ . ?|)
-    (?│ . ?|)
-    (?🤖 . ?*)))
-
-(defun sm-replace-problem-chars (args)
-  (let ((terminal (nth 0 args))
-        (output (nth 1 args)))
-    (dolist (sub sm-subsitutions)
-      (setq output (subst-char-in-string (car sub) (cdr sub) output)))
-    (list terminal output)))
-
-(advice-add 'eat-term-process-output :filter-args #'sm-replace-problem-chars)
-
-;; Customize cursor type in read-only mode
-;; (setq claude-code-eat-read-only-mode-cursor-type '(bar nil nil))
-
-;; Control eat scrollback size for longer conversations
-(setq eat-term-scrollback-size 500000)
-
-;; (add-hook 'claude-code-start-hook
-;;           (lambda ()
-;;             (setq-local line-spacing 0.1)))
-
-;; (custom-set-faces
-;;  '(claude-code-repl-face ((t (:family "JuliaMono")))))
-
-;; ============================================================
-;; MAC-ONLY: AI CODE, GEMINI CLI, EAT
+;; MAC-ONLY: AI CODE
 ;; ============================================================
 
-(unless IS-ANDROID
-  ;; (use-package ai-code
-  ;;   :config
-  ;;   (ai-code-set-backend  'claude-code-ide)
-  ;;   (global-auto-revert-mode 1)
-  ;;   (setq auto-revert-interval 1)
-  ;;   (with-eval-after-load 'magit
-  ;;     (ai-code-magit-setup-transients)))
+(if IS-MAC
+    (progn
+      (use-package ai-code
+        :config
+        (ai-code-set-backend  'claude-code-ide)
+        (global-auto-revert-mode 1)
+        (setq auto-revert-interval 1)
+        (with-eval-after-load 'magit
+          (ai-code-magit-setup-transients)))
 
-  (use-package gemini-cli
-    :defer t)
-
-  (defun my-gemini-notify (title message)
-    "Display a macOS notification with sound."
-    (call-process "osascript" nil nil nil
-                  "-e" (format "display notification \"%s\" with title \"%s\" sound name \"Glass\""
-                               message title)))
-
-  (setq gemini-cli-notification-function #'my-gemini-notify)
-
-  (with-eval-after-load 'eat
-    (define-key eat-mode-map (kbd "s-p") #'eat-yank)
-    (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank)))
+      (with-eval-after-load 'eat
+        (define-key eat-mode-map (kbd "s-p") #'eat-yank)
+        (define-key eat-semi-char-mode-map (kbd "s-p") #'eat-yank))
+      )
+  )
 
 (provide 'ai-workflows)
 ;;; ai-workflows.el ends here

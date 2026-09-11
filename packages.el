@@ -102,37 +102,17 @@
   ;; Shell/Terminal
   (package! powershell)
   (package! dwim-shell-command)
-  (package! eat
-    :recipe (:host codeberg
-             :repo "akib/emacs-eat"
-             :files ("*.el" ("term" "term/*.el") "*.texi"
-                     "*.ti" ("terminfo/e" "terminfo/e/*")
-                     ("terminfo/65" "terminfo/65/*")
-                     ("integration" "integration/*")
-                     (:exclude ".dir-locals.el" "*-tests.el"))))
-
   ;; Python
   (package! numpydoc
     :recipe (:host github :repo "douglasdavis/numpydoc.el"))
 
   ;; AI/LLM tools
-  (package! copilot
-    :recipe (:host github :repo "zerolfx/copilot.el" :files ("*.el" "dist")))
-  (package! copilot-chat)
-  (package! gptel)
-  (package! gptel-magit)
-  (package! gptel-prompts
-    :recipe (:host github :repo "jwiegley/gptel-prompts"))
   (package! mcp
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
   (package! mcp-hub
     :recipe (:host github :repo "lizqwerscott/mcp.el"))
 
-  ;; (package! ai-code)
-  (package! gemini-cli
-    :recipe (:host github :repo "linchen2chris/gemini-cli.el"
-             :files ("*.el" (:exclude "demo.gif"))))
-
+  (package! ai-code)
   ;; Search
   (package! consult-web
     :recipe (:host github :repo "armindarvish/consult-web" :files (:defaults "sources/*.el")))
