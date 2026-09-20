@@ -174,8 +174,10 @@ pending camera shot instead."
          (date-str (format-time-string "%Y-%m-%d" mtime))
          (datetime-str (format-time-string "%Y-%m-%d %H:%M" mtime))
          ;; Destination setup
-         ;; Use project root to ensure dest and buffer share the same path prefix (e.g. ~/org)
-         ;; This fixes the "absolute path" issue when org-directory is /sdcard/org but buffer is ~/org/...
+         ;; Attach inside whatever project you are in, falling back to the org
+         ;; tree.  (The old note here blamed an "absolute path issue" where
+         ;; org-directory was /sdcard/org but the buffer said /storage/... --
+         ;; that was the symlink bug, fixed in config.el's PATHS block.)
          (base-dir (or (doom-project-root) org-directory))
          (ext (file-name-extension latest-file))
          (ts (format-time-string "%Y%m%d_%H%M%S" mtime))

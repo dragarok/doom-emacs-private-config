@@ -14,69 +14,14 @@
 (use-package! org-roam
   :config
   ;; Doom's `+org-roam-try-init-db-a' is KEPT (it used to be removed here).
-  ;; It is a one-shot :before advice on `org-roam-db-query' that runs
-  ;; `org-roam-db-sync' at the first query of the session and then removes
-  ;; itself -- Doom's way of paying for the sync when you first ask for a
-  ;; node rather than at startup.  Removing it did not make anything
-  ;; "immediate": it meant the database was never synced at all, so a note
-  ;; that arrived from another machine could not show up in
-  ;; `org-roam-node-find' until a hand-run `M-x org-roam-db-sync'.
-  ;;
-  ;; It was removed because that sync took minutes on the phone -- but the
-  ;; reason it took minutes was the /sdcard vs /storage/emulated/0 path
-  ;; mismatch (see the PATHS block in config.el), which made every sync a
-  ;; full rebuild.  With the paths canonicalized the sync is incremental, so
-  ;; the advice costs a hash of each file once per session and is worth
-  ;; having back.  To drop it again, uncomment:
-  ;; (advice-remove 'org-roam-db-query #'+org-roam-try-init-db-a)
+  ;; It is a one-shot advice that syncs the database at the first query of
+  ;; the session, then removes itself.  Removing it did not make anything
+  ;; "immediate" -- it meant nothing ever synced, so a note written on
+  ;; another machine never showed up in `org-roam-node-find'.  It was removed
+  ;; because the sync took minutes, and that was the path bug (see config.el).
 
   ;; Dailies directory
   (setq org-roam-dailies-directory "daily/")
-
-  ;; The check for the bug above, because it is invisible until you look:
-  ;; org-roam compares paths as STRINGS in two places that matter, and on a
-  ;; machine where the notes live behind a symlink the two sides can disagree
-  ;; forever without a single error message.
-  (defun my/org-roam-path-check ()
-    "Report whether org-roam\='s paths agree with each other on this machine.
-Answers, on the device itself, the question \"why does `org-roam-db-sync\='
-think every file changed?\".  A healthy machine matches every file; a
-machine with the /sdcard vs /storage/emulated/0 mismatch matches none, and
-shows you the two spellings of the same file side by side."
-    (interactive)
-    (let* ((listed (org-roam-list-files))
-           (stored (mapcar #'car (org-roam-db-query [:select [file] :from files])))
-           (index (let ((ht (make-hash-table :test #'equal)))
-                    (dolist (f stored) (puthash f t ht))
-                    ht))
-           (matched (seq-count (lambda (f) (gethash f index)) listed))
-           (sample (car listed))
-           (buffer-p (and sample (org-roam-file-p sample))))
-      (with-current-buffer (get-buffer-create "*org-roam path check*")
-        (erase-buffer)
-        (insert (format "org-roam-directory   %s\n" org-roam-directory)
-                (format "files on disk        %d\n" (length listed))
-                (format "rows in the database %d\n" (length stored))
-                (format "paths that MATCH     %d\n\n" matched))
-        (insert (if (and listed stored (zerop matched))
-                    "MISMATCH: no listed file matches any database row, so every
-sync re-parses everything and nothing is ever considered up to date.\n\n"
-                  "OK: the listing and the database agree.\n\n"))
-        (insert (format "a listed file        %s\n" (or sample "(none)"))
-                (format "a stored file        %s\n" (or (car stored) "(none)"))
-                (format "org-roam-file-p on the listed one: %s\n" buffer-p))
-        (unless buffer-p
-          (insert "
-`org-roam-file-p' says no, which is what keeps autosync from ever
-installing its after-save hook -- saving a note updates nothing.\n"))
-        (display-buffer (current-buffer)))))
-
-  ;; Attachments removed from org-roam db
-  (setq org-roam-db-node-include-function
-        (lambda ()
-          (or
-           (not (cdr (assoc "NOTER_PAGE" (org-entry-properties))))
-           (not (member "ATTACH" (org-get-tags))))))
 
   ;; ============================================================
   ;; V2 NODE DISPLAY - Custom accessors

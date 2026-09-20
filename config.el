@@ -132,36 +132,15 @@
 ;; ============================================================
 ;; PATHS - Platform specific
 ;; ============================================================
-;; `file-truename', NOT `expand-file-name', and on the phone that one word is
-;; load-bearing.  Doom sets `find-file-visit-truename' (doom-emacs.el), so a
-;; buffer's `buffer-file-name' is always the symlink-RESOLVED path -- and on
-;; Android /sdcard is a symlink to /storage/emulated/0.  So every comparison
-;; between a path configured here and a path Emacs got from a buffer failed on
-;; Android, silently, and these all have the same single cause:
-;;
-;;   new notes never reached the database.  `org-roam-file-p' asks
-;;   `org-roam-descendant-of-p', which is a `string-prefix-p' over
-;;   `expand-file-name' -- no symlink resolution -- so
-;;   "/sdcard/org/notes/" was never a prefix of
-;;   "/storage/emulated/0/org/notes/x.org" and EVERY buffer on the phone
-;;   answered "not an org-roam file".  Autosync hangs its after-save hook off
-;;   that predicate, so saving a note updated nothing, on the phone, ever.
-;;
-;;   `org-roam-db-sync' rebuilt the whole database every run.  It compares
-;;   `org-roam-list-files' (a directory walk: /sdcard/...) against the `file'
-;;   column, which `org-roam-db-insert-file' filled from (buffer-file-name)
-;;   (/storage/emulated/0/...).  No key ever matched, so every file counted as
-;;   modified AND every row as deleted -- "Processing modified files..." for
-;;   the entire note collection, every time.  That is the slowness that made
-;;   turning the sync off look like the answer.
-;;
-;;   `org-roam-autoread-mode-check' (below), `log-org-roam-file-save' and
-;;   kairoam's auto-track all test `org-roam-directory' against
-;;   `buffer-file-name' with `string-prefix-p'.  All three were dead code on
-;;   the phone.
-;;
-;; On the Mac ~/org is a real directory, so `file-truename' is a no-op there
-;; and both machines run the same line.
+;; `file-truename', not `expand-file-name': Doom sets
+;; `find-file-visit-truename', so `buffer-file-name' is always the
+;; symlink-resolved path, and on Android /sdcard is a symlink to
+;; /storage/emulated/0.  Spelled the other way, every `string-prefix-p' of a
+;; directory against a buffer's path silently failed on the phone -- which is
+;; what made `org-roam-file-p' answer no for every note (so autosync never
+;; updated anything) and `org-roam-db-sync' match no row against any file (so
+;; it rebuilt the whole database every run).  `expand-file-name' cannot fix
+;; it; it does not follow symlinks.  A no-op on the Mac, where ~/org is real.
 (if IS-ANDROID
     (progn
       (setq project-resources-dir "/sdcard/workspace/resources")
@@ -464,20 +443,12 @@ you turned it off (the old random-playback bug).")
     (bind-key "M-+" 'citar-open-files)
     (bind-key "M--" 'citar-open-notes)))
 
-;; `citar-org-roam-setup' opens with a full `org-roam-db-sync' (its own
-;; comment: "this seems to require running if citar is loaded before
-;; org-roam"), so merely loading citar pays for a pass over every note --
-;; twice on the Mac, in fact, because that sync's own first query is what
-;; fires Doom's one-shot `+org-roam-try-init-db-a', which syncs again
-;; before the outer call has finished.
-;;
-;; Stubbing it does not SKIP the sync, it DEFERS it: the lazy advice is left
-;; unconsumed, so the database gets built the first time you actually ask for
-;; a node.  That is Doom's design, and it is cheap now that the sync is
-;; incremental (see the PATHS block above for why it was not).
-;;
-;; No longer Android-only.  The phone needed it because a full sync there took
-;; minutes; the Mac wants it because it was doing the work twice.
+;; `citar-org-roam-setup' opens with a full `org-roam-db-sync', so loading
+;; citar pays for a pass over every note -- twice on the Mac, because that
+;; sync's own first query fires Doom's one-shot `+org-roam-try-init-db-a',
+;; which syncs again before the outer call finishes.  Stubbing it DEFERS the
+;; sync rather than skipping it: the one-shot advice is left unconsumed, so
+;; the database is built the first time you actually ask for a node.
 (defadvice! my/citar-org-roam-setup-no-sync (fn &rest args)
   :around #'citar-org-roam-setup
   (cl-letf (((symbol-function 'org-roam-db-sync) #'ignore))

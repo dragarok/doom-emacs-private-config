@@ -562,14 +562,14 @@ the keyboard over."
         ;; bounce the read-only viewer back into a mode that types at the
         ;; remote -- exactly the half-a-keyboard state this avoids.
         (setq-local ghostel-readonly-fast-exit nil)
-        ;; Let a kill on the REMOTE land in THIS machine\='s clipboard.  The
+        ;; Let a kill on the REMOTE land in THIS machine's clipboard.  The
         ;; remote Emacs sends every kill out as an OSC 52 escape (clipetty,
-        ;; Doom\='s `:os (tty +osc)\='), mosh 1.4 passes OSC 52 through, and
-        ;; ghostel turns it into `kill-new\=' + the CLIPBOARD selection -- but
+        ;; Doom's `:os (tty +osc)'), mosh 1.4 passes OSC 52 through, and
+        ;; ghostel turns it into `kill-new' + the CLIPBOARD selection -- but
         ;; only when this is on, and it ships off for a good reason: any
         ;; program in a terminal could then overwrite your clipboard.
         ;; Buffer-local, so that trust is granted to the machines in
-        ;; `claude-remote-machines\=' and to nothing else.
+        ;; `claude-remote-machines' and to nothing else.
         (setq-local ghostel-enable-osc52 t)))
     (when (fboundp 'persp-add-buffer)      ; buffer belongs to this workspace
       (ignore-errors (persp-add-buffer buf)))
