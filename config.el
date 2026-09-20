@@ -186,6 +186,25 @@
 (setq org-yearlyreview-file (concat org-lookbacks-directory "yearlyreview.org"))
 (setq org-roam-logs-file (concat org-logs-directory "notes_log.txt"))
 
+;; Org's ID -> file map.  Pinned here rather than left to Doom, which derives
+;; it from `org-directory' on an `org-load' hook -- a hook the ANDROID block
+;; above beats, because it requires org before this section runs.  So on the
+;; phone it landed in Doom's DEFAULT ~/org, which there is the app's private
+;; /data/data/org.gnu.emacs/files/org/: a directory that does not exist, so
+;; org could neither read the file nor write it, and every session opened
+;; with "Could not read `org-id-locations' ... setting it to nil" at the
+;; first note.  `doom-data-dir' is the right home for it either way -- the org
+;; tree is synced across three machines and this file holds their absolute
+;; paths, so sharing it means each machine overwriting the others' answer to
+;; "where does this ID live".
+(setq org-id-locations-file (expand-file-name "org-id-locations" doom-data-dir))
+
+;; Org reports a file it has simply never written as an error rather than as
+;; the empty map it is, so seed one and a fresh machine stays quiet too.
+(unless (file-exists-p org-id-locations-file)
+  (make-directory (file-name-directory org-id-locations-file) t)
+  (with-temp-file org-id-locations-file (prin1 nil (current-buffer))))
+
 ;; ============================================================
 ;; LOAD LISP MODULES (after essential paths are set)
 ;; ============================================================
