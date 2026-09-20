@@ -328,6 +328,17 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :help "Paste the Android clipboard into the remote Claude prompt"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/paste-clipboard.svg"
                         :height ,icon-size :width ,icon-size)))
+      ;; The one thing the Paste button cannot carry.  Android has no image
+      ;; clipboard to read and an image cannot travel as keystrokes anyway,
+      ;; so this takes the newest screenshot in the phone's screenshot
+      ;; folders, scp's it to the machine you are driving and names its path
+      ;; in the Claude prompt -- which is how Claude Code takes a picture.
+      ;; Take the screenshot, come back, tap this.
+      (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-image>"
+        `(menu-item "Image" claude-remote-paste-image
+          :help "Send the newest screenshot to the remote Claude prompt"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/camera-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
 
 
       ;; ===================================================================

@@ -198,6 +198,12 @@
 ;; toolbar and keybindings below are Android-only.
 (require 'claude-remote)
 
+;; The other end of the same connection: this is the machine whose Emacs is
+;; being driven through one, and killing text there writes an OSC 52 escape
+;; to whatever SSH_TTY says -- which mosh leaves pointing at a pty that died
+;; with the ssh handshake ("Permission denied, /dev/pts/1" on every M-w).
+(require 'tty-clipboard)
+
 ;; Android-specific toolbar and homepage
 (when IS-ANDROID
   (require 'android-toolbar)
@@ -315,6 +321,11 @@
          :desc "Refresh session (--continue)"  "r" #'claude-workspace-refresh-session
          :desc "Send ESC to session"           "i" #'claude-workspace-send-escape
          :desc "Paste clipboard into session"  "v" #'claude-workspace-send-text
+         ;; s for screenshot: the macOS clipboard image, or the newest file
+         ;; in the screenshot folder.  Goes to kai when a connection is up
+         ;; (C-v does the same from inside it) and to the local grid when
+         ;; not, so the letter means one thing on either machine.
+         :desc "Attach screenshot/image"       "s" #'claude-remote-paste-image
          :desc "Switch Claude session"         "x" #'claude-workspace-cycle-session
          :desc "Jump to waiting Claude"        "u" #'claude-workspace-jump-to-attention
          :desc "Expand → project workspace"    "e" #'claude-workspace-expand-to-project
@@ -345,7 +356,10 @@
          ;; copied in another Android app gets into the remote prompt at
          ;; all: the phone's clipboard cannot reach the remote by itself.
          :desc "Remote: paste clipboard"        "v" #'claude-remote-paste
-         :desc "Remote: paste at remote cursor" "V" #'claude-remote-paste-raw)))
+         :desc "Remote: paste at remote cursor" "V" #'claude-remote-paste-raw
+         ;; The image the phone's clipboard cannot carry: the newest
+         ;; screenshot, copied over with scp and named into the prompt.
+         :desc "Remote: attach screenshot"      "s" #'claude-remote-paste-image)))
 
 ;; Podcast autoplay: learn while you wait on agents (pauses when you type).
 ;; Needs `brew install mpv' and the elfeed package (doom sync + restart).
