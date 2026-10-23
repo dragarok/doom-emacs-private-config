@@ -6,23 +6,20 @@
 ;; `emacs-home-on-home', it keeps apps.tsv and icons/ in `emacs-home-dir'
 ;; current, and it opens emacs-home://launch/PACKAGE/ACTIVITY for us.
 ;;
-;; The homepage gets a row of the apps you launch most, and `emacs-home-launch'
-;; picks from all of them.
+;; The homepage shows your pinned apps as rows of small icons, so a couple of
+;; rows still fit above the touch keyboard.  `emacs-home-launch' picks from
+;; every app; `emacs-home-toggle-pin' pins or unpins one.
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
 
 (defconst emacs-home-dir "/data/data/com.termux/files/home/.emacs-home/"
   "Where the app writes the catalog.  It shares Emacs's uid, so both can.")
 
-(defvar emacs-home-favorites 6
-  "How many of the most-launched apps the homepage shows.")
-
-(defvar emacs-home--usage nil
-  "Alist of (\"PACKAGE/ACTIVITY\" . LAUNCH-COUNT), kept in usage.eld.")
+(defvar emacs-home-icon-lines 1.4
+  "Pinned icon height, in lines.")
 
 (defun emacs-home--apps ()
   "Installed apps as (LABEL PACKAGE ACTIVITY), from the app's catalog."
@@ -45,54 +42,64 @@
                                                :ascent 'center))
       " ")))
 
-(defun emacs-home--usage ()
-  (or emacs-home--usage
-      (setq emacs-home--usage
-            (ignore-errors
-              (with-temp-buffer
-                (insert-file-contents (expand-file-name "usage.eld" emacs-home-dir))
-                (read (current-buffer)))))))
+(defun emacs-home--pins ()
+  "Pinned apps' keys, in pinning order."
+  (ignore-errors
+    (with-temp-buffer
+      (insert-file-contents (expand-file-name "pins.eld" emacs-home-dir))
+      (read (current-buffer)))))
 
 (defun emacs-home-open (app)
-  "Launch APP, a (LABEL PACKAGE ACTIVITY) entry, and count it."
-  (let* ((usage (emacs-home--usage))
-         (cell (assoc (emacs-home--key app) usage)))
-    (if cell (cl-incf (cdr cell))
-      (push (cons (emacs-home--key app) 1) emacs-home--usage))
-    (with-temp-file (expand-file-name "usage.eld" emacs-home-dir)
-      (prin1 emacs-home--usage (current-buffer))))
+  "Launch APP, a (LABEL PACKAGE ACTIVITY) entry."
   (android-browse-url (format "emacs-home://launch/%s" (emacs-home--key app))))
 
-(defun emacs-home-launch ()
-  "Pick an installed app and launch it."
-  (interactive)
-  (let* ((apps (emacs-home--apps))
-         (table (make-hash-table :test #'equal))
-         (height (* 2 (default-line-height))))
-    (dolist (app apps)
+(defun emacs-home--read-app (prompt &optional mark)
+  "Read an installed app with PROMPT, showing icons.
+MARK, if non-nil, is called with each app and returns a suffix string."
+  (let ((table (make-hash-table :test #'equal))
+        (height (* 2 (default-line-height))))
+    (dolist (app (emacs-home--apps))
       ;; Two launcher entries can share a label; tell them apart.
       (puthash (if (gethash (car app) table)
                    (format "%s (%s)" (car app) (nth 1 app))
                  (car app))
                app table))
-    (emacs-home-open
-     (gethash
-      (completing-read
-       "App: "
-       (lambda (str pred action)
-         (if (eq action 'metadata)
-             `(metadata
-               (category . emacs-home-app)
-               (affixation-function
-                . ,(lambda (cands)
-                     (mapcar (lambda (c)
-                               (list c (concat (emacs-home--icon (gethash c table) height)
-                                               " ")
-                                     ""))
-                             cands))))
-           (complete-with-action action (hash-table-keys table) str pred)))
-       nil t)
-      table))))
+    (gethash
+     (completing-read
+      prompt
+      (lambda (str pred action)
+        (if (eq action 'metadata)
+            `(metadata
+              (category . emacs-home-app)
+              (affixation-function
+               . ,(lambda (cands)
+                    (mapcar (lambda (c)
+                              (let ((app (gethash c table)))
+                                (list c (concat (emacs-home--icon app height) " ")
+                                      (if mark (funcall mark app) ""))))
+                            cands))))
+          (complete-with-action action (hash-table-keys table) str pred)))
+      nil t)
+     table)))
+
+(defun emacs-home-launch ()
+  "Pick an installed app and launch it."
+  (interactive)
+  (emacs-home-open (emacs-home--read-app "App: ")))
+
+(defun emacs-home-toggle-pin ()
+  "Pin an app to the homepage, or unpin it if it is pinned."
+  (interactive)
+  (let* ((pins (emacs-home--pins))
+         (key (emacs-home--key
+               (emacs-home--read-app
+                "Pin/unpin: "
+                (lambda (app)
+                  (if (member (emacs-home--key app) pins) "  ★ pinned" ""))))))
+    (with-temp-file (expand-file-name "pins.eld" emacs-home-dir)
+      (prin1 (if (member key pins) (delete key pins) (append pins (list key)))
+             (current-buffer)))
+    (+dashboard-reload t)))
 
 (defun emacs-home-on-home ()
   "Called by the app on every Home press: show the homepage."
@@ -103,31 +110,36 @@
   nil)
 
 (defun emacs-home-widget ()
-  "Dashboard widget: the most-launched apps, then a button for all of them."
+  "Dashboard widget: All apps and Pin buttons, then the pinned icons."
   (let* ((apps (emacs-home--apps))
-         (usage (emacs-home--usage))
-         (count (lambda (app) (or (cdr (assoc (emacs-home--key app) usage)) 0)))
-         (top (seq-take (seq-filter (lambda (app) (> (funcall count app) 0))
-                                    (sort (copy-sequence apps)
-                                          (lambda (a b) (> (funcall count a)
-                                                           (funcall count b)))))
-                        emacs-home-favorites))
-         (height (* 3 (default-line-height))))
-    (insert "\n")
-    (+dashboard-insert
-     (propertize "━━  APPS  ━━" 'face 'android-homepage-section))
-    (insert "\n")
+         (by-key (mapcar (lambda (app) (cons (emacs-home--key app) app)) apps))
+         (pinned (delq nil (mapcar (lambda (key) (cdr (assoc key by-key)))
+                                   (emacs-home--pins))))
+         (height (round (* emacs-home-icon-lines (default-line-height))))
+         (gap (frame-char-width))
+         ;; Measured, not HEIGHT: `image-scaling-factor' enlarges it on screen.
+         (icon (and pinned (get-text-property 0 'display
+                                              (emacs-home--icon (car pinned) height))))
+         (width (if (consp icon) (car (image-size icon t)) height))
+         ;; Two spaces lead each row, one follows each icon.
+         (per-row (max 1 (/ (- (window-body-width nil t) (* 2 gap))
+                            (+ width gap)))))
+    (insert "\n  ")
     ;; First button, so the dashboard parks point -- and the line highlight
     ;; and box cursor that come with it -- on this text, not the icons.
-    (insert "  ")
     (insert-text-button (format "All apps (%d)" (length apps))
                         'action (lambda (_) (emacs-home-launch))
                         'follow-link t
                         'face 'android-homepage-title)
-    (insert "\n\n")
-    (when top
+    (insert "    ")
+    (insert-text-button "Pin / unpin"
+                        'action (lambda (_) (emacs-home-toggle-pin))
+                        'follow-link t
+                        'face 'android-homepage-title)
+    (insert "\n")
+    (dolist (row (seq-partition pinned per-row))
       (insert "  ")
-      (dolist (app top)
+      (dolist (app row)
         ;; Not the `button' face: its underline sits on the baseline, which
         ;; `:ascent center' puts straight through the middle of the icon.
         (insert-text-button (emacs-home--icon app height)
@@ -135,7 +147,7 @@
                             'action (lambda (_) (emacs-home-open app))
                             'follow-link t
                             'help-echo (car app))
-        (insert "  "))
+        (insert " "))
       (insert "\n"))))
 
 (add-to-list '+dashboard-functions #'emacs-home-widget)
