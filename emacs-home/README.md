@@ -100,6 +100,14 @@ Elisp changes reach the phone by `git pull` in its `~/.doom.d` (branch
 
 ## Developing against the phone over adb (hard-won)
 
+- **Installing the app kills Emacs and Termux.** They share its Linux user,
+  and Android force-stops every process of that user on a package update.
+  Don't `./build.sh install` while Emacs is in use; reopen it afterwards.
+- **Emacs at startup runs with garbage collection held off** (Doom): code on
+  `after-load-functions` or the startup path that conses per module can run
+  the phone out of memory before Emacs is up (`Scudo ERROR ... Out of
+  memory` in logcat).  Defer work to an idle timer.
+
 - **Never type long forms with `adb shell input text`.** They get scrambled,
   or the minibuffer closes first and the text runs as evil keys on the
   dashboard. Instead: `adb push x.el /sdcard/Download/`, open `M-:` and type
