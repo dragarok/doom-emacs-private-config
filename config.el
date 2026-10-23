@@ -241,6 +241,7 @@
   (require 'android-toolbar)
   (require 'android-homepage)
   (require 'android-launcher)            ; toolbar buttons as home-screen widgets
+  (require 'emacs-home)                  ; Emacs is the launcher (emacs-home/ app)
 
   ;; Smaller font in the terminal buffers ONLY — more columns for the remote
   ;; Emacs and cheaper redraws; all other buffers keep the touch size.

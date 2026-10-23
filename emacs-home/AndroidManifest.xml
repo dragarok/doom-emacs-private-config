@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Emacs as the home screen.  Shares com.termux's user (and so Emacs's):
+     build.sh signs with the same key, so emacsclient's socket, Termux's
+     home and QUERY_ALL_PACKAGES are all ours already. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="dev.alok.emacshome"
+          android:sharedUserId="com.termux">
+
+  <application android:label="Emacs Home">
+
+    <!-- Home button: bring Emacs forward, tell it, refresh the app list. -->
+    <activity android:name=".HomeActivity"
+              android:exported="true"
+              android:excludeFromRecents="true"
+              android:theme="@android:style/Theme.NoDisplay">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.HOME" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+    </activity>
+
+    <!-- emacs-home://launch/PACKAGE/ACTIVITY, opened by `android-browse-url'. -->
+    <activity android:name=".LaunchActivity"
+              android:exported="true"
+              android:excludeFromRecents="true"
+              android:noHistory="true"
+              android:theme="@android:style/Theme.NoDisplay">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:scheme="emacs-home" />
+      </intent-filter>
+    </activity>
+
+  </application>
+</manifest>
