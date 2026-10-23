@@ -35,18 +35,20 @@
                       '("EMACS_CLASS_PATH" "EMACS_LD_LIBRARY_PATH" "TMPDIR")))
     (list (format "HOME=%s" doom-root--files)
           (format "EMACS=%s" doom-root--emacs)
-          (concat "PATH=/data/data/com.termux/files/usr/bin:" (getenv "PATH"))))
+          (concat "PATH=/data/data/com.termux/files/usr/bin:" (getenv "PATH"))
+          ;; Root's git refuses repos the app user owns ("dubious
+          ;; ownership").  Doom runs package git with GIT_CONFIG_NOSYSTEM=1
+          ;; and GIT_CONFIG_GLOBAL=$DOOMGITCONFIG (else /dev/null), so this
+          ;; file is the one config it reads.
+          (format "DOOMGITCONFIG=%s" (doom-root--gitconfig))))
    " "))
 
-(defun doom-root--trust-repos ()
-  "Let root's git work in repos the app user owns.
-Git refuses (\"dubious ownership\") otherwise.  This goes in Termux git's
-system config, not the environment: Doom's CLI can replace the whole
-process environment with its saved env file, dropping anything passed
-that way.  Written as the app user, which owns Termux's files."
-  (unless (member "*" (process-lines-ignore-status
-                       "git" "config" "--system" "--get-all" "safe.directory"))
-    (call-process "git" nil nil nil "config" "--system" "--add" "safe.directory" "*")))
+(defun doom-root--gitconfig ()
+  "A git config that trusts every repo, for `DOOMGITCONFIG'."
+  (let ((file (expand-file-name ".doom-root.gitconfig" doom-root--files)))
+    (unless (file-exists-p file)
+      (with-temp-file file (insert "[safe]\n\tdirectory = *\n")))
+    file))
 
 (defun doom-root (args)
   "Run `doom ARGS' as root, then give root's files back to Emacs."
@@ -79,7 +81,6 @@ exit $rc
 "
                       (doom-root--env) doom-root--emacs uid doom-root--files args uid
                       doom-root--files (doom-root--q label) uid uid)))
-    (doom-root--trust-repos)
     (compile (format "su -c 'sh %s'" file))))
 
 (provide 'android-doom-root)
