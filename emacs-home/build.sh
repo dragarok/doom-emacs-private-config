@@ -23,5 +23,11 @@ javac --release 17 -nowarn -cp "$JAR" -d out/classes $(find src -name '*.java')
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:emacs1 \
   --out out/emacs-home.apk out/aligned.apk
 echo "built out/emacs-home.apk"
-[ "$1" = install ] && adb install -r out/emacs-home.apk
+if [ "$1" = install ]; then
+  adb install -r out/emacs-home.apk
+  # Draw the floating clock over apps, and read which app is in front.
+  adb shell appops set dev.alok.emacshome SYSTEM_ALERT_WINDOW allow
+  adb shell appops set dev.alok.emacshome GET_USAGE_STATS allow
+  adb shell pm grant dev.alok.emacshome android.permission.POST_NOTIFICATIONS || true
+fi
 exit 0

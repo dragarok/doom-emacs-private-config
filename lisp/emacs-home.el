@@ -50,8 +50,60 @@
       (read (current-buffer)))))
 
 (defun emacs-home-open (app)
-  "Launch APP, a (LABEL PACKAGE ACTIVITY) entry."
+  "Launch APP, a (LABEL PACKAGE ACTIVITY) entry, and log it to launches.tsv."
+  (write-region (format "%s\t%s\t%s\n" (format-time-string "%F %T") (car app) (nth 1 app))
+                nil (expand-file-name "launches.tsv" emacs-home-dir) t 'silent)
   (android-browse-url (format "emacs-home://launch/%s" (emacs-home--key app))))
+
+;;; The clock, for the dashboard line and the app's floating pill
+
+(defvar emacs-home--last-task nil
+  "Heading of the last task clocked into, for Resume.")
+
+(defun emacs-home--clean (s)
+  (replace-regexp-in-string "[\t\n]" " " (substring-no-properties (or s ""))))
+
+(defun emacs-home--write-clock ()
+  "Write clock.tsv, which the app watches: clocked|idle, start, task."
+  (when (org-clocking-p)
+    (setq emacs-home--last-task (emacs-home--clean org-clock-current-task)))
+  (with-temp-file (expand-file-name "clock.tsv" emacs-home-dir)
+    (insert (if (org-clocking-p)
+                (format "clocked\t%d\t%s\n" (truncate (float-time org-clock-start-time))
+                        emacs-home--last-task)
+              (format "idle\t0\t%s\n" (or emacs-home--last-task ""))))))
+
+(defun emacs-home--clock-changed ()
+  ;; Org runs these hooks mid-change; write once it has settled.
+  (run-at-time 0 nil #'emacs-home--write-clock))
+
+(with-eval-after-load 'org-clock
+  (dolist (hook '(org-clock-in-hook org-clock-out-hook org-clock-cancel-hook))
+    (add-hook hook #'emacs-home--clock-changed))
+  (emacs-home--write-clock))
+
+(defun emacs-home--cancel ()
+  "Cancel the clock, through River Flow when it picked this task.
+`rts-flow-cancel' acts on River Flow's last pick, which need not be what
+is clocked -- after a manual clock-in it would revert the wrong task."
+  (interactive)
+  (if (and (fboundp 'rts-flow--has-last-task-p) (rts-flow--has-last-task-p)
+           (equal (emacs-home--clean rts-flow-last-task-heading)
+                  (emacs-home--clean org-clock-current-task)))
+      (rts-flow-cancel)
+    (org-clock-cancel)))
+
+(defun emacs-home-clock-action (action)
+  "Run ACTION from the app's floating clock: pause, resume, done, cancel, flow."
+  (when-let ((command (pcase action
+                        ('pause #'org-clock-out)
+                        ('resume #'org-clock-in-last)
+                        ('done #'rts-flow-clock-out)
+                        ('cancel #'emacs-home--cancel)
+                        ('flow #'rts-flow))))
+    ;; Called from emacsclient's process filter, so get out of it first.
+    (run-at-time 0 nil (lambda () (call-interactively command))))
+  nil)
 
 (defun emacs-home--read-app (prompt &optional mark)
   "Read an installed app with PROMPT, showing icons.
@@ -104,7 +156,9 @@ MARK, if non-nil, is called with each app and returns a suffix string."
 (defun emacs-home-on-home ()
   "Called by the app on every Home press: show the homepage."
   ;; Called from emacsclient's process filter, so get out of it first.
-  (run-at-time 0 nil (lambda () (+dashboard/open (selected-frame))))
+  (run-at-time 0 nil (lambda ()
+                       (+dashboard/open (selected-frame))
+                       (+dashboard-reload t)))  ; fresh clock line
   (when (active-minibuffer-window)
     (run-at-time 0 nil #'abort-recursive-edit))
   nil)
@@ -127,6 +181,22 @@ MARK, if non-nil, is called with each app and returns a suffix string."
     (insert "\n  ")
     ;; First button, so the dashboard parks point -- and the line highlight
     ;; and box cursor that come with it -- on this text, not the icons.
+    (if (and (fboundp 'org-clocking-p) (org-clocking-p))
+        (insert-text-button
+         (format "⏱  %s  ·  %s" (emacs-home--clean org-clock-current-task)
+                 (org-duration-from-minutes (org-clock-get-clocked-time)))
+         'action (lambda (_) (org-clock-goto))
+         'follow-link t
+         'face 'android-homepage-title)
+      (insert-text-button
+       (if emacs-home--last-task
+           (format "○  No clock  ·  resume: %s" emacs-home--last-task)
+         "○  No clock  ·  Flow")
+       'action (lambda (_) (call-interactively
+                            (if emacs-home--last-task #'org-clock-in-last #'rts-flow)))
+       'follow-link t
+       'face 'android-homepage-desc))
+    (insert "\n  ")
     (insert-text-button (format "All apps (%d)" (length apps))
                         'action (lambda (_) (emacs-home-launch))
                         'follow-link t

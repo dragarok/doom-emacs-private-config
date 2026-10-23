@@ -12,6 +12,8 @@ public class HomeActivity extends Activity {
         super.onCreate(state);
         Intent emacs = getPackageManager().getLaunchIntentForPackage(Emacs.PACKAGE);
         if (emacs != null) startActivity(emacs);
+        // Idempotent; Home is also how it comes back after a reboot.
+        startForegroundService(new Intent(this, FloatService.class));
         final Context app = getApplicationContext();
         new Thread(() -> {
             Emacs.eval(app, "(emacs-home-on-home)");

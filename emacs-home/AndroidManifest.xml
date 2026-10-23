@@ -6,7 +6,16 @@
           package="dev.alok.emacshome"
           android:sharedUserId="com.termux">
 
+  <!-- The floating clock (FloatService).  The overlay and usage-stats
+       app-ops are granted once over adb; see build.sh. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+
   <application android:label="Emacs Home">
+
+    <service android:name=".FloatService" android:exported="false" />
 
     <!-- Home button: bring Emacs forward, tell it, refresh the app list. -->
     <activity android:name=".HomeActivity"
