@@ -17,6 +17,16 @@
 
     <service android:name=".FloatService" android:exported="false" />
 
+    <!-- Lets the clock's island sit above the status bar; reads nothing. -->
+    <service android:name=".IslandAccess"
+             android:exported="true"
+             android:label="Emacs Home clock island"
+             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+    </service>
+
     <!-- Home button: bring Emacs forward, tell it, refresh the app list. -->
     <activity android:name=".HomeActivity"
               android:exported="true"

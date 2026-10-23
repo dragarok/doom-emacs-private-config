@@ -12,13 +12,21 @@ import android.graphics.drawable.Drawable;
 final class Mark extends Drawable {
     enum Kind { CLOCKED, PAUSED, IDLE, LOCKED }
 
-    private static final int LIGHT = 0xFFEEEEEE;
-    private static final int ACCENT = 0xFF8BE9C8;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Kind kind = Kind.IDLE;
+    private int light = 0xFFEEEEEE, accent = 0xFF8BE9C8;
 
     void set(Kind k) {
         if (k != kind) { kind = k; invalidateSelf(); }
+    }
+
+    /** LIGHT draws the ring, bars and dot; ACCENT the running dot. */
+    void colors(int light, int accent) {
+        if (light != this.light || accent != this.accent) {
+            this.light = light;
+            this.accent = accent;
+            invalidateSelf();
+        }
     }
 
     @Override
@@ -28,18 +36,18 @@ final class Mark extends Drawable {
         switch (kind) {
         case CLOCKED:                                   // solid accent dot: running
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(ACCENT);
+            paint.setColor(accent);
             c.drawCircle(cx, cy, s * 0.36f, paint);
             break;
         case IDLE:                                      // ring: nothing clocked
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(s * 0.13f);
-            paint.setColor(LIGHT);
+            paint.setColor(light);
             c.drawCircle(cx, cy, s * 0.36f, paint);
             break;
         case PAUSED: {                                  // two rounded bars
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(LIGHT);
+            paint.setColor(light);
             float w = s * 0.2f, h = s * 0.7f, gap = s * 0.18f, r = w / 2;
             c.drawRoundRect(new RectF(cx - gap / 2 - w, cy - h / 2, cx - gap / 2, cy + h / 2), r, r, paint);
             c.drawRoundRect(new RectF(cx + gap / 2, cy - h / 2, cx + gap / 2 + w, cy + h / 2), r, r, paint);
@@ -47,7 +55,7 @@ final class Mark extends Drawable {
         }
         case LOCKED:                                    // small solid dot
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(LIGHT);
+            paint.setColor(light);
             c.drawCircle(cx, cy, s * 0.3f, paint);
             break;
         }
