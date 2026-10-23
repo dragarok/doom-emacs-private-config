@@ -22,10 +22,14 @@
 (defconst doom-root--emacs "/data/data/org.gnu.emacs/lib/libandroid-emacs.so")
 (defconst doom-root--files "/data/data/org.gnu.emacs/files")
 
+(defun doom-root--q (s)
+  "S single-quoted for /system/bin/sh."
+  (concat "'" (string-replace "'" "'\\''" s) "'"))
+
 (defun doom-root--env ()
   "Environment for the batch child, as VAR=VALUE words for `env'."
   (mapconcat
-   #'shell-quote-argument
+   #'doom-root--q
    (append
     (delq nil (mapcar (lambda (v) (when (getenv v) (format "%s=%s" v (getenv v))))
                       '("EMACS_CLASS_PATH" "EMACS_LD_LIBRARY_PATH" "TMPDIR")))
@@ -43,19 +47,30 @@
          (label (string-trim (shell-command-to-string
                               (format "stat -c %%C %s" doom-root--files))))
          (uid (user-uid))
-         (script
-          (format "env %s sh %s/.config/emacs/bin/doom %s; rc=$?; \
-echo '== handing files back to uid %d'; \
-find %s -user 0 -exec chcon -h %s {} + ; \
-find %s -user 0 -exec chown -h %d:%d {} + ; \
-exit $rc"
-                  (doom-root--env) doom-root--files args uid
-                  doom-root--files (shell-quote-argument label)
-                  doom-root--files uid uid))
+         ;; A script file, so the values go through one layer of quoting
+         ;; instead of Emacs's shell and su's both.
+         (file (expand-file-name ".doom-root.sh" doom-root--files))
          ;; Bound while `compile' starts the process: KernelSU's su is an
          ;; exec hook, which Emacs's own loader would bypass.
          (android-use-exec-loader nil))
-    (compile (format "su -c %s" (shell-quote-argument script)))))
+    (with-temp-file file
+      ;; bin/doom's sh half only builds this command line; run it directly
+      ;; so we can tell Doom it is the app user: it aborts (exit 2) when
+      ;; run as root over a non-root-owned config.
+      (insert (format "env %s %s -q --no-site-file --batch \
+--eval \"(fset (quote user-real-uid) (lambda () %d))\" \
+--eval \"(setq warning-inhibit-types (quote ((files missing-lexbind-cookie))))\" \
+--load %s/.config/emacs/bin/doom -- %s 2>&1
+rc=$?
+echo \"== handing files back to uid %d\"
+find %s -user 0 -exec chcon -h %s {} +
+find %s -user 0 -exec chown -h %d:%d {} +
+exit $rc
+"
+                      (doom-root--env) doom-root--emacs uid doom-root--files args uid
+                      doom-root--files (doom-root--q label)
+                      doom-root--files uid uid)))
+    (compile (format "su -c 'sh %s'" file))))
 
 (provide 'android-doom-root)
 ;;; android-doom-root.el ends here
