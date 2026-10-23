@@ -30,9 +30,9 @@ Everything here either removes friction or collects data with no effort.
 
 | State | Collapsed | Tapped open |
 |---|---|---|
-| Clocked | `● 42m Task` | Pause · Done · Cancel · Lock |
-| Paused (resumable) | `‖` | `‖ Task` · Resume · Flow · Lock |
-| Clean (done/cancelled/nothing) | `○` | Resume · Flow · Lock |
+| Clocked | green dot `42m Task` | Pause · Done · Cancel · Lock |
+| Paused (resumable) | two bars | bars + Task · Resume · Flow · Lock |
+| Clean (done/cancelled/nothing) | ring | Resume · Flow · Lock |
 | Locked (games) | faint dot, touches pass through | — unlocks when Emacs is back in front |
 
 - Drag the pill up/down to move it. Tap toggles open/closed.
@@ -41,7 +41,7 @@ Everything here either removes friction or collects data with no effort.
   **Done** = `rts-flow-clock-out` — prompts, so it brings Emacs forward.
   **Cancel** = `rts-flow-cancel` only if River Flow picked the clocked task,
   else `org-clock-cancel`. **Flow** = `rts-flow` (brings Emacs forward).
-- Marking the task DONE anywhere, or cancelling, forgets it → clean `○`.
+- Marking the task DONE anywhere, or cancelling, forgets it → clean ring.
   (Uses `org-state` in the hook: repeating habits are back to TODO by then.)
 - **Lock** unlocks on Home immediately, or within ~10s of Emacs reaching
   the front any other way.
@@ -98,7 +98,7 @@ Elisp changes reach the phone by `git pull` in its `~/.doom.d` (branch
 - Test the clock on a throwaway org file in Emacs's cache dir, never real
   tasks; afterwards drop it from `org-clock-history` and delete it.
 - Overlay windows with WRAP_CONTENT grow but don't shrink back: compact
-  states use fixed sizes (`FloatService.relayout`). Emoji glyphs clip in
+  states use fixed sizes (`FloatService.relayout`). State icons are drawn (`Mark.java`): text glyphs sat off-centre and emoji clipped in
   the small pill — use plain characters.
 
 ## Next, in order (agreed, not started)

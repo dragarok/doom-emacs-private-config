@@ -51,6 +51,9 @@ public class FloatService extends Service {
     private WindowManager.LayoutParams lp;
     private LinearLayout root, row;
     private TextView pill;
+    private final Mark mark = new Mark();
+    private android.widget.ImageView markView;
+    private LinearLayout header;
     private FileObserver observer;
 
     // Locked: shrunk to a dot that touches pass through (games), until
@@ -190,8 +193,7 @@ public class FloatService extends Service {
         bgd.setColor(0xCC1E1E1E);
         bgd.setCornerRadius(dp(14));
         root.setBackground(bgd);
-        root.setPadding(dp(10), dp(4), dp(10), dp(4));
-        // Centred, so the ○ / ‖ / • sit in the middle of the fixed-size dot.
+        // Centred, so the mark sits in the middle of the fixed-size dot.
         root.setGravity(Gravity.CENTER);
 
         pill = new TextView(this);
@@ -202,9 +204,14 @@ public class FloatService extends Service {
         pill.setMaxWidth(dp(200));
         pill.setGravity(Gravity.CENTER);
         pill.setIncludeFontPadding(false);
+        markView = new android.widget.ImageView(this);
+        markView.setImageDrawable(mark);
+        header = new LinearLayout(this);
+        header.addView(markView);
+        header.addView(pill);
         row = new LinearLayout(this);
         row.setVisibility(View.GONE);
-        root.addView(pill);
+        root.addView(header);
         root.addView(row);
         updatePill();
         updateRow();
@@ -249,7 +256,7 @@ public class FloatService extends Service {
 
     /**
      * Re-measure the overlay window, which otherwise keeps its first size.
-     * The locked dot and the idle collapsed ○ get small fixed sizes: a
+     * The locked dot and the idle collapsed mark get small fixed sizes: a
      * wrapped window grows with the pill but doesn't shrink back from it.
      */
     private void relayout() {
@@ -284,12 +291,19 @@ public class FloatService extends Service {
     private void updatePill() {
         if (pill == null) return;
         boolean expanded = row.getVisibility() == View.VISIBLE;
-        pill.setText(locked ? "•"
-                     : clocked ? "● " + elapsed() + "  " + task
-                     // Idle: ○ when clean, ‖ when paused -- naming the
-                     // paused task only when tapped open.
-                     : task.isEmpty() ? "○"
-                     : expanded ? "‖ " + task : "‖");
+        // Collapsed and not running: the icon alone, in a fixed-size dot.
+        boolean compact = locked || (!clocked && !expanded);
+        mark.set(locked ? Mark.Kind.LOCKED : clocked ? Mark.Kind.CLOCKED
+                 : task.isEmpty() ? Mark.Kind.IDLE : Mark.Kind.PAUSED);
+        int m = locked ? dp(8) : compact ? dp(14) : dp(10);
+        markView.setLayoutParams(new LinearLayout.LayoutParams(m, m));
+        // The header spans the window: centre the lone mark, left-align mark + text.
+        header.setGravity(compact ? Gravity.CENTER : Gravity.CENTER_VERTICAL | Gravity.START);
+        pill.setText(clocked ? elapsed() + "  " + task : task);
+        pill.setVisibility(compact || pill.getText().length() == 0 ? View.GONE : View.VISIBLE);
+        pill.setPadding(dp(6), 0, 0, 0);
+        root.setPadding(compact ? 0 : dp(10), compact ? 0 : dp(5),
+                        compact ? 0 : dp(10), compact ? 0 : dp(5));
         relayout();
     }
 
