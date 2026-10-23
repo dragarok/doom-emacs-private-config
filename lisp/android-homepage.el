@@ -4,6 +4,7 @@
 
 (require 'seq)
 (require 'nerd-icons)
+(require 'usage-log)
 
 ;;; Faces
 
@@ -121,7 +122,7 @@
         (insert " ")
         (let ((action (plist-get btn :action)))
           (insert-text-button (plist-get btn :title)
-                              'action `(lambda (_) (call-interactively #',action))
+                              'action `(lambda (_) (usage-log-call "homepage" #',action))
                               'follow-link t
                               'face 'android-homepage-title
                               'help-echo (plist-get btn :desc)))))

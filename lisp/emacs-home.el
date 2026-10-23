@@ -14,6 +14,8 @@
 
 (require 'seq)
 (require 'subr-x)
+(require 'usage-log)
+(require 'day-log)
 
 (defconst emacs-home-dir "/data/data/com.termux/files/home/.emacs-home/"
   "Where the app writes the catalog.  It shares Emacs's uid, so both can.")
@@ -50,9 +52,8 @@
       (read (current-buffer)))))
 
 (defun emacs-home-open (app)
-  "Launch APP, a (LABEL PACKAGE ACTIVITY) entry, and log it to launches.tsv."
-  (write-region (format "%s\t%s\t%s\n" (format-time-string "%F %T") (car app) (nth 1 app))
-                nil (expand-file-name "launches.tsv" emacs-home-dir) t 'silent)
+  "Launch APP, a (LABEL PACKAGE ACTIVITY) entry, and log it to the usage log."
+  (usage-log "app" (car app))
   (android-browse-url (format "emacs-home://launch/%s" (emacs-home--key app))))
 
 ;;; The clock, for the dashboard line and the app's floating pill
@@ -120,7 +121,7 @@ is clocked -- after a manual clock-in it would revert the wrong task."
                         ('cancel #'emacs-home--cancel)
                         ('flow #'rts-flow))))
     ;; Called from emacsclient's process filter, so get out of it first.
-    (run-at-time 0 nil (lambda () (call-interactively command))))
+    (run-at-time 0 nil #'usage-log-call "island" command))
   nil)
 
 (defun emacs-home--read-app (prompt &optional mark)
@@ -173,6 +174,8 @@ MARK, if non-nil, is called with each app and returns a suffix string."
 
 (defun emacs-home-on-home ()
   "Called by the app on every Home press: show the homepage."
+  (usage-log "home" "home")
+  (day-log-maybe-close)
   ;; Called from emacsclient's process filter, so get out of it first.
   (run-at-time 0 nil (lambda ()
                        (+dashboard/open (selected-frame))
@@ -203,25 +206,31 @@ MARK, if non-nil, is called with each app and returns a suffix string."
         (insert-text-button
          (format "⏱  %s  ·  %s" (emacs-home--clean org-clock-current-task)
                  (org-duration-from-minutes (org-clock-get-clocked-time)))
-         'action (lambda (_) (org-clock-goto))
+         'action (lambda (_) (usage-log-call "dashboard" #'org-clock-goto))
          'follow-link t
          'face 'android-homepage-title)
       (insert-text-button
        (if emacs-home--last-task
            (format "○  No clock  ·  resume: %s" emacs-home--last-task)
          "○  No clock  ·  Flow")
-       'action (lambda (_) (call-interactively
+       'action (lambda (_) (usage-log-call
+                            "dashboard"
                             (if emacs-home--last-task #'org-clock-in-last #'rts-flow)))
        'follow-link t
        'face 'android-homepage-desc))
     (insert "\n  ")
     (insert-text-button (format "All apps (%d)" (length apps))
-                        'action (lambda (_) (emacs-home-launch))
+                        'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-launch))
                         'follow-link t
                         'face 'android-homepage-title)
     (insert "    ")
     (insert-text-button "Pin / unpin"
-                        'action (lambda (_) (emacs-home-toggle-pin))
+                        'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-toggle-pin))
+                        'follow-link t
+                        'face 'android-homepage-title)
+    (insert "    ")
+    (insert-text-button "Day"
+                        'action (lambda (_) (usage-log-call "dashboard" #'day-log-today))
                         'follow-link t
                         'face 'android-homepage-title)
     (insert "\n")

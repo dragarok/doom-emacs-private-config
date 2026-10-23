@@ -20,22 +20,34 @@ Everything here either removes friction or collects data with no effort.
 | Home button | `HomeActivity` | Brings Emacs forward, runs `(emacs-home-on-home)` → dashboard |
 | App catalog | `Catalog` | Writes `apps.tsv` + `icons/` on every Home press (icons only re-rendered on app update) |
 | App launching | `LaunchActivity` | Opens `emacs-home://launch/PKG/ACTIVITY`, only for real app-drawer entries |
-| Floating clock | `FloatService` | Pill over every app + ongoing notification; buttons for the org clock |
-| Foreground log | `FloatService` | Every app that comes to the front → `foreground.tsv` (Android usage events) |
+| Clock island | `FloatService` | Island round the camera hole, over every app + ongoing notification; grows into a card with the clock's buttons |
+| Island above the status bar | `IslandAccess` | Accessibility service that only lends its overlay window type; reads nothing |
+| Foreground log | `FloatService` | Every app that comes to the front, and screen off/on, → `~/org/logs/foreground_localhost.tsv` |
+| Usage log | `../lisp/usage-log.el` | Every run of this config's commands, and from where → `~/org/logs/usage_log_HOST.tsv`; `M-x usage-log-report` |
 | Dashboard | `emacs-home.el` | Clock line, All apps / Pin buttons, pinned icon rows |
-| Launch log | `emacs-home.el` | Every launch from Emacs → `launches.tsv` |
+| Day log | `../lisp/day-log.el` | The daily review that writes itself from the clock, the logs and DONEs; closes each day by itself (Day button) |
 | Toolbar widgets | `../lisp/android-launcher.el` | Older: Termux:Widget shortcuts via `org-protocol://emacs-cmd` (still works) |
 
-### The floating pill
+### The clock island
 
-| State | Collapsed | Tapped open |
+A black capsule round the camera hole, like a dynamic island: the state
+mark left of the camera, the minutes right of it while clocked.  Tapping it
+grows the same window into a card -- task, state, buttons -- in the system
+theme's Material You colours (the collapsed island stays black in both
+themes: the camera is part of it).  A touch anywhere else, a second tap, or
+8s untouched shrinks it back.
+
+| State | Collapsed | Card buttons |
 |---|---|---|
-| Clocked | green dot `42m Task` | Pause · Done · Cancel · Lock |
-| Paused (resumable) | two bars | bars + Task · Resume · Flow · Lock |
-| Clean (done/cancelled/nothing) | ring | Resume · Flow · Lock |
+| Clocked | accent dot · `42m` | Pause · Done · Cancel · Lock |
+| Paused (resumable) | two bars | Resume · Flow · Lock |
+| Clean (done/cancelled/nothing) | ring | Flow · Lock |
 | Locked (games) | faint dot, touches pass through | — unlocks when Emacs is back in front |
 
-- Drag the pill up/down to move it. Tap toggles open/closed.
+- It sits **above the status bar** only through `IslandAccess`: an app
+  overlay sits under it, and the status bar takes every tap.  Without the
+  service it still draws, under the status bar, but can't be tapped.
+  `build.sh install` enables it, appending to the services already on.
 - **Pause** = `org-clock-out` (keeps the task for Resume).
   **Resume** = `org-clock-in-last`.
   **Done** = `rts-flow-clock-out` — prompts, so it brings Emacs forward.
@@ -45,6 +57,8 @@ Everything here either removes friction or collects data with no effort.
   (Uses `org-state` in the hook: repeating habits are back to TODO by then.)
 - **Lock** unlocks on Home immediately, or within ~10s of Emacs reaching
   the front any other way.
+- Opening the island and Lock are logged to the usage log as `island`;
+  the other buttons run through Emacs, which logs them.
 
 ## How it fits together
 
@@ -56,7 +70,7 @@ Everything here either removes friction or collects data with no effort.
  emacs-home-on-home           ◄── emacsclient ───  Home button
  reads apps.tsv, icons/       ◄── writes ────────  catalog on Home
  android-browse-url ──── emacs-home://launch ───►  starts the app
-                                                    usage events → foreground.tsv
+                                                    usage events → ~/org/logs/
 ```
 
 - **No HTTP server.** The app joins `sharedUserId="com.termux"` — the same
@@ -68,8 +82,9 @@ Everything here either removes friction or collects data with no effort.
 - Emacs's sandbox can't list packages (`cmd package` returns nothing);
   the app does it.
 - Data lives in `/data/data/com.termux/files/home/.emacs-home/`:
-  `apps.tsv`, `icons/`, `pins.eld`, `clock.tsv`, `launches.tsv`,
-  `foreground.tsv`.
+  `apps.tsv`, `icons/`, `pins.eld`, `clock.tsv` (and, from before Oct 23,
+  `launches.tsv` and `foreground.tsv`).  The logs worth keeping are in
+  `~/org/logs/`, which syncs: `foreground_localhost.tsv`, `usage_log_*.tsv`.
 
 ## Build, install, revert
 
@@ -97,10 +112,13 @@ Elisp changes reach the phone by `git pull` in its `~/.doom.d` (branch
   — any app on the phone could reach it.
 - Test the clock on a throwaway org file in Emacs's cache dir, never real
   tasks; afterwards drop it from `org-clock-history` and delete it.
-- Overlay windows with WRAP_CONTENT grow but don't shrink back: compact
-  states use fixed sizes (`FloatService.relayout`).
+- Overlay windows with WRAP_CONTENT grow but don't shrink back: the island
+  always sets its window's width and height itself.
+- The cutout's bounding rect runs from the screen edge (0–126 px here), not
+  just the hole: size the island from its width.
 - State icons are drawn (`Mark.java`), not typed: text glyphs sat
   off-centre and emoji clipped in the small pill.
+- Test theming with `adb shell cmd uimode night no|yes`.
 
 ## Next, in order (agreed, not started)
 
@@ -109,8 +127,7 @@ Elisp changes reach the phone by `git pull` in its `~/.doom.d` (branch
    logs the answer, and nudges when the time is up. The launcher is the
    natural place: `emacs-home-open` already sees every launch.
 2. **Pill button: send the Firefox page to Emacs** to read there.
-3. Maybe: read `foreground.tsv` + `launches.tsv` into the daily review —
-   where the day's phone time went, with nothing typed.
+3. ~~Read the logs into the daily review~~ — done: `day-log.el`.
 4. Maybe: infer River Flow context from Wi-Fi (home vs out) so `rts-flow`
    only asks for energy.
 

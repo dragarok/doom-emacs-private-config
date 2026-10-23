@@ -8,19 +8,16 @@
 ;;; Code:
 
 (require 'org)
+(require 'day-log)
 
 (defvar daily-review-reminder-timer nil "Timer for daily review reminders")
 (defvar weekly-review-reminder-timer nil "Timer for weekly review reminders")
 
 (defun daily-review-exists-p ()
-  "Check if today's daily review exists in the datetree."
-  (let* ((today (decode-time))
-         (year (format "%04d" (nth 5 today)))
-         (month (format-time-string "%B"))
-         (day (format-time-string "%Y-%m-%d")))
-    (condition-case nil
-        (org-find-olp (list org-dailyreview-file year month day) t)
-      (error nil))))
+  "Non-nil if today's review has something of yours in it.
+The day log drafts and closes every review by itself; this asks whether
+you added to it."
+  (day-log-written-p))
 
 (defun weekly-review-exists-p ()
   "Check if this week's weekly review exists."
@@ -60,14 +57,15 @@
 (defun prompt-daily-review ()
   "Prompt for daily review with timeout and auto-reschedule."
   (interactive)
-  (unless (daily-review-exists-p)
+  (if (daily-review-exists-p)
+      (schedule-next-daily-prompt)
     (let* ((choices '("Today" "Yesterday" "Skip"))
            (timeout-timer (run-with-timer 30 nil (lambda () (throw 'exit :timeout))))
            (choice))
       (unwind-protect
           (condition-case err
               (setq choice (catch 'exit (consult--read choices
-                                                       :prompt "Daily review missing. Create for: "
+                                                       :prompt "Today's log is drafted. Add a line for: "
                                                        :require-match t)))
             (quit
              (message "Daily review reminder aborted. Snoozed for 1 hour.")
@@ -81,9 +79,9 @@
        (choice
         (cond
          ((string= choice "Today")
-          (org-capture nil "rd"))
+          (day-log-today))
          ((string= choice "Yesterday")
-          (org-capture nil "ry"))
+          (day-log-open (day-log--shift (day-log--today) -1)))
          ((string= choice "Skip")
           (message "Daily review skipped for today")))
         (schedule-next-daily-prompt))))))

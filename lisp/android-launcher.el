@@ -23,6 +23,7 @@
 (require 'url-util)
 (require 'server)
 (require 'org-protocol)
+(require 'usage-log)
 
 (defconst android-launcher-shortcuts-dir
   "/data/data/com.termux/files/home/.shortcuts/"
@@ -57,7 +58,7 @@ outside Emacs."
         (message "android-launcher: refusing %S (not a toolbar command)" cmd)
       ;; Off the server's process filter, so a command that prompts
       ;; doesn't leave the emacsclient connection hanging.
-      (run-at-time 0 nil #'call-interactively cmd)))
+      (run-at-time 0 nil #'usage-log-call "widget" cmd)))
   ;; nil: there is no file for emacsclient to visit.
   nil)
 

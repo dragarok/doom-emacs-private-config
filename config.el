@@ -209,6 +209,11 @@
 ;; LOAD LISP MODULES (after essential paths are set)
 ;; ============================================================
 
+;; Which of this config's commands get used, on every machine: M-x usage-log-report
+(require 'usage-log)
+;; The daily review that writes itself, and closes itself on the phone
+(require 'day-log)
+
 ;; Core productivity modules (both Mac and Android)
 (require 'org-roam-config)
 (require 'productivity)
@@ -242,6 +247,7 @@
   (require 'android-homepage)
   (require 'android-launcher)            ; toolbar buttons as home-screen widgets
   (require 'emacs-home)                  ; Emacs is the launcher (emacs-home/ app)
+  (add-hook 'emacs-startup-hook #'day-log-maybe-close) ; and on every Home press
   (require 'android-doom-root)           ; M-x doom-root: `doom sync' via su
 
   ;; Smaller font in the terminal buffers ONLY — more columns for the remote
