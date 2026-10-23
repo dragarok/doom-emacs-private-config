@@ -242,13 +242,6 @@
     ;; so mosh/ssh sessions spawned from a terminal buffer break. Match Termux instead.
     (setenv "LANG" "en_US.UTF-8")
 
-    ;; Claude Code needs a writable tmp dir — /tmp doesn't exist on Android
-    (let ((claude-tmp (concat home-bin "/../.claude-tmp")))
-      (unless (file-directory-p claude-tmp) (make-directory claude-tmp t))
-      (setenv "CLAUDE_CODE_TMPDIR" claude-tmp)
-      (setenv "TMPDIR" claude-tmp)
-      (setq temporary-file-directory (file-name-as-directory claude-tmp)))
-
     ;; Point TeX Live to the full installation (not the broken 2025.0 stub)
     (setenv "TEXMFROOT" "/data/data/com.termux/files/usr/share/texlive/2025")
     (setenv "TEXMFLOCAL" "/data/data/com.termux/files/usr/share/texlive/texmf-local")

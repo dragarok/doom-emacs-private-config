@@ -30,13 +30,15 @@
 (package! nepali-romanized
   :recipe (:host github :repo "bishesh/emacs-nepali-romanized"))
 
-;; Claude Code integration
+;; Claude Code integration (Mac only -- the phone uses claude-remote)
 (package! claude-code-ide
-  :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
+  :recipe (:host github :repo "manzaltu/claude-code-ide.el")
+  :disable IS-ANDROID)
 
 (package! claude-code
   :recipe (:host github :repo "stevemolitor/claude-code.el" :branch "main" :depth 1
-           :files ("*.el" (:exclude "images/*"))))
+           :files ("*.el" (:exclude "images/*")))
+  :disable IS-ANDROID)
 
 
 (package! hydra-posframe

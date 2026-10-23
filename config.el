@@ -240,6 +240,7 @@
 (when IS-ANDROID
   (require 'android-toolbar)
   (require 'android-homepage)
+  (require 'android-launcher)            ; toolbar buttons as home-screen widgets
 
   ;; Smaller font in the terminal buffers ONLY — more columns for the remote
   ;; Emacs and cheaper redraws; all other buffers keep the touch size.
@@ -289,6 +290,9 @@
 
 ;; AI workflows (shared across platforms, Mac-only parts guarded inside)
 (require 'ai-workflows)
+;; Local Claude Code sessions -- the phone drives the Mac's through claude-remote.
+(unless IS-ANDROID
+  (require 'claude-code-setup))
 
 ;; Reload-robustness: on config reload, persp-mode's cl-defstruct setf-setter
 ;; for `persp-window-conf' can momentarily be void, and a window op then errors
