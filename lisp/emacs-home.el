@@ -120,7 +120,10 @@
     (when top
       (insert "  ")
       (dolist (app top)
+        ;; Not the `button' face: its underline sits on the baseline, which
+        ;; `:ascent center' puts straight through the middle of the icon.
         (insert-text-button (emacs-home--icon app height)
+                            'face 'default
                             'action (lambda (_) (emacs-home-open app))
                             'follow-link t
                             'help-echo (car app))
