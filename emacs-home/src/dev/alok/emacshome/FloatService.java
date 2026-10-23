@@ -254,7 +254,9 @@ public class FloatService extends Service {
             return;
         }
         if (morph != null) morph.cancel();
-        if (island.isAttachedToWindow()) wm.removeView(island);
+        // Not isAttachedToWindow(): just after addView it isn't yet, and the
+        // first window would be left behind under the second.
+        try { wm.removeView(island); } catch (IllegalArgumentException x) { /* gone */ }
         island = null;
         opening = false;
         open = 0f;
@@ -277,8 +279,8 @@ public class FloatService extends Service {
         ui = access != null ? access : this;
         wm = ui.getSystemService(WindowManager.class);
         Rect hole = cutout();
-        pillH = Math.max(dp(30), hole.height() + dp(10));
-        gapW = hole.width() + dp(14);
+        pillH = Math.max(dp(26), hole.height() + dp(4));
+        gapW = hole.width() + dp(8);
         cardW = Math.min(getResources().getDisplayMetrics().widthPixels - dp(24), dp(400));
 
         // Top row: mark | camera | minutes -- all the collapsed island shows.
@@ -396,10 +398,10 @@ public class FloatService extends Service {
     }
 
     private int collapsedWidth() {
-        return 2 * (sideWidth() + dp(14)) + gapW;
+        return 2 * (sideWidth() + dp(10)) + gapW;
     }
 
-    private int markSize() { return Math.round(pillH * (locked ? 0.3f : 0.42f)); }
+    private int markSize() { return Math.round(pillH * (locked ? 0.22f : 0.3f)); }
 
     /** Width of each side of the camera: the wider of mark and minutes. */
     private int sideWidth() {
