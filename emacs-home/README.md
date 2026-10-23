@@ -98,8 +98,9 @@ Elisp changes reach the phone by `git pull` in its `~/.doom.d` (branch
 - Test the clock on a throwaway org file in Emacs's cache dir, never real
   tasks; afterwards drop it from `org-clock-history` and delete it.
 - Overlay windows with WRAP_CONTENT grow but don't shrink back: compact
-  states use fixed sizes (`FloatService.relayout`). State icons are drawn (`Mark.java`): text glyphs sat off-centre and emoji clipped in
-  the small pill — use plain characters.
+  states use fixed sizes (`FloatService.relayout`).
+- State icons are drawn (`Mark.java`), not typed: text glyphs sat
+  off-centre and emoji clipped in the small pill.
 
 ## Next, in order (agreed, not started)
 
