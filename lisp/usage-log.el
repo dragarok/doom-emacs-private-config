@@ -81,28 +81,41 @@ Buttons bind it around `call-interactively'; see `usage-log-call'.")
       (eq this-command command)
       (memq real-this-command '(push-button widget-button-click))))
 
-(defun usage-log--own-file-p (file)
-  (and file (string-prefix-p (file-truename doom-user-dir) (file-truename file))))
+(defvar usage-log--user-dir (file-truename doom-user-dir))
 
-(defun usage-log--own-commands ()
-  "Commands defined in this config, loaded or autoloaded."
+(defun usage-log--own-file-p (file)
+  (and file (string-prefix-p usage-log--user-dir (file-truename file))))
+
+(defun usage-log--file-commands (entry)
+  "The commands a `load-history' ENTRY, (FILE . DEFINITIONS), defined."
   (let (commands)
-    (mapatoms
-     (lambda (sym)
-       (when (and (commandp sym)
-                  (not (string-prefix-p "usage-log" (symbol-name sym)))
-                  (usage-log--own-file-p (symbol-file sym 'defun)))
-         (push sym commands))))
-    commands))
+    (dolist (d (cdr entry) commands)
+      (when (and (eq (car-safe d) 'defun)
+                 (commandp (cdr d))
+                 (not (string-prefix-p "usage-log" (symbol-name (cdr d)))))
+        (push (cdr d) commands)))))
+
+;; From `load-history', one pass over what each of this config's files
+;; defined -- not `mapatoms' and `symbol-file', which walk all of
+;; load-history for every symbol: run for each module as it loaded, with
+;; Doom holding off garbage collection through startup, that ran the phone
+;; out of memory before Emacs could start.
+(defun usage-log--own-commands ()
+  "Commands defined by this config's loaded files."
+  (mapcan (lambda (entry)
+            (and (stringp (car entry)) (usage-log--own-file-p (car entry))
+                 (usage-log--file-commands entry)))
+          load-history))
 
 (defun usage-log-install ()
   "Advise every command this config defines so far."
   (mapc #'usage-log--wrap (usage-log--own-commands)))
 
 (defun usage-log--after-load (file)
-  ;; Modules loaded later -- deferred packages' config, M-x load-file.
-  (when (usage-log--own-file-p file)
-    (usage-log-install)))
+  ;; Modules loaded after startup -- deferred packages' config, M-x
+  ;; load-file: only what that file defined.
+  (when (and after-init-time (usage-log--own-file-p file))
+    (mapc #'usage-log--wrap (usage-log--file-commands (assoc file load-history)))))
 
 (defun usage-log--post-command ()
   "Log other commands, when they were picked from the toolbar, M-x or leader."
@@ -112,7 +125,8 @@ Buttons bind it around `call-interactively'; see `usage-log-call'.")
       (when (member source '("M-x" "toolbar" "leader"))
         (usage-log source this-command)))))
 
-(add-hook 'emacs-startup-hook #'usage-log-install)
+;; Once Emacs is up and idle, not while it starts.
+(add-hook 'emacs-startup-hook (lambda () (run-with-idle-timer 3 nil #'usage-log-install)))
 (add-hook 'after-load-functions #'usage-log--after-load)
 (add-hook 'post-command-hook #'usage-log--post-command)
 
