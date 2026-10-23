@@ -35,10 +35,18 @@
                       '("EMACS_CLASS_PATH" "EMACS_LD_LIBRARY_PATH" "TMPDIR")))
     (list (format "HOME=%s" doom-root--files)
           (format "EMACS=%s" doom-root--emacs)
-          (concat "PATH=/data/data/com.termux/files/usr/bin:" (getenv "PATH"))
-          ;; Root running git over repos owned by the app uid.
-          "GIT_CONFIG_COUNT=1" "GIT_CONFIG_KEY_0=safe.directory" "GIT_CONFIG_VALUE_0=*"))
+          (concat "PATH=/data/data/com.termux/files/usr/bin:" (getenv "PATH"))))
    " "))
+
+(defun doom-root--trust-repos ()
+  "Let root's git work in repos the app user owns.
+Git refuses (\"dubious ownership\") otherwise.  This goes in Termux git's
+system config, not the environment: Doom's CLI can replace the whole
+process environment with its saved env file, dropping anything passed
+that way.  Written as the app user, which owns Termux's files."
+  (unless (member "*" (process-lines-ignore-status
+                       "git" "config" "--system" "--get-all" "safe.directory"))
+    (call-process "git" nil nil nil "config" "--system" "--add" "safe.directory" "*")))
 
 (defun doom-root (args)
   "Run `doom ARGS' as root, then give root's files back to Emacs."
@@ -63,13 +71,15 @@
 --load %s/.config/emacs/bin/doom -- %s 2>&1
 rc=$?
 echo \"== handing files back to uid %d\"
-find %s -user 0 -exec chcon -h %s {} +
-find %s -user 0 -exec chown -h %d:%d {} +
+for d in %s /data/data/org.gnu.emacs/cache; do
+  find \"$d\" -user 0 -exec chcon -h %s {} +
+  find \"$d\" -user 0 -exec chown -h %d:%d {} +
+done
 exit $rc
 "
                       (doom-root--env) doom-root--emacs uid doom-root--files args uid
-                      doom-root--files (doom-root--q label)
-                      doom-root--files uid uid)))
+                      doom-root--files (doom-root--q label) uid uid)))
+    (doom-root--trust-repos)
     (compile (format "su -c 'sh %s'" file))))
 
 (provide 'android-doom-root)
