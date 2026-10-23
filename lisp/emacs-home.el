@@ -117,6 +117,14 @@
     (+dashboard-insert
      (propertize "━━  APPS  ━━" 'face 'android-homepage-section))
     (insert "\n")
+    ;; First button, so the dashboard parks point -- and the line highlight
+    ;; and box cursor that come with it -- on this text, not the icons.
+    (insert "  ")
+    (insert-text-button (format "All apps (%d)" (length apps))
+                        'action (lambda (_) (emacs-home-launch))
+                        'follow-link t
+                        'face 'android-homepage-title)
+    (insert "\n\n")
     (when top
       (insert "  ")
       (dolist (app top)
@@ -128,13 +136,7 @@
                             'follow-link t
                             'help-echo (car app))
         (insert "  "))
-      (insert "\n"))
-    (insert "  ")
-    (insert-text-button (format "All apps (%d)" (length apps))
-                        'action (lambda (_) (emacs-home-launch))
-                        'follow-link t
-                        'face 'android-homepage-title)
-    (insert "\n")))
+      (insert "\n"))))
 
 (add-to-list '+dashboard-functions #'emacs-home-widget)
 
