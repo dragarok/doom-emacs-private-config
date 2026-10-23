@@ -117,7 +117,7 @@ public class FloatService extends Service {
         }
         if (row != null) {
             row.setVisibility(View.GONE);
-            relayout();
+            updatePill();
         }
         bg.execute(() -> Emacs.eval(this, "(emacs-home-clock-action '" + action + ")"));
     }
@@ -198,6 +198,7 @@ public class FloatService extends Service {
         pill.setSingleLine(true);
         pill.setEllipsize(TextUtils.TruncateAt.END);
         pill.setMaxWidth(dp(200));
+        pill.setGravity(Gravity.CENTER);
         row = new LinearLayout(this);
         row.setVisibility(View.GONE);
         root.addView(pill);
@@ -233,7 +234,7 @@ public class FloatService extends Service {
                     if (!dragged) {
                         row.setVisibility(row.getVisibility() == View.VISIBLE
                                           ? View.GONE : View.VISIBLE);
-                        relayout();
+                        updatePill();
                     }
                     return true;
                 }
@@ -243,9 +244,19 @@ public class FloatService extends Service {
         wm.addView(root, lp);
     }
 
-    /** The overlay window keeps its first size unless told to re-measure. */
+    /**
+     * Re-measure the overlay window, which otherwise keeps its first size.
+     * The locked dot and the idle collapsed ○ get small fixed sizes: a
+     * wrapped window grows with the pill but doesn't shrink back from it.
+     */
     private void relayout() {
-        if (root != null && root.isAttachedToWindow()) wm.updateViewLayout(root, lp);
+        if (root == null || !root.isAttachedToWindow()) return;
+        boolean collapsed = row.getVisibility() != View.VISIBLE;
+        int size = locked ? dp(22)
+                 : !clocked && collapsed ? dp(30)
+                 : WindowManager.LayoutParams.WRAP_CONTENT;
+        lp.width = lp.height = size;
+        wm.updateViewLayout(root, lp);
     }
 
     private void lock() {
@@ -254,8 +265,6 @@ public class FloatService extends Service {
         row.setVisibility(View.GONE);
         root.setAlpha(0.35f);
         lp.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
-        // A fixed size: the wrapped window doesn't shrink back from the pill.
-        lp.width = lp.height = dp(22);
         updatePill();
         main.removeCallbacks(tick);
         main.postDelayed(tick, 10_000);
@@ -266,19 +275,18 @@ public class FloatService extends Service {
         locked = false;
         root.setAlpha(1f);
         lp.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
-        lp.width = lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
         updatePill();
     }
 
     private void updatePill() {
         if (pill == null) return;
-        if (locked) {
-            pill.setText("•");
-            relayout();
-            return;
-        }
-        pill.setText(clocked ? "● " + elapsed() + "  " + task
-                             : "○ " + (task.isEmpty() ? "no clock" : task));
+        boolean expanded = row.getVisibility() == View.VISIBLE;
+        pill.setText(locked ? "•"
+                     : clocked ? "● " + elapsed() + "  " + task
+                     // Idle: ○ when clean, ‖ when paused -- naming the
+                     // paused task only when tapped open.
+                     : task.isEmpty() ? "○"
+                     : expanded ? "‖ " + task : "‖");
         relayout();
     }
 

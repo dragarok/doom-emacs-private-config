@@ -74,12 +74,30 @@
               (format "idle\t0\t%s\n" (or emacs-home--last-task ""))))))
 
 (defun emacs-home--clock-changed ()
+  ;; Note the task now, in case it is clocked out before the write runs.
+  (when (org-clocking-p)
+    (setq emacs-home--last-task (emacs-home--clean org-clock-current-task)))
   ;; Org runs these hooks mid-change; write once it has settled.
   (run-at-time 0 nil #'emacs-home--write-clock))
+
+(defun emacs-home--forget ()
+  "Drop the Resume target: the task was cancelled."
+  (setq emacs-home--last-task nil))
+
+(defun emacs-home--forget-if-done ()
+  "Drop the Resume target once that task is marked done, from anywhere."
+  ;; `org-state', not `org-entry-is-done-p': a repeating habit is already
+  ;; back to TODO by now.
+  (when (and (member org-state org-done-keywords)
+             (equal (emacs-home--clean (org-get-heading t t t t)) emacs-home--last-task))
+    (emacs-home--forget)
+    (emacs-home--clock-changed)))
 
 (with-eval-after-load 'org-clock
   (dolist (hook '(org-clock-in-hook org-clock-out-hook org-clock-cancel-hook))
     (add-hook hook #'emacs-home--clock-changed))
+  (add-hook 'org-clock-cancel-hook #'emacs-home--forget)
+  (add-hook 'org-after-todo-state-change-hook #'emacs-home--forget-if-done)
   (emacs-home--write-clock))
 
 (defun emacs-home--cancel ()
