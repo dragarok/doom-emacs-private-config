@@ -15,7 +15,6 @@
 (require 'seq)
 (require 'subr-x)
 (require 'usage-log)
-(require 'day-log)
 
 (defconst emacs-home-dir "/data/data/com.termux/files/home/.emacs-home/"
   "Where the app writes the catalog.  It shares Emacs's uid, so both can.")
@@ -172,10 +171,23 @@ MARK, if non-nil, is called with each app and returns a suffix string."
              (current-buffer)))
     (+dashboard-reload t)))
 
+(defvar emacs-home--days-closed nil
+  "The day past days were last closed for: they close once a day.")
+
+(defun emacs-home--close-past-days ()
+  "On the first Home press of a day (turning at 4am), close past reviews.
+Loads the day log then, a moment after, rather than at startup."
+  (let ((day (format-time-string "%F" (time-subtract nil (* 4 3600)))))
+    (unless (equal day emacs-home--days-closed)
+      (setq emacs-home--days-closed day)
+      (run-with-idle-timer 2 nil (lambda ()
+                                   (with-demoted-errors "day-log: %S"
+                                     (day-log-close-pending)))))))
+
 (defun emacs-home-on-home ()
   "Called by the app on every Home press: show the homepage."
   (usage-log "home" "home")
-  (day-log-maybe-close)
+  (emacs-home--close-past-days)
   ;; Called from emacsclient's process filter, so get out of it first.
   (run-at-time 0 nil (lambda ()
                        (+dashboard/open (selected-frame))

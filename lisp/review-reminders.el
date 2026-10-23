@@ -8,7 +8,6 @@
 ;;; Code:
 
 (require 'org)
-(require 'day-log)
 
 (defvar daily-review-reminder-timer nil "Timer for daily review reminders")
 (defvar weekly-review-reminder-timer nil "Timer for weekly review reminders")
@@ -81,7 +80,7 @@ you added to it."
          ((string= choice "Today")
           (day-log-today))
          ((string= choice "Yesterday")
-          (day-log-open (day-log--shift (day-log--today) -1)))
+          (day-log-yesterday))
          ((string= choice "Skip")
           (message "Daily review skipped for today")))
         (schedule-next-daily-prompt))))))

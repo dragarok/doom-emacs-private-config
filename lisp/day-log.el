@@ -23,6 +23,10 @@
 ;; written the evening before, to take in the rest of that day.
 ;;
 ;; `day-log-today' (the dashboard's Day button) opens today's, drafted.
+;;
+;; Loaded on first use, never at startup: it loads org, and through it the
+;; whole org setup -- 11s on the Mac, and out of memory on the phone, where
+;; Doom holds off garbage collection while starting.
 
 ;;; Code:
 
@@ -439,16 +443,10 @@ A review from before the day log, made by the old template, counts."
 
 (add-hook 'after-save-hook #'day-log--close-if-written)
 
-(defvar day-log--checked nil
-  "The day `day-log-close-pending' last ran for, so it runs once a day.")
-
-(defun day-log-maybe-close ()
-  "Close past days, once per day; called on Home presses and at startup."
-  (unless (equal day-log--checked (day-log--today))
-    (setq day-log--checked (day-log--today))
-    (run-with-idle-timer 2 nil (lambda ()
-                                 (with-demoted-errors "day-log: %S"
-                                   (day-log-close-pending))))))
+(defun day-log-yesterday ()
+  "Open yesterday's review."
+  (interactive)
+  (day-log-open (day-log--shift (day-log--today) -1)))
 
 (provide 'day-log)
 ;;; day-log.el ends here

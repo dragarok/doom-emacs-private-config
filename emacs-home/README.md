@@ -23,7 +23,7 @@ Everything here either removes friction or collects data with no effort.
 | Clock island | `FloatService` | Island round the camera hole, over every app + ongoing notification; grows into a card with the clock's buttons |
 | Island above the status bar | `IslandAccess` | Accessibility service that only lends its overlay window type; reads nothing |
 | Foreground log | `FloatService` | Every app that comes to the front, and screen off/on, → `~/org/logs/foreground_localhost.tsv` |
-| Usage log | `../lisp/usage-log.el` | Every run of this config's commands, and from where → `~/org/logs/usage_log_HOST.tsv`; `M-x usage-log-report` |
+| Usage log | `../lisp/usage-log.el` | River Flow and other workflow commands, toolbar presses, homepage/dashboard/widget/island buttons → `~/org/logs/usage_log_HOST.tsv`; `M-x usage-log-report` |
 | Dashboard | `emacs-home.el` | Clock line, All apps / Pin buttons, pinned icon rows |
 | Day log | `../lisp/day-log.el` | The daily review that writes itself from the clock, the logs and DONEs; closes each day by itself (Day button) |
 | Toolbar widgets | `../lisp/android-launcher.el` | Older: Termux:Widget shortcuts via `org-protocol://emacs-cmd` (still works) |

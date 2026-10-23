@@ -211,8 +211,13 @@
 
 ;; Which of this config's commands get used, on every machine: M-x usage-log-report
 (require 'usage-log)
-;; The daily review that writes itself, and closes itself on the phone
-(require 'day-log)
+;; The daily review that writes itself, and closes itself on the phone.
+;; Loaded on first use, not here: it loads org (see day-log.el).
+(autoload 'day-log-today "day-log" nil t)
+(autoload 'day-log-yesterday "day-log" nil t)
+(autoload 'day-log-open "day-log" nil t)
+(autoload 'day-log-close-pending "day-log" nil t)
+(autoload 'day-log-written-p "day-log")
 
 ;; Core productivity modules (both Mac and Android)
 (require 'org-roam-config)
@@ -247,7 +252,6 @@
   (require 'android-homepage)
   (require 'android-launcher)            ; toolbar buttons as home-screen widgets
   (require 'emacs-home)                  ; Emacs is the launcher (emacs-home/ app)
-  (add-hook 'emacs-startup-hook #'day-log-maybe-close) ; and on every Home press
   (require 'android-doom-root)           ; M-x doom-root: `doom sync' via su
 
   ;; Smaller font in the terminal buffers ONLY — more columns for the remote
