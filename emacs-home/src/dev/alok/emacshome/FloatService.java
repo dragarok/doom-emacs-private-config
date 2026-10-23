@@ -53,6 +53,9 @@ public class FloatService extends Service {
     private TextView pill;
     private FileObserver observer;
 
+    // Locked: shrunk to a dot that touches pass through (games), until
+    // Emacs is back in front -- Home, or the foreground log seeing it.
+    private volatile boolean locked;
     private boolean clocked;
     private long start;          // epoch seconds, when clocked
     private String task = "";    // clocked task, or the last one when idle
@@ -100,11 +103,13 @@ public class FloatService extends Service {
         @Override public void run() {
             updatePill();
             bg.execute(FloatService.this::logForeground);
-            main.postDelayed(this, 30_000);
+            main.postDelayed(this, locked ? 10_000 : 30_000);
         }
     };
 
     private void act(String action) {
+        if (action.equals("lock")) { lock(); return; }
+        if (action.equals("unlock")) { unlock(); return; }
         // Done and Flow prompt in the minibuffer, so they need Emacs on screen.
         if (action.equals("done") || action.equals("flow")) {
             Intent emacs = getPackageManager().getLaunchIntentForPackage(Emacs.PACKAGE);
@@ -243,8 +248,35 @@ public class FloatService extends Service {
         if (root != null && root.isAttachedToWindow()) wm.updateViewLayout(root, lp);
     }
 
+    private void lock() {
+        if (root == null) return;
+        locked = true;
+        row.setVisibility(View.GONE);
+        root.setAlpha(0.35f);
+        lp.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        // A fixed size: the wrapped window doesn't shrink back from the pill.
+        lp.width = lp.height = dp(22);
+        updatePill();
+        main.removeCallbacks(tick);
+        main.postDelayed(tick, 10_000);
+    }
+
+    private void unlock() {
+        if (root == null || !locked) return;
+        locked = false;
+        root.setAlpha(1f);
+        lp.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        lp.width = lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        updatePill();
+    }
+
     private void updatePill() {
         if (pill == null) return;
+        if (locked) {
+            pill.setText("•");
+            relayout();
+            return;
+        }
         pill.setText(clocked ? "● " + elapsed() + "  " + task
                              : "○ " + (task.isEmpty() ? "no clock" : task));
         relayout();
@@ -253,8 +285,9 @@ public class FloatService extends Service {
     private void updateRow() {
         row.removeAllViews();
         String[][] buttons = clocked
-                ? new String[][] {{"Pause", "pause"}, {"Done", "done"}, {"Cancel", "cancel"}}
-                : new String[][] {{"Resume", "resume"}, {"Flow", "flow"}};
+                ? new String[][] {{"Pause", "pause"}, {"Done", "done"},
+                                  {"Cancel", "cancel"}, {"Lock", "lock"}}
+                : new String[][] {{"Resume", "resume"}, {"Flow", "flow"}, {"Lock", "lock"}};
         for (String[] b : buttons) {
             TextView t = new TextView(this);
             t.setText(b[0]);
@@ -293,6 +326,7 @@ public class FloatService extends Service {
             out.append(time.format(new Date(e.getTimeStamp()))).append('\t')
                .append(pkg).append('\t').append(label).append('\n');
         }
+        if (locked && Emacs.PACKAGE.equals(lastForeground)) main.post(this::unlock);
         if (out.length() == 0) return;
         try (FileOutputStream f = new FileOutputStream(FOREGROUND, true)) {
             f.write(out.toString().getBytes(StandardCharsets.UTF_8));
