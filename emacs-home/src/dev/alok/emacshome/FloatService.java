@@ -191,6 +191,8 @@ public class FloatService extends Service {
         bgd.setCornerRadius(dp(14));
         root.setBackground(bgd);
         root.setPadding(dp(10), dp(4), dp(10), dp(4));
+        // Centred, so the ○ / ‖ / • sit in the middle of the fixed-size dot.
+        root.setGravity(Gravity.CENTER);
 
         pill = new TextView(this);
         pill.setTextColor(0xFFEEEEEE);
@@ -199,6 +201,7 @@ public class FloatService extends Service {
         pill.setEllipsize(TextUtils.TruncateAt.END);
         pill.setMaxWidth(dp(200));
         pill.setGravity(Gravity.CENTER);
+        pill.setIncludeFontPadding(false);
         row = new LinearLayout(this);
         row.setVisibility(View.GONE);
         root.addView(pill);
