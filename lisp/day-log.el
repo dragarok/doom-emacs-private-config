@@ -12,12 +12,15 @@
 ;; Those live in a `day-log' dynamic block (C-c C-c on it refreshes).  Below
 ;; it are three lines for you; filling any of them is "writing" the review.
 ;;
-;; Every past day is closed on its own: on the phone, the first Home press
-;; (or startup) after `day-log-day-starts' finalises each unclosed day of
-;; the last week.  A closed review is tagged :auto: if nothing was written,
-;; :written: if something was, and the Daily Review habit is marked DONE
-;; for that day with the same word in its logbook note -- so the habit's
-;; history says which days you reviewed and which the system closed.
+;; The day turns at `day-log-day-starts' (4am), not midnight: until then a
+;; review is still the evening's.  Saving it with any of your lines filled
+;; closes it there and then, :written:.  Any day not written by 4am is closed
+;; on its own -- on the phone, by the first Home press (or startup) after,
+;; for every unclosed day of the last week -- and tagged :auto:.  Either way
+;; the Daily Review habit is marked DONE for that day with the same word in
+;; its logbook note, so its history says which days you reviewed and which
+;; the system closed.  The morning pass also rewrites the facts of a review
+;; written the evening before, to take in the rest of that day.
 ;;
 ;; `day-log-today' (the dashboard's Day button) opens today's, drafted.
 
@@ -405,8 +408,36 @@ A review from before the day log, made by the old template, counts."
       (let ((date (day-log--shift today (- n))))
         (unless (day-log--closed-p date)
           (push (format "%s %s" date (day-log-close date)) closed))))
+    (day-log--finish (day-log--shift today -1))
     (when closed
       (message "Day log closed: %s" (string-join (nreverse closed) ", ")))))
+
+(defun day-log--finish (date)
+  "Rewrite the facts of DATE's review if it was written before the day ended."
+  (with-current-buffer (find-file-noselect org-dailyreview-file)
+    (save-excursion
+      (when (and (day-log--goto-day date)
+                 (day-log--goto-review)
+                 (equal (org-entry-get nil "DAY_LOG") "written")
+                 (not (org-entry-get nil "FINAL")))
+        (day-log--refresh)
+        (org-entry-put nil "FINAL" (format-time-string "[%F %a %H:%M]"))
+        (save-buffer)))))
+
+(defun day-log--close-if-written ()
+  "After saving the reviews: close today's if you've now written in it."
+  (when (and buffer-file-name org-dailyreview-file
+             (file-equal-p buffer-file-name org-dailyreview-file))
+    (let ((today (day-log--today)))
+      (save-excursion
+        (when (and (day-log--goto-day today)
+                   (day-log--goto-review)
+                   (equal (org-entry-get nil "DAY_LOG") "open")
+                   (day-log--written-p))
+          (day-log-close today)
+          (message "Today's review closed: written"))))))
+
+(add-hook 'after-save-hook #'day-log--close-if-written)
 
 (defvar day-log--checked nil
   "The day `day-log-close-pending' last ran for, so it runs once a day.")
