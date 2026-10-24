@@ -240,19 +240,18 @@
         ("EHP"         "ehp")
         ("Special"     "deepwork" "ritual" "meditation" "review" "book")
         ("Entertainment" "music" "movie")
-        ("File"        "someday" "refile" "inbox")
-        ;; What I grow in, as specific tasks: the weekly review plans the
-        ;; week's, the daily review tomorrow's; the `topics' block reports
-        ;; them like habits.
-        ("Topics"      "mentalmodels" "notesrevision" "mentalgym" "weeklyvideo"
-                       "booksrevision" "roomcleanup")
-        ("Daily topics" "essaytime" "dailywriting" "guitarpractice"))
+        ("File"        "someday" "refile" "inbox"))
+      ;; "Topics" (weekly) and "Daily topics" come from ~/org/topics.org:
+      ;; what I grow in, planned as specific tasks in the reviews (SPC o v s
+      ;; adds one, SPC o v e opens the file).
       org-summary-summary-groups '("Difficulty" "Energy" "Time of day" "Deep work"
                                    "Topics" "Daily topics"))
 (autoload 'org-summary-habit-year "org-summary" nil t)
 (autoload 'org-summary-plots "org-summary" nil t)
 (autoload 'org-summary-plan-topics "org-summary" nil t)
 (autoload 'org-summary-plan-tomorrow "org-summary" nil t)
+(autoload 'org-summary-add-topic "org-summary" nil t)
+(autoload 'org-summary-topic-tags "org-summary")
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
@@ -286,7 +285,9 @@
        :desc "Week calendar"           "c" #'org-timegrid-week
        :desc "Passive activity on/off" "a" #'agent-time-passive
        :desc "Plan the week's topics"  "o" #'org-summary-plan-topics
-       :desc "Plan tomorrow's topics"  "n" #'org-summary-plan-tomorrow))
+       :desc "Plan tomorrow's topics"  "n" #'org-summary-plan-tomorrow
+       :desc "Set up a topic"          "s" #'org-summary-add-topic
+       :desc "Edit the topics"         "e" (cmd! (find-file (expand-file-name "topics.org" org-directory)))))
 ;; Agents' time, yours with them, passive time: agent-time.el.  The agents'
 ;; side of it is mcp/agent-tasks.mjs (task_start / task_finish).
 (autoload 'agent-time-passive "agent-time" nil t)
@@ -1683,11 +1684,9 @@ selected, then the current line."
                         ("Energetic" . ?9)
                         (:endgroup . nil)
 
-                        ;; Topics (`org-summary-tag-groups' "Topics", "Daily topics")
-                        ("mentalmodels") ("notesrevision") ("mentalgym")
-                        ("weeklyvideo") ("booksrevision") ("roomcleanup")
-                        ("essaytime") ("dailywriting") ("guitarpractice")
                         ))
+  ;; And the topics' tags, from ~/org/topics.org.
+  (org-summary-topic-tags)
 
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id
         org-clone-delete-id t)

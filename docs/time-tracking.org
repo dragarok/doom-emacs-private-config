@@ -14,6 +14,7 @@ Three kinds of time, never added together: *you* (the org clock), *agents*
 | Weekly / monthly review              | =SPC o v w= / =SPC o v m=   | Mac, phone |
 | Plan the week's topics               | =SPC o v o= (weekly review) | Mac, phone |
 | Plan tomorrow's daily topics         | =SPC o v n= (daily review)  | Mac, phone |
+| Add a topic / habit → topic          | =SPC o v s= (=e=: the file) | Mac, phone |
 
 That is all.  Everything else happens on its own.
 
@@ -35,21 +36,35 @@ That is all.  Everything else happens on its own.
   project, a table of agent tasks, and a chart per day.
 
 * Topics
-What I grow in are tags, not habits; the reviews plan specific tasks with
-them and show each tag like a habit.
-- Weekly, planned in the weekly review (=SPC o v o=): =:mentalmodels:
-  :notesrevision: :mentalgym: :weeklyvideo: :booksrevision: :roomcleanup:=
-- Daily, planned in the evening's daily review for tomorrow (=SPC o v n=):
-  =:essaytime: :dailywriting: :guitarpractice:=
-- One question per topic; each answer is a TODO in tasks.org with the tag,
-  scheduled, category ToImprove.  Empty Enter skips the topic.
-- The tables (daily review: the daily topics this week; weekly and monthly
-  review: both): days worked, time, done, planned (open with a date), and
-  "Nothing planned".  Time on anything with the tag counts -- the songs in
-  log_guitar.org count for guitarpractice, but are not "planned".
-- The old habits are in archive/archive.org with their history.
-- Tests: =ORG_TEMPLATES=~/org/templates emacs -Q --batch -L lisp -l
-  test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=
+What I grow in are tags, not habits.  The reviews plan a specific task for
+each, and the tables and habit charts show each one like a habit.
+
+*Set up*: =~/org/topics.org= is the whole setup (=SPC o v e= opens it):
+#+begin_example
+,* Daily
+- guitarpractice :: Guitar practice  nf-md-guitar_acoustic
+,* Weekly
+- mentalmodels :: Mental models
+#+end_example
+Add a line, or =SPC o v s= (asks tag, daily/weekly, description).  On a
+habit in recurring.org, =SPC o v s= turns it into a topic: the habit gets the
+tag and is archived with its history.  The icon is optional; a daily topic
+with one is in the habit month.
+
+*Plan*: daily topics in the evening's daily review, for tomorrow
+(=SPC o v n=); weekly ones in the weekly review (=SPC o v o=).  One question
+per topic; each answer is a TODO in tasks.org with the tag, scheduled,
+category ToImprove.  Empty Enter skips the topic.
+
+*See*: the Topics tables (days, time, done, planned, "Nothing planned") in
+the daily, weekly and monthly reviews; the habit month, calendar and year
+show topics as habits (done when a tagged task was clocked or closed that
+day, skipped when one was cancelled).  Time on anything with the tag counts,
+e.g. the songs in log_guitar.org for guitarpractice -- but they are not
+"planned": only open tasks with a date are.
+
+Tests: =ORG_TEMPLATES=~/org/templates emacs -Q --batch -L lisp -l
+test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=
 
 * Phone
 - Pull the config; the time files come over by Syncthing.

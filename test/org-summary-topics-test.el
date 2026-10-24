@@ -73,13 +73,49 @@ CLOCK: [2026-10-22 Thu 21:00]--[2026-10-22 Thu 21:20] =>  0:20
 ** TOPRACTICE Basanta
 ")
 
+(defconst topics-test--recurring "* Habits
+** TODO [#B] Stretching :Morning:
+SCHEDULED: <2026-10-25 Sun .+1d>
+:PROPERTIES:
+:STYLE:    habit
+:ICON:     nf-md-yoga
+:END:
+:LOGBOOK:
+- State \"DONE\"       from \"TODO\"       [2026-10-22 Thu 07:00]
+:END:
+** TODO [#C] Sketching :personal:
+SCHEDULED: <2026-10-25 Sun .+1d>
+:PROPERTIES:
+:STYLE:    habit
+:END:
+:LOGBOOK:
+- State \"DONE\"       from \"TODO\"       [2026-10-21 Wed 19:00]
+:END:
+")
+
+(defconst topics-test--topics-file "#+title: Topics
+- Daily :: an explanation, not a topic
+
+* Daily
+- essaytime :: Time-boxed essay  nf-md-typewriter
+- dailywriting :: Writing something
+- guitarpractice :: Guitar practice  nf-md-guitar_acoustic
+
+* Weekly
+- mentalmodels :: Mental models
+- booksrevision
+")
+
 (defvar org-tasks-file)
+(defvar org-recurring-file)
 
 (defmacro topics-test--with-org (&rest body)
   "BODY with a fresh tasks.org (and its archive) as the only agenda file."
   (declare (indent 0))
   `(let* ((dir (make-temp-file "topics-test" t))
           (org-tasks-file (expand-file-name "tasks.org" dir))
+          (org-recurring-file (expand-file-name "recurring.org" dir))
+          (org-summary-topics-file (expand-file-name "topics.org" dir))
           (org-agenda-files (list org-tasks-file))
           (org-archive-location (concat dir "/archive.org::datetree/"))
           (org-todo-keywords '((sequence "TODO" "|" "DONE" "CANCELED")
@@ -90,6 +126,7 @@ CLOCK: [2026-10-22 Thu 21:00]--[2026-10-22 Thu 21:20] =>  0:20
           (org-tags-column -77)
           (org-log-done nil))
      (with-temp-file org-tasks-file (insert topics-test--tasks))
+     (with-temp-file org-recurring-file (insert topics-test--recurring))
      (with-temp-file (expand-file-name "archive.org" dir) (insert topics-test--archive))
      (with-temp-file (expand-file-name "log_guitar.org" dir) (insert topics-test--songs))
      (push (expand-file-name "log_guitar.org" dir) org-agenda-files)
@@ -105,6 +142,14 @@ CLOCK: [2026-10-22 Thu 21:00]--[2026-10-22 Thu 21:20] =>  0:20
   (with-temp-buffer
     (org-mode)
     (insert "#+BEGIN: topics " params "\n#+END:\n")
+    (org-update-all-dblocks)
+    (buffer-substring-no-properties (point-min) (point-max))))
+
+(defun topics-test--block-text (header)
+  "Any block written for HEADER (\"NAME PARAMS\"), as text."
+  (with-temp-buffer
+    (org-mode)
+    (insert "#+BEGIN: " header "\n#+END:\n")
     (org-update-all-dblocks)
     (buffer-substring-no-properties (point-min) (point-max))))
 
@@ -265,6 +310,125 @@ other blocks there are left as they were."
                                    (format-time-string "<%Y-%m-%d %a>" tomorrow) "ToImprove")
                              (list "Chord changes G-C-D, 20 min"
                                    (format-time-string "<%Y-%m-%d %a>" tomorrow) "ToImprove"))))))))
+
+;;; The topics file
+
+(defmacro topics-test--with-topics-file (&rest body)
+  "BODY in `topics-test--with-org', with the topics written to their file."
+  (declare (indent 0))
+  `(topics-test--with-org
+     (with-temp-file org-summary-topics-file (insert topics-test--topics-file))
+     ,@body))
+
+(ert-deftest topics-test-file-read ()
+  "Lines under Daily and Weekly, with an optional icon; nothing else."
+  (topics-test--with-topics-file
+    (should (equal (org-summary-topics)
+                   '(("essaytime" "Daily" "Time-boxed essay" "nf-md-typewriter")
+                     ("dailywriting" "Daily" "Writing something" nil)
+                     ("guitarpractice" "Daily" "Guitar practice" "nf-md-guitar_acoustic")
+                     ("mentalmodels" "Weekly" "Mental models" nil)
+                     ("booksrevision" "Weekly" "" nil))))
+    ;; The file's groups win over `org-summary-tag-groups'.
+    (should (equal (org-summary--group "Daily topics")
+                   '("Daily topics" "essaytime" "dailywriting" "guitarpractice")))
+    (should (equal (org-summary--group "Topics") '("Topics" "mentalmodels" "booksrevision")))))
+
+(ert-deftest topics-test-file-plans ()
+  "The planner asks for the file's topics, showing their descriptions."
+  (topics-test--with-topics-file
+    (let ((prompts (topics-test--answering nil (org-summary-plan-tomorrow))))
+      (should (= (length prompts) 3))
+      (should (string-prefix-p "essaytime (Time-boxed essay) — task for" (nth 0 prompts)))
+      (should (string-prefix-p "guitarpractice (Guitar practice) — task for" (nth 2 prompts))))
+    (let ((prompts (topics-test--answering nil (org-summary-plan-topics))))
+      (should (equal (mapcar (lambda (p) (car (split-string p))) prompts)
+                     '("mentalmodels" "booksrevision"))))))
+
+(ert-deftest topics-test-add-topic ()
+  "A new topic goes at the end of its kind's list; a used or bad tag is refused;
+a missing kind's heading is made."
+  (topics-test--with-topics-file
+    (let ((org-tag-alist nil))
+      (org-summary-add-topic "pushups" "Daily" "Push-ups  nf-md-arm_flex")
+      (should (equal (assoc "pushups" (org-summary-topics))
+                     '("pushups" "Daily" "Push-ups" "nf-md-arm_flex")))
+      (should (equal (car (last (org-summary--group "Daily topics"))) "pushups"))
+      (should (string-match-p "- guitarpractice :: Guitar practice  nf-md-guitar_acoustic\n- pushups :: Push-ups  nf-md-arm_flex\n\n\\* Weekly"
+                              (with-temp-buffer (insert-file-contents org-summary-topics-file)
+                                                (buffer-string))))
+      (should (assoc "pushups" org-tag-alist))
+      (should-error (org-summary-add-topic "guitarpractice" "Weekly" "Again") :type 'user-error)
+      (should-error (org-summary-add-topic "two words" "Weekly" "No") :type 'user-error)))
+  (topics-test--with-org
+    (org-summary-add-topic "pushups" "Weekly" "Push-ups")
+    (should (equal (org-summary-topics) '(("pushups" "Weekly" "Push-ups" nil))))))
+
+(ert-deftest topics-test-habit-to-topic ()
+  "On a habit: it gets the tag, is archived with its log, and is a topic."
+  (topics-test--with-topics-file
+    (let ((org-tag-alist nil))
+      (with-current-buffer (find-file-noselect org-recurring-file)
+        (goto-char (point-min))
+        (re-search-forward "Sketching")
+        (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t))
+                  ((symbol-function 'completing-read) (lambda (&rest _) "Daily"))
+                  ((symbol-function 'read-string) (lambda (_p &optional init &rest _) init)))
+          (call-interactively #'org-summary-add-topic)))
+      (should (equal (assoc "sketching" (org-summary-topics))
+                     '("sketching" "Daily" "Sketching" nil)))
+      (let ((recurring (with-temp-buffer (insert-file-contents org-recurring-file) (buffer-string)))
+            (archive (with-temp-buffer
+                       (insert-file-contents (expand-file-name "archive.org"
+                                                               (file-name-directory org-tasks-file)))
+                       (buffer-string))))
+        (should-not (string-match-p "Sketching" recurring))
+        (should (string-match-p "Stretching" recurring))
+        (should (string-match-p "TODO \\[#C\\] Sketching +:sketching:personal:" archive))
+        (should (string-match-p "State \"DONE\" +from \"TODO\" +\\[2026-10-21" archive))))))
+
+;;; Topics in the habit charts
+
+(ert-deftest topics-test-topic-habits ()
+  "Each topic is a habit: done on days its tasks were clocked or closed,
+skipped where one was cancelled; daily or weekly; its icon."
+  (topics-test--with-topics-file
+    (let* ((hs (org-summary-topic-habits))
+           (guitar (seq-find (lambda (h) (equal (plist-get h :tag) "guitarpractice")) hs))
+           (books (seq-find (lambda (h) (equal (plist-get h :tag) "booksrevision")) hs))
+           (day (lambda (iso) (org-summary--parse-iso iso))))
+      (should (equal (mapcar (lambda (h) (plist-get h :title)) hs)
+                     '("Time-boxed essay" "Writing something" "Guitar practice"
+                       "Mental models" "booksrevision")))
+      (should (eq (gethash (funcall day "2026-10-20") (plist-get guitar :log)) 'done))
+      (should (eq (gethash (funcall day "2026-10-22") (plist-get guitar :log)) 'done))
+      (should (= (plist-get guitar :first) (funcall day "2026-10-20")))
+      (should (= (plist-get guitar :every) 1))
+      (should (plist-get guitar :path))
+      (should (eq (gethash (funcall day "2026-10-20") (plist-get books :log)) 'skipped))
+      (should (= (plist-get books :every) 7))
+      ;; Found by description or by tag, as a habit is by its heading.
+      (should (equal (plist-get (org-summary-habit "Guitar practice") :tag) "guitarpractice"))
+      (should (equal (plist-get (org-summary-habit "dailywriting") :title) "Writing something"))
+      (should (equal (plist-get (org-summary-habit "Stretching") :every) 1)))))
+
+(ert-deftest topics-test-habit-charts ()
+  "The habit month shows the icon habits and the daily topics with an icon;
+the active habits and the calendar include the topics."
+  (topics-test--with-topics-file
+    (should (equal (mapcar (lambda (h) (plist-get h :title)) (org-summary-icon-habits))
+                   '("Stretching" "Time-boxed essay" "Guitar practice")))
+    (let ((range (org-summary--month (org-summary--parse-iso "2026-10-01"))))
+      (should (member "Guitar practice"
+                      (mapcar (lambda (h) (plist-get h :title))
+                              (org-summary--active-habits (car range) (cdr range))))))
+    (let ((out (topics-test--block-text
+                "habits-month :month \"2026-10\"")))
+      (should (string-match-p "\\[\\[file:.*daily_habits_2026-10\\.svg\\]\\]" out)))
+    (let ((out (topics-test--block-text
+                "habit-calendar :month \"2026-10\" :habits (\"Guitar practice\")")))
+      (should (string-match-p "Guitar_practice_2026-10\\.svg" out))
+      (should (string-match-p "done 2 of" out)))))
 
 ;;; The real templates (only with ORG_TEMPLATES set)
 

@@ -32,6 +32,7 @@
 
 (require 'org)
 (require 'org-clock)
+(require 'org-archive)
 (require 'org-duration)
 (require 'svg)
 (require 'calendar)
@@ -309,7 +310,8 @@ the entry's heading info."
 ;;; Tag groups
 
 (defun org-summary--group (name)
-  (or (assoc name org-summary-tag-groups)
+  (or (org-summary--topic-group name)
+      (assoc name org-summary-tag-groups)
       (user-error "org-summary: no tag group %s in `org-summary-tag-groups'" name)))
 
 (defun org-summary--in-group (group)
@@ -329,7 +331,13 @@ the entry's heading info."
 
 (defun org-summary-habit (title)
   "TITLE's history: plist of :title, :log (day -> done or skipped), :first, :every.
-Nil when `org-recurring-file' has no such heading."
+TITLE is a heading in `org-recurring-file', or a topic's description or tag
+\(`org-summary-topic-habits'); nil when it is neither."
+  (or (org-summary--recurring-habit title)
+      (seq-find (lambda (h) (member title (list (plist-get h :title) (plist-get h :tag))))
+                (org-summary-topic-habits))))
+
+(defun org-summary--recurring-habit (title)
   (org-summary--in-file org-recurring-file
     (when-let* ((pos (org-find-exact-headline-in-buffer title nil t)))
       (goto-char pos)
@@ -382,13 +390,14 @@ Only a daily habit misses days; a weekly one is judged by its count."
             :rate (if (> expected 0) (min 1.0 (/ (float done) expected)) nil)))))
 
 (defun org-summary--active-habits (start end)
-  "Habits with any logbook entry from 30 days before START to END."
+  "Habits and topics with any entry from 30 days before START to END."
   (seq-filter (lambda (h)
                 (let (hit)
                   (maphash (lambda (d _) (when (<= (- start 30) d end) (setq hit t)))
                            (plist-get h :log))
                   hit))
-              (delq nil (mapcar #'org-summary-habit (org-summary-habits)))))
+              (append (delq nil (mapcar #'org-summary--recurring-habit (org-summary-habits)))
+                      (org-summary-topic-habits))))
 
 ;;; Reviews
 
@@ -1105,6 +1114,127 @@ also reads the weekly reviews."
 ;; topics") -- and this block shows each topic the way a habit would: the
 ;; days it was worked on, the time, what got done and what is planned.
 
+(defvar org-summary-topics-file nil
+  "The topics, a line each under \"* Daily\" or \"* Weekly\":
+  - guitarpractice :: Guitar practice  nf-md-guitar_acoustic
+the icon (a nerd-icons name) optional.  nil means topics.org in
+`org-directory'.  It makes the groups \"Daily topics\" and \"Topics\" (the
+weekly ones) of `org-summary-tag-groups', and the topics are habits in the
+habit charts (`org-summary-topic-habits').")
+
+(defconst org-summary--topic-kinds '(("Daily" . "Daily topics") ("Weekly" . "Topics"))
+  "The topics file's headings, and the group each makes.")
+
+(defun org-summary--topics-file ()
+  (or org-summary-topics-file (expand-file-name "topics.org" org-directory)))
+
+(defun org-summary-topics ()
+  "The topics file's topics, as (TAG KIND DESCRIPTION ICON), KIND \"Daily\"
+or \"Weekly\", ICON nil when the line names none."
+  (let ((file (org-summary--topics-file)) kind out)
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward "^\\(?:\\* +\\(.+?\\)\\|[ \t]*- +\\([^ \t\n:]+\\)\\(?: +:: *\\(.*?\\)\\)?\\)[ \t]*$" nil t)
+          (if (match-string 1)
+              (setq kind (match-string 1))
+            (when (assoc kind org-summary--topic-kinds)
+              (let ((tag (match-string 2)) (about (or (match-string 3) "")) icon)
+                (when (string-match "\\(?:\\`\\|[ \t]+\\)\\(nf-[[:alnum:]_-]+\\)\\'" about)
+                  (setq icon (match-string 1 about)
+                        about (substring about 0 (match-beginning 0))))
+                (push (list tag kind about icon) out)))))))
+    (nreverse out)))
+
+(defun org-summary--topic-group (name)
+  "Group NAME from the topics file, if it is a topics group and the file exists."
+  (when-let* ((kind (car (rassoc name org-summary--topic-kinds)))
+              ((file-exists-p (org-summary--topics-file))))
+    (cons name (delq nil (mapcar (lambda (tp) (and (equal (nth 1 tp) kind) (car tp)))
+                                 (org-summary-topics))))))
+
+(defun org-summary-topic-habits ()
+  "Each topic as a habit, for the habit charts: a day is done when a task
+with its tag was clocked or closed then, skipped when one was cancelled.
+Daily topics are daily habits, weekly ones weekly; :tag is the topic."
+  (when-let* ((topics (org-summary-topics)))
+    (let* ((clocks (org-summary-clocks 0 most-positive-fixnum))
+           (closed (org-summary-closed 0 most-positive-fixnum)))
+      (mapcar
+       (lambda (tp)
+         (let ((log (make-hash-table)) first
+               (tagged (lambda (it) (member (car tp) (plist-get it :tags)))))
+           (dolist (c closed)
+             (when (and (funcall tagged c) (member (plist-get c :todo) '("CANCELED" "CANCELLED"))
+                        (not (gethash (plist-get c :day) log)))
+               (puthash (plist-get c :day) 'skipped log)))
+           (dolist (c (append clocks closed))
+             (when (and (funcall tagged c) (not (member (plist-get c :todo) '("CANCELED" "CANCELLED"))))
+               (puthash (plist-get c :day) 'done log)))
+           (maphash (lambda (d _) (setq first (if first (min first d) d))) log)
+           (list :title (if (org-string-nw-p (nth 2 tp)) (nth 2 tp) (car tp))
+                 :tag (car tp) :log log :first first
+                 :every (if (equal (nth 1 tp) "Weekly") 7 1)
+                 :icon (and (nth 3 tp) (org-summary--icon-glyph (nth 3 tp)))
+                 :path (and (nth 3 tp) (org-summary--icon-path (nth 3 tp))))))
+       topics))))
+
+;;;###autoload
+(defun org-summary-topic-tags ()
+  "Offer the topics' tags when tagging (`org-tag-alist')."
+  (dolist (tp (org-summary-topics))
+    (unless (assoc (car tp) org-tag-alist)
+      (setq org-tag-alist (append org-tag-alist (list (list (car tp))))))))
+
+;;;###autoload
+(defun org-summary-add-topic (tag kind description &optional habit)
+  "Add topic TAG, planned KIND (\"Daily\" or \"Weekly\"), to the topics file.
+Called on a habit, offers to turn it into the topic: the habit gets TAG
+and is archived with its history (HABIT is its marker)."
+  (interactive
+   (let* ((habit (and (derived-mode-p 'org-mode)
+                      (save-excursion
+                        (and (ignore-errors (org-back-to-heading t) t)
+                             (equal (org-entry-get nil "STYLE") "habit")
+                             (y-or-n-p (format "Turn the habit \"%s\" into a topic? "
+                                               (org-summary--title)))
+                             (point-marker)))))
+          (title (if habit (org-with-point-at habit (org-summary--title)) ""))
+          (tag (read-string "Tag, one word (e.g. guitarpractice): "
+                            (downcase (replace-regexp-in-string "[^[:alnum:]]" "" title))))
+          (kind (completing-read "Planned: " '("Daily" "Weekly") nil t))
+          (description (read-string "Description: " title)))
+     (list tag kind description habit)))
+  (unless (string-match-p "\\`[[:alnum:]_@#%]+\\'" tag)
+    (user-error "A tag is one word: letters, digits, _ @ # %%"))
+  (when (assoc tag (org-summary-topics))
+    (user-error "%s is already a topic, in %s" tag (org-summary--topics-file)))
+  (let ((file (org-summary--topics-file)))
+    (with-current-buffer (find-file-noselect file)
+      (org-with-wide-buffer
+       (goto-char (point-min))
+       (unless (re-search-forward (format "^\\* +%s[ \t]*$" kind) nil t)
+         (goto-char (point-max))
+         (unless (bolp) (insert "\n"))
+         (insert "* " kind "\n"))
+       (goto-char (if (re-search-forward "^\\* " nil t) (match-beginning 0) (point-max)))
+       (skip-chars-backward " \t\n")
+       (forward-line)
+       (insert "- " tag " :: " description "\n"))
+      (save-buffer)))
+  (when habit
+    (org-with-point-at habit
+      (let ((archive (car (org-archive--compute-location
+                           (or (org-entry-get nil "ARCHIVE" 'inherit) org-archive-location)))))
+        (org-set-tags (cons tag (org-get-tags nil t)))
+        (org-archive-subtree)
+        (save-buffer)
+        (when-let* ((b (find-buffer-visiting archive)))
+          (with-current-buffer b (save-buffer))))))
+  (org-summary-topic-tags)
+  (message "%s is a %s topic%s" tag (downcase kind) (if habit "; the habit is archived" "")))
+
 (defun org-summary--open-tagged (tag)
   "Titles of the open TODOs tagged TAG in the agenda files that have a date:
 planned, not a backlog (like the songs in a repertoire file tagged TAG)."
@@ -1172,11 +1302,14 @@ The topics blocks here refresh after."
          (date (format-time-string "%Y-%m-%d" time))
          (made 0))
     (dolist (tag (cdr (org-summary--group (or group "Topics"))))
-      (let ((open (org-summary--open-tagged tag)) title)
+      (let ((open (org-summary--open-tagged tag))
+            (about (nth 2 (assoc tag (org-summary-topics))))
+            title)
         (while (not (string-empty-p
                      (setq title (string-trim
                                   (read-string
-                                   (format "%s%s — task for %s (empty: next topic): " tag
+                                   (format "%s%s%s — task for %s (empty: next topic): " tag
+                                           (if (org-string-nw-p about) (format " (%s)" about) "")
                                            (if open (format " [planned: %s]" (string-join open "; ")) "")
                                            (format-time-string "%a %d" time)))))))
           (with-current-buffer (find-file-noselect org-tasks-file)
@@ -1360,15 +1493,19 @@ Rows answered yes every day are left out unless :all is t."
               :style (format "font-family: %s" org-summary--icon-font))))
 
 (defun org-summary-icon-habits ()
-  "The habits given an ICON property, in file order, each with :icon (a glyph).
+  "The habits given an ICON property, in file order, each with :icon (a glyph),
+then the daily topics given an icon in the topics file.
 Giving a habit an icon is what puts it in the daily habit month."
-  (delq nil
-        (mapcar (lambda (ti) (when-let* ((h (org-summary-habit (car ti))))
-                               (plist-put h :path (org-summary--icon-path (cdr ti)))
-                               (plist-put h :icon (org-summary--icon-glyph (cdr ti)))))
-                (org-summary--in-file org-recurring-file
-                  (org-map-entries (lambda () (cons (org-summary--title) (org-entry-get nil "ICON")))
-                                   "ICON<>\"\"")))))
+  (append
+   (delq nil
+         (mapcar (lambda (ti) (when-let* ((h (org-summary--recurring-habit (car ti))))
+                                (plist-put h :path (org-summary--icon-path (cdr ti)))
+                                (plist-put h :icon (org-summary--icon-glyph (cdr ti)))))
+                 (org-summary--in-file org-recurring-file
+                   (org-map-entries (lambda () (cons (org-summary--title) (org-entry-get nil "ICON")))
+                                    "ICON<>\"\""))))
+   (seq-filter (lambda (h) (and (plist-get h :icon) (= 1 (plist-get h :every))))
+               (org-summary-topic-habits))))
 
 ;;;###autoload
 (defun org-summary-set-habit-icon ()
@@ -1750,7 +1887,10 @@ TITLES nil means every habit active then.")
 (defun org-summary--read-habits ()
   "Habits to show: every active one, or the one picked."
   (let ((pick (completing-read "Habit (empty for all active): "
-                               (cons "" (org-summary-habits)) nil t)))
+                               (append '("") (org-summary-habits)
+                                       (mapcar (lambda (h) (plist-get h :title))
+                                               (org-summary-topic-habits)))
+                               nil t)))
     (unless (string-empty-p pick) (list pick))))
 
 ;;;###autoload
