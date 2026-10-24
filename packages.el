@@ -16,6 +16,9 @@
 (package! org-super-agenda)
 (package! org-time-budgets
   :recipe (:host github :repo "dragarok/org-time-budgets" :branch "cl-lib"))
+;; Week calendar over the agenda's timed timestamps, editable by drag or key.
+;; SVG only, so GUI frames -- which includes the phone.
+(package! org-timegrid)
 
 ;; Org-roam UI
 (package! websocket)

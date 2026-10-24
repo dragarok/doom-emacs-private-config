@@ -218,6 +218,40 @@
 (autoload 'day-log-open "day-log" nil t)
 (autoload 'day-log-close-pending "day-log" nil t)
 (autoload 'day-log-written-p "day-log")
+;; The reviews' numbers and charts (was the Python orgsummary), as dynamic
+;; blocks; also loaded on first use, and by the review captures.
+(autoload 'org-summary-dashboard "org-summary" nil t)
+(autoload 'org-summary-habit-calendar "org-summary" nil t)
+(autoload 'org-summary-refresh "org-summary" nil t)
+(with-eval-after-load 'org-capture (require 'org-summary))
+;; C-c C-c on a block whose writer is not loaded yet.
+(with-eval-after-load 'org
+  (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
+                  "habit-calendar" "project-summary" "project-progress"))
+    (autoload (intern (concat "org-dblock-write:" name)) "org-summary")))
+
+;; The week as a calendar over the agenda's timed entries, edited by drag or
+;; key.  Entries made in it go to agenda/calendar.org, inside the agenda
+;; directory, so they sync and show in the agenda like any other.
+(after! org-timegrid-org
+  (setq org-timegrid-org-capture-file (expand-file-name "calendar.org" org-agenda-directory)
+        org-timegrid-org-auto-save t))
+;; Its own single-letter keys (t, e, d, j, g, q) are the interface: keep evil off it.
+(after! org-timegrid
+  (when (fboundp 'evil-set-initial-state)
+    (evil-set-initial-state 'org-timegrid-mode 'emacs)))
+
+(map! :leader
+      :desc "Week calendar (timegrid)" "o c" #'org-timegrid-week
+      (:prefix ("o v" . "review")
+       :desc "Summary dashboard"       "d" #'org-summary-dashboard
+       :desc "Habit calendar"          "h" #'org-summary-habit-calendar
+       :desc "Refresh review blocks"   "r" #'org-summary-refresh
+       :desc "Today's day log"         "t" #'day-log-today
+       :desc "Weekly review"           "w" (cmd! (org-capture nil "rw"))
+       :desc "Last week's review"      "l" (cmd! (org-capture nil "rl"))
+       :desc "Monthly review"          "m" (cmd! (org-capture nil "rm"))
+       :desc "Week calendar"           "c" #'org-timegrid-week))
 
 ;; Core productivity modules (both Mac and Android)
 (require 'org-roam-config)
@@ -1621,12 +1655,12 @@ selected, then the current line."
   (add-hook 'org-open-at-point-functions 'ibizaman/org-babel-goto-tangle-file))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("l" "Link Capture" entry (file (concat org-directory "extra/links.org"))
+                         `("l" "Link Capture" entry (file ,(concat org-directory "extra/links.org"))
                            "* TODO [[%^{link}][%^{description}]]"
                            :immediate-finish t)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("h" "Clip Link Capture" entry (file (concat org-directory "extra/links.org"))
+                         `("h" "Clip Link Capture" entry (file ,(concat org-directory "extra/links.org"))
                            "* TODO %(org-cliplink-capture)"
                            :immediate-finish t)))
 
@@ -1671,7 +1705,7 @@ SCHEDULED: %t
 
 ;; TODO Upgrade this functionality to use a template
 ;; (after! org (add-to-list 'org-capture-templates
-;;                          '("e" "Add an event" entry (file (concat org-agenda-directory "birthdays_and_anniversaries.org"))
+;;                          `("e" "Add an event" entry (file ,(concat org-agenda-directory "birthdays_and_anniversaries.org"))
 ;;                            "* %^{Person}
 ;; \%\%(org-anniversary %^{Date}) %^{Person}'s %^{Event}
 ;; " :immediate-finish t)))
@@ -1700,36 +1734,36 @@ SCHEDULED: %t
 
 (after! org
   (add-to-list 'org-capture-templates
-               '("rw" "Weekly Review" entry
-                 (file+olp+datetree org-weeklyreview-file)
-                 (file (concat org-templates-directory "weeklyreviewtemplate.org")) :jump-to-captured t :tree-type week))
+               `("rw" "Weekly Review" entry
+                 (file+olp+datetree ,org-weeklyreview-file)
+                 (file ,(concat org-templates-directory "weeklyreviewtemplate.org")) :jump-to-captured t :tree-type week))
 
   (add-to-list 'org-capture-templates
-               '("rl" "Last Week Weekly Review" entry
-                 (file+olp+datetree org-weeklyreview-file)
-                 (file (concat org-templates-directory "weeklyreviewtemplate_lastweek.org")) :jump-to-captured t :tree-type week))
+               `("rl" "Last Week Weekly Review" entry
+                 (file+olp+datetree ,org-weeklyreview-file)
+                 (file ,(concat org-templates-directory "weeklyreviewtemplate_lastweek.org")) :jump-to-captured t :tree-type week))
   )
 
 (after! org
   (add-to-list 'org-capture-templates
-               '("rm" "Monthly Review" entry
-                 (file+olp+datetree org-monthlyreview-file)
-                 (file (concat org-templates-directory "monthlyreviewtemplate.org")) :jump-to-captured t :tree-type month)))
+               `("rm" "Monthly Review" entry
+                 (file+olp+datetree ,org-monthlyreview-file)
+                 (file ,(concat org-templates-directory "monthlyreviewtemplate.org")) :jump-to-captured t :tree-type month)))
 
 (after! org
   (add-to-list 'org-capture-templates
-               '("rq" "Quarterly Review" entry
-                 (file+olp+datetree org-quarterlyreview-file)
-                 (file (concat org-templates-directory "quarterlyreviewtemplate.org")) :jump-to-captured t :tree-type quarter)))
+               `("rq" "Quarterly Review" entry
+                 (file+olp+datetree ,org-quarterlyreview-file)
+                 (file ,(concat org-templates-directory "quarterlyreviewtemplate.org")) :jump-to-captured t :tree-type quarter)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("rd" "Daily Review" entry (file+olp+datetree org-dailyreview-file)
-                           (file (concat org-templates-directory "dailyreviewtemplate.org"))
+                         `("rd" "Daily Review" entry (file+olp+datetree ,org-dailyreview-file)
+                           (file ,(concat org-templates-directory "dailyreviewtemplate.org"))
                            :jump-to-captured t)))
 
 (after! org (add-to-list 'org-capture-templates
-                         '("ry" "Daily Review Yesterday" entry (file+olp+datetree org-dailyreview-file)
-                           (file (concat org-templates-directory "dailyreviewtemplate_yesterday.org"))
+                         `("ry" "Daily Review Yesterday" entry (file+olp+datetree ,org-dailyreview-file)
+                           (file ,(concat org-templates-directory "dailyreviewtemplate_yesterday.org"))
                            :jump-to-captured t)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        REVIEW TEMPLATES DONE                                                    ;;
