@@ -310,6 +310,7 @@ the entry's heading info."
 ;;; Tag groups
 
 (defun org-summary--group (name)
+  (org-summary--check-topics-file name)
   (or (org-summary--topic-group name)
       (assoc name org-summary-tag-groups)
       (user-error "org-summary: no tag group %s in `org-summary-tag-groups'" name)))
@@ -1146,6 +1147,14 @@ or \"Weekly\", ICON nil when the line names none."
                         about (substring about 0 (match-beginning 0))))
                 (push (list tag kind about icon) out)))))))
     (nreverse out)))
+
+(defun org-summary--check-topics-file (name)
+  "Say so plainly when NAME is a topics group and the topics file is missing."
+  (when (and (rassoc name org-summary--topic-kinds)
+             (not (file-exists-p (org-summary--topics-file)))
+             (not (assoc name org-summary-tag-groups)))
+    (user-error "No topics file at %s yet: it comes with Syncthing, or SPC o v s adds a first topic"
+                (org-summary--topics-file))))
 
 (defun org-summary--topic-group (name)
   "Group NAME from the topics file, if it is a topics group and the file exists."

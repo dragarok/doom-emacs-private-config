@@ -4,7 +4,9 @@
 1. *Evening, daily review* (=SPC o v t=, or the capture "rd"):
    - *Date every task* (=SPC o v u=): each undated task in tasks, projects
      and inbox -- =d= a date, =b= break it down, =s= someday, =c= cancel
-     (asks why), =x= done, =n= skip.  Ideas are left alone.
+     (asks why), =x= done, =n= skip.  Ideas are left alone, and so are
+     project steps waiting on the one before: finishing that one dates
+     them (their TRIGGER).
    - *Plan for tomorrow* (=SPC o v n=): one specific task per daily topic,
      scheduled tomorrow.  Empty Enter skips a topic.
    - Look at the Daily topics table and the habit month.
@@ -12,8 +14,10 @@
    start something; agents' work records itself.
 3. *Rescheduling* a task the second time asks: break it down instead?
    Yes asks, as in Flow: done when there is what to show, what makes it
-   hard, then steps of one sitting each with a result you can see, each
-   dated.  The task gets the last step's day as its deadline.
+   hard, then steps of one sitting each with a result you can see; then
+   the first step's day and the all-done-by day (the task's deadline).
+   The steps chain like project subtasks: finishing one makes the next
+   NEXT, scheduled the day after -- the dates move with the work.
    =SPC o v b= breaks down any task, any time.
 4. *Weekly review* (=SPC o v w=): plan the week's topics (=SPC o v o=) and
    read the tables.
@@ -92,7 +96,9 @@ test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=, and the
 same with =test/org-flow-test.el= for dating and breaking down.
 
 * Phone
-- Pull the config; the time files come over by Syncthing.
+- Pull the config (code); the org files -- topics.org, the templates,
+  tasks -- come over by Syncthing, so Syncthing must be connected too (its
+  app on the phone, same network or relay).  "No topics file" = not synced.
 - Passive (=SPC o v a=), the clock and the reviews work there.  Agent time is
   recorded on the Mac only (that is where Herdr runs); the phone shows it.
 - Avoid editing tasks.org on both at the same minute (Syncthing conflict copy).

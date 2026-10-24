@@ -15,8 +15,12 @@
 ;;     (Csikszentmihalyi) as in notes/how_to_make_tasks_optimal_for_flow:
 ;;     a clear goal (what is there to show when it is done), the finer
 ;;     analysis of what makes it hard, and feasible sub-goals, each one
-;;     sitting with a visible result -- the feedback -- and each dated.
-;;     The task keeps the goal and gets a deadline, the last step's date.
+;;     sitting with a visible result -- the feedback.  The steps chain as
+;;     project subtasks do (BLOCKER/TRIGGER, org-edna): only the first is
+;;     dated, and finishing one schedules the next, so the dates move with
+;;     the work.  The task keeps the goal and gets an all-done-by deadline.
+;;   - a step blocked by the one before it is not "undated": its date comes
+;;     when that one is done.
 ;;
 ;; Someday, ideas and the archives are left alone: only the main files count.
 
@@ -44,10 +48,13 @@ ideas are not tasks."
                     (bound-and-true-p org-mundane-tasks-file))))
 
 (defun org-flow--undated-p ()
-  "Is the entry at point an open task with no date?  Projects, habits and
-mundane.org's TONOTDO clock buckets are not: a project is dated by its
-steps, a habit by its repeater, and a bucket is only clocked into."
+  "Is the entry at point an open task with no date?  Projects, habits,
+blocked steps and mundane.org's TONOTDO clock buckets are not: a project is
+dated by its steps, a habit by its repeater, a step waiting on the one
+before by that one's TRIGGER when it is done, and a bucket is only clocked
+into."
   (and (org-entry-is-todo-p)
+       (not (org-entry-blocked-p))
        (not (member (org-get-todo-state) '("PROJ" "SOMEDAY" "WAITING" "TONOTDO")))
        (not (equal (org-entry-get nil "STYLE") "habit"))
        (not (org-get-scheduled-time (point)))
@@ -68,52 +75,58 @@ steps, a habit by its repeater, and a bucket is only clocked into."
   (substring-no-properties (org-get-heading t t t t)))
 
 (defun org-flow--date (prompt default)
-  "A day read with PROMPT, DEFAULT (a time) offered; \"YYYY-MM-DD\"."
+  "A day read with PROMPT, DEFAULT (a time, nil for today) offered; \"YYYY-MM-DD\"."
   (format-time-string "%Y-%m-%d" (org-read-date nil t nil prompt default)))
 
 ;;;###autoload
 (defun org-flow-breakdown ()
-  "Break the task at point down into dated steps, the way Flow would:
-a clear goal, what makes it hard, and steps of one sitting each with a
-visible result.  The task gets the goal in its body and a deadline (the
-last step's day) instead of its schedule.  Nothing changes without a step."
+  "Break the task at point down into steps, the way Flow would: a clear
+goal, what makes it hard, and steps of one sitting each with a visible
+result.  The steps are a chain, as project subtasks are: the first is
+scheduled, each one done schedules the next for the day after (TRIGGER),
+and none can be done before the one above it (BLOCKER).  The task keeps
+the goal in its body and gets a deadline, the day it is all done by.
+Nothing changes without a step."
   (interactive)
   (org-back-to-heading t)
   (let* ((title (org-flow--title))
          (goal (string-trim (read-string (format "\"%s\" is done when there is (to show): " title))))
          (hard (string-trim (read-string "What makes it hard (empty: nothing in particular): ")))
-         (day (current-time))
-         steps)
-    (cl-loop for n from 1
-             for step = (string-trim
-                         (read-string
-                          (format "Step %d — one sitting, with a result you can see (empty: done): " n)))
-             until (string-empty-p step)
-             do (let ((date (org-flow--date (format "\"%s\" on: " step) day)))
-                  (setq day (time-add (org-time-string-to-time date) (* 24 3600)))
-                  (push (cons step date) steps)))
-    (setq steps (nreverse steps))
+         (steps (cl-loop for n from 1
+                         for step = (string-trim
+                                     (read-string
+                                      (format "Step %d — one sitting, with a result you can see (empty: done): " n)))
+                         until (string-empty-p step)
+                         collect step)))
     (unless steps (user-error "No steps: %s is as it was" title))
-    (let ((org-log-reschedule nil) (org-log-redeadline nil))
-      (org-schedule '(4))
-      (org-deadline nil (cdar (last steps))))
-    (save-excursion
-      (org-end-of-meta-data t)
-      (insert (if (string-empty-p goal) "" (format "Done when: %s\n" goal))
-              (if (string-empty-p hard) "" (format "Hard part: %s\n" hard))))
-    (let ((level (1+ (org-outline-level))))
+    (let* ((first (org-flow--date (format "\"%s\" on: " (car steps)) nil))
+           (by (org-flow--date "All done by: "
+                               (time-add (org-time-string-to-time first)
+                                         (* 24 3600 (1- (length steps)))))))
+      (let ((org-log-reschedule nil) (org-log-redeadline nil))
+        (org-schedule '(4))
+        (org-deadline nil by))
       (save-excursion
-        (org-end-of-subtree t t)
-        (unless (bolp) (insert "\n"))
-        (dolist (s steps)
-          (insert (make-string level ?*) " TODO " (car s) "\n")
-          (forward-line -1)
-          (org-schedule nil (cdr s))
-          (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
-          (org-end-of-subtree t t))))
-    (save-buffer)
-    (message "%s: %d step%s, the last on %s" title (length steps)
-             (if (cdr steps) "s" "") (cdar (last steps)))))
+        (org-end-of-meta-data t)
+        (insert (if (string-empty-p goal) "" (format "Done when: %s\n" goal))
+                (if (string-empty-p hard) "" (format "Hard part: %s\n" hard))))
+      (let ((level (1+ (org-outline-level))) (n 0))
+        (save-excursion
+          (org-end-of-subtree t t)
+          (unless (bolp) (insert "\n"))
+          (dolist (step steps)
+            (cl-incf n)
+            (insert (make-string level ?*) " TODO " step "\n")
+            (forward-line -1)
+            (when (= n 1) (org-schedule nil first))
+            (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
+            (when (> n 1) (org-entry-put nil "BLOCKER" "previous-sibling"))
+            (when (< n (length steps))
+              (org-entry-put nil "TRIGGER" "next-sibling scheduled!(\"++1d\") todo!(NEXT)"))
+            (org-end-of-subtree t t))))
+      (save-buffer)
+      (message "%s: %d step%s, the first on %s, all done by %s" title (length steps)
+               (if (cdr steps) "s" "") first by))))
 
 (defun org-flow--reschedules ()
   "How many times the entry at point has been rescheduled, by its log."
@@ -153,7 +166,9 @@ many tasks is one command, so the note is asked for here instead."
   ;; Org writes the state's log line after the command; it is only a time
   ;; now, so write it here.
   (when (memq 'org-add-log-note post-command-hook)
-    (org-add-log-note))
+    (if (marker-buffer org-log-note-marker)
+        (org-add-log-note)
+      (remove-hook 'post-command-hook #'org-add-log-note)))
   (when (org-string-nw-p note)
     (save-excursion
       (org-back-to-heading t)

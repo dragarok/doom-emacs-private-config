@@ -1,6 +1,8 @@
 ;;; org-flow-test.el --- Every task dated; broken down when it stalls -*- lexical-binding: t -*-
 
 ;; Run: emacs -Q --batch -L lisp -l test/org-flow-test.el -f ert-run-tests-batch-and-exit
+;; (add -L ~/.config/emacs/.local/straight/build-31.1/org-edna to check the
+;; breakdown's chain blocks as configured)
 ;; Everything happens in a temporary directory; ~/org is never touched.
 
 (require 'ert)
@@ -23,6 +25,13 @@ DEADLINE: <2026-10-30 Fri>
 ** NEXT Undated step
 ** TODO Dated step
 SCHEDULED: <2026-10-26 Mon>
+* PROJ An ordered project
+:PROPERTIES:
+:ORDERED:  t
+:END:
+** TODO First, dated
+SCHEDULED: <2026-10-25 Sun>
+** TODO Second, waits on the first
 * TODO A habit
 :PROPERTIES:
 :STYLE:    habit
@@ -53,7 +62,10 @@ SCHEDULED: <2026-10-20 Tue>
                                (sequence "PROJ(p)" "|" "CANCELED(c@/!)")))
           (org-log-done 'time)
           (org-log-reschedule nil)
-          (org-log-into-drawer t))
+          (org-log-into-drawer t)
+          (org-enforce-todo-dependencies t)
+          (org-blocker-hook (cons #'org-block-todo-from-children-or-siblings-or-parent
+                                  org-blocker-hook)))
      (with-temp-file org-tasks-file (insert flow-test--tasks))
      (with-temp-file org-inbox-file (insert "* TODO Captured on the go\n"))
      (with-temp-file org-mundane-tasks-file
@@ -94,7 +106,8 @@ SCHEDULED: <2026-10-20 Tue>
 
 (ert-deftest flow-test-undated ()
   "Open tasks without a date, in the main files only (not ideas.org); not
-projects, habits, mundane's clock buckets, done tasks, or plain headings."
+projects, habits, steps blocked by the one before, mundane's clock buckets,
+done tasks, or plain headings."
   (flow-test--with-org
     (should (equal (flow-test--titles (org-flow-undated))
                    '("Undated task" "Undated step" "Captured on the go")))))
@@ -102,24 +115,52 @@ projects, habits, mundane's clock buckets, done tasks, or plain headings."
 ;;; Breaking down
 
 (ert-deftest flow-test-breakdown ()
-  "Goal and hard part in the body; a dated child per step; the task's
-schedule becomes a deadline on the last step's day."
+  "Goal and hard part in the body; the steps a chain (the first scheduled,
+each one done schedules the next, none before the one above); the task's
+schedule becomes the all-done-by deadline."
   (flow-test--with-org
     (flow-test--goto "Stalled task")
     (flow-test--answering '("A 2-page draft in essays/" "Don't know the argument yet"
-                            "List 5 claims, 25 min" "Outline from the best claim" "")
-        '("2026-10-25" "2026-10-27")
+                            "List 5 claims, 25 min" "Outline from the best claim" "Write it" "")
+        '("2026-10-25" "2026-10-31")
       (org-flow-breakdown))
     (let ((text (flow-test--text org-tasks-file)))
-      (should (string-match-p (concat "^\\* TODO Stalled task\nDEADLINE: <2026-10-27 Tue>\n"
+      (should (string-match-p (concat "^\\* TODO Stalled task\nDEADLINE: <2026-10-31 Sat>\n"
                                       "\\(?:.*\n\\)*?Done when: A 2-page draft in essays/\n"
                                       "Hard part: Don't know the argument yet\n")
                               text))
       (should-not (string-match-p "Stalled task\nSCHEDULED" text))
       (should (string-match-p "^\\*\\* TODO List 5 claims, 25 min\nSCHEDULED: <2026-10-25 Sun>" text))
-      (should (string-match-p "^\\*\\* TODO Outline from the best claim\nSCHEDULED: <2026-10-27 Tue>" text))
+      (should (string-match-p "^\\*\\* TODO Outline from the best claim\n:PROPERTIES:" text))
       ;; The next top-level task is untouched, after the steps.
-      (should (string-match-p "Outline from the best claim\n\\(?:.*\n\\)*?\\* TODO Fresh task" text)))))
+      (should (string-match-p "Write it\n\\(?:.*\n\\)*?\\* TODO Fresh task" text)))
+    (with-current-buffer (find-file-noselect org-tasks-file)
+      (let ((chain (org-map-entries (lambda () (list (org-get-heading t t t t)
+                                                     (org-entry-get nil "BLOCKER")
+                                                     (org-entry-get nil "TRIGGER")))
+                                    "LEVEL=2+CREATED<>\"\"")))
+        (should (equal chain
+                       '(("List 5 claims, 25 min" nil "next-sibling scheduled!(\"++1d\") todo!(NEXT)")
+                         ("Outline from the best claim" "previous-sibling" "next-sibling scheduled!(\"++1d\") todo!(NEXT)")
+                         ("Write it" "previous-sibling" nil))))))
+    ;; With org-edna (as configured), the later steps wait on the first:
+    ;; not undated.  Run with -L pointing at org-edna to check it.
+    (when (require 'org-edna nil t)
+      (org-edna-mode 1)
+      (unwind-protect
+          (let ((undated (flow-test--titles (org-flow-undated))))
+            (should (member "Undated task" undated))
+            (should-not (member "Outline from the best claim" undated))
+            (should-not (member "Write it" undated))
+            ;; Done with the first step: the second is NEXT, the day after.
+            (flow-test--goto "List 5 claims, 25 min")
+            (org-todo "DONE")
+            (when (memq 'org-add-log-note post-command-hook) (org-add-log-note))
+            (flow-test--goto "Outline from the best claim")
+            (should (equal (org-get-todo-state) "NEXT"))
+            (should (equal (org-entry-get nil "SCHEDULED")
+                           (format-time-string "<%Y-%m-%d %a>" (time-add nil (* 24 3600))))))
+        (org-edna-mode -1)))))
 
 (ert-deftest flow-test-breakdown-no-steps ()
   "Without a step nothing changes."
@@ -151,7 +192,7 @@ or a no: just rescheduled.  Not asked when called from code."
             (should (= asked 0))
             ;; By hand, the second time: asked, and broken down.
             (flow-test--goto "Stalled task")
-            (flow-test--answering '("Shipped" "" "First step" "") '("2026-10-26")
+            (flow-test--answering '("Shipped" "" "First step" "") '("2026-10-26" "2026-10-26")
               (let ((this-command 'org-schedule)) (org-schedule nil)))
             (should (= asked 1))
             (should (string-match-p "^\\*\\* TODO First step\nSCHEDULED: <2026-10-26 Mon>"

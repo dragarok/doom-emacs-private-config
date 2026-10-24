@@ -387,6 +387,14 @@ a missing kind's heading is made."
         (should (string-match-p "TODO \\[#C\\] Sketching +:sketching:personal:" archive))
         (should (string-match-p "State \"DONE\" +from \"TODO\" +\\[2026-10-21" archive))))))
 
+(ert-deftest topics-test-no-file ()
+  "Without the topics file, a plain message saying so."
+  (topics-test--with-org
+    (let ((org-summary-tag-groups nil))
+      (should (string-match-p "No topics file at .*topics\\.org yet"
+                              (cadr (should-error (org-summary--group "Daily topics")
+                                                  :type 'user-error)))))))
+
 ;;; Topics in the habit charts
 
 (ert-deftest topics-test-topic-habits ()
