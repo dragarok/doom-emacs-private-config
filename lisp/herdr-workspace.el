@@ -77,6 +77,26 @@
   (let ((herdr--buffer-name (herdr-workspace--tui-buffer-name)))
     (apply orig args)))
 
+;; Opening Herdr is not the only way a frame comes to show it: a new
+;; `emacsclient -t' frame restores the herdr workspace's saved layout,
+;; which holds the Mac's *herdr*.  So any window showing the other kind of
+;; frame's TUI gets this frame's own, started on the spot if need be.
+(defun herdr-workspace--swap-foreign-tui (frame)
+  "In FRAME, replace a Herdr TUI buffer that belongs to the other frame kind."
+  (let* ((own (with-selected-frame frame (herdr-workspace--tui-buffer-name)))
+         (foreign (if (equal own "*herdr*") "*herdr:tty*" "*herdr*")))
+    (dolist (win (window-list frame 'nomini))
+      (when (equal (buffer-name (window-buffer win)) foreign)
+        (let ((buf (get-buffer own)))
+          (if (and buf (process-live-p (buffer-local-value 'ghostel--process buf)))
+              (set-window-buffer win buf)
+            (with-selected-frame frame
+              (with-selected-window win
+                (let ((herdr--buffer-name own))
+                  (herdr--create-buffer))))))))))
+
+(add-hook 'window-buffer-change-functions #'herdr-workspace--swap-foreign-tui)
+
 (advice-add 'herdr-hide :around #'herdr-workspace--per-frame)
 (advice-add 'herdr-toggle :around #'herdr-workspace--per-frame)
 
