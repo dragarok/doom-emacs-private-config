@@ -224,10 +224,30 @@
 (autoload 'org-summary-habit-calendar "org-summary" nil t)
 (autoload 'org-summary-refresh "org-summary" nil t)
 (with-eval-after-load 'org-capture (require 'org-summary))
+;; What ~/.config/orgsummary/*.yaml used to say.  File paths are the org-*-file
+;; variables above; done states are Org's own (`org-done-keywords').
+(setq org-summary-count-score '((?A . 500) (?B . 150) (?C . 100) (?D . 60) (?E . 30) (?F . 0))
+      org-summary-clock-score '((?A . 8) (?B . 6) (?C . 4) (?D . 4) (?E . 2) (?F . 1))
+      org-summary-tag-groups
+      '(("Deep work"   "deepwork")
+        ("Energy"      "Lazy" "ModeratelyLazy" "Energetic")
+        ("Time of day" "Morning" "Day" "Evening")
+        ("Difficulty"  "Challenge" "Average" "Easy")
+        ("Action"      "Active" "Passive")
+        ("Work"        "personal" "work")
+        ("Kind"        "plan" "meeting" "code" "practice" "plain")
+        ("Project"     "proj" "project")
+        ("EHP"         "ehp")
+        ("Special"     "deepwork" "ritual" "meditation" "review" "book")
+        ("Entertainment" "music" "movie")
+        ("File"        "someday" "refile" "inbox"))
+      org-summary-summary-groups '("Difficulty" "Energy" "Time of day" "Deep work"))
+(autoload 'org-summary-habit-year "org-summary" nil t)
+(autoload 'org-summary-plots "org-summary" nil t)
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
-                  "habit-calendar" "project-summary" "project-progress"))
+                  "habit-calendar" "habit-year" "project-summary" "project-progress"))
     (autoload (intern (concat "org-dblock-write:" name)) "org-summary")))
 
 ;; The week as a calendar over the agenda's timed entries, edited by drag or
@@ -245,7 +265,9 @@
       :desc "Week calendar (timegrid)" "o c" #'org-timegrid-week
       (:prefix ("o v" . "review")
        :desc "Summary dashboard"       "d" #'org-summary-dashboard
-       :desc "Habit calendar"          "h" #'org-summary-habit-calendar
+       :desc "Habits this month"       "h" #'org-summary-habit-calendar
+       :desc "Habits this year"        "y" #'org-summary-habit-year
+       :desc "Charts folder"           "p" #'org-summary-plots
        :desc "Refresh review blocks"   "r" #'org-summary-refresh
        :desc "Today's day log"         "t" #'day-log-today
        :desc "Weekly review"           "w" (cmd! (org-capture nil "rw"))
