@@ -247,7 +247,7 @@
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
-                  "habit-calendar" "habit-year" "habits-month" "project-summary" "project-progress"))
+                  "habit-calendar" "habit-year" "habits-month" "review-answers" "project-summary" "project-progress"))
     (autoload (intern (concat "org-dblock-write:" name)) "org-summary")))
 
 ;; The week as a calendar over the agenda's timed entries, edited by drag or

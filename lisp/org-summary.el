@@ -710,6 +710,107 @@ SERIES is ((NAME . ((DAY . VALUE) ...)) ...)."
               "\n"))
     (org-summary--end-block)))
 
+;; The review questions, answered.  A weekly or monthly review used to end
+;; in a list of questions to fill by hand from the daily reviews; every one
+;; of them is a count or an average of something already written down.
+
+(defun org-summary--numbers (days key-re)
+  "The numeric answers to questions matching KEY-RE in DAYS, as (DAY . N)."
+  (delq nil (mapcar (lambda (d)
+                      (when-let* ((qa (seq-find (lambda (qa) (and (stringp (cdr qa))
+                                                                   (string-match-p key-re (car qa))))
+                                                (cdr d)))
+                                  (n (org-summary--number (cdr qa))))
+                        (cons (car d) n)))
+                    days)))
+
+(defun org-summary--not-done (days)
+  "Checklist items and TODOs of DAYS left undone, most often first, as text."
+  (let ((h (make-hash-table :test 'equal)) out)
+    (dolist (d days)
+      (dolist (qa (cdr d))
+        (when (memq (cdr qa) '(t :no))
+          (let ((c (gethash (car qa) h (cons 0 0))))
+            (puthash (car qa) (cons (+ (car c) (if (eq (cdr qa) :no) 1 0)) (1+ (cdr c))) h)))))
+    (maphash (lambda (k c) (when (> (car c) 0) (push (cons k c) out))) h)
+    (mapconcat (lambda (x) (format "%s (%d of %d)" (car x) (cadr x) (cddr x)))
+               (seq-take (sort out (lambda (a b) (> (cadr a) (cadr b)))) 4)
+               " · ")))
+
+(defun org-dblock-write:review-answers (params)
+  "Answer a weekly or monthly review's questions for :span (default this week)
+from the clock, the closed tasks, the habits and the daily reviews; a month
+also reads the weekly reviews."
+  (let* ((range (org-summary--range params "thisweek"))
+         (month (> (- (cdr range) (car range)) 7))
+         (period (if month "month" "week"))
+         (clocks (org-summary-clocks (car range) (cdr range)))
+         (top (car (org-summary--sum clocks (lambda (c) (plist-get c :title)))))
+         (closed (seq-remove (lambda (c) (member (plist-get c :todo) '("CANCELED" "CANCELLED")))
+                             (org-summary-closed (car range) (cdr range))))
+         (hard (seq-filter (lambda (c) (or (memq (plist-get c :priority) '(?A ?B))
+                                           (member "Challenge" (plist-get c :tags))))
+                           closed))
+         (days (org-summary-reviews org-dailyreview-file (car range) (cdr range)))
+         (energy (org-summary--numbers days "\\`Energy"))
+         (quality (org-summary--numbers days "\\`Quality"))
+         (avg (lambda (ns) (and ns (/ (apply #'+ (mapcar #'cdr ns)) (float (length ns))))))
+         (best (lambda (ns) (car (seq-sort-by #'cdr #'> ns))))
+         (habits (delq nil (mapcar (lambda (h)
+                                     (let ((st (org-summary--habit-stats h (car range) (cdr range))))
+                                       (and (plist-get st :rate) (cons (plist-get h :title) st))))
+                                   (org-summary--active-habits (car range) (cdr range)))))
+         (habits (seq-sort-by (lambda (h) (plist-get (cdr h) :rate)) #'> habits))
+         (habit (lambda (h) (and h (format "%s (%d of %d)" (car h) (plist-get (cdr h) :done)
+                                           (plist-get (cdr h) :expected)))))
+         (none "–")
+         (line (lambda (q a) (insert (format "- %s :: %s\n" q (or a none))))))
+    (funcall line (format "Top task of the %s" period)
+             (and top (format "%s (%s)" (car top) (org-summary--dur (cdr top)))))
+    (funcall line "Total logged in time"
+             (let ((n (length (delete-dups (mapcar (lambda (c) (plist-get c :day)) clocks)))))
+               (format "%s over %d day%s"
+                       (org-summary--dur (apply #'+ (mapcar (lambda (c) (plist-get c :minutes)) clocks)))
+                       n (if (= n 1) "" "s"))))
+    (funcall line (format "Number of challenging tasks done in the %s" period)
+             (format "%d of %d closed (A/B priority or :Challenge:)" (length hard) (length closed)))
+    (funcall line "Most energetic day"
+             (when-let* ((b (funcall best energy)))
+               (format "%s (%s)" (org-summary--fmt (car b) "%a %d %b") (cdr b))))
+    (when month
+      (let ((weeks (seq-group-by (lambda (e) (org-summary--fmt (car e) "%V")) energy)))
+        (funcall line "Most energetic week"
+                 (when-let* ((w (car (seq-sort-by (lambda (w) (funcall avg (cdr w))) #'> weeks))))
+                   (format "Week %s (avg %.1f)" (car w) (funcall avg (cdr w)))))))
+    (funcall line (format "Average energy through the %s" period)
+             (when-let* ((a (funcall avg energy)))
+               (format "%.1f over %d days" a (length energy))))
+    (funcall line "Number of good days"
+             (and quality (format "%d (quality 6 or more)" (seq-count (lambda (q) (>= (cdr q) 6)) quality))))
+    (funcall line "Number of normal days"
+             (and quality (format "%d (quality 4–5)" (seq-count (lambda (q) (<= 4 (cdr q) 5.9)) quality))))
+    (funcall line "Number of bad days"
+             (and quality (format "%d (quality under 4)" (seq-count (lambda (q) (< (cdr q) 4)) quality))))
+    (funcall line "Days reviewed"
+             (format "%d of %d" (length days) (1+ (- (min (cdr range) (org-today)) (car range)))))
+    (funcall line "Task not done in daily review"
+             (let ((s (org-summary--not-done days))) (and (not (string-empty-p s)) s)))
+    (when month
+      (let ((weekly (org-summary-reviews org-weeklyreview-file (car range) (cdr range))))
+        (funcall line "Task not done in weekly review"
+                 (let ((s (org-summary--not-done weekly))) (and (not (string-empty-p s)) s)))
+        (funcall line "Mistakes noted in weekly reviews"
+                 (let ((ms (delq nil (mapcar (lambda (d) (alist-get "Mistake" (cdr d) nil nil #'equal))
+                                             weekly))))
+                   (and ms (string-join ms " · "))))))
+    (funcall line (format "Most consistent habit of the %s" period) (funcall habit (car habits)))
+    (funcall line (format "Most inconsistent habit of the %s" period)
+             (and (cdr habits) (funcall habit (car (last habits)))))
+    (funcall line (format "Overall %sly rating" period)
+             (when-let* ((a (funcall avg quality)))
+               (format "%.1f / 10 (average quality of day)" a)))
+    (org-summary--end-block)))
+
 (defun org-dblock-write:clock-score (params)
   "The tasks clocked over :span (default today), scored by priority."
   (let* ((range (org-summary--range params "today"))
