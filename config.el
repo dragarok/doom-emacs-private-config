@@ -379,6 +379,61 @@
          :desc "Expand → project workspace"    "e" #'claude-workspace-expand-to-project
          :desc "Collapse → master-claude"      "m" #'claude-workspace-collapse
          :desc "Expand session ↓ into empty slot" "z" #'claude-workspace-expand-down)))
+
+;; Herdr: the agents run in the Herdr server (so they outlive Emacs and are
+;; the same ones the terminal client shows); Emacs gets a "herdr" workspace
+;; with the TUI full-frame and the claude-workspace verbs around it.  SPC j
+;; reuses SPC y's letters where the verb is the same.  Mac only, like the grid.
+(unless IS-ANDROID
+  (require 'herdr-workspace)
+  ;; setopt, not setq: the key is bound by the defcustom's :set.
+  (setopt herdr-menu-key "C-9"            ; herdr-menu, also from inside the TUI
+          herdr-menu-repeat-command #'herdr-agents)
+  (herdr-mode 1)                          ; poll, ● N blocked, notifications
+  (map! :leader
+        (:prefix ("j" . "herdr")
+         :desc "Herdr workspace"                "j" #'herdr-workspace-open
+         :desc "Close Herdr (agents keep running)" "q" #'herdr-workspace-close
+         :desc "Herdr menu"                     "SPC" #'herdr-workspace-transient
+         :desc "New agent for this project"     "a" #'herdr-new-agent
+         :desc "Add project (C-u: shell only)"  "n" #'herdr-workspace-add-project
+         :desc "Switch project"                 "p" #'herdr-workspace-switch-project
+         :desc "New terminal (C-u: split)"      "t" #'herdr-workspace-new-terminal
+         :desc "Close project"                  "k" #'herdr-workspace-close-project
+         :desc "Close tab"                      "K" #'herdr-workspace-close-tab
+         :desc "Switch agent"                   "x" #'herdr-switch-agent
+         :desc "Jump to blocked agent"          "u" #'herdr-goto-blocked
+         :desc "Agent list"                     "l" #'herdr-agents
+         :desc "Attach agent in a buffer"       "b" #'herdr-attach-agent
+         :desc "Send region/line to agent"      "r" #'herdr-send-region
+         :desc "Send region/line & submit"      "R" #'herdr-submit-region
+         :desc "Paste clipboard into agent"     "v" #'herdr-workspace-send-clipboard
+         :desc "Send ESC to agent"              "i" #'herdr-workspace-send-escape
+         :desc "Magit (agent's project)"        "g" #'herdr-workspace-magit
+         :desc "Dired (agent's project)"        "d" #'herdr-workspace-dired
+         :desc "Expand → project workspace"     "e" #'herdr-workspace-expand-to-project
+         :desc "Collapse → herdr workspace"     "m" #'herdr-workspace-collapse))
+  ;; The same verbs one chord away: C-s-<Capital>, clear of the lowercase
+  ;; C-s- keys (rts-flow, kairoam ...).  Global, so they also work from
+  ;; inside the Herdr TUI.
+  (define-key global-map (kbd "C-s-D") #'herdr)                            ; D = Dock into Herdr
+  (define-key global-map (kbd "C-s-J") #'herdr-workspace-transient)        ; J = the SPC j menu
+  (define-key global-map (kbd "C-s-N") #'herdr-workspace-add-project)      ; N = New project
+  (define-key global-map (kbd "C-s-P") #'herdr-workspace-switch-project)   ; P = Project switch
+  (define-key global-map (kbd "C-s-K") #'herdr-workspace-close-project)    ; K = Kill project
+  (define-key global-map (kbd "C-s-A") #'herdr-new-agent)                  ; A = Agent for this project
+  (define-key global-map (kbd "C-s-T") #'herdr-workspace-new-terminal)     ; T = Terminal, no agent
+  (define-key global-map (kbd "C-s-W") #'herdr-workspace-close-tab)        ; W = close Window/tab
+  (define-key global-map (kbd "C-s-X") #'herdr-switch-agent)               ; X = eXchange agent
+  (define-key global-map (kbd "C-s-U") #'herdr-goto-blocked)               ; U = Urgent/blocked
+  (define-key global-map (kbd "C-s-L") #'herdr-agents)                     ; L = agent List
+  (define-key global-map (kbd "C-s-V") #'herdr-workspace-send-clipboard)   ; V = paste clipboard
+  (define-key global-map (kbd "C-s-R") #'herdr-send-region)                ; R = send Region/line
+  (define-key global-map (kbd "C-s-I") #'herdr-workspace-send-escape)      ; I = Interrupt (ESC)
+  (define-key global-map (kbd "C-s-G") #'herdr-workspace-magit)            ; G = Git (magit)
+  (define-key global-map (kbd "C-s-E") #'herdr-workspace-expand-to-project) ; E = Expand → project
+  (define-key global-map (kbd "C-s-M") #'herdr-workspace-collapse)         ; M = back to Main herdr
+  (define-key global-map (kbd "C-s-Q") #'herdr-workspace-close))           ; Q = Quit (agents keep running)
 (when IS-ANDROID   ; on the phone, these reach OUT to the machines doing the work
   ;; Each machine is its own destination, not a mode you switch into: mac and
   ;; kai keep separate connections/workspaces, so you hop between them (and
@@ -1210,7 +1265,7 @@ selected, then the current line."
 (bind-key "C-M-s-x" 'consult-buffer)
 (bind-key "C-M-s-a" 'open-bookmark)
 (bind-key "C-s-'" 'open-random-bookmark)  ; Changed from C-s-a (now used for rts-flow-add)
-(bind-key "C-s-d" 'today)  ; Changed from C-s-u (D = Day/today)
+(bind-key "C-s-d" 'today)  ; Changed from C-s-u (D = Day/today) 
 (bind-key "C-s-w" '+workspace/display)
 (bind-key "C-s-{" '+workspace/switch-left)
 (bind-key "C-s-}" '+workspace/switch-right)

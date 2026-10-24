@@ -57,6 +57,12 @@
 ;; phone drop the package that `claude-remote' hard-requires.
 (package! ghostel)
 (package! evil-ghostel)
+;; Herdr (herdr.dev) keeps the agents; this runs its TUI in a ghostel buffer
+;; and adds the picker / blocked count / send-region around it.  Mac only:
+;; the phone reaches the Mac's Emacs through claude-remote instead.
+(package! herdr
+  :recipe (:host github :repo "baongoc124/emacs-herdr")
+  :disable IS-ANDROID)
 ;; ============================================================
 ;; MAC-ONLY PACKAGES
 ;; ============================================================
