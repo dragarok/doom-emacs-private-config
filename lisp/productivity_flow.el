@@ -915,6 +915,18 @@ whether it's a clocked task, added time, or a beancount transaction."
 ;;; Clock Out - Smart Completion
 ;;; ===================================================================
 
+(defun rts-flow--read-clock-out ()
+  "Ask once how the clocked task ended: not done, done, done with focus,
+or done as deep work.  In this order, not sorted."
+  (let ((choices '("not done" "done" "done, focus" "done, deep work")))
+    (completing-read "Clock out: "
+                     (lambda (string pred action)
+                       (if (eq action 'metadata)
+                           '(metadata (display-sort-function . identity)
+                                      (cycle-sort-function . identity))
+                         (complete-with-action action choices string pred)))
+                     nil t nil nil "not done")))
+
 (defun rts-flow-clock-out ()
   "Clock out with smart behavior based on file type.
 
@@ -922,9 +934,8 @@ For habits in recurring.org:
   - Automatically marks as DONE
   - No prompts at all
 
-For tasks in other files:
-  - Asks whether to mark done (default: no)
-  - Asks for work mode tag: normal, focus, or deepwork"
+For tasks in other files, one question: not done, done, done with
+focus, or done as deep work (the last two tag it :focus: / :deepwork:)."
   (interactive)
   (if (not (org-clocking-p))
       (message "No active clock to clock out")
@@ -948,12 +959,13 @@ For tasks in other files:
             (org-save-all-org-buffers)
             (message "Habit completed and marked DONE"))
 
-        ;; Non-habit: ask about done and work mode
-        (let ((mark-done (y-or-n-p "Mark as DONE? "))
-              (work-mode (completing-read
-                          "Work mode (default: normal): "
-                          '("normal" "focus" "deepwork")
-                          nil t nil nil "normal")))
+        ;; Non-habit: one question, done and how it went
+        (let* ((answer (rts-flow--read-clock-out))
+               (mark-done (not (equal answer "not done")))
+               (work-mode (pcase answer
+                            ("done, focus" "focus")
+                            ("done, deep work" "deepwork")
+                            (_ "normal"))))
 
           ;; Clock out first
           (org-clock-out)

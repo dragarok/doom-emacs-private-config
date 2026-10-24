@@ -4,14 +4,9 @@
 ;; Minimal, focused toolbar for the River Flow productivity system.
 ;; Icon sizes are device-dependent: POCO uses 64x64, ONYX uses 80x80.
 ;;
-;; Core Flow Commands:
-;;   rts-flow          - Pick new task (context/energy aware)
-;;   rts-flow-continue - Resume last task
-;;   rts-flow-cancel   - Undo last selection
-;;   rts-flow-manual   - Consult clock-in to any task
-;;   rts-flow-clock-out - Smart clock out (auto-DONE for habits)
-;;   rts-flow-add      - Add task/beancount/clock time
-;;   rts-flow-set-state - Set context AND energy in one go
+;; The clock is not here: the floating clock and the homepage have it.
+;;   micro-experiments-pick - one 5-minute task
+;;   rts-flow-add           - Add task/beancount/clock time
 ;;
 ;; Requires: productivity_flow.el, kairoam.el
 
@@ -64,52 +59,10 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/blog-blogger-blogging-svgrepo-com.svg"
       ;;                   :height ,icon-size :width ,icon-size)))
 
-      ;; ===================================================================
-      ;; CORE FLOW COMMANDS - The essentials
-      ;; ===================================================================
-
-      ;; (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-1>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<rts-flow>"
-        `(menu-item "FLOW" rts-flow
-          :help "Pick new task (context/energy aware)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/flow-chart-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-continue>"
-        `(menu-item "Continue" rts-flow-continue
-          :help "Continue last task"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/debug-continue-small-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-cancel>"
-        `(menu-item "Cancel" rts-flow-cancel
-          :help "Cancel last selection (undo status, discard clock)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/cancel-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      ;; ===================================================================
-      ;; CLOCK OPERATIONS
-      ;; ===================================================================
-
-      (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-manual>"
-        `(menu-item "Manual Clock" rts-flow-manual
-          :help "Clock into any task via search"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/time-add-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-flow-2>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-clock-out>"
-        `(menu-item "Clock Out" rts-flow-clock-out
-          :help "Smart clock out (auto-DONE for habits)"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/time-check-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
-
-      (keymap-set-after (default-value 'tool-bar-map) "<separator-clock-3>" menu-bar-separator)
-      (keymap-set-after (default-value 'tool-bar-map) "<rts-flow-clock-goto>"
-        `(menu-item "Goto Task" rts-flow-clock-goto
-          :help "Jump to clocked/last interacted task"
-          :image (image :type svg :file "~/.doom.d/toolbar-assets/time-oclock-svgrepo-com.svg"
-                        :height ,icon-size :width ,icon-size)))
+      ;; The clock lives on the floating clock (Pause, Done, Cancel; Resume,
+      ;; Flow) and the dashboard's clock line (tap: go to the task); Flow,
+      ;; Continue, Cancel, Manual Clock, Clock Out and Goto Task are gone
+      ;; from here, so nothing on the bar can throw away clocked time.
 
       ;; ===================================================================
       ;; ADD THINGS

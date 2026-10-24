@@ -7,52 +7,48 @@
 ;;; Code:
 
 ;; ──────────────────────────────────────────────────────────────
-;; Touch-screen keyboard full control – 3 modes
+;; Touch-screen keyboard: it goes away only when you say so
 ;; ──────────────────────────────────────────────────────────────
+;; Emacs hides the keyboard on its own: a tap on read-only text (an
+;; agenda, a dashboard -- where Evil still wants keys), every prompt that
+;; closes, and Android when you come back from another app.  The usage
+;; log counted 30 taps of the Keyboard button in one day undoing that.
+;; So the keyboard is up until the button puts it away, and comes back
+;; by itself only when you type into a prompt or tap editable text.
 
-(defvar my/keyboard-mode 'always-on
-  "Keyboard mode: 'normal, 'always-on, or 'off.
-- normal: Default behavior, keyboard shows when tapping editable areas
-- always-on: Keyboard always visible regardless of buffer
-- off: Keyboard completely suppressed")
+(defvar my/keyboard-wanted t
+  "Non-nil while the keyboard should stay up.  Only the Keyboard button
+\(`my/toggle-touch-keyboard') changes it.")
 
-(defun my/touch-screen-keyboard-decide (&rest _)
-  "Decide whether to show keyboard based on current mode."
-  (pcase my/keyboard-mode
-    ('always-on t)      ; Always allow keyboard
-    ('off nil)          ; Never show
-    (_ t)))             ; normal - let Emacs decide
+(defvar my/keyboard--by-hand nil
+  "Bound to t while the Keyboard button hides the keyboard.")
 
-;; Critical: use `add-function' with :around so we completely override whatever
-;; Emacs or other packages (Doom, etc.) might have set before or after us.
-(add-function :around touch-screen-keyboard-function #'my/touch-screen-keyboard-decide)
+(defun my/keyboard-hide-only-by-hand-a (fn frame hide)
+  "Around `frame-toggle-on-screen-keyboard': let a hide through only when
+the Keyboard button asked for it, or the keyboard is not wanted anyway."
+  (unless (and hide my/keyboard-wanted (not my/keyboard--by-hand))
+    (funcall fn frame hide)))
 
-(defun my/cycle-keyboard-mode ()
-  "Cycle through keyboard modes: normal -> always-on -> off -> normal."
+(advice-add 'frame-toggle-on-screen-keyboard :around #'my/keyboard-hide-only-by-hand-a)
+
+(defun my/keyboard-show-if-wanted (&rest _)
+  "Bring the keyboard back if it is wanted -- Android drops it whenever
+Emacs loses focus."
+  (when (and my/keyboard-wanted (frame-focus-state))
+    (frame-toggle-on-screen-keyboard (selected-frame) nil)))
+
+(add-function :after after-focus-change-function #'my/keyboard-show-if-wanted)
+
+(defun my/toggle-touch-keyboard ()
+  "Put the keyboard away, or bring it back to stay."
   (interactive)
-  (setq my/keyboard-mode
-        (pcase my/keyboard-mode
-          ('normal 'always-on)
-          ('always-on 'off)
-          ('off 'normal)))
-  ;; For always-on, immediately show keyboard
-  (when (eq my/keyboard-mode 'always-on)
-    (frame-toggle-on-screen-keyboard nil nil))
-  ;; For off, hide keyboard immediately
-  (when (eq my/keyboard-mode 'off)
-    (frame-toggle-on-screen-keyboard nil t))
-  (message "Keyboard mode: %s" my/keyboard-mode))
+  (setq my/keyboard-wanted (not my/keyboard-wanted))
+  (let ((my/keyboard--by-hand t))
+    (frame-toggle-on-screen-keyboard (selected-frame) (not my/keyboard-wanted)))
+  (message "Keyboard %s" (if my/keyboard-wanted "stays up" "away until you need it")))
 
-;; Keep old function name as alias for compatibility
-(defalias 'my/toggle-touch-keyboard 'my/cycle-keyboard-mode)
-
-;; Show keyboard at startup if mode is always-on
-(when (eq my/keyboard-mode 'always-on)
-  (add-hook 'emacs-startup-hook
-            (lambda ()
-              (run-with-timer 0.5 nil
-                              (lambda ()
-                                (frame-toggle-on-screen-keyboard nil nil))))))
+(add-hook 'emacs-startup-hook
+          (lambda () (run-with-timer 0.5 nil #'my/keyboard-show-if-wanted)))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; Dired xdg-open integration

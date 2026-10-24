@@ -45,25 +45,15 @@
   "Build the homepage button grid."
   (let ((sections
          (list
-          (list "River Flow"
-                (list
-                 (list :icon (nerd-icons-faicon "nf-fa-tint")
-                       :title "Flow" :desc "Pick new task" :action 'rts-flow)
-                 (list :icon (nerd-icons-faicon "nf-fa-play")
-                       :title "Continue" :desc "Resume last" :action 'rts-flow-continue)
-                 (list :icon (nerd-icons-faicon "nf-fa-times")
-                       :title "Cancel" :desc "Undo selection" :action 'rts-flow-cancel)
-                 (list :icon (nerd-icons-faicon "nf-fa-clock_o")
-                       :title "Manual Clock" :desc "Clock any task" :action 'rts-flow-manual)
-                 (list :icon (nerd-icons-faicon "nf-fa-check_circle")
-                       :title "Clock Out" :desc "Smart clock out" :action 'rts-flow-clock-out)
-                 (list :icon (nerd-icons-faicon "nf-fa-crosshairs")
-                       :title "Goto Task" :desc "Jump to task" :action 'rts-flow-clock-goto)))
-
+          ;; No River Flow section: the clock is the floating clock (Pause,
+          ;; Done, Cancel; Resume, Flow) and the clock line above the apps
+          ;; (tap: go to the task).  Clock in is the one thing it can't do.
           (list "Quick Actions"
                 (list
                  (list :icon (nerd-icons-faicon "nf-fa-plus_circle")
                        :title "Add" :desc "Task / Bean / Clock" :action 'rts-flow-add)
+                 (list :icon (nerd-icons-faicon "nf-fa-clock_o")
+                       :title "Clock in" :desc "Any task" :action 'rts-flow-manual)
                  (list :icon (nerd-icons-faicon "nf-fa-compass")
                        :title "State" :desc "Context + Energy" :action 'rts-flow-set-state)
                  (list :icon (nerd-icons-faicon "nf-fa-info_circle")
@@ -71,9 +61,7 @@
                  (list :icon (nerd-icons-faicon "nf-fa-bolt")
                        :title "Micro" :desc "5-min task" :action 'micro-experiments-pick)
                  (list :icon (nerd-icons-faicon "nf-fa-pencil")
-                       :title "Log" :desc "Daily note" :action 'micro-experiments-log)
-                 (list :icon (nerd-icons-faicon "nf-fa-lightbulb_o")
-                       :title "Forgotten" :desc "Resurface note" :action 'rts-flow-surface-forgotten-note)))
+                       :title "Log" :desc "Daily note" :action 'micro-experiments-log)))
 
           (list "Navigate"
                 (list
@@ -83,10 +71,8 @@
                        :title "Find Node" :desc "Org-roam search" :action 'org-roam-node-find)
                  (list :icon (nerd-icons-faicon "nf-fa-sun_o")
                        :title "Dailies" :desc "Cycle focus" :action 'my/org-roam-dailies-cycle-focus)
-                 (list :icon (nerd-icons-faicon "nf-fa-random")
-                       :title "Random" :desc "Random note" :action 'org-roam-node-random)
-                 (list :icon (nerd-icons-faicon "nf-fa-dice")
-                       :title "Random Big" :desc "Large note" :action 'org-roam-open-large-note-randomly)
+                 (list :icon (nerd-icons-faicon "nf-fa-lightbulb_o")
+                       :title "Old note" :desc "Untouched a while" :action 'org-roam-open-large-note-randomly)
                  (list :icon (nerd-icons-faicon "nf-fa-share_alt")
                        :title "Graph" :desc "Org-roam graph" :action 'org-roam-ui-open)))
 

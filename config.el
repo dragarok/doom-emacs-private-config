@@ -1208,13 +1208,22 @@ Ignores files prefixed with 'ln_', 'br_', or 'private_'. Uses Org-roam DB for fi
                                    (> (count-words-in-file file)
                                       org-roam-autoread-max-words))))
                           all-files))
-         (num-large (length filtered-files)))
+         (num-large (length filtered-files))
+         ;; One of those you haven't touched in a while, if there is one --
+         ;; the homepage's Old note, which took over Random and Forgotten.
+         (cutoff (time-subtract nil (days-to-time (or (bound-and-true-p rts-flow-deep-neglect-threshold-days) 30))))
+         (untouched (seq-filter (lambda (file)
+                                  (time-less-p (file-attribute-modification-time (file-attributes file))
+                                               cutoff))
+                                filtered-files)))
     (if (zerop num-large)
         (message "No Org-roam notes exceed %d words after filtering." org-roam-autoread-max-words)
-      (let ((random-file (seq-random-elt filtered-files)))
+      (let ((random-file (seq-random-elt (or untouched filtered-files))))
         (find-file random-file)
-        (message "Opened random large note: %s (%d words)" (file-name-nondirectory random-file)
-                 (count-words-in-file random-file))))))
+        (message "Opened random large note: %s (%d words, last touched %s)" (file-name-nondirectory random-file)
+                 (count-words-in-file random-file)
+                 (format-time-string "%Y-%m-%d" (file-attribute-modification-time
+                                                 (file-attributes random-file))))))))
 
 (setq org-roam-autoread-max-bytes (* org-roam-autoread-max-words 6))  ; Rough estimate: ~6 bytes per word
 
