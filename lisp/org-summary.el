@@ -872,15 +872,46 @@ Rows answered yes every day are left out unless :all is t."
   (let ((count (lambda (h) (plist-get (org-summary--habit-stats h start end) :done))))
     (seq-sort-by count #'> (seq-filter (lambda (h) (> (funcall count h) 0)) habits))))
 
+(defconst org-summary--icon-font "Symbols Nerd Font Mono"
+  "The font the habit icons are drawn in: Doom's nerd-icons font.")
+
+(defun org-summary--icon-glyph (icon)
+  "The glyph for ICON, a nerd-icons name such as nf-md-yoga, or ICON itself."
+  (or (and (string-prefix-p "nf-" icon) (require 'nerd-icons nil t)
+           (seq-some (lambda (alist) (cdr (assoc icon (symbol-value alist))))
+                     (seq-filter #'boundp
+                                 '(nerd-icons/mdicon-alist nerd-icons/faicon-alist
+                                   nerd-icons/codicon-alist nerd-icons/octicon-alist
+                                   nerd-icons/wicon-alist nerd-icons/devicon-alist))))
+      icon))
+
 (defun org-summary-icon-habits ()
-  "The habits given an ICON property, in file order, each with :icon.
+  "The habits given an ICON property, in file order, each with :icon (a glyph).
 Giving a habit an icon is what puts it in the daily habit month."
   (delq nil
         (mapcar (lambda (ti) (when-let* ((h (org-summary-habit (car ti))))
-                               (plist-put h :icon (cdr ti))))
+                               (plist-put h :icon (org-summary--icon-glyph (cdr ti)))))
                 (org-summary--in-file org-recurring-file
                   (org-map-entries (lambda () (cons (org-summary--title) (org-entry-get nil "ICON")))
                                    "ICON<>\"\"")))))
+
+;;;###autoload
+(defun org-summary-set-habit-icon ()
+  "Give the habit at point an icon, picked from the Material Design set."
+  (interactive)
+  (require 'nerd-icons)
+  (let* ((alist (symbol-value 'nerd-icons/mdicon-alist))
+         (name (completing-read
+                (format "Icon for %s: " (org-get-heading t t t t))
+                (lambda (str pred action)
+                  (if (eq action 'metadata)
+                      `(metadata (annotation-function
+                                  . ,(lambda (c) (when-let* ((g (cdr (assoc c alist))))
+                                                   (concat "  " (propertize g 'face `(:family ,org-summary--icon-font
+                                                                                                :height 1.3)))))))
+                    (complete-with-action action alist str pred)))
+                nil t nil nil (org-entry-get nil "ICON"))))
+    (org-entry-put nil "ICON" name)))
 
 (defun org-summary--grade (habits day)
   "DAY over HABITS: (GRADE DONE DUE), GRADE one of `org-summary--grades',
@@ -897,79 +928,93 @@ or future, pending (today, not all done yet) or idle (nothing due)."
                 (t 'none))
           done due)))
 
+(defconst org-summary--grade-tints
+  '((all . "#b4e8c0") (most . "#e1f6e5") (some . "#ffdcb8") (none . "#ffcdc9"))
+  "Day box fills, a tint of each grade's colour in `org-summary--grades'.")
+
 (defun org-summary-habits-month-svg (habits y m file)
-  "Month M of Y for the icon HABITS, a row a day, into FILE.
-Each day is coloured by how many were done; each habit shows its icon
-with a square for its own state."
+  "Month M of Y for the icon HABITS into FILE: a column a week, a box a day.
+A day's box is tinted by how many were done; inside it each habit's icon
+sits on a tile coloured by its own state, four to a row."
   (let* ((first (org-summary--day y m 1))
-         (ndays (calendar-last-day-of-month m y))
-         (pad 22) (date-w 62) (pill-w 40) (col 44) (row 25) (week-gap 7) (top 100)
-         (x0 (+ pad date-w pill-w 12))
-         (w (max 300 (+ x0 (* col (length habits)) pad)))
-         (weeks (cl-loop for i below ndays count (and (< (1+ i) ndays)
-                                                      (= 0 (calendar-day-of-week
-                                                            (calendar-gregorian-from-absolute (+ first i)))))))
-         (legend-rows (length habits))
-         (h (+ top (* ndays row) (* weeks week-gap) 30 (* 20 legend-rows) 30))
-         (grades (cl-loop for i below ndays collect (org-summary--grade habits (+ first i))))
-         (count (lambda (g) (seq-count (lambda (x) (eq (car x) g)) grades)))
-         (svg (org-summary--svg w h))
-         (y0 top))
+         (last (org-summary--day y m (calendar-last-day-of-month m y)))
+         (monday (car (org-summary--week first)))
+         (weeks (1+ (/ (- last monday) 7)))
+         (per-row 4) (tile 26) (tgap 4)
+         (box-w (+ 16 (* per-row tile) (* (1- per-row) tgap)))
+         (box-h (+ 30 (* (ceiling (max 1 (length habits)) (float per-row)) (+ tile tgap))))
+         (gap 10) (pad 22) (left (+ pad 34)) (top 104)
+         (w (+ left (* weeks (+ box-w gap)) (- gap) pad))
+         (legend-y (+ top (* 7 (+ box-h gap)) 14))
+         (h (+ legend-y 34 (* 22 (ceiling (length habits) 2.0)) 8))
+         (grades (cl-loop for d from first to last collect (cons d (org-summary--grade habits d))))
+         (count (lambda (g) (seq-count (lambda (x) (eq (cadr x) g)) grades)))
+         (svg (org-summary--svg w h)))
     (org-summary--title-text
      svg (format "Habits · %s %d" (calendar-month-name m) y)
      (format "all done %d  ·  half or more %d  ·  under half %d  ·  none %d"
              (funcall count 'all) (funcall count 'most) (funcall count 'some) (funcall count 'none))
      pad)
-    (seq-do-indexed
-     (lambda (hb i)
-       (svg-text svg (plist-get hb :icon) :x (+ x0 (* i col) (/ col 2)) :y (- top 12) :font-size 17
-                 :text-anchor "middle" :fill (org-summary--ink 'text)))
-     habits)
-    (svg-line svg pad (- top 4) (- w pad) (- top 4) :stroke (org-summary--ink 'grid))
-    (dotimes (i ndays)
-      (pcase-let* ((day (+ first i))
-                   (`(,grade ,done ,due) (nth i grades))
-                   (today (= day (org-today)))
-                   (cy (+ y0 (/ row 2))))
-        (svg-text svg (org-summary--fmt day "%a %e") :x pad :y (+ cy 4) :font-size 11.5
-                  :font-weight (if today "700" "400")
-                  :fill (org-summary--ink (if (eq grade 'future) 'faint 'muted)))
-        (svg-rectangle svg (+ pad date-w) (- cy 9) pill-w 18 :rx 9
-                       :fill (or (alist-get grade org-summary--grades)
-                                 (alist-get (if (eq grade 'future) 'future 'none) org-summary--colors)))
-        (when (eq grade 'pending)
-          (svg-rectangle svg (+ pad date-w 0.75) (- cy 8.25) (- pill-w 1.5) 16.5 :rx 8.25 :fill "none"
-                         :stroke (org-summary--ink 'text) :stroke-width 1.2 :stroke-dasharray "3,2"))
+    (dotimes (wk weeks)
+      (svg-text svg (format "Week %s" (org-summary--fmt (+ monday (* 7 wk)) "%V"))
+                :x (+ left (* wk (+ box-w gap)) (/ box-w 2)) :y (- top 12) :font-size 11
+                :font-weight "600" :text-anchor "middle" :fill (org-summary--ink 'muted)))
+    (seq-do-indexed (lambda (d i)
+                      (svg-text svg d :x (- left 8) :y (+ top (* i (+ box-h gap)) 20) :font-size 10.5
+                                :text-anchor "end" :fill (org-summary--ink 'muted)))
+                    '("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"))
+    (dolist (g grades)
+      (pcase-let* ((`(,day ,grade ,done ,due) g)
+                   (pos (- day monday))
+                   (x (+ left (* (/ pos 7) (+ box-w gap))))
+                   (yy (+ top (* (mod pos 7) (+ box-h gap))))
+                   (later (eq grade 'future)))
+        (svg-rectangle svg x yy box-w box-h :rx 10
+                       :fill (or (alist-get grade org-summary--grade-tints)
+                                 (alist-get 'future org-summary--colors))
+                       :stroke (or (alist-get grade org-summary--grades) (org-summary--ink 'rule))
+                       :stroke-width (if (memq grade '(future idle)) 1 2)
+                       :stroke-dasharray (if (eq grade 'pending) "5,3" "none"))
+        (svg-text svg (number-to-string (- day first -1)) :x (+ x 9) :y (+ yy 19) :font-size 13
+                  :font-weight "700" :fill (org-summary--ink (if later 'faint 'text)))
         (unless (memq grade '(future idle))
-          (svg-text svg (format "%d/%d" done due) :x (+ pad date-w (/ pill-w 2)) :y (+ cy 4)
-                    :font-size 10.5 :font-weight "600" :text-anchor "middle"
-                    :fill (if (memq grade '(all none)) "#ffffff" (org-summary--ink 'text))))
+          (svg-text svg (format "%d/%d" done due) :x (- (+ x box-w) 9) :y (+ yy 18) :font-size 10.5
+                    :font-weight "600" :text-anchor "end"
+                    :fill (or (alist-get grade '((all . "#1a7f37") (none . "#cf222e") (some . "#bc4c00")))
+                              (org-summary--ink 'muted))))
         (seq-do-indexed
          (lambda (hb j)
-           (let ((st (org-summary--status hb day))
-                 (cx (+ x0 (* j col) (/ col 2))))
-             (svg-text svg (plist-get hb :icon) :x (- cx 3) :y (+ cy 5) :font-size 14 :text-anchor "middle"
-                       :fill (org-summary--ink (if (memq st '(done skipped missed pending)) 'text 'faint)))
-             (unless (memq st '(future))
-               (svg-rectangle svg (+ cx 5) (+ cy 1) 7 7 :rx 1.5
-                              :fill (alist-get st org-summary--colors)))))
-         habits)
-        (setq y0 (+ y0 row))
-        (when (and (= 0 (calendar-day-of-week (calendar-gregorian-from-absolute day))) (< (1+ i) ndays))
-          (svg-line svg pad (+ y0 (/ week-gap 2.0)) (- w pad) (+ y0 (/ week-gap 2.0))
-                    :stroke (org-summary--ink 'grid))
-          (setq y0 (+ y0 week-gap)))))
-    (setq y0 (+ y0 22))
+           (let* ((st (org-summary--status hb day))
+                  (tx (+ x 8 (* (mod j per-row) (+ tile tgap))))
+                  (ty (+ yy 26 (* (/ j per-row) (+ tile tgap))))
+                  (solid (memq st '(done skipped missed))))
+             (svg-rectangle svg tx ty tile tile :rx 6
+                            :fill (if solid (alist-get st org-summary--colors) "#ffffff")
+                            :stroke (if solid "none" (org-summary--ink 'rule)) :stroke-width 1)
+             (svg-text svg (plist-get hb :icon) :x (+ tx (/ tile 2)) :y (+ ty 19) :font-size 17
+                       :text-anchor "middle" :style (format "font-family: %s" org-summary--icon-font)
+                       :fill (if solid "#ffffff" (org-summary--ink (if later 'grid 'faint))))))
+         habits)))
     (let ((x pad))
-      (dolist (g '((all . "all") (most . "half+") (some . "under half") (none . "none")))
-        (svg-rectangle svg x (- y0 9) 16 10 :rx 5 :fill (alist-get (car g) org-summary--grades))
-        (svg-text svg (cdr g) :x (+ x 20) :y y0 :font-size 10.5 :fill (org-summary--ink 'muted))
-        (setq x (+ x 30 (* 6 (length (cdr g)))))))
+      (dolist (g '((all . "all done") (most . "half or more") (some . "under half") (none . "none")))
+        (svg-rectangle svg x (- legend-y 10) 18 12 :rx 4 :fill (alist-get (car g) org-summary--grade-tints)
+                       :stroke (alist-get (car g) org-summary--grades) :stroke-width 1.5)
+        (svg-text svg (cdr g) :x (+ x 23) :y legend-y :font-size 10.5 :fill (org-summary--ink 'muted))
+        (setq x (+ x 36 (* 5.6 (length (cdr g))))))
+      (setq x (+ x 14))
+      (dolist (k '(done skipped missed))
+        (svg-rectangle svg x (- legend-y 10) 12 12 :rx 3 :fill (alist-get k org-summary--colors))
+        (svg-text svg (symbol-name k) :x (+ x 16) :y legend-y :font-size 10.5 :fill (org-summary--ink 'muted))
+        (setq x (+ x 30 (* 5.6 (length (symbol-name k)))))))
     (seq-do-indexed
      (lambda (hb i)
-       (svg-text svg (format "%s  %s" (plist-get hb :icon) (plist-get hb :title))
-                 :x pad :y (+ y0 22 (* 20 i))
-                 :font-size 11.5 :fill (org-summary--ink 'text)))
+       (let ((x (+ pad (* (mod i 2) (/ (- w (* 2 pad)) 2))))
+             (yy (+ legend-y 30 (* 22 (/ i 2)))))
+         (svg-rectangle svg x (- yy 15) 20 20 :rx 5 :fill (org-summary--ink 'text))
+         (svg-text svg (plist-get hb :icon) :x (+ x 10) :y (- yy 0.5) :font-size 14 :text-anchor "middle"
+                   :style (format "font-family: %s" org-summary--icon-font) :fill "#ffffff")
+         (svg-text svg (plist-get hb :title) :x (+ x 27) :y (- yy 1) :font-size 12
+                   :fill (org-summary--ink 'text))))
      habits)
     (org-summary--write-svg svg file)))
 
