@@ -11,6 +11,8 @@
 (defconst topics-test--tags
   '("mentalmodels" "notesrevision" "mentalgym" "weeklyvideo" "booksrevision" "roomcleanup"))
 
+(defconst topics-test--daily-tags '("essaytime" "dailywriting" "guitarpractice"))
+
 ;; The week of Sat 2026-10-24 (Mon 19 .. Sun 25), and the week before it.
 (defconst topics-test--tasks "#+title: Tasks
 
@@ -23,7 +25,10 @@ CLOCK: [2026-10-19 Mon 18:00]--[2026-10-19 Mon 18:40] =>  0:40
 CLOCK: [2026-10-21 Wed 18:30]--[2026-10-21 Wed 19:00] =>  0:30
 :END:
 * TODO Second-order thinking: read chapter :mentalmodels:
+SCHEDULED: <2026-10-25 Sun>
+* TODO Someday: all of Munger's list :mentalmodels:
 * TODO Revise Category Theory notes :notesrevision:
+DEADLINE: <2026-10-26 Mon>
 :LOGBOOK:
 CLOCK: [2026-10-22 Thu 20:00]--[2026-10-22 Thu 20:25] =>  0:25
 :END:
@@ -31,6 +36,13 @@ CLOCK: [2026-10-22 Thu 20:00]--[2026-10-22 Thu 20:25] =>  0:25
 CLOSED: [2026-10-20 Tue 10:00]
 * DONE Clean desk :roomcleanup:
 CLOSED: [2026-10-24 Sat 11:00]
+* DONE Scales, 15 min :guitarpractice:
+CLOSED: [2026-10-20 Tue 21:00]
+:LOGBOOK:
+CLOCK: [2026-10-20 Tue 20:45]--[2026-10-20 Tue 21:00] =>  0:15
+:END:
+* DONE 300 words on the commute :dailywriting:
+CLOSED: [2026-10-23 Fri 08:30]
 * DONE Last week's video :weeklyvideo:
 CLOSED: [2026-10-15 Thu 21:00]
 :LOGBOOK:
@@ -50,6 +62,17 @@ CLOCK: [2026-10-23 Fri 09:00]--[2026-10-23 Fri 09:15] =>  0:15
 :END:
 ")
 
+;; A repertoire whose file tag is a topic: a backlog, never "planned"; its
+;; clocked time counts.
+(defconst topics-test--songs "#+FILETAGS: guitarpractice
+* In Progress
+** PRACTICING Sham
+:LOGBOOK:
+CLOCK: [2026-10-22 Thu 21:00]--[2026-10-22 Thu 21:20] =>  0:20
+:END:
+** TOPRACTICE Basanta
+")
+
 (defvar org-tasks-file)
 
 (defmacro topics-test--with-org (&rest body)
@@ -59,13 +82,17 @@ CLOCK: [2026-10-23 Fri 09:00]--[2026-10-23 Fri 09:15] =>  0:15
           (org-tasks-file (expand-file-name "tasks.org" dir))
           (org-agenda-files (list org-tasks-file))
           (org-archive-location (concat dir "/archive.org::datetree/"))
-          (org-todo-keywords '((sequence "TODO" "|" "DONE" "CANCELED")))
-          (org-summary-tag-groups (list (cons "Topics" topics-test--tags)))
+          (org-todo-keywords '((sequence "TODO" "|" "DONE" "CANCELED")
+                               (sequence "TOPRACTICE" "PRACTICING" "|" "PRACTICED")))
+          (org-summary-tag-groups (list (cons "Topics" topics-test--tags)
+                                        (cons "Daily topics" topics-test--daily-tags)))
           (org-summary-plots-directory dir)
           (org-tags-column -77)
           (org-log-done nil))
      (with-temp-file org-tasks-file (insert topics-test--tasks))
      (with-temp-file (expand-file-name "archive.org" dir) (insert topics-test--archive))
+     (with-temp-file (expand-file-name "log_guitar.org" dir) (insert topics-test--songs))
+     (push (expand-file-name "log_guitar.org" dir) org-agenda-files)
      (unwind-protect (progn ,@body)
        (dolist (b (buffer-list))
          (when (and (buffer-file-name b) (string-prefix-p dir (buffer-file-name b)))
@@ -99,11 +126,12 @@ CLOCK: [2026-10-23 Fri 09:00]--[2026-10-23 Fri 09:15] =>  0:15
 ;;; The block
 
 (ert-deftest topics-test-week ()
-  "A column a day; time, done and open; cancelled is not done; nothing planned."
+  "A column a day; time, done and planned; cancelled is not done."
   (topics-test--with-org
     (let ((out (topics-test--block ":span thisweek :date \"2026-10-24\"")))
-      (should (string-match-p "| Topic +| Mon | Tue | Wed | Thu | Fri | Sat | Sun | Time | Done | Open |" out))
-      ;; Clocked Mon and Wed, closed Wed; the archived habit's Friday clock counts.
+      (should (string-match-p "| Topic +| Mon | Tue | Wed | Thu | Fri | Sat | Sun | Time | Done | Planned |" out))
+      ;; Clocked Mon and Wed, closed Wed; the archived habit's Friday clock
+      ;; counts; the undated "Someday" task is not planned.
       (should (equal (topics-test--row out "mentalmodels")
                      '("✓" "" "✓" "" "✓" "" "" "1:25" "1" "1")))
       (should (equal (topics-test--row out "notesrevision")
@@ -116,7 +144,8 @@ CLOCK: [2026-10-23 Fri 09:00]--[2026-10-23 Fri 09:15] =>  0:15
       ;; Last week's video is outside this week.
       (should (equal (topics-test--row out "weeklyvideo")
                      '("" "" "" "" "" "" "" "" "0" "0")))
-      (should (string-match-p "^Nothing planned: mentalgym, weeklyvideo, booksrevision$" out)))))
+      ;; Nothing dated is nothing planned, even where something got done.
+      (should (string-match-p "^Nothing planned: mentalgym, weeklyvideo, booksrevision, roomcleanup$" out)))))
 
 (ert-deftest topics-test-last-week ()
   "lastweek is the week before the date."
@@ -131,7 +160,7 @@ CLOCK: [2026-10-23 Fri 09:00]--[2026-10-23 Fri 09:15] =>  0:15
   "Longer than a week: days worked are counted, not drawn."
   (topics-test--with-org
     (let ((out (topics-test--block ":span thismonth :date \"2026-10-24\"")))
-      (should (string-match-p "| Topic +| Days | Time | Done | Open |" out))
+      (should (string-match-p "| Topic +| Days | Time | Done | Planned |" out))
       (should (equal (topics-test--row out "mentalmodels") '("3" "1:25" "1" "1")))
       (should (equal (topics-test--row out "weeklyvideo") '("1" "1:00" "1" "0"))))))
 
@@ -148,8 +177,8 @@ CREATED, CATEGORY ToImprove; no STYLE, no ID; the rest of the file untouched."
           (text (with-temp-buffer (insert-file-contents org-tasks-file) (buffer-string))))
       ;; One question per topic, again after each answer, with what is open.
       (should (= (length prompts) 9))
-      (should (string-prefix-p "mentalmodels [open: Second-order thinking: read chapter] — task" (nth 0 prompts)))
-      (should (string-match-p "\\[open: Inversion: 3 examples from work; Second-order" (nth 1 prompts)))
+      (should (string-prefix-p "mentalmodels [planned: Second-order thinking: read chapter] — task" (nth 0 prompts)))
+      (should (string-match-p "\\[planned: Inversion: 3 examples from work; Second-order" (nth 1 prompts)))
       (should (string-prefix-p "mentalgym — task" (nth 3 prompts)))
       (should (string-prefix-p "roomcleanup — task" (nth 8 prompts)))
       (should (string-prefix-p topics-test--tasks text))
@@ -202,32 +231,119 @@ other blocks there are left as they were."
       (let ((out (with-current-buffer org-agenda-buffer-name (buffer-string))))
         (should (string-match-p "ToImprove: +Scheduled: +TODO Daily puzzle, 20 min" out))))))
 
+;;; Daily topics
+
+(ert-deftest topics-test-daily-block ()
+  "The daily topics have their own table, the same shape."
+  (topics-test--with-org
+    (let ((out (topics-test--block ":group \"Daily topics\" :span thisweek :date \"2026-10-24\"")))
+      ;; The song practised Thursday counts; the songs are not planned.
+      (should (equal (topics-test--row out "guitarpractice")
+                     '("" "✓" "" "✓" "" "" "" "0:35" "1" "0")))
+      (should (equal (topics-test--row out "dailywriting")
+                     '("" "" "" "" "✓" "" "" "" "1" "0")))
+      (should-not (topics-test--row out "mentalmodels"))
+      (should (string-match-p "^Nothing planned: essaytime, dailywriting, guitarpractice$" out)))))
+
+(ert-deftest topics-test-plan-tomorrow ()
+  "Tomorrow's tasks: the three daily topics only, scheduled tomorrow."
+  (topics-test--with-org
+    (let* ((tomorrow (time-add nil (* 24 3600)))
+           (prompts (topics-test--answering '("Essay outline: why habits fail, 25 min" ""
+                                              "" "Chord changes G-C-D, 20 min" "")
+                      (org-summary-plan-tomorrow))))
+      (should (= (length prompts) 5))
+      (should (string-match-p (format-time-string "^essaytime — task for %a %d " tomorrow) (nth 0 prompts)))
+      ;; The repertoire is not listed as planned.
+      (should (string-prefix-p "guitarpractice — task for" (nth 3 prompts)))
+      (with-current-buffer (find-file-noselect org-tasks-file)
+        (should (equal (org-map-entries (lambda () (list (org-get-heading t t t t)
+                                                         (org-entry-get nil "SCHEDULED")
+                                                         (org-entry-get nil "CATEGORY")))
+                                        "CATEGORY=\"ToImprove\"")
+                       (list (list "Essay outline: why habits fail, 25 min"
+                                   (format-time-string "<%Y-%m-%d %a>" tomorrow) "ToImprove")
+                             (list "Chord changes G-C-D, 20 min"
+                                   (format-time-string "<%Y-%m-%d %a>" tomorrow) "ToImprove"))))))))
+
 ;;; The real templates (only with ORG_TEMPLATES set)
 
-(ert-deftest topics-test-templates ()
-  "The weekly templates' planning step runs the planner; every template's
-topics block renders."
-  (let ((templates (getenv "ORG_TEMPLATES")))
-    (skip-unless templates)
-    (topics-test--with-org
-      (dolist (f '("weeklyreviewtemplate.org" "weeklyreviewtemplate_lastweek.org"
-                   "monthlyreviewtemplate.org"))
-        (with-temp-buffer
-          (insert-file-contents (expand-file-name f templates))
-          (org-mode)
-          (goto-char (point-min))
-          (should (re-search-forward "^#\\+BEGIN: topics :span \\(this\\|last\\)\\(week\\|month\\)$" nil t))
+(defun topics-test--template (file)
+  "A buffer with the template FILE from ORG_TEMPLATES, in Org mode."
+  (let ((b (generate-new-buffer file)))
+    (with-current-buffer b
+      (insert-file-contents (expand-file-name file (getenv "ORG_TEMPLATES")))
+      (org-mode))
+    b))
+
+(defun topics-test--run-step (heading answers)
+  "Run the first planner src block under HEADING with ANSWERS; the prompts."
+  (goto-char (point-min))
+  (should (re-search-forward (concat "^\\*\\* TODO " (regexp-quote heading)) nil t))
+  (should (re-search-forward "^#\\+begin_src e\\(macs-\\)?lisp" nil t))
+  (should (looking-at-p "[^\n]*\n(org-summary-plan-"))
+  (let ((org-confirm-babel-evaluate nil))
+    (topics-test--answering answers (org-babel-execute-src-block))))
+
+(defun topics-test--tables (buffer)
+  "Refresh BUFFER's topics blocks; the groups whose table came out."
+  (with-current-buffer buffer
+    (goto-char (point-min))
+    (let (groups)
+      (while (re-search-forward "^#\\+BEGIN: topics\\(.*\\)$" nil t)
+        (let ((g (if (string-match-p "Daily topics" (match-string 1)) "Daily topics" "Topics")))
           (beginning-of-line)
           (org-update-dblock)
-          (should (string-match-p "| Topic " (buffer-string)))
-          (goto-char (point-min))
-          (when (string-prefix-p "weekly" f)
-            (should (re-search-forward "^\\*\\* TODO Plan this week's topics" nil t))
-            (should (re-search-forward "^#\\+BEGIN_SRC emacs-lisp" nil t))
-            (let ((org-confirm-babel-evaluate nil))
-              (topics-test--answering (list (concat "From " f) "") (org-babel-execute-src-block)))
-            (should (string-match-p (concat "TODO From " (regexp-quote f))
-                                    (with-temp-buffer (insert-file-contents org-tasks-file)
-                                                      (buffer-string))))))))))
+          (should (looking-at-p "#\\+BEGIN: topics.*\n| Topic "))
+          (push g groups)
+          (forward-line)))
+      (nreverse groups))))
+
+(defun topics-test--planned ()
+  "Headings and scheduled dates of the planned tasks."
+  (with-current-buffer (find-file-noselect org-tasks-file)
+    (revert-buffer t t)
+    (org-map-entries (lambda () (cons (org-get-heading t t t t) (org-entry-get nil "SCHEDULED")))
+                     "CATEGORY=\"ToImprove\"")))
+
+(ert-deftest topics-test-templates-weekly ()
+  "Weekly and monthly reviews show both tables; the weekly planning step
+plans the weekly topics, scheduled today."
+  (skip-unless (getenv "ORG_TEMPLATES"))
+  (dolist (f '("weeklyreviewtemplate.org" "weeklyreviewtemplate_lastweek.org"
+               "monthlyreviewtemplate.org"))
+    (topics-test--with-org
+      (let ((b (topics-test--template f)))
+        (unwind-protect
+            (with-current-buffer b
+              (should (equal (topics-test--tables b) '("Topics" "Daily topics")))
+              (unless (string-prefix-p "monthly" f)
+                (let ((prompts (topics-test--run-step "Plan this week's topics"
+                                                      (list (concat "From " f) ""))))
+                  (should (= (length prompts) 7))
+                  (should (string-prefix-p "mentalmodels" (car prompts))))
+                (should (equal (topics-test--planned)
+                               (list (cons (concat "From " f) (format-time-string "<%Y-%m-%d %a>")))))))
+          (kill-buffer b))))))
+
+(ert-deftest topics-test-templates-daily ()
+  "The daily reviews show the daily table and plan the daily topics: the
+evening review for tomorrow, the next-morning one for today."
+  (skip-unless (getenv "ORG_TEMPLATES"))
+  (dolist (f '(("dailyreviewtemplate.org" "Plan for tomorrow" 1)
+               ("dailyreviewtemplate_yesterday.org" "Plan for today" 0)))
+    (topics-test--with-org
+      (let ((b (topics-test--template (car f))))
+        (unwind-protect
+            (with-current-buffer b
+              (should (equal (topics-test--tables b) '("Daily topics")))
+              (let ((prompts (topics-test--run-step (nth 1 f) (list (concat "From " (car f)) ""))))
+                (should (= (length prompts) 4))
+                (should (string-prefix-p "essaytime" (car prompts))))
+              (should (equal (topics-test--planned)
+                             (list (cons (concat "From " (car f))
+                                         (format-time-string "<%Y-%m-%d %a>"
+                                                             (time-add nil (* (nth 2 f) 24 3600))))))))
+          (kill-buffer b))))))
 
 ;;; org-summary-topics-test.el ends here

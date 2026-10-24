@@ -13,6 +13,7 @@ Three kinds of time, never added together: *you* (the org clock), *agents*
 | Look at today                        | =SPC o v t=                 | Mac, phone |
 | Weekly / monthly review              | =SPC o v w= / =SPC o v m=   | Mac, phone |
 | Plan the week's topics               | =SPC o v o= (weekly review) | Mac, phone |
+| Plan tomorrow's daily topics         | =SPC o v n= (daily review)  | Mac, phone |
 
 That is all.  Everything else happens on its own.
 
@@ -34,13 +35,21 @@ That is all.  Everything else happens on its own.
   project, a table of agent tasks, and a chart per day.
 
 * Topics
-Mental models, notes revision, mental gym, weekly video, books revision and
-room cleanup are tags, not habits: =:mentalmodels: :notesrevision: :mentalgym:
-:weeklyvideo: :booksrevision: :roomcleanup:=.  The weekly review plans
-specific tasks with them ("Plan this week's topics", or =SPC o v o=: one
-question per topic, each answer a TODO in tasks.org), and its "Topics" table
-shows each one like a habit: days worked, time, done, open, and what has
-nothing planned.  The old habits are in archive/archive.org with their history.
+What I grow in are tags, not habits; the reviews plan specific tasks with
+them and show each tag like a habit.
+- Weekly, planned in the weekly review (=SPC o v o=): =:mentalmodels:
+  :notesrevision: :mentalgym: :weeklyvideo: :booksrevision: :roomcleanup:=
+- Daily, planned in the evening's daily review for tomorrow (=SPC o v n=):
+  =:essaytime: :dailywriting: :guitarpractice:=
+- One question per topic; each answer is a TODO in tasks.org with the tag,
+  scheduled, category ToImprove.  Empty Enter skips the topic.
+- The tables (daily review: the daily topics this week; weekly and monthly
+  review: both): days worked, time, done, planned (open with a date), and
+  "Nothing planned".  Time on anything with the tag counts -- the songs in
+  log_guitar.org count for guitarpractice, but are not "planned".
+- The old habits are in archive/archive.org with their history.
+- Tests: =ORG_TEMPLATES=~/org/templates emacs -Q --batch -L lisp -l
+  test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=
 
 * Phone
 - Pull the config; the time files come over by Syncthing.

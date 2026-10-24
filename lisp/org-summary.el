@@ -17,7 +17,7 @@
 ;;   period-summary    time logged, top tasks, tasks closed, habit consistency
 ;;   clock-score       the day's clocked tasks, scored by priority
 ;;   clock-chart       bars of time by :by day, tag, category or task
-;;   topics            each weekly topic tag like a habit: days, time, done, open
+;;   topics            each topic tag like a habit: days, time, done, planned
 ;;   review-days       a review datetree's answers, a column a day
 ;;   review-stats      averages and counts over those answers
 ;;   habit-calendar    the month as a grid per habit (the old july plot)
@@ -1098,24 +1098,29 @@ also reads the weekly reviews."
               "\n"))
     (org-summary--end-block)))
 
-;; Topics: what I grow in each week (mental models, notes revision...) are
+;; Topics: what I grow in (mental models, notes revision, guitar...) are
 ;; tags, not habits.  A habit named after a topic never said what to do; the
-;; weekly review plans specific tasks with the topic's tag instead, and this
-;; block shows each topic the way a habit would: the days it was worked on,
-;; the time, what got done and what is still open.
+;; reviews plan specific tasks with the topic's tag instead -- the weekly
+;; review the week's ("Topics"), the daily review tomorrow's ("Daily
+;; topics") -- and this block shows each topic the way a habit would: the
+;; days it was worked on, the time, what got done and what is planned.
 
 (defun org-summary--open-tagged (tag)
-  "Titles of the open TODOs tagged TAG in the agenda files."
+  "Titles of the open TODOs tagged TAG in the agenda files that have a date:
+planned, not a backlog (like the songs in a repertoire file tagged TAG)."
   (let (out)
     (dolist (file (seq-filter #'file-exists-p (org-agenda-files t)) (nreverse out))
       (org-summary--in-file file
-        (org-map-entries (lambda () (push (org-summary--title) out))
+        (org-map-entries (lambda ()
+                           (when (or (org-get-scheduled-time (point)) (org-get-deadline-time (point)))
+                             (push (org-summary--title) out)))
                          (concat "+" tag "/!"))))))
 
 (defun org-dblock-write:topics (params)
   "Each tag of the :group (default \"Topics\") over :span, a column a day.
 A day is ticked when a task with the tag was clocked or closed then; over a
-span longer than a week the days worked are counted instead."
+span longer than a week the days worked are counted instead.  Planned is
+the open tasks with a date; \"Nothing planned\" names the tags with none."
   (let* ((range (org-summary--range params "thisweek"))
          (group (org-summary--group (or (plist-get params :group) "Topics")))
          (clocks (org-summary-clocks (car range) (cdr range)))
@@ -1140,10 +1145,10 @@ span longer than a week the days worked are counted instead."
                             (number-to-string (length dn))
                             (number-to-string (length open))))
               rows)
-        (unless (or open dn) (push tag idle))))
+        (unless open (push tag idle))))
     (org-summary--table (append '("Topic")
                                 (if week (mapcar (lambda (d) (org-summary--fmt d "%a")) days) '("Days"))
-                                '("Time" "Done" "Open"))
+                                '("Time" "Done" "Planned"))
                         (nreverse rows))
     (when idle
       (insert (format "\nNothing planned: %s\n" (string-join (nreverse idle) ", "))))
@@ -1155,20 +1160,25 @@ span longer than a week the days worked are counted instead."
   "The CATEGORY of the tasks `org-summary-plan-topics' writes.")
 
 ;;;###autoload
-(defun org-summary-plan-topics ()
-  "Ask for this week's specific tasks, topic by topic, into `org-tasks-file'.
-Each answer becomes a TODO with the topic's tag, scheduled today, in
+(defun org-summary-plan-topics (&optional group day)
+  "Ask for specific tasks, topic by topic, into `org-tasks-file'.
+GROUP is a name in `org-summary-tag-groups', \"Topics\" (the weekly ones)
+by default; DAY is when they are scheduled, as `org-read-date' reads it,
+today by default.  Each answer becomes a TODO with the topic's tag in
 `org-summary-topic-category'; an empty answer moves on to the next topic.
 The topics blocks here refresh after."
   (interactive)
-  (let ((made 0))
-    (dolist (tag (cdr (org-summary--group "Topics")))
+  (let* ((time (org-read-date nil t (or day ".")))
+         (date (format-time-string "%Y-%m-%d" time))
+         (made 0))
+    (dolist (tag (cdr (org-summary--group (or group "Topics"))))
       (let ((open (org-summary--open-tagged tag)) title)
         (while (not (string-empty-p
                      (setq title (string-trim
                                   (read-string
-                                   (format "%s%s — task (empty: next topic): " tag
-                                           (if open (format " [open: %s]" (string-join open "; ")) "")))))))
+                                   (format "%s%s — task for %s (empty: next topic): " tag
+                                           (if open (format " [planned: %s]" (string-join open "; ")) "")
+                                           (format-time-string "%a %d" time)))))))
           (with-current-buffer (find-file-noselect org-tasks-file)
             (org-with-wide-buffer
              (goto-char (point-max))
@@ -1176,7 +1186,7 @@ The topics blocks here refresh after."
              (insert "* TODO " title "\n")
              (forward-line -1)
              (org-set-tags (list tag))
-             (org-schedule nil ".")
+             (org-schedule nil date)
              (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
              (org-entry-put nil "CATEGORY" org-summary-topic-category))
             (save-buffer))
@@ -1191,6 +1201,12 @@ The topics blocks here refresh after."
          (forward-line))))
     (message "%d task%s planned in %s" made (if (= made 1) "" "s")
              (file-name-nondirectory org-tasks-file))))
+
+;;;###autoload
+(defun org-summary-plan-tomorrow ()
+  "Tomorrow's specific task for each daily topic (\"Daily topics\")."
+  (interactive)
+  (org-summary-plan-topics "Daily topics" "+1"))
 
 (defun org-dblock-write:review-days (params)
   "The answers of :file's reviews (daily or weekly) over :span, a column a day.
