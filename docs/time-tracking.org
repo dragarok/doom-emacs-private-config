@@ -12,7 +12,7 @@ Three kinds of time, never added together: *you* (the org clock), *agents*
 | Put an agent on an existing task     | =SPC j o= (optional)        | Mac        |
 | Look at today                        | =SPC o v t=                 | Mac, phone |
 | Weekly / monthly review              | =SPC o v w= / =SPC o v m=   | Mac, phone |
-| Plan the week's topics               | weekly review, tagged tasks | Mac, phone |
+| Plan the week's topics               | =SPC o v o= (weekly review) | Mac, phone |
 
 That is all.  Everything else happens on its own.
 
@@ -37,7 +37,8 @@ That is all.  Everything else happens on its own.
 Mental models, notes revision, mental gym, weekly video, books revision and
 room cleanup are tags, not habits: =:mentalmodels: :notesrevision: :mentalgym:
 :weeklyvideo: :booksrevision: :roomcleanup:=.  The weekly review plans
-specific tasks with them ("Plan this week's topics"), and its "Topics" table
+specific tasks with them ("Plan this week's topics", or =SPC o v o=: one
+question per topic, each answer a TODO in tasks.org), and its "Topics" table
 shows each one like a habit: days worked, time, done, open, and what has
 nothing planned.  The old habits are in archive/archive.org with their history.
 

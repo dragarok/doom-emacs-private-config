@@ -1149,6 +1149,44 @@ span longer than a week the days worked are counted instead."
       (insert (format "\nNothing planned: %s\n" (string-join (nreverse idle) ", "))))
     (org-summary--end-block)))
 
+(defvar org-tasks-file)
+
+;;;###autoload
+(defun org-summary-plan-topics ()
+  "Ask for this week's specific tasks, topic by topic, into `org-tasks-file'.
+Each answer becomes a TODO with the topic's tag, scheduled today; an empty
+answer moves on to the next topic.  The topics blocks here refresh after."
+  (interactive)
+  (let ((made 0))
+    (dolist (tag (cdr (org-summary--group "Topics")))
+      (let ((open (org-summary--open-tagged tag)) title)
+        (while (not (string-empty-p
+                     (setq title (string-trim
+                                  (read-string
+                                   (format "%s%s — task (empty: next topic): " tag
+                                           (if open (format " [open: %s]" (string-join open "; ")) "")))))))
+          (with-current-buffer (find-file-noselect org-tasks-file)
+            (org-with-wide-buffer
+             (goto-char (point-max))
+             (unless (bolp) (insert "\n"))
+             (insert "* TODO " title "\n")
+             (forward-line -1)
+             (org-set-tags (list tag))
+             (org-schedule nil ".")
+             (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]")))
+            (save-buffer))
+          (push title open)
+          (cl-incf made))))
+    (when (derived-mode-p 'org-mode)
+      (org-with-wide-buffer
+       (goto-char (point-min))
+       (while (re-search-forward "^[ \t]*#\\+BEGIN: topics\\b" nil t)
+         (beginning-of-line)
+         (org-update-dblock)
+         (forward-line))))
+    (message "%d task%s planned in %s" made (if (= made 1) "" "s")
+             (file-name-nondirectory org-tasks-file))))
+
 (defun org-dblock-write:review-days (params)
   "The answers of :file's reviews (daily or weekly) over :span, a column a day.
 Rows answered yes every day are left out unless :all is t."

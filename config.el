@@ -248,6 +248,7 @@
       org-summary-summary-groups '("Difficulty" "Energy" "Time of day" "Deep work" "Topics"))
 (autoload 'org-summary-habit-year "org-summary" nil t)
 (autoload 'org-summary-plots "org-summary" nil t)
+(autoload 'org-summary-plan-topics "org-summary" nil t)
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
@@ -279,7 +280,8 @@
        :desc "Last week's review"      "l" (cmd! (org-capture nil "rl"))
        :desc "Monthly review"          "m" (cmd! (org-capture nil "rm"))
        :desc "Week calendar"           "c" #'org-timegrid-week
-       :desc "Passive activity on/off" "a" #'agent-time-passive))
+       :desc "Passive activity on/off" "a" #'agent-time-passive
+       :desc "Plan the week's topics"  "o" #'org-summary-plan-topics))
 ;; Agents' time, yours with them, passive time: agent-time.el.  The agents'
 ;; side of it is mcp/agent-tasks.mjs (task_start / task_finish).
 (autoload 'agent-time-passive "agent-time" nil t)
