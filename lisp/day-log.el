@@ -38,6 +38,8 @@
 (require 'subr-x)
 (require 'usage-log)
 (declare-function org-summary-habits-month-file "org-summary")
+(declare-function org-summary-runs "org-summary")
+(declare-function org-summary--most-at-once "org-summary")
 (declare-function org-summary--parse-iso "org-summary")
 (declare-function org-summary--link "org-summary")
 
@@ -207,6 +209,37 @@ cut at 20 minutes and the total marked estimated."
              (seq-take (seq-filter (lambda (p) (> (cdr p) 0)) pairs) n)
              " · "))
 
+;;; Facts: agents and passive time
+
+(defun day-log--runs (runs clocks)
+  "Lines for the day's agent, waiting and passive RUNS (`org-summary-runs'),
+each agent task beside the time CLOCKS give it."
+  (let* ((of (lambda (k) (seq-filter (lambda (r) (equal (plist-get r :kind) k)) runs)))
+         (agent (funcall of "AGENT")) (wait (funcall of "WAIT")) (passive (funcall of "PASSIVE"))
+         (len (lambda (r) (- (plist-get r :to) (plist-get r :from))))
+         (secs (lambda (items) (apply #'+ (mapcar len items))))
+         (by-title (lambda (items) (day-log--sum items (lambda (r) (cons (plist-get r :title)
+                                                                         (funcall len r))))))
+         (tasks (funcall by-title (append agent wait))))
+    (insert (format "Agents %s on %d task%s, up to %d at once · waited on you %s · passive %s\n"
+                    (day-log--dur (funcall secs agent)) (length tasks) (if (= 1 (length tasks)) "" "s")
+                    (org-summary--most-at-once agent)
+                    (day-log--dur (funcall secs wait)) (day-log--dur (funcall secs passive))))
+    (when tasks
+      (let ((you (day-log--sum clocks (lambda (c) (cons (nth 2 c) (- (cadr c) (car c))))))
+            (agents (funcall by-title agent))
+            (waits (funcall by-title wait)))
+        (insert "\nAgents\n")
+        (dolist (p tasks)
+          (let ((w (alist-get (car p) waits 0 nil #'equal)))
+            (insert (format "- %5s agent · %5s you%s  %s\n"
+                            (day-log--dur (alist-get (car p) agents 0 nil #'equal))
+                            (day-log--dur (alist-get (car p) you 0 nil #'equal))
+                            (if (> w 0) (format " · %s waiting" (day-log--dur w)) "")
+                            (car p)))))))
+    (when passive
+      (insert "\nPassive: " (day-log--top (funcall by-title passive) 6) "\n"))))
+
 ;;; The block
 
 (defun org-dblock-write:day-log (params)
@@ -228,6 +261,11 @@ cut at 20 minutes and the total marked estimated."
                     (day-log--dur clocked) (length clocks) (if (= 1 (length clocks)) "" "s")
                     (day-log--dur screen) (if (and sessions (cadr phone)) " (estimated)" "")
                     (day-log--dur (apply #'+ (mapcar #'cdr unclocked)))))
+    ;; Agents' and passive time (agent-time.el), beside the clock's.
+    (when-let* (((require 'org-summary nil t))
+                (day (org-summary--parse-iso date))
+                (runs (org-summary-runs day day)))
+      (day-log--runs runs clocks))
     (when clocks
       (insert "\nClocked\n")
       (dolist (c clocks)

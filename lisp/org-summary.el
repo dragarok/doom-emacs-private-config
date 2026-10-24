@@ -239,6 +239,62 @@ A day heading (2026-10-24 Saturday) gives that day; a month heading
                 (org-back-to-heading t)
                 (push (append (list :day day) (org-summary--heading-info file)) out)))))))))
 
+;; Agent, waiting and passive time (agent-time.el), in :RUNS: drawers.  An
+;; open line is still running: it counts up to now.
+(defconst org-summary--run-re
+  "^[ \t]*\\(AGENT\\|WAIT\\|PASSIVE\\): \\[\\([^]]+\\)\\]\\(?:--\\[\\([^]]+\\)\\]\\)?")
+
+(defun org-summary-runs (start end &optional files)
+  "Runs begun on days START..END in FILES, as plists: :kind (\"AGENT\", \"WAIT\"
+or \"PASSIVE\"), :from and :to (float times), :day, :minutes, :open, and
+the entry's heading info."
+  (let (out)
+    (dolist (file (or files (org-summary--files)) out)
+      (org-summary--in-file file
+        (let ((info (make-hash-table)))
+          (goto-char (point-min))
+          (while (re-search-forward org-summary--run-re nil t)
+            (let* ((kind (match-string 1)) (s0 (match-string 2)) (s1 (match-string 3))
+                   (t0 (float-time (org-time-string-to-time s0)))
+                   (t1 (if s1 (float-time (org-time-string-to-time s1)) (float-time)))
+                   (day (time-to-days t0))
+                   (h (and (<= start day end) (> t1 t0)
+                           (save-excursion (and (ignore-errors (org-back-to-heading t) t)
+                                                (point))))))
+              (when h
+                (push (append (list :kind kind :from t0 :to t1 :day day :open (null s1)
+                                    :minutes (/ (round (- t1 t0)) 60))
+                              (or (gethash h info)
+                                  (puthash h (save-excursion
+                                               (goto-char h)
+                                               (append (list :project (org-entry-get nil "AGENT_PROJECT"))
+                                                       (org-summary--heading-info file)))
+                                           info)))
+                      out)))))))))
+
+(defun org-summary--merged-minutes (items)
+  "Wall-clock minutes ITEMS (:from/:to) cover, overlaps counted once."
+  (let ((total 0) cur)
+    (dolist (i (sort (mapcar (lambda (i) (cons (plist-get i :from) (plist-get i :to))) items)
+                     (lambda (a b) (< (car a) (car b)))))
+      (if (and cur (<= (car i) (cdr cur)))
+          (setcdr cur (max (cdr cur) (cdr i)))
+        (when cur (cl-incf total (- (cdr cur) (car cur))))
+        (setq cur (cons (car i) (cdr i)))))
+    (when cur (cl-incf total (- (cdr cur) (car cur))))
+    (/ (round total) 60)))
+
+(defun org-summary--most-at-once (items)
+  "The most ITEMS (:from/:to) running at the same moment."
+  (let ((edges (sort (mapcan (lambda (i) (list (cons (plist-get i :from) 1)
+                                               (cons (plist-get i :to) -1)))
+                             items)
+                     (lambda (a b) (or (< (car a) (car b))
+                                       (and (= (car a) (car b)) (< (cdr a) (cdr b)))))))
+        (n 0) (most 0))
+    (dolist (e edges most)
+      (setq most (max most (cl-incf n (cdr e)))))))
+
 (defun org-summary--sum (items key)
   "Minutes of ITEMS summed under KEY's value, largest first, as (K . MINUTES)."
   (let ((h (make-hash-table :test 'equal)) out)
@@ -399,12 +455,14 @@ Each is (DAY . ANSWERS)."
 
 (defun org-summary--table (header rows)
   "Insert an aligned table of HEADER over ROWS, leaving point after it."
-  (let ((beg (point)))
+  (let ((beg (point)) (end (make-marker)))
     (insert "| " (mapconcat #'org-summary--cell header " | ") " |\n|-\n")
     (dolist (r rows)
       (insert "| " (mapconcat #'org-summary--cell r " | ") " |\n"))
+    (set-marker end (point))
     (save-excursion (goto-char beg) (org-table-align))
-    (goto-char (point-max))
+    (goto-char end)
+    (set-marker end nil)
     (unless (bolp) (insert "\n"))))
 
 (defun org-summary--end-block ()
@@ -736,6 +794,123 @@ SERIES is ((NAME . ((DAY . VALUE) ...)) ...)."
     (mapconcat (lambda (x) (format "%s (%d of %d)" (car x) (cadr x) (cddr x)))
                (seq-take (sort out (lambda (a b) (> (cadr a) (cadr b)))) 4)
                " · ")))
+
+;; Three kinds of time: yours (the org clock), your agents' (and how long
+;; they waited on you), and passive (music, cleaning).  See agent-time.el.
+
+(defconst org-summary--kinds
+  '(("You" . "#4078c0") ("Agents" . "#8250df") ("Passive" . "#1b9aaa"))
+  "The kinds of time and their colours, in the order they are drawn.")
+
+(defun org-summary-kinds-svg (title groups file)
+  "Draw GROUPS as grouped bars into FILE.
+GROUPS is ((LABEL YOU AGENTS PASSIVE) ...), in minutes."
+  (let* ((n (max 1 (length groups))) (l 44) (top 70) (bot 30) (h 300)
+         (gw (if (> n 10) 40 66)) (w (max 440 (+ l 16 (* n gw))))
+         (ph (- h top bot))
+         (hours (max 1 (ceiling (apply #'max 1 (mapcan (lambda (g) (copy-sequence (cdr g))) groups))
+                                60.0)))
+         (step (max 1 (ceiling hours 4.0)))
+         (ymax (* 60 step (ceiling hours (float step))))
+         (bw (/ (- gw 14) 3.0))
+         (yof (lambda (v) (- (+ top ph) (* ph (/ (float v) ymax)))))
+         (svg (org-summary--svg w h)))
+    (org-summary--title-text svg title nil 16)
+    (let ((x 16))
+      (dolist (k org-summary--kinds)
+        (svg-rectangle svg x 41 10 10 :rx 2.5 :fill (cdr k))
+        (svg-text svg (car k) :x (+ x 14) :y 50 :font-size 11 :fill (org-summary--ink 'muted))
+        (setq x (+ x 30 (* 6.5 (length (car k)))))))
+    (cl-loop for v from 0 to ymax by (* 60 step)
+             do (let ((y (funcall yof v)))
+                  (svg-line svg l y (- w 12) y :stroke (org-summary--ink (if (zerop v) 'rule 'grid)))
+                  (svg-text svg (format "%dh" (/ v 60)) :x (- l 6) :y (+ y 4) :font-size 10
+                            :text-anchor "end" :fill (org-summary--ink 'muted))))
+    (seq-do-indexed
+     (lambda (g i)
+       (let ((x0 (+ l (* i gw) 7)))
+         (seq-do-indexed
+          (lambda (k j)
+            (let ((v (nth (1+ j) g)))
+              (when (> v 0)
+                (let ((y (funcall yof v)))
+                  (svg-rectangle svg (+ x0 (* j bw)) y (- bw 1.5) (max 1.5 (- (+ top ph) y))
+                                 :rx 2 :fill (cdr k))))))
+          org-summary--kinds)
+         (svg-text svg (car g) :x (+ x0 (/ (* 3 bw) 2)) :y (+ top ph 17) :font-size 10
+                   :text-anchor "middle" :fill (org-summary--ink 'muted))))
+     groups)
+    (org-summary--write-svg svg file)))
+
+(defun org-dblock-write:time-kinds (params)
+  "Your time, your agents' time and passive time over :span (default this week)."
+  (let* ((range (org-summary--range params "thisweek"))
+         (clocks (org-summary-clocks (car range) (cdr range)))
+         (runs (org-summary-runs (car range) (cdr range)))
+         (kind (lambda (k) (seq-filter (lambda (r) (equal (plist-get r :kind) k)) runs)))
+         (agent (funcall kind "AGENT")) (wait (funcall kind "WAIT")) (passive (funcall kind "PASSIVE"))
+         (mins (lambda (items) (apply #'+ (mapcar (lambda (i) (plist-get i :minutes)) items))))
+         (title (lambda (i) (plist-get i :title)))
+         (tasks (org-summary--sum (append agent wait) title))
+         (done (seq-count (lambda (p) (seq-find (lambda (r) (and (equal (funcall title r) (car p))
+                                                                 (member (plist-get r :todo)
+                                                                         org-done-keywords)))
+                                                agent))
+                          tasks))
+         (dur #'org-summary--dur)
+         (weekly (> (- (cdr range) (car range)) 13)))
+    (insert (format "- You :: %s clocked\n" (funcall dur (funcall mins clocks))))
+    (insert (format "- Agents :: %s"
+                    (if (null agent) "none"
+                      (format "%s of agent time on %d task%s (%d done); %s with at least one running, up to %d at once"
+                              (funcall dur (funcall mins agent)) (length tasks)
+                              (if (= 1 (length tasks)) "" "s") done
+                              (funcall dur (org-summary--merged-minutes agent))
+                              (org-summary--most-at-once agent))))
+            "\n")
+    (when wait
+      (insert (format "- Agents waiting on you :: %s over %d wait%s, longest %s\n"
+                      (funcall dur (funcall mins wait)) (length wait) (if (= 1 (length wait)) "" "s")
+                      (funcall dur (apply #'max (mapcar (lambda (w) (plist-get w :minutes)) wait))))))
+    (insert (format "- Passive :: %s\n"
+                    (if (null passive) "none"
+                      (concat (funcall dur (funcall mins passive)) " — "
+                              (mapconcat (lambda (p) (format "%s %s" (car p) (funcall dur (cdr p))))
+                                         (org-summary--sum passive title) " · ")))))
+    (when agent
+      (insert "- Agent time by project :: "
+              (mapconcat (lambda (p) (format "%s %s" (car p) (funcall dur (cdr p))))
+                         (org-summary--sum agent (lambda (r) (or (plist-get r :project)
+                                                                 (plist-get r :category))))
+                         " · ")
+              "\n\n")
+      (let ((you (org-summary--sum clocks title))
+            (waits (org-summary--sum wait title))
+            (agents (org-summary--sum agent title)))
+        (org-summary--table
+         '("Agent task" "Agents" "You" "Waiting")
+         (mapcar (lambda (p) (list (org-summary--cell (car p) 48)
+                                   (funcall dur (alist-get (car p) agents 0 nil #'equal))
+                                   (funcall dur (alist-get (car p) you 0 nil #'equal))
+                                   (funcall dur (alist-get (car p) waits 0 nil #'equal))))
+                 (seq-take tasks (or (plist-get params :top) 8))))))
+    (when (> (cdr range) (car range))
+      (let* ((key (lambda (d) (if weekly (org-summary--fmt d "W%V") (org-summary--fmt d "%a %d"))))
+             (labels (delete-dups (cl-loop for d from (car range) to (cdr range)
+                                           collect (funcall key d))))
+             (by (lambda (items) (org-summary--sum items (lambda (i) (funcall key (plist-get i :day)))))))
+        (let ((y (funcall by clocks)) (a (funcall by agent)) (p (funcall by passive)))
+          (insert "\n"
+                  (org-summary--link
+                   (org-summary-kinds-svg
+                    (format "Your time, agents', passive · %s" (org-summary--range-label range))
+                    (mapcar (lambda (k) (list k (alist-get k y 0 nil #'equal) (alist-get k a 0 nil #'equal)
+                                              (alist-get k p 0 nil #'equal)))
+                            labels)
+                    (org-summary--plot-file (format "time_kinds_%s_%s" (org-summary--iso (car range))
+                                                    (org-summary--iso (cdr range))))))
+                  "\n"))))
+    (org-summary--end-block)))
 
 (defun org-dblock-write:review-answers (params)
   "Answer a weekly or monthly review's questions for :span (default this week)

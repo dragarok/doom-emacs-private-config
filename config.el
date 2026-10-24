@@ -247,7 +247,8 @@
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
-                  "habit-calendar" "habit-year" "habits-month" "review-answers" "project-summary" "project-progress"))
+                  "habit-calendar" "habit-year" "habits-month" "review-answers" "project-summary" "project-progress"
+                  "time-kinds"))
     (autoload (intern (concat "org-dblock-write:" name)) "org-summary")))
 
 ;; The week as a calendar over the agenda's timed entries, edited by drag or
@@ -273,7 +274,12 @@
        :desc "Weekly review"           "w" (cmd! (org-capture nil "rw"))
        :desc "Last week's review"      "l" (cmd! (org-capture nil "rl"))
        :desc "Monthly review"          "m" (cmd! (org-capture nil "rm"))
-       :desc "Week calendar"           "c" #'org-timegrid-week))
+       :desc "Week calendar"           "c" #'org-timegrid-week
+       :desc "Passive activity on/off" "a" #'agent-time-passive))
+;; Agents' time, yours with them, passive time: agent-time.el.  The agents'
+;; side of it is mcp/agent-tasks.mjs (task_start / task_finish).
+(autoload 'agent-time-passive "agent-time" nil t)
+(autoload 'agent-time-assign "agent-time" nil t)
 
 ;; Core productivity modules (both Mac and Android)
 (require 'org-roam-config)
@@ -446,6 +452,10 @@
   (setopt herdr-menu-key "C-9"            ; herdr-menu, also from inside the TUI
           herdr-menu-repeat-command #'herdr-agents)
   (herdr-mode 1)                          ; poll, ● N blocked, notifications
+  ;; Agents' runs from each poll, your clock on the agent you're with.
+  (with-eval-after-load 'org
+    (require 'agent-time)
+    (agent-time-mode 1))
   (map! :leader
         (:prefix ("j" . "herdr")
          :desc "Herdr workspace"                "j" #'herdr-workspace-open
@@ -468,6 +478,7 @@
          :desc "Magit (agent's project)"        "g" #'herdr-workspace-magit
          :desc "Dired (agent's project)"        "d" #'herdr-workspace-dired
          :desc "Expand → project workspace"     "e" #'herdr-workspace-expand-to-project
+         :desc "Org task for this agent"        "o" #'agent-time-assign
          :desc "Collapse → herdr workspace"     "m" #'herdr-workspace-collapse))
   ;; The same verbs one chord away: C-s-<Capital>, clear of the lowercase
   ;; C-s- keys (rts-flow, kairoam ...).  Global, so they also work from
