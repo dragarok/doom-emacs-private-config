@@ -1,0 +1,45 @@
+#+title: Time tracking: you, agents, passive
+
+* The idea in one line
+Three kinds of time, never added together: *you* (the org clock), *agents*
+(recorded on their own), *passive* (music, cleaning).  Reviews show all three.
+
+* What you do
+| When                                 | Key                         | Where      |
+|--------------------------------------+-----------------------------+------------|
+| Work on something yourself           | clock in as always (=I=)    | Mac, phone |
+| Start or stop music, cleaning...     | =SPC o v a=, pick or type   | Mac, phone |
+| Put an agent on an existing task     | =SPC j o= (optional)        | Mac        |
+| Look at today                        | =SPC o v t=                 | Mac, phone |
+| Weekly / monthly review              | =SPC o v w= / =SPC o v m=   | Mac, phone |
+
+That is all.  Everything else happens on its own.
+
+* What happens on its own (Mac)
+- An agent working in Herdr → its time goes to its task, in a =:RUNS:= drawer.
+  - No task given → the agent names one; else one is made in tasks.org
+    (tag =:agent:=) after 2 minutes; shorter runs go to "Agent quick asks".
+  - The agent finishes → it renames its own task to what was done, adds a
+    summary, marks it DONE.
+  - Blocked on you → counted as waiting.
+- You looking at an agent in Emacs (=SPC j j=), active → the clock moves to
+  its task after 30 s; leave it and your previous task comes back.  Idle 3
+  minutes counts as gone.  Clocking in or out yourself always wins.
+
+* Where to see it
+- Daily review (day log): "Agents 1h57 on 3 tasks · waited on you 10m · passive 2h30",
+  then each agent task with agent / you / waiting time.
+- Weekly and monthly review: section "You, agents, passive" — totals, time by
+  project, a table of agent tasks, and a chart per day.
+
+* Phone
+- Pull the config; the time files come over by Syncthing.
+- Passive (=SPC o v a=), the clock and the reviews work there.  Agent time is
+  recorded on the Mac only (that is where Herdr runs); the phone shows it.
+- Avoid editing tasks.org on both at the same minute (Syncthing conflict copy).
+
+* If something looks off
+- Herdr won't open in Emacs → already fixed (a daemon restarted from a Herdr
+  pane used to inherit HERDR_ENV).
+- =M-: agent-time-mode= should be =t= on the Mac.
+- Agents get the task tools only in sessions started after the setup.
