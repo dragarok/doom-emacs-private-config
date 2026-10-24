@@ -37,6 +37,9 @@
 (require 'seq)
 (require 'subr-x)
 (require 'usage-log)
+(declare-function org-summary-habits-month-file "org-summary")
+(declare-function org-summary--parse-iso "org-summary")
+(declare-function org-summary--link "org-summary")
 
 (defvar org-dailyreview-file)            ; config.el
 
@@ -262,6 +265,11 @@ cut at 20 minutes and the total marked estimated."
       (insert (format "\nUsed (%d runs): " (length used))
               (day-log--top (usage-log--count used (lambda (e) (nth 3 e))) 10 #'number-to-string)
               "\n"))
+    ;; The habits' month so far as a picture (org-summary.el), drawn each
+    ;; time the facts are, so a review closed on its own still has one.
+    (when-let* ((file (and (require 'org-summary nil t)
+                           (org-summary-habits-month-file (org-summary--parse-iso date)))))
+      (insert "\n" (org-summary--link file) "\n"))
     ;; The block's last newline is the #+END line's.
     (delete-char -1)))
 

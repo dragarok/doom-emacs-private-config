@@ -44,6 +44,7 @@
 (defvar org-weeklyreview-file)
 (defvar org-lookbacks-directory)
 (declare-function org-capture-get "org-capture")
+(defvar org-capture-last-stored-marker)
 
 (defvar org-summary-count-score
   '((?A . 500) (?B . 150) (?C . 100) (?D . 60) (?E . 30) (?F . 0))
@@ -74,6 +75,10 @@ NAME as :by, and `period-summary' splits time by each of
   '((done . "#2da44e") (skipped . "#f2a65a") (missed . "#e5534b")
     (none . "#ebedf0") (pending . "#ebedf0") (future . "#f6f8fa"))
   "Habit day fills.")
+
+(defconst org-summary--grades
+  '((all . "#2da44e") (most . "#aceebb") (some . "#f2a65a") (none . "#e5534b"))
+  "Day fills in the habit month: all, half or more, under half, none done.")
 
 (defconst org-summary--levels '("#ebedf0" "#aceebb" "#4ac26b" "#2da44e" "#116329")
   "Year overview fills, from no habit done to all of them.")
@@ -867,6 +872,122 @@ Rows answered yes every day are left out unless :all is t."
   (let ((count (lambda (h) (plist-get (org-summary--habit-stats h start end) :done))))
     (seq-sort-by count #'> (seq-filter (lambda (h) (> (funcall count h) 0)) habits))))
 
+(defun org-summary-icon-habits ()
+  "The habits given an ICON property, in file order, each with :icon.
+Giving a habit an icon is what puts it in the daily habit month."
+  (delq nil
+        (mapcar (lambda (ti) (when-let* ((h (org-summary-habit (car ti))))
+                               (plist-put h :icon (cdr ti))))
+                (org-summary--in-file org-recurring-file
+                  (org-map-entries (lambda () (cons (org-summary--title) (org-entry-get nil "ICON")))
+                                   "ICON<>\"\"")))))
+
+(defun org-summary--grade (habits day)
+  "DAY over HABITS: (GRADE DONE DUE), GRADE one of `org-summary--grades',
+or future, pending (today, not all done yet) or idle (nothing due)."
+  (let* ((states (mapcar (lambda (h) (org-summary--status h day)) habits))
+         (due (seq-count (lambda (s) (memq s '(done skipped missed pending))) states))
+         (done (seq-count (lambda (s) (eq s 'done)) states)))
+    (list (cond ((> day (org-today)) 'future)
+                ((zerop due) 'idle)
+                ((= done due) 'all)
+                ((= day (org-today)) 'pending)
+                ((>= (* 2 done) due) 'most)
+                ((> done 0) 'some)
+                (t 'none))
+          done due)))
+
+(defun org-summary-habits-month-svg (habits y m file)
+  "Month M of Y for the icon HABITS, a row a day, into FILE.
+Each day is coloured by how many were done; each habit shows its icon
+with a square for its own state."
+  (let* ((first (org-summary--day y m 1))
+         (ndays (calendar-last-day-of-month m y))
+         (pad 22) (date-w 62) (pill-w 40) (col 44) (row 25) (week-gap 7) (top 100)
+         (x0 (+ pad date-w pill-w 12))
+         (w (max 300 (+ x0 (* col (length habits)) pad)))
+         (weeks (cl-loop for i below ndays count (and (< (1+ i) ndays)
+                                                      (= 0 (calendar-day-of-week
+                                                            (calendar-gregorian-from-absolute (+ first i)))))))
+         (legend-rows (length habits))
+         (h (+ top (* ndays row) (* weeks week-gap) 30 (* 20 legend-rows) 30))
+         (grades (cl-loop for i below ndays collect (org-summary--grade habits (+ first i))))
+         (count (lambda (g) (seq-count (lambda (x) (eq (car x) g)) grades)))
+         (svg (org-summary--svg w h))
+         (y0 top))
+    (org-summary--title-text
+     svg (format "Habits · %s %d" (calendar-month-name m) y)
+     (format "all done %d  ·  half or more %d  ·  under half %d  ·  none %d"
+             (funcall count 'all) (funcall count 'most) (funcall count 'some) (funcall count 'none))
+     pad)
+    (seq-do-indexed
+     (lambda (hb i)
+       (svg-text svg (plist-get hb :icon) :x (+ x0 (* i col) (/ col 2)) :y (- top 12) :font-size 17
+                 :text-anchor "middle" :fill (org-summary--ink 'text)))
+     habits)
+    (svg-line svg pad (- top 4) (- w pad) (- top 4) :stroke (org-summary--ink 'grid))
+    (dotimes (i ndays)
+      (pcase-let* ((day (+ first i))
+                   (`(,grade ,done ,due) (nth i grades))
+                   (today (= day (org-today)))
+                   (cy (+ y0 (/ row 2))))
+        (svg-text svg (org-summary--fmt day "%a %e") :x pad :y (+ cy 4) :font-size 11.5
+                  :font-weight (if today "700" "400")
+                  :fill (org-summary--ink (if (eq grade 'future) 'faint 'muted)))
+        (svg-rectangle svg (+ pad date-w) (- cy 9) pill-w 18 :rx 9
+                       :fill (or (alist-get grade org-summary--grades)
+                                 (alist-get (if (eq grade 'future) 'future 'none) org-summary--colors)))
+        (when (eq grade 'pending)
+          (svg-rectangle svg (+ pad date-w 0.75) (- cy 8.25) (- pill-w 1.5) 16.5 :rx 8.25 :fill "none"
+                         :stroke (org-summary--ink 'text) :stroke-width 1.2 :stroke-dasharray "3,2"))
+        (unless (memq grade '(future idle))
+          (svg-text svg (format "%d/%d" done due) :x (+ pad date-w (/ pill-w 2)) :y (+ cy 4)
+                    :font-size 10.5 :font-weight "600" :text-anchor "middle"
+                    :fill (if (memq grade '(all none)) "#ffffff" (org-summary--ink 'text))))
+        (seq-do-indexed
+         (lambda (hb j)
+           (let ((st (org-summary--status hb day))
+                 (cx (+ x0 (* j col) (/ col 2))))
+             (svg-text svg (plist-get hb :icon) :x (- cx 3) :y (+ cy 5) :font-size 14 :text-anchor "middle"
+                       :fill (org-summary--ink (if (memq st '(done skipped missed pending)) 'text 'faint)))
+             (unless (memq st '(future))
+               (svg-rectangle svg (+ cx 5) (+ cy 1) 7 7 :rx 1.5
+                              :fill (alist-get st org-summary--colors)))))
+         habits)
+        (setq y0 (+ y0 row))
+        (when (and (= 0 (calendar-day-of-week (calendar-gregorian-from-absolute day))) (< (1+ i) ndays))
+          (svg-line svg pad (+ y0 (/ week-gap 2.0)) (- w pad) (+ y0 (/ week-gap 2.0))
+                    :stroke (org-summary--ink 'grid))
+          (setq y0 (+ y0 week-gap)))))
+    (setq y0 (+ y0 22))
+    (let ((x pad))
+      (dolist (g '((all . "all") (most . "half+") (some . "under half") (none . "none")))
+        (svg-rectangle svg x (- y0 9) 16 10 :rx 5 :fill (alist-get (car g) org-summary--grades))
+        (svg-text svg (cdr g) :x (+ x 20) :y y0 :font-size 10.5 :fill (org-summary--ink 'muted))
+        (setq x (+ x 30 (* 6 (length (cdr g)))))))
+    (seq-do-indexed
+     (lambda (hb i)
+       (svg-text svg (format "%s  %s" (plist-get hb :icon) (plist-get hb :title))
+                 :x pad :y (+ y0 22 (* 20 i))
+                 :font-size 11.5 :fill (org-summary--ink 'text)))
+     habits)
+    (org-summary--write-svg svg file)))
+
+(defun org-summary-habits-month-file (day)
+  "Draw the icon habits' month around DAY to its file; nil without icon habits."
+  (when-let* ((habits (org-summary-icon-habits)))
+    (pcase-let ((`(,y ,m ,_) (org-summary--ymd day)))
+      (org-summary-habits-month-svg habits y m (org-summary--plot-file
+                                                (format "daily_habits_%04d-%02d" y m))))))
+
+(defun org-dblock-write:habits-month (params)
+  "Every icon habit in one vertical month: :month this (default), last or YYYY-MM."
+  (pcase-let* ((`(,y . ,m) (org-summary--month-of params))
+               (file (org-summary-habits-month-file (org-summary--day y m 1))))
+    (insert (if file (concat (org-summary--link file) "\n")
+              "No habit has an :ICON: property in recurring.org yet.\n"))
+    (org-summary--end-block)))
+
 (defun org-dblock-write:habit-year (params)
   "The year as day strips, one per habit and an overview on top.
 :year is this (default), last or YYYY; :habits as for habit-calendar."
@@ -990,6 +1111,14 @@ Outside one, refresh the whole buffer."
 
 (add-hook 'org-capture-mode-hook #'org-summary--capture-fill)
 
+(defun org-summary--capture-show ()
+  "Show a filed review's charts in the file it went to."
+  (when-let* (((member (org-capture-get :key) org-summary-review-keys))
+              (buf (marker-buffer org-capture-last-stored-marker)))
+    (with-current-buffer buf (org-summary--show-images-soon))))
+
+(add-hook 'org-capture-after-finalize-hook #'org-summary--capture-show)
+
 ;;; The habit views
 
 (defvar-local org-summary--view nil
@@ -1038,6 +1167,10 @@ TITLES nil means every habit active then.")
                  (propertize "    [ previous   ] next   t year   g redraw   d plots folder   q quit\n\n"
                              'face 'shadow))
          (unless habits (insert "No habit was logged that month.\n"))
+         (when-let* (((display-images-p))
+                     (file (org-summary-habits-month-file (org-summary--day y m 1))))
+           (insert-image (create-image file 'svg))
+           (insert "\n\n"))
          (seq-do-indexed
           (lambda (h i)
             (let ((file (org-summary-habit-svg
