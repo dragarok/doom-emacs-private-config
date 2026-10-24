@@ -1147,6 +1147,53 @@ conversation comes back in the same grid slot."
   (claude-remote--drive :refresh-form claude-remote-refresh-form
                         'claude-workspace-refresh-session "refresh (--continue)"))
 
+;;; Herdr on the remote ----------------------------------------------------
+
+;; The Mac runs its agents in Herdr (lisp/herdr-workspace.el, SPC j there).
+;; These are the phone's SPC j: the same letters, each sent as a form over
+;; the `M-:' channel above.  Those that show the TUI or prompt jump into the
+;; connection first; the Mac gives this tty frame a Herdr client of its own
+;; (*herdr:tty*), sized to the phone, so the Mac's view never reflows.
+
+(defconst claude-remote-herdr-commands
+  '((open           "(herdr-workspace-open)"                              "Herdr" t)
+    (menu           "(herdr-workspace-transient)"                         "Herdr menu" t)
+    (switch-agent   "(call-interactively 'herdr-switch-agent)"            "switch agent" t)
+    (blocked        "(herdr-goto-blocked)"                                "blocked agent" t)
+    (new-agent      "(call-interactively 'herdr-new-agent)"               "new agent" t)
+    (add-project    "(call-interactively 'herdr-workspace-add-project)"   "add project" t)
+    (switch-project "(herdr-workspace-switch-project)"                    "switch project" t)
+    (new-terminal   "(herdr-workspace-new-terminal)"                      "new terminal" t)
+    (close-project  "(herdr-workspace-close-project)"                     "close project" t)
+    (close-tab      "(herdr-workspace-close-tab)"                         "close tab" t)
+    (escape         "(herdr-workspace-send-escape)"                       "ESC to agent")
+    (close          "(herdr-workspace-close)"                             "close Herdr"))
+  "(NAME FORM LABEL ENTER) for each `claude-remote-herdr-NAME' command.
+FORM is evaluated on the remote; ENTER takes the keyboard there first.")
+
+(dolist (spec claude-remote-herdr-commands)
+  (pcase-let ((`(,name ,form ,label ,enter) spec))
+    (defalias (intern (format "claude-remote-herdr-%s" name))
+      (lambda ()
+        (interactive)
+        (claude-remote--drive nil form nil label enter))
+      (format "Remote Herdr: %s.  Evaluates %s on the machine you drive."
+              label form))))
+
+;;;###autoload
+(defun claude-remote-herdr-paste (&optional submit)
+  "Paste the phone's clipboard into the remote Herdr's focused agent.
+SUBMIT (a prefix argument) sends RET too."
+  (interactive "P")
+  (let ((text (or (claude-remote--clipboard)
+                  (user-error "Clipboard and kill ring are both empty")))
+        (buf (claude-remote--target-buffer)))
+    (unless (claude-remote--paste-ok-p text)
+      (user-error "Paste cancelled"))
+    (claude-remote--send-eval
+     buf (claude-remote--paste-form "herdr-workspace-send-text" text submit))
+    (message "→ Herdr: pasted %d chars%s" (length text) (if submit " + RET" ""))))
+
 ;;; Backwards compatibility (pre-rename names) -----------------------------
 
 (defalias 'claude-mac #'claude-remote-connect)

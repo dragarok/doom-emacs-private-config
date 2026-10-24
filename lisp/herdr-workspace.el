@@ -62,6 +62,24 @@
     (when (fboundp '+workspace-switch)
       (+workspace-switch herdr-workspace-name t))))
 
+;; One ghostel buffer is one PTY with one size.  The phone reaches this
+;; Emacs through claude-remote, in an `emacsclient -t' frame a third the
+;; width of the Mac's, and a *herdr* shown in both would reflow the Mac's
+;; TUI every time the phone looked.  So a terminal frame gets a Herdr client
+;; of its own, sized to it; the Herdr server is fine with clients of
+;; different sizes (the terminal's `herdr' is one already).
+(defun herdr-workspace--tui-buffer-name ()
+  "The TUI buffer for the selected frame: *herdr*, or *herdr:tty* on a tty."
+  (if (display-graphic-p) "*herdr*" "*herdr:tty*"))
+
+(defun herdr-workspace--per-frame (orig &rest args)
+  "Run ORIG with ARGS on the selected frame's own TUI buffer."
+  (let ((herdr--buffer-name (herdr-workspace--tui-buffer-name)))
+    (apply orig args)))
+
+(advice-add 'herdr-hide :around #'herdr-workspace--per-frame)
+(advice-add 'herdr-toggle :around #'herdr-workspace--per-frame)
+
 (defun herdr-workspace--around-herdr (orig &rest args)
   "Show *herdr* in the herdr workspace, wherever ORIG (`herdr') was called from.
 `herdr-switch-agent', `herdr-goto-blocked', `herdr-new-agent' and a
@@ -72,7 +90,8 @@ the TUI goes to the frame it floats over."
   (when-let* ((parent (frame-parameter nil 'parent-frame)))
     (select-frame-set-input-focus parent))
   (herdr-workspace--ensure)
-  (let ((win (get-buffer-window herdr--buffer-name)))
+  (let* ((herdr--buffer-name (herdr-workspace--tui-buffer-name))
+         (win (get-buffer-window herdr--buffer-name)))
     (if (and win (herdr--buffer-live-p))
         (progn (select-window win) (herdr--ensure-timer))
       (apply orig args)
@@ -100,18 +119,23 @@ the TUI goes to the frame it floats over."
   "Close Herdr in Emacs; the agents keep running in the Herdr server.
 In an agent's own buffer (`herdr-attach-agent'), close just that buffer.
 Otherwise detach the TUI and remove the herdr workspace, landing in the
-workspace you were in before."
+workspace you were in before.  From a terminal frame (the phone), only
+that frame's TUI goes; the workspace stays for the Mac's."
   (interactive)
   (let ((kill-buffer-query-functions nil))
     (if herdr--attached-pane
         (kill-buffer)
-      (when-let* ((buf (get-buffer herdr--buffer-name)))
+      (when-let* ((buf (get-buffer (herdr-workspace--tui-buffer-name))))
         (kill-buffer buf))
-      (when (and (fboundp '+workspace-exists-p)
-                 (+workspace-exists-p herdr-workspace-name))
+      (cond
+       ((not (display-graphic-p))
+        (when (and (herdr-workspace--in-workspace-p) (fboundp '+workspace/other))
+          (+workspace/other)))
+       ((and (fboundp '+workspace-exists-p)
+             (+workspace-exists-p herdr-workspace-name))
         (if (herdr-workspace--in-workspace-p)
             (+workspace/kill herdr-workspace-name)
-          (+workspace-kill herdr-workspace-name)))
+          (+workspace-kill herdr-workspace-name))))
       (message "Herdr closed (agents still running; SPC j j to reopen)"))))
 
 
@@ -179,9 +203,15 @@ The first time, the project is opened there; collapse back with SPC j m."
   "Type the clipboard into the focused agent's prompt.
 With prefix arg SUBMIT, submit it too."
   (interactive "P")
+  (herdr-workspace-send-text (or (current-kill 0 t) "") submit))
+
+(defun herdr-workspace-send-text (text &optional submit)
+  "Type TEXT into the focused agent's prompt, submitting it when SUBMIT.
+The phone's `SPC j v' lands here with the phone's clipboard (see
+`claude-remote--paste-form')."
   (let ((agent (herdr-workspace--focused-agent))
-        (text (string-trim-right (or (current-kill 0 t) ""))))
-    (when (string-empty-p text) (user-error "Clipboard is empty"))
+        (text (string-trim-right text)))
+    (when (string-empty-p text) (user-error "Nothing to paste"))
     (if submit
         (herdr--call-json-sync "agent" "prompt" (alist-get 'pane-id agent) text)
       (herdr--call-json-sync "pane" "send-text" (alist-get 'pane-id agent) text))

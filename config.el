@@ -462,7 +462,23 @@
          :desc "Remote: paste at remote cursor" "V" #'claude-remote-paste-raw
          ;; The image the phone's clipboard cannot carry: the newest
          ;; screenshot, copied over with scp and named into the prompt.
-         :desc "Remote: attach screenshot"      "s" #'claude-remote-paste-image)))
+         :desc "Remote: attach screenshot"      "s" #'claude-remote-paste-image))
+  ;; The Mac's Herdr, under the SAME SPC j letters the Mac uses.
+  (map! :leader
+        (:prefix ("j" . "herdr (remote)")
+         :desc "Remote Herdr"                   "j" #'claude-remote-herdr-open
+         :desc "Remote Herdr menu"              "SPC" #'claude-remote-herdr-menu
+         :desc "Remote: new agent"              "a" #'claude-remote-herdr-new-agent
+         :desc "Remote: add project"            "n" #'claude-remote-herdr-add-project
+         :desc "Remote: switch project"         "p" #'claude-remote-herdr-switch-project
+         :desc "Remote: new terminal"           "t" #'claude-remote-herdr-new-terminal
+         :desc "Remote: close project"          "k" #'claude-remote-herdr-close-project
+         :desc "Remote: close tab"              "K" #'claude-remote-herdr-close-tab
+         :desc "Remote: switch agent"           "x" #'claude-remote-herdr-switch-agent
+         :desc "Remote: blocked agent"          "u" #'claude-remote-herdr-blocked
+         :desc "Remote: paste clipboard"        "v" #'claude-remote-herdr-paste
+         :desc "Remote: ESC to agent"           "i" #'claude-remote-herdr-escape
+         :desc "Remote: close Herdr"            "q" #'claude-remote-herdr-close)))
 
 ;; Podcast autoplay: learn while you wait on agents (pauses when you type).
 ;; Needs `brew install mpv' and the elfeed package (doom sync + restart).
