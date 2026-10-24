@@ -48,6 +48,16 @@
   :type 'boolean)
 
 
+;;;; Not inside a pane
+
+;; A daemon (re)started from a shell inside a Herdr pane inherits that
+;; pane's HERDR_* variables, and then every `herdr' it runs refuses as
+;; nested ("nested herdr is disabled") and every agent it starts claims
+;; the old pane.  Emacs is never itself in a pane: drop them.
+(dolist (var '("HERDR_ENV" "HERDR_PANE_ID" "HERDR_TAB_ID" "HERDR_WORKSPACE_ID"))
+  (setenv var nil))
+
+
 ;;;; Workspace
 
 (defun herdr-workspace--in-workspace-p ()

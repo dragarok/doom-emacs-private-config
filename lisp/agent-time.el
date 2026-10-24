@@ -438,6 +438,13 @@ The new ST."
 (defun agent-time--clocked-id ()
   (and (org-clocking-p) (org-with-point-at org-clock-marker (org-id-get))))
 
+(defun agent-time--save-clock-buffers (&rest bufs)
+  "Save BUFS and the clock's buffer, whose clocks this file just moved,
+so the phone sees them."
+  (dolist (buf (cons (marker-buffer org-clock-marker) bufs))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf (agent-time--save-buffer)))))
+
 (defun agent-time--clock-in (marker start)
   (let ((agent-time--self t)
         (org-clock-auto-clock-resolution nil))
@@ -446,12 +453,17 @@ The new ST."
         (setq agent-time--resume (copy-marker org-clock-marker)))
       (org-clock-out nil t (seconds-to-time (max start (float-time org-clock-start-time)))))
     (org-with-point-at marker (org-clock-in nil (seconds-to-time start)))
+    (agent-time--save-clock-buffers (and agent-time--resume (marker-buffer agent-time--resume)))
     (setq agent-time--auto t)))
 
 (defun agent-time--clock-out (at)
-  (let ((agent-time--self t))
+  ;; Gone idle before the dwell even ended: no 0:00 line.
+  (let ((agent-time--self t)
+        (org-clock-out-remove-zero-time-clocks t))
     (when (org-clocking-p)
-      (org-clock-out nil t (seconds-to-time (max at (float-time org-clock-start-time)))))
+      (let ((buf (marker-buffer org-clock-marker)))
+        (org-clock-out nil t (seconds-to-time (max at (float-time org-clock-start-time))))
+        (agent-time--save-clock-buffers buf)))
     (setq agent-time--auto nil)))
 
 (defun agent-time--resume-now (at)
@@ -460,7 +472,8 @@ The new ST."
     (when (and (marker-buffer m) (not (org-clocking-p)))
       (let ((agent-time--self t)
             (org-clock-auto-clock-resolution nil))
-        (org-with-point-at m (org-clock-in nil (seconds-to-time at)))))))
+        (org-with-point-at m (org-clock-in nil (seconds-to-time at)))
+        (agent-time--save-clock-buffers)))))
 
 (defun agent-time--tick ()
   (condition-case err
