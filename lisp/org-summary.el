@@ -514,7 +514,7 @@ Each is (DAY . ANSWERS)."
 (defun org-summary--title-text (svg title sub x)
   (svg-text svg title :x x :y 28 :font-size 16 :font-weight "600" :fill (org-summary--ink 'text))
   (when sub
-    (svg-text svg sub :x x :y 47 :font-size 11.5 :fill (org-summary--ink 'muted))))
+    (svg-text svg sub :x x :y 48 :font-size 12.5 :fill (org-summary--ink 'muted))))
 
 (defun org-summary--legend (svg x y keys)
   "Swatches for KEYS of `org-summary--colors' from X along Y."
@@ -1250,8 +1250,8 @@ sits on a tile coloured by its own state, four to a row."
          (box-h (+ 30 (* (ceiling (max 1 (length habits)) (float per-row)) (+ tile tgap))))
          (gap 10) (pad 22) (left (+ pad 34)) (top 104)
          (w (+ left (* weeks (+ box-w gap)) (- gap) pad))
-         (legend-y (+ top (* 7 (+ box-h gap)) 14))
-         (h (+ legend-y 34 (* 22 (ceiling (length habits) 2.0)) 8))
+         (legend-y (+ top (* 7 (+ box-h gap)) 20))
+         (h (+ legend-y 34 (* 28 (ceiling (length habits) 2.0)) 10))
          (grades (cl-loop for d from first to last collect (cons d (org-summary--grade habits d))))
          (count (lambda (g) (seq-count (lambda (x) (eq (cadr x) g)) grades)))
          (svg (org-summary--svg w h)))
@@ -1262,11 +1262,11 @@ sits on a tile coloured by its own state, four to a row."
      pad)
     (dotimes (wk weeks)
       (svg-text svg (format "Week %s" (org-summary--fmt (+ monday (* 7 wk)) "%V"))
-                :x (+ left (* wk (+ box-w gap)) (/ box-w 2)) :y (- top 12) :font-size 11
-                :font-weight "600" :text-anchor "middle" :fill (org-summary--ink 'muted)))
+                :x (+ left (* wk (+ box-w gap)) (/ box-w 2)) :y (- top 12) :font-size 13
+                :font-weight "600" :text-anchor "middle" :fill (org-summary--ink 'text)))
     (seq-do-indexed (lambda (d i)
-                      (svg-text svg d :x (- left 8) :y (+ top (* i (+ box-h gap)) 20) :font-size 10.5
-                                :text-anchor "end" :fill (org-summary--ink 'muted)))
+                      (svg-text svg d :x (- left 8) :y (+ top (* i (+ box-h gap)) 20) :font-size 12.5
+                                :font-weight "600" :text-anchor "end" :fill (org-summary--ink 'text)))
                     '("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"))
     (dolist (g grades)
       (pcase-let* ((`(,day ,grade ,done ,due) g)
@@ -1283,7 +1283,7 @@ sits on a tile coloured by its own state, four to a row."
         (svg-text svg (number-to-string (- day first -1)) :x (+ x 9) :y (+ yy 19) :font-size 13
                   :font-weight "700" :fill (org-summary--ink (if later 'faint 'text)))
         (unless (memq grade '(future idle))
-          (svg-text svg (format "%d/%d" done due) :x (- (+ x box-w) 9) :y (+ yy 18) :font-size 10.5
+          (svg-text svg (format "%d/%d" done due) :x (- (+ x box-w) 9) :y (+ yy 18) :font-size 12
                     :font-weight "600" :text-anchor "end"
                     :fill (or (alist-get grade '((all . "#1a7f37") (none . "#cf222e") (some . "#bc4c00")))
                               (org-summary--ink 'muted))))
@@ -1301,22 +1301,22 @@ sits on a tile coloured by its own state, four to a row."
          habits)))
     (let ((x pad))
       (dolist (g '((all . "all done") (most . "half or more") (some . "under half") (none . "none")))
-        (svg-rectangle svg x (- legend-y 10) 18 12 :rx 4 :fill (alist-get (car g) org-summary--grade-tints)
+        (svg-rectangle svg x (- legend-y 12) 20 14 :rx 4 :fill (alist-get (car g) org-summary--grade-tints)
                        :stroke (alist-get (car g) org-summary--grades) :stroke-width 1.5)
-        (svg-text svg (cdr g) :x (+ x 23) :y legend-y :font-size 10.5 :fill (org-summary--ink 'muted))
-        (setq x (+ x 36 (* 5.6 (length (cdr g))))))
-      (setq x (+ x 14))
+        (svg-text svg (cdr g) :x (+ x 26) :y legend-y :font-size 13 :fill (org-summary--ink 'text))
+        (setq x (+ x 42 (* 7 (length (cdr g))))))
+      (setq x (+ x 10))
       (dolist (k '(done skipped missed))
-        (svg-rectangle svg x (- legend-y 10) 12 12 :rx 3 :fill (alist-get k org-summary--colors))
-        (svg-text svg (symbol-name k) :x (+ x 16) :y legend-y :font-size 10.5 :fill (org-summary--ink 'muted))
-        (setq x (+ x 30 (* 5.6 (length (symbol-name k)))))))
+        (svg-rectangle svg x (- legend-y 12) 14 14 :rx 3 :fill (alist-get k org-summary--colors))
+        (svg-text svg (symbol-name k) :x (+ x 19) :y legend-y :font-size 13 :fill (org-summary--ink 'text))
+        (setq x (+ x 34 (* 7 (length (symbol-name k)))))))
     (seq-do-indexed
      (lambda (hb i)
        (let ((x (+ pad (* (mod i 2) (/ (- w (* 2 pad)) 2))))
-             (yy (+ legend-y 30 (* 22 (/ i 2)))))
-         (svg-rectangle svg x (- yy 15) 20 20 :rx 5 :fill (org-summary--ink 'text))
-         (org-summary--draw-icon svg hb (+ x 3) (- yy 12) 14 "#ffffff")
-         (svg-text svg (plist-get hb :title) :x (+ x 27) :y (- yy 1) :font-size 12
+             (yy (+ legend-y 36 (* 28 (/ i 2)))))
+         (svg-rectangle svg x (- yy 18) 24 24 :rx 6 :fill (org-summary--ink 'text))
+         (org-summary--draw-icon svg hb (+ x 4) (- yy 14) 16 "#ffffff")
+         (svg-text svg (plist-get hb :title) :x (+ x 32) :y (- yy 1) :font-size 14
                    :fill (org-summary--ink 'text))))
      habits)
     (org-summary--write-svg svg file)))
