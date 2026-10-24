@@ -1151,11 +1151,15 @@ span longer than a week the days worked are counted instead."
 
 (defvar org-tasks-file)
 
+(defvar org-summary-topic-category "ToImprove"
+  "The CATEGORY of the tasks `org-summary-plan-topics' writes.")
+
 ;;;###autoload
 (defun org-summary-plan-topics ()
   "Ask for this week's specific tasks, topic by topic, into `org-tasks-file'.
-Each answer becomes a TODO with the topic's tag, scheduled today; an empty
-answer moves on to the next topic.  The topics blocks here refresh after."
+Each answer becomes a TODO with the topic's tag, scheduled today, in
+`org-summary-topic-category'; an empty answer moves on to the next topic.
+The topics blocks here refresh after."
   (interactive)
   (let ((made 0))
     (dolist (tag (cdr (org-summary--group "Topics")))
@@ -1173,7 +1177,8 @@ answer moves on to the next topic.  The topics blocks here refresh after."
              (forward-line -1)
              (org-set-tags (list tag))
              (org-schedule nil ".")
-             (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]")))
+             (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
+             (org-entry-put nil "CATEGORY" org-summary-topic-category))
             (save-buffer))
           (push title open)
           (cl-incf made))))
