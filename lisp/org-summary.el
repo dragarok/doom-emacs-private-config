@@ -1161,11 +1161,40 @@ Rows answered yes every day are left out unless :all is t."
                                    nerd-icons/wicon-alist nerd-icons/devicon-alist))))
       icon))
 
+;; The Material icons as shapes too (etc/mdi-icons.tsv), drawn as paths:
+;; a font named in an SVG is only there where it is installed, and the
+;; phone has no Nerd Font.  The glyph stays the fallback for other sets.
+(defconst org-summary--icon-paths-file
+  (expand-file-name "../etc/mdi-icons.tsv" (file-name-directory (or load-file-name buffer-file-name))))
+
+(defvar org-summary--icon-paths (make-hash-table :test 'equal))
+
+(defun org-summary--icon-path (icon)
+  "The 24x24 SVG path of ICON, a name such as nf-md-yoga, or nil."
+  (when (string-prefix-p "nf-md-" icon)
+    (let ((name (substring icon 6)))
+      (with-memoization (gethash name org-summary--icon-paths)
+        (when (file-readable-p org-summary--icon-paths-file)
+          (with-temp-buffer
+            (insert-file-contents org-summary--icon-paths-file)
+            (when (re-search-forward (concat "^" (regexp-quote name) "\t\\(.*\\)$") nil t)
+              (match-string 1))))))))
+
+(defun org-summary--draw-icon (svg hb x y size color)
+  "Draw habit HB's icon in a SIZE square at X, Y in COLOR."
+  (if-let* ((d (plist-get hb :path)))
+      (svg-node svg 'path :d d :fill color
+                :transform (format "translate(%s %s) scale(%s)" x y (/ size 24.0)))
+    (svg-text svg (plist-get hb :icon) :x (+ x (/ size 2.0)) :y (+ y (* size 0.8))
+              :font-size size :text-anchor "middle" :fill color
+              :style (format "font-family: %s" org-summary--icon-font))))
+
 (defun org-summary-icon-habits ()
   "The habits given an ICON property, in file order, each with :icon (a glyph).
 Giving a habit an icon is what puts it in the daily habit month."
   (delq nil
         (mapcar (lambda (ti) (when-let* ((h (org-summary-habit (car ti))))
+                               (plist-put h :path (org-summary--icon-path (cdr ti)))
                                (plist-put h :icon (org-summary--icon-glyph (cdr ti)))))
                 (org-summary--in-file org-recurring-file
                   (org-map-entries (lambda () (cons (org-summary--title) (org-entry-get nil "ICON")))
@@ -1267,9 +1296,8 @@ sits on a tile coloured by its own state, four to a row."
              (svg-rectangle svg tx ty tile tile :rx 6
                             :fill (if solid (alist-get st org-summary--colors) "#ffffff")
                             :stroke (if solid "none" (org-summary--ink 'rule)) :stroke-width 1)
-             (svg-text svg (plist-get hb :icon) :x (+ tx (/ tile 2)) :y (+ ty 19) :font-size 17
-                       :text-anchor "middle" :style (format "font-family: %s" org-summary--icon-font)
-                       :fill (if solid "#ffffff" (org-summary--ink (if later 'grid 'faint))))))
+             (org-summary--draw-icon svg hb (+ tx 4) (+ ty 4) (- tile 8)
+                                     (if solid "#ffffff" (org-summary--ink (if later 'grid 'faint))))))
          habits)))
     (let ((x pad))
       (dolist (g '((all . "all done") (most . "half or more") (some . "under half") (none . "none")))
@@ -1287,8 +1315,7 @@ sits on a tile coloured by its own state, four to a row."
        (let ((x (+ pad (* (mod i 2) (/ (- w (* 2 pad)) 2))))
              (yy (+ legend-y 30 (* 22 (/ i 2)))))
          (svg-rectangle svg x (- yy 15) 20 20 :rx 5 :fill (org-summary--ink 'text))
-         (svg-text svg (plist-get hb :icon) :x (+ x 10) :y (- yy 0.5) :font-size 14 :text-anchor "middle"
-                   :style (format "font-family: %s" org-summary--icon-font) :fill "#ffffff")
+         (org-summary--draw-icon svg hb (+ x 3) (- yy 12) 14 "#ffffff")
          (svg-text svg (plist-get hb :title) :x (+ x 27) :y (- yy 1) :font-size 12
                    :fill (org-summary--ink 'text))))
      habits)
