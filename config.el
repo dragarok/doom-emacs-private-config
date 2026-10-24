@@ -240,15 +240,19 @@
         ("EHP"         "ehp")
         ("Special"     "deepwork" "ritual" "meditation" "review" "book")
         ("Entertainment" "music" "movie")
-        ("File"        "someday" "refile" "inbox"))
-      org-summary-summary-groups '("Difficulty" "Energy" "Time of day" "Deep work"))
+        ("File"        "someday" "refile" "inbox")
+        ;; What I grow in each week, as specific tasks planned in the weekly
+        ;; review; the `topics' block reports them like habits.
+        ("Topics"      "mentalmodels" "notesrevision" "mentalgym" "weeklyvideo"
+                       "booksrevision" "roomcleanup"))
+      org-summary-summary-groups '("Difficulty" "Energy" "Time of day" "Deep work" "Topics"))
 (autoload 'org-summary-habit-year "org-summary" nil t)
 (autoload 'org-summary-plots "org-summary" nil t)
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
                   "habit-calendar" "habit-year" "habits-month" "review-answers" "project-summary" "project-progress"
-                  "time-kinds"))
+                  "time-kinds" "topics"))
     (autoload (intern (concat "org-dblock-write:" name)) "org-summary")))
 
 ;; The week as a calendar over the agenda's timed entries, edited by drag or
@@ -1671,6 +1675,10 @@ selected, then the current line."
                         ("ModeratelyLazy" . ?8)
                         ("Energetic" . ?9)
                         (:endgroup . nil)
+
+                        ;; Weekly topics (`org-summary-tag-groups' "Topics")
+                        ("mentalmodels") ("notesrevision") ("mentalgym")
+                        ("weeklyvideo") ("booksrevision") ("roomcleanup")
                         ))
 
   (setq org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id

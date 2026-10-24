@@ -17,6 +17,7 @@
 ;;   period-summary    time logged, top tasks, tasks closed, habit consistency
 ;;   clock-score       the day's clocked tasks, scored by priority
 ;;   clock-chart       bars of time by :by day, tag, category or task
+;;   topics            each weekly topic tag like a habit: days, time, done, open
 ;;   review-days       a review datetree's answers, a column a day
 ;;   review-stats      averages and counts over those answers
 ;;   habit-calendar    the month as a grid per habit (the old july plot)
@@ -1095,6 +1096,57 @@ also reads the weekly reviews."
                 (org-summary--plot-file (format "clock_%s_%s_%s" by (org-summary--iso (car range))
                                                 (org-summary--iso (cdr range))))))
               "\n"))
+    (org-summary--end-block)))
+
+;; Topics: what I grow in each week (mental models, notes revision...) are
+;; tags, not habits.  A habit named after a topic never said what to do; the
+;; weekly review plans specific tasks with the topic's tag instead, and this
+;; block shows each topic the way a habit would: the days it was worked on,
+;; the time, what got done and what is still open.
+
+(defun org-summary--open-tagged (tag)
+  "Titles of the open TODOs tagged TAG in the agenda files."
+  (let (out)
+    (dolist (file (seq-filter #'file-exists-p (org-agenda-files t)) (nreverse out))
+      (org-summary--in-file file
+        (org-map-entries (lambda () (push (org-summary--title) out))
+                         (concat "+" tag "/!"))))))
+
+(defun org-dblock-write:topics (params)
+  "Each tag of the :group (default \"Topics\") over :span, a column a day.
+A day is ticked when a task with the tag was clocked or closed then; over a
+span longer than a week the days worked are counted instead."
+  (let* ((range (org-summary--range params "thisweek"))
+         (group (org-summary--group (or (plist-get params :group) "Topics")))
+         (clocks (org-summary-clocks (car range) (cdr range)))
+         (closed (seq-remove (lambda (c) (member (plist-get c :todo) '("CANCELED" "CANCELLED")))
+                             (org-summary-closed (car range) (cdr range))))
+         (week (<= (- (cdr range) (car range)) 6))
+         (days (number-sequence (car range) (cdr range)))
+         (tagged (lambda (items tag) (seq-filter (lambda (it) (member tag (plist-get it :tags)))
+                                                 items)))
+         rows idle)
+    (dolist (tag (cdr group))
+      (let* ((cl (funcall tagged clocks tag))
+             (dn (funcall tagged closed tag))
+             (open (org-summary--open-tagged tag))
+             (touched (mapcar (lambda (it) (plist-get it :day)) (append cl dn))))
+        (push (append (list tag)
+                      (if week
+                          (mapcar (lambda (d) (if (memq d touched) "✓" "")) days)
+                        (list (number-to-string (length (delete-dups touched)))))
+                      (list (let ((m (apply #'+ (mapcar (lambda (c) (plist-get c :minutes)) cl))))
+                              (if (> m 0) (org-summary--dur m) ""))
+                            (number-to-string (length dn))
+                            (number-to-string (length open))))
+              rows)
+        (unless (or open dn) (push tag idle))))
+    (org-summary--table (append '("Topic")
+                                (if week (mapcar (lambda (d) (org-summary--fmt d "%a")) days) '("Days"))
+                                '("Time" "Done" "Open"))
+                        (nreverse rows))
+    (when idle
+      (insert (format "\nNothing planned: %s\n" (string-join (nreverse idle) ", "))))
     (org-summary--end-block)))
 
 (defun org-dblock-write:review-days (params)
