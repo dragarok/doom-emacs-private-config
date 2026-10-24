@@ -1,4 +1,26 @@
-#+title: Time tracking: you, agents, passive
+#+title: How the system works: a day, and the keys
+
+* A day with it
+1. *Evening, daily review* (=SPC o v t=, or the capture "rd"):
+   - *Date every task* (=SPC o v u=): each undated task in tasks, projects
+     and inbox -- =d= a date, =b= break it down, =s= someday, =c= cancel
+     (asks why), =x= done, =n= skip.  Ideas are left alone.
+   - *Plan for tomorrow* (=SPC o v n=): one specific task per daily topic,
+     scheduled tomorrow.  Empty Enter skips a topic.
+   - Look at the Daily topics table and the habit month.
+2. *Daytime*: the agenda shows what is dated today.  Clock in (=I=) when you
+   start something; agents' work records itself.
+3. *Rescheduling* a task the second time asks: break it down instead?
+   Yes asks, as in Flow: done when there is what to show, what makes it
+   hard, then steps of one sitting each with a result you can see, each
+   dated.  The task gets the last step's day as its deadline.
+   =SPC o v b= breaks down any task, any time.
+4. *Weekly review* (=SPC o v w=): plan the week's topics (=SPC o v o=) and
+   read the tables.
+
+Rules the history (2023-2026) earned: a dated task got done 88% of the
+time, an undated one 45%; rescheduled twice, 38%.  So every task has a
+date, and a task that slips twice gets broken down, not pushed again.
 
 * The idea in one line
 Three kinds of time, never added together: *you* (the org clock), *agents*
@@ -15,6 +37,8 @@ Three kinds of time, never added together: *you* (the org clock), *agents*
 | Plan the week's topics               | =SPC o v o= (weekly review) | Mac, phone |
 | Plan tomorrow's daily topics         | =SPC o v n= (daily review)  | Mac, phone |
 | Add a topic / habit → topic          | =SPC o v s= (=e=: the file) | Mac, phone |
+| Date every undated task              | =SPC o v u= (daily review)  | Mac, phone |
+| Break a task into dated steps        | =SPC o v b=                 | Mac, phone |
 
 That is all.  Everything else happens on its own.
 
@@ -64,7 +88,8 @@ e.g. the songs in log_guitar.org for guitarpractice -- but they are not
 "planned": only open tasks with a date are.
 
 Tests: =ORG_TEMPLATES=~/org/templates emacs -Q --batch -L lisp -l
-test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=
+test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=, and the
+same with =test/org-flow-test.el= for dating and breaking down.
 
 * Phone
 - Pull the config; the time files come over by Syncthing.

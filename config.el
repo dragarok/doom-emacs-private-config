@@ -252,6 +252,11 @@
 (autoload 'org-summary-plan-tomorrow "org-summary" nil t)
 (autoload 'org-summary-add-topic "org-summary" nil t)
 (autoload 'org-summary-topic-tags "org-summary")
+;; Every task dated, and offered a breakdown the second time it is
+;; rescheduled: org-flow.el.
+(autoload 'org-flow-date-undated "org-flow" nil t)
+(autoload 'org-flow-breakdown "org-flow" nil t)
+(with-eval-after-load 'org (require 'org-flow) (org-flow-mode 1))
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
@@ -287,6 +292,8 @@
        :desc "Plan the week's topics"  "o" #'org-summary-plan-topics
        :desc "Plan tomorrow's topics"  "n" #'org-summary-plan-tomorrow
        :desc "Set up a topic"          "s" #'org-summary-add-topic
+       :desc "Date undated tasks"      "u" #'org-flow-date-undated
+       :desc "Break task down"         "b" #'org-flow-breakdown
        :desc "Edit the topics"         "e" (cmd! (find-file (expand-file-name "topics.org" org-directory)))))
 ;; Agents' time, yours with them, passive time: agent-time.el.  The agents'
 ;; side of it is mcp/agent-tasks.mjs (task_start / task_finish).

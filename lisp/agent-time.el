@@ -142,7 +142,8 @@
   (find-file-noselect (agent-time--file)))
 
 (defun agent-time--create-task (title project)
-  "A TODO named TITLE for an agent in PROJECT, at the end of tasks.org; its ID."
+  "A TODO named TITLE for an agent in PROJECT, at the end of tasks.org,
+scheduled today (every task has a date: org-flow.el); its ID."
   (with-current-buffer (agent-time--tasks-buffer)
     (prog1 (org-with-wide-buffer
             (goto-char (point-max))
@@ -150,6 +151,7 @@
             (insert "* TODO " title "\n")
             (forward-line -1)
             (org-set-tags '("agent"))
+            (org-schedule nil (format-time-string "%Y-%m-%d"))
             (when project (org-entry-put nil "AGENT_PROJECT" project))
             (org-entry-put nil "CREATED" (agent-time--ts nil))
             (org-id-get-create))
