@@ -1416,36 +1416,21 @@ If TITLE is provided, use it; otherwise prompt for it."
     (cond
      ;; Tasks - use existing instant task logic
      ((string= destination "Tasks")
-      (let* ((priority (completing-read "Priority: " '("A" "B" "C" "D" "E" "F") nil t nil nil "C"))
-             (effort (read-string "Effort (e.g., 1:00): " "1:00"))
-             (category (completing-read "Category: "
-                                        rts-instant-task-categories
-                                        nil nil nil nil
-                                        (or rts-instant-task-last-category
-                                            (car rts-instant-task-categories))))
-             (time-tag (rts--suggest-time-of-day-tag))
-             (tags-input (completing-read-multiple
-                          "Tags (comma-separated, TAB to complete): "
-                          rts-instant-task-common-tags))
-             (all-tags (append tags-input (list time-tag "Active"))))
+      (let ((task-marker (rts--read-instant-task title)))
+        (when task-marker
+          (with-current-buffer (marker-buffer task-marker)
+            (save-excursion
+              (goto-char task-marker)
+              (org-todo "NEXT")
+              (rts--add-state-change-logbook-entry "TODO" "NEXT" "Added via rts-flow-add-task")
 
-        (setq rts-instant-task-last-category category)
+              ;; Remember for rts-flow-cancel (status changed from TODO to NEXT)
+              (setq rts-flow-last-task-marker (copy-marker (point))
+                    rts-flow-last-task-heading title
+                    rts-flow-last-task-old-status "TODO")
 
-        (let ((task-marker (rts--create-instant-task title priority effort category all-tags)))
-          (when task-marker
-            (with-current-buffer (marker-buffer task-marker)
-              (save-excursion
-                (goto-char task-marker)
-                (org-todo "NEXT")
-                (rts--add-state-change-logbook-entry "TODO" "NEXT" "Added via rts-flow-add-task")
-
-                ;; Remember for rts-flow-cancel (status changed from TODO to NEXT)
-                (setq rts-flow-last-task-marker (copy-marker (point))
-                      rts-flow-last-task-heading title
-                      rts-flow-last-task-old-status "TODO")
-
-                (org-clock-in)))
-            (message "Created and clocked in: %s" title)))))
+              (org-clock-in)))
+          (message "Created and clocked in: %s" title))))
 
      ;; Project - use existing project task logic
      ((string= destination "Project")

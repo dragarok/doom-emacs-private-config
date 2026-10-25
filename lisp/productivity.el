@@ -1115,6 +1115,25 @@ Returns the marker for the newly created task."
       (org-back-to-heading t)
       (copy-marker (point)))))
 
+(defun rts--read-instant-task (title)
+  "Ask priority, effort, category and tags for a new task TITLE in
+`org-tasks-file', the questions Add > Task > Tasks asks; create it,
+scheduled today, and return its marker."
+  (let* ((priority (completing-read "Priority: " '("A" "B" "C" "D" "E" "F") nil t nil nil "C"))
+         (effort (read-string "Effort (e.g., 1:00): " "1:00"))
+         (category (completing-read "Category: "
+                                    rts-instant-task-categories
+                                    nil nil nil nil
+                                    (or rts-instant-task-last-category
+                                        (car rts-instant-task-categories))))
+         (time-tag (rts--suggest-time-of-day-tag))
+         (tags-input (completing-read-multiple
+                      "Tags (comma-separated, TAB to complete): "
+                      rts-instant-task-common-tags)))
+    (setq rts-instant-task-last-category category)
+    (rts--create-instant-task title priority effort category
+                              (append tags-input (list time-tag "Active")))))
+
 (defun consult-activate-instant-task ()
   "Create and immediately activate a new task in org-tasks-file.
 Prompts for title, priority, effort, category, and tags.
@@ -1898,7 +1917,8 @@ Returns list of (display . marker) pairs with duplicates removed."
 
 (defun rts--get-task-marker-smart ()
   "Get marker for task - from point if in org/agenda, or via consult selection.
-Returns marker or nil if cancelled."
+A name that matches no task (typed with no match, or M-RET) becomes a
+new task, asked for as Add > Task asks.  Returns marker or nil if cancelled."
   (cond
    ;; In agenda mode - use task at point
    ((derived-mode-p 'org-agenda-mode)
@@ -1911,14 +1931,15 @@ Returns marker or nil if cancelled."
    ;; Not in org context - show task selector
    (t
     (let* ((candidates (rts--get-all-task-candidates))
-           (selected (when candidates
-                       (consult--read candidates
-                                      :prompt "Select task: "
-                                      :require-match t
-                                      :sort nil
-                                      :category 'org-task))))
-      (when selected
-        (cdr (assoc selected candidates)))))))
+           (selected (string-trim
+                      (consult--read candidates
+                                     :prompt "Select task (or a new one): "
+                                     :require-match nil
+                                     :sort nil
+                                     :category 'org-task))))
+      (cond ((string-empty-p selected) nil)
+            ((cdr (assoc selected candidates)))
+            (t (rts--read-instant-task selected)))))))
 
 (defun add-clock-time-by-offset ()
   "Add clock time to a task using offset approach.
