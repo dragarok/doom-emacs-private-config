@@ -210,7 +210,15 @@ box / interrupts a running turn; set to nil if that ever bites."
 
 ;;; Driving the remote Claude workspace ------------------------------------
 
-(defcustom claude-remote-next-form "(claude-workspace-cycle-session)"
+;; The remote runs its agents in Herdr now (herdr-workspace.el), the
+;; claude-workspace grid before that; each form takes Herdr's verb when
+;; the remote has it, so a machine still on the grid keeps working.
+(defun claude-remote--herdr-or (fn herdr grid)
+  "A form running HERDR on the remote when it has FN (Herdr's), else GRID."
+  (format "(if (fboundp '%s) %s %s)" fn herdr grid))
+
+(defcustom claude-remote-next-form
+  (claude-remote--herdr-or 'herdr-workspace-cycle-agent "(herdr-workspace-cycle-agent)" "(claude-workspace-cycle-session)")
   "Elisp evaluated ON THE REMOTE to move to the next Claude session.
 Sent as `M-:' FORM RET rather than as the local chord (SPC v x): `M-:'
 is in `ghostel-keymap-exceptions', so it reaches the remote Emacs even
@@ -218,12 +226,14 @@ when the focus sits inside a Claude terminal, and evaluating a form
 needs no completion round-trip.  Override per machine with `:next-form'."
   :type 'string :group 'claude-remote)
 
-(defcustom claude-remote-prev-form "(claude-workspace-cycle-session t)"
+(defcustom claude-remote-prev-form
+  (claude-remote--herdr-or 'herdr-workspace-cycle-agent "(herdr-workspace-cycle-agent t)" "(claude-workspace-cycle-session t)")
   "Elisp evaluated ON THE REMOTE to move to the previous Claude session.
 See `claude-remote-next-form'.  Override per machine with `:prev-form'."
   :type 'string :group 'claude-remote)
 
-(defcustom claude-remote-escape-form "(claude-workspace-send-escape)"
+(defcustom claude-remote-escape-form
+  (claude-remote--herdr-or 'herdr-workspace-send-escape "(herdr-workspace-send-escape)" "(claude-workspace-send-escape)")
   "Elisp evaluated ON THE REMOTE to send ESC to its current Claude session.
 ESC is how you interrupt a running turn or back out of a Claude prompt.
 Sent as an eval rather than as a bare ESC through the wire because the
@@ -232,17 +242,21 @@ raw ESC would land in evil instead.  Override per machine with
 `:escape-form'."
   :type 'string :group 'claude-remote)
 
-(defcustom claude-remote-add-form "(claude-workspace-add)"
+(defcustom claude-remote-add-form
+  (claude-remote--herdr-or 'herdr-workspace-add-project "(call-interactively 'herdr-workspace-add-project)"
+                           "(claude-workspace-add)")
   "Elisp evaluated ON THE REMOTE to add Claude session(s) to its grid.
 This one prompts on the remote (which project?), so the button that
 sends it also jumps you into the connection first -- your typing has to
 reach the remote minibuffer.  Override per machine with `:add-form'."
   :type 'string :group 'claude-remote)
 
-(defcustom claude-remote-refresh-form "(claude-workspace-refresh-session)"
-  "Elisp evaluated ON THE REMOTE to restart its current session with --continue.
-The repair for a session whose display has gone garbled -- the same
-conversation comes back.  Override per machine with `:refresh-form'."
+(defcustom claude-remote-refresh-form
+  (claude-remote--herdr-or 'herdr-workspace-redraw "(herdr-workspace-redraw)" "(claude-workspace-refresh-session)")
+  "Elisp evaluated ON THE REMOTE to repair a garbled display.
+Herdr: this frame's view of it starts afresh, the agents untouched.  The
+old grid: the session restarts with --continue, the same conversation
+back.  Override per machine with `:refresh-form'."
   :type 'string :group 'claude-remote)
 
 (defcustom claude-remote-talk-submit t
@@ -666,15 +680,35 @@ connection -- so the buttons keep working from anywhere on the phone."
                               claude-remote-machines)))
       (user-error "No live claude-remote connection — tap Mac or Kai first")))
 
+(defcustom claude-remote-eval-keys "\C-x!"
+  "What the phone types to make the remote Emacs read and evaluate a form.
+`claude-remote-eval-from-wire' is bound to it on every machine.  It
+begins with C-x, one of the keys ghostel hands back to Emacs instead of
+to the terminal (`ghostel-keymap-exceptions'), so it reaches the remote
+Emacs even while the focus sits inside an agent.  It used to be `M-:',
+but a tty sends that as ESC then \":\", and in a Herdr buffer evil takes
+the ESC -- the \":\" and the form were typed as text instead.  Set to
+\"\\e:\" per machine (`:eval-keys') for one that has not pulled this."
+  :type 'string :group 'claude-remote)
+
+(defun claude-remote-eval-from-wire (form)
+  "Evaluate FORM, typed down the wire by the phone's remote buttons.
+A plain minibuffer: no completion, no auto-paired parens."
+  (interactive (list (read-from-minibuffer "Remote: ")))
+  (eval (car (read-from-string form)) t))
+
+(keymap-global-set "C-x !" #'claude-remote-eval-from-wire)
+
 (defun claude-remote--send-eval (buf form)
   "Evaluate FORM (a string) in the Emacs on the other end of BUF.
-Sent as `M-:' FORM RET (ESC is the terminal's meta prefix).  `M-:' is
-one of the keys ghostel hands back to Emacs instead of to the terminal
-\(`ghostel-keymap-exceptions'), so this reaches the remote Emacs even
-while the focus sits inside a running Claude session -- and evaluating a
-form needs no completion round-trip, unlike `M-x'."
+Typed as `claude-remote-eval-keys' FORM RET: see that for why it is not
+`M-:'.  Evaluating a form needs no completion round-trip, unlike `M-x'."
   (with-current-buffer buf
-    (claude-remote--send (concat "\e:" form "\r"))))
+    (claude-remote--send
+     (concat (or (plist-get (cdr (assq claude-remote--machine-name claude-remote-machines))
+                            :eval-keys)
+                 claude-remote-eval-keys)
+             form "\r"))))
 
 (defun claude-remote--session-form (buf key fallback)
   "Per-machine KEY (`:next-form'/`:prev-form') for BUF, else FALLBACK."
@@ -747,7 +781,8 @@ paste."
 
 (defun claude-remote--paste-form (fn text submit)
   "Build the form that pastes TEXT on the remote, RET too when SUBMIT.
-FN names the remote helper to prefer, but the form does NOT depend on it
+Herdr's `herdr-workspace-send-text' comes first when the remote has it
+(the focused agent); then FN, the grid's helper, but the form does NOT depend on it
 existing.  It has to not: the helper ships in this repo, and a machine
 that has not pulled it -- or has pulled it into a daemon that has not
 re-read the file -- would otherwise answer a paste with `void-function\='
@@ -765,12 +800,12 @@ parens and its quotes balanced no matter what you copied."
         (sub (if submit "t" "nil")))
     (concat
      "(let ((s (decode-coding-string (base64-decode-string \"" b64 "\") 'utf-8)))"
-     " (if (fboundp '" fn ")"
-     " (" fn " s " sub ")"
-     " (with-current-buffer"
+     " (cond ((fboundp 'herdr-workspace-send-text) (herdr-workspace-send-text s " sub "))"
+     " ((fboundp '" fn ") (" fn " s " sub "))"
+     " (t (with-current-buffer"
      " (or (ignore-errors (claude-workspace-target-session)) (current-buffer))"
      " (ghostel-paste-string s)"
-     " (when " sub " (ghostel-send-string \"\\r\")))))")))
+     " (when " sub " (ghostel-send-string \"\\r\"))))))")))
 
 (defun claude-remote--paste-ok-p (text)
   "Return non-nil when TEXT is short enough to paste, or you say so."

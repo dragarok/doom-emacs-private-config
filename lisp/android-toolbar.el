@@ -247,12 +247,12 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-prev>"
         `(menu-item "Prev" claude-remote-prev-session
-          :help "Previous Claude session on the remote machine"
+          :help "Previous agent in the remote Herdr"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/backward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-next>"
         `(menu-item "Next" claude-remote-next-session
-          :help "Next Claude session on the remote machine"
+          :help "Next agent in the remote Herdr"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/forward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       ;; (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-talk>"
@@ -261,23 +261,23 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;;     :image (image :type svg :file "~/.doom.d/toolbar-assets/microphone-svgrepo-com.svg"
       ;;                   :height ,icon-size :width ,icon-size)))
 
-      ;; The three grid actions worth a thumb: interrupt, spawn, repair.
-      ;; They drive the machine you are connected to (sent as an eval, so
-      ;; they land even while the focus sits inside a Claude TUI), and fall
-      ;; back to the local grid when nothing is connected.
+      ;; The three agent actions worth a thumb: interrupt, spawn, repair.
+      ;; They drive the machine you are connected to -- its Herdr, or its
+      ;; old grid if it has no Herdr -- sent as an eval, so they land even
+      ;; while the focus sits inside an agent.
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-escape>"
         `(menu-item "Esc" claude-remote-escape
-          :help "Send ESC: interrupt the running turn, or back out of a prompt"
+          :help "Send ESC to the focused agent: interrupt it, or back out of a prompt"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/logout-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-add>"
         `(menu-item "Add" claude-remote-add-session
-          :help "Add Claude session(s) to the remote grid (asks which project)"
+          :help "Add an agent in Herdr (asks which project)"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/add-circle-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-refresh>"
         `(menu-item "Refresh" claude-remote-refresh-session
-          :help "Restart this session with --continue (fixes a garbled display)"
+          :help "Start the Herdr view afresh (fixes a garbled display; agents keep running)"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       ;; The phone's clipboard has no other road to the remote: a link or an
@@ -286,7 +286,7 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; and leaves RET to you.
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-paste>"
         `(menu-item "Paste" claude-remote-paste
-          :help "Paste the Android clipboard into the remote Claude prompt"
+          :help "Paste the Android clipboard into the focused agent"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/paste-clipboard.svg"
                         :height ,icon-size :width ,icon-size)))
       ;; The one thing the Paste button cannot carry.  Android has no image
@@ -297,7 +297,7 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; Take the screenshot, come back, tap this.
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-image>"
         `(menu-item "Image" claude-remote-paste-image
-          :help "Send the newest screenshot to the remote Claude prompt"
+          :help "Send the newest screenshot to the focused agent"
           :image (image :type svg :file "~/.doom.d/toolbar-assets/camera-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 

@@ -249,6 +249,33 @@ The phone's `SPC j v' lands here with the phone's clipboard (see
              (herdr--agent-display-name agent) (if submit " + RET" ""))))
 
 
+;;;; Driven from the phone
+;;
+;; The phone's Prev / Next / Refresh buttons (claude-remote.el) land here.
+
+(defun herdr-workspace-cycle-agent (&optional backward)
+  "Focus the next agent, in the sidebar's order; the previous with BACKWARD."
+  (interactive "P")
+  (let* ((json (herdr--snapshot-sync))
+         (agents (or (herdr--extract-agents json) (user-error "Herdr has no agents")))
+         (focused (alist-get 'focused_pane_id (alist-get 'snapshot (alist-get 'result json))))
+         (i (seq-position agents focused
+                          (lambda (a pane) (equal (alist-get 'pane-id a) pane))))
+         ;; From a plain shell pane: the first agent, or the last going back.
+         (next (nth (mod (if i (+ i (if backward -1 1)) (if backward -1 0)) (length agents))
+                    agents)))
+    (herdr--call-json-sync "agent" "focus" (alist-get 'target next))
+    (message "Herdr → %s" (herdr--agent-display-name next))))
+
+(defun herdr-workspace-redraw ()
+  "Start this frame's Herdr view afresh: the fix for a garbled display.
+Only the view goes; the agents run on in the server."
+  (interactive)
+  (let ((kill-buffer-query-functions nil))
+    (when-let* ((buf (get-buffer (herdr-workspace--tui-buffer-name))))
+      (kill-buffer buf)))
+  (herdr-workspace-open))
+
 ;;;; Projects, tabs and plain terminals
 ;;
 ;; A Herdr workspace ("space" in its sidebar) is a project; its tabs hold
