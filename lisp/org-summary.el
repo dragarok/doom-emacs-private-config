@@ -1424,15 +1424,18 @@ the days worked are counted.  Planned is the open tasks with a date;
   "The CATEGORY of the tasks `org-summary-plan-topics' writes.")
 
 ;;;###autoload
-(defun org-summary-plan-topics (&optional group day)
+(defun org-summary-plan-topics (&optional group day ask-start)
   "Ask for specific tasks, topic by topic, into `org-tasks-file'.
 GROUP is a name in `org-summary-tag-groups', \"Topics\" (the weekly ones)
 by default; DAY is when they are scheduled, as `org-read-date' reads it,
-today by default.  Each answer becomes a TODO with the topic's tag in
+today by default.  With ASK-START (interactively, for the week's topics)
+each task also asks the day to start on it, DAY on RET, so a week's
+tasks spread over the week instead of crowding today's agenda.
+Each answer becomes a TODO with the topic's tag in
 `org-summary-topic-category'; an empty answer moves on to the next topic.
 A topic paused that day (`org-summary-pause-topic') is not asked about.
 The topics blocks here refresh after."
-  (interactive)
+  (interactive (list nil nil t))
   (let* ((time (org-read-date nil t (or day ".")))
          (date (format-time-string "%Y-%m-%d" time))
          (pauses (org-summary-topic-pauses))
@@ -1449,17 +1452,22 @@ The topics blocks here refresh after."
                                            (if (org-string-nw-p about) (format " (%s)" about) "")
                                            (if open (format " [planned: %s]" (string-join open "; ")) "")
                                            (format-time-string "%a %d" time)))))))
-          (with-current-buffer (find-file-noselect org-tasks-file)
-            (org-with-wide-buffer
-             (goto-char (point-max))
-             (unless (bolp) (insert "\n"))
-             (insert "* TODO " title "\n")
-             (forward-line -1)
-             (org-set-tags (list tag))
-             (org-schedule nil date)
-             (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
-             (org-entry-put nil "CATEGORY" org-summary-topic-category))
-            (save-buffer))
+          (let ((start (if ask-start
+                           (org-read-date nil nil nil (format "Start \"%s\" on (RET: %s): "
+                                                              title (format-time-string "%a %d" time))
+                                          time)
+                         date)))
+            (with-current-buffer (find-file-noselect org-tasks-file)
+              (org-with-wide-buffer
+               (goto-char (point-max))
+               (unless (bolp) (insert "\n"))
+               (insert "* TODO " title "\n")
+               (forward-line -1)
+               (org-set-tags (list tag))
+               (org-schedule nil start)
+               (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
+               (org-entry-put nil "CATEGORY" org-summary-topic-category))
+              (save-buffer)))
           (push title open)
           (cl-incf made))))
     (when (derived-mode-p 'org-mode)

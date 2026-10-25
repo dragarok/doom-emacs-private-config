@@ -245,6 +245,30 @@ CREATED, CATEGORY ToImprove; no STYLE, no ID; the rest of the file untouched."
             (should-not (nth 5 m))
             (should-not (nth 6 m))))))))
 
+(ert-deftest topics-test-plan-start-day ()
+  "Called as SPC o v o, each task asks the day to start on it: a date
+typed there is its SCHEDULED, RET keeps today.  Called from code, as the
+daily review does, nothing more is asked."
+  (topics-test--with-org
+    (let ((asked nil)
+          (answers (list (format-time-string "%Y-%m-%d" (time-add nil (* 3 86400))) nil)))
+      (cl-letf (((symbol-function 'org-read-date)
+                 (lambda (_with-time to-time &optional _from prompt default-time &rest _)
+                   (when prompt (push prompt asked))
+                   (let ((a (and prompt (pop answers))))
+                     (if to-time (or default-time (current-time))
+                       (or a (format-time-string "%Y-%m-%d" default-time)))))))
+        (topics-test--answering '("Inversion: 3 examples" "" "Mental arithmetic drills" "")
+          (call-interactively #'org-summary-plan-topics)))
+      (should (equal (reverse asked)
+                     (list (format-time-string "Start \"Inversion: 3 examples\" on (RET: %a %d): ")
+                           (format-time-string "Start \"Mental arithmetic drills\" on (RET: %a %d): "))))
+      (with-current-buffer (find-file-noselect org-tasks-file)
+        (revert-buffer t t)
+        (should (equal (org-map-entries (lambda () (org-entry-get nil "SCHEDULED")) "CATEGORY=\"ToImprove\"")
+                       (list (format-time-string "<%Y-%m-%d %a>" (time-add nil (* 3 86400)))
+                             (format-time-string "<%Y-%m-%d %a>"))))))))
+
 (ert-deftest topics-test-plan-nothing ()
   "Empty answers everywhere: six questions, tasks.org unchanged."
   (topics-test--with-org
