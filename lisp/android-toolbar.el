@@ -140,6 +140,14 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/bank-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      ;; The one habit the rest stands on: three lines, every task dated,
+      ;; tomorrow planned.  Same as SPC o v t and the 8 PM prompt.
+      (keymap-set-after (default-value 'tool-bar-map) "<day-log-review>"
+        `(menu-item "Review" day-log-review
+          :help "Daily review: three lines, date every task, plan tomorrow"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/daily-calendar-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
       ;; ===================================================================
       ;; ORG-ROAM EXTRAS (moved to homepage)
       ;; ===================================================================
