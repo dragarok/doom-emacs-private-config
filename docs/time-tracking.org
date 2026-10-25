@@ -1,7 +1,12 @@
 #+title: How the system works: a day, and the keys
 
 * A day with it
-1. *Evening, daily review* (=SPC o v t=, or the capture "rd"):
+1. *Evening, daily review* (=SPC o v t=, or Today at the 8 PM prompt; C-u
+   for yesterday's).  One command, start to end, nothing to navigate.  The
+   day's facts are already written; it asks:
+   - *Three lines*: one line about today, energy 1-10, first thing
+     tomorrow.  Empty Enter skips one.  Anything written closes the review
+     as written; nothing written, it closes on its own at 4am.
    - *Date every task* (=SPC o v u=): each undated task in tasks, projects
      and inbox -- =d= a date, =b= break it down, =s= someday, =c= cancel
      (asks why), =x= done, =n= skip.  Ideas are left alone, and so are
@@ -9,7 +14,7 @@
      them (their TRIGGER).
    - *Plan for tomorrow* (=SPC o v n=): one specific task per daily topic,
      scheduled tomorrow.  Empty Enter skips a topic.
-   - Look at the Daily topics table and the habit month.
+   - The habit month is in the day's facts.
 2. *Daytime*: the agenda shows what is dated today.  Clock in (=I=) when you
    start something; agents' work records itself.
 3. *Rescheduling* a task the second time asks: break it down instead?
@@ -36,11 +41,13 @@ Three kinds of time, never added together: *you* (the org clock), *agents*
 | Work on something yourself           | clock in as always (=I=)    | Mac, phone |
 | Start or stop music, cleaning...     | =SPC o v a=, pick or type   | Mac, phone |
 | Put an agent on an existing task     | =SPC j o= (optional)        | Mac        |
-| Look at today                        | =SPC o v t=                 | Mac, phone |
+| Daily review                         | =SPC o v t=                 | Mac, phone |
+| Look at today's facts                | Day, on the homepage        | phone      |
 | Weekly / monthly review              | =SPC o v w= / =SPC o v m=   | Mac, phone |
 | Plan the week's topics               | =SPC o v o= (weekly review) | Mac, phone |
 | Plan tomorrow's daily topics         | =SPC o v n= (daily review)  | Mac, phone |
 | Add a topic / habit → topic          | =SPC o v s= (=e=: the file) | Mac, phone |
+| Pause / resume a topic (away from it) | =SPC o v z=                 | Mac, phone |
 | Date every undated task              | =SPC o v u= (daily review)  | Mac, phone |
 | Break a task into dated steps        | =SPC o v b=                 | Mac, phone |
 
@@ -91,9 +98,21 @@ day, skipped when one was cancelled).  Time on anything with the tag counts,
 e.g. the songs in log_guitar.org for guitarpractice -- but they are not
 "planned": only open tasks with a date are.
 
+*Pause*: away from the guitar for a while?  =SPC o v z=, the topic, from
+when and until when (empty: until you resume it with =SPC o v z= again).
+Paused days are grey in the habit charts and ‖ in the Topics tables, count
+neither for nor against the topic (a streak runs on across them), and the
+planners don't ask about it.  Done on a paused day still counts as done.
+The pauses stay under =* Paused= in topics.org, one dated line each:
+#+begin_example
+,* Paused
+- guitarpractice :: 2026-10-25 .. 2026-11-08
+#+end_example
+
 Tests: =ORG_TEMPLATES=~/org/templates emacs -Q --batch -L lisp -l
 test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=, and the
-same with =test/org-flow-test.el= for dating and breaking down.
+same with =test/org-flow-test.el= for dating and breaking down, and
+=test/day-log-review-test.el= for the daily review.
 
 * Phone
 - Pull the config (code); the org files -- topics.org, the templates,

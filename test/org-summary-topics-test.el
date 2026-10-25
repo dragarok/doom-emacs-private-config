@@ -518,4 +518,118 @@ evening review for tomorrow, the next-morning one for today."
                                                              (time-add nil (* (nth 2 f) 24 3600))))))))
           (kill-buffer b))))))
 
+;;; Pausing a topic
+
+(defconst topics-test--pauses "
+* Paused
+- guitarpractice :: 2026-10-21 .. 2026-10-23
+- essaytime :: 2026-10-01 ..
+")
+
+(defmacro topics-test--with-pauses (&rest body)
+  "BODY with the topics file, guitar paused Wed 21 to Fri 23 October, the
+essay paused since October 1st and not resumed."
+  (declare (indent 0))
+  `(topics-test--with-topics-file
+     (with-temp-file org-summary-topics-file
+       (insert topics-test--topics-file topics-test--pauses))
+     ,@body))
+
+(ert-deftest topics-test-pause-read ()
+  "Pauses are read from * Paused, open or with an end; the topics are not
+disturbed by them."
+  (topics-test--with-pauses
+    (let ((day #'org-summary--parse-iso))
+      (should (equal (org-summary-topic-pauses)
+                     (list (list "guitarpractice" (funcall day "2026-10-21") (funcall day "2026-10-23"))
+                           (list "essaytime" (funcall day "2026-10-01") nil))))
+      (should (= (length (org-summary-topics)) 5))
+      (should (org-summary--pause-on "essaytime" (org-today)))
+      (should-not (org-summary--pause-on "guitarpractice" (org-today))))))
+
+(ert-deftest topics-test-pause-habit ()
+  "A paused day is paused unless the topic was done anyway; it is not
+expected, so the rate is not hurt, and the charts draw it grey."
+  (topics-test--with-pauses
+    (let* ((day #'org-summary--parse-iso)
+           (guitar (org-summary-habit "guitarpractice"))
+           (essay (org-summary-habit "essaytime"))
+           (st (org-summary--habit-stats guitar (funcall day "2026-10-20") (funcall day "2026-10-23"))))
+      (should (eq (org-summary--status guitar (funcall day "2026-10-21")) 'paused))
+      ;; The song practised on Thursday: done, pause or not.
+      (should (eq (org-summary--status guitar (funcall day "2026-10-22")) 'done))
+      (should (eq (org-summary--status guitar (funcall day "2026-10-23")) 'paused))
+      (should (equal (list (plist-get st :done) (plist-get st :paused) (plist-get st :expected)
+                           (plist-get st :rate))
+                     '(2 2 2 1.0)))
+      ;; Open: paused through today, not beyond.
+      (should (eq (org-summary--status essay (org-today)) 'paused))
+      (should (eq (org-summary--status essay (1+ (org-today))) 'future))
+      ;; The month grid, its text and the habit month: grey, and in the legend.
+      (let ((out (topics-test--block-text
+                  "habit-calendar :month \"2026-10\" :habits (\"Guitar practice\")")))
+        (should (string-match-p "paused 2" out))
+        (string-match "\\[\\[file:\\([^]]+\\)\\]" out)
+        (with-temp-buffer
+          (insert-file-contents (match-string 1 out))
+          (should (search-forward "#8c959f" nil t))))
+      (with-temp-buffer
+        (insert-file-contents (org-summary-habits-month-file (funcall day "2026-10-01")))
+        (should (search-forward "#8c959f" nil t))))))
+
+(ert-deftest topics-test-pause-block ()
+  "The topics table marks paused days and leaves paused topics out of
+\"Nothing planned\", naming them apart."
+  (topics-test--with-pauses
+    (let ((out (topics-test--block ":group \"Daily topics\" :span thisweek :date \"2026-10-24\"")))
+      (should (equal (topics-test--row out "guitarpractice")
+                     '("" "✓" "‖" "✓" "‖" "" "" "0:35" "1" "0")))
+      (should (equal (topics-test--row out "essaytime")
+                     '("‖" "‖" "‖" "‖" "‖" "‖" "‖" "" "0" "0")))
+      (should (string-match-p "^Nothing planned: dailywriting, guitarpractice$" out))
+      (should (string-match-p "^Paused: essaytime (paused since Oct 01)$" out)))))
+
+(ert-deftest topics-test-pause-plan ()
+  "Planning tomorrow passes a paused topic by."
+  (topics-test--with-pauses
+    (let ((prompts (topics-test--answering '("" "")
+                     (org-summary-plan-tomorrow))))
+      (should (equal (mapcar (lambda (p) (car (split-string p))) prompts)
+                     '("dailywriting" "guitarpractice"))))))
+
+(ert-deftest topics-test-pause-command ()
+  "Pausing writes a dated line under * Paused, made if missing; resuming
+ends it yesterday, or drops it when it began today."
+  (topics-test--with-topics-file
+    (let ((today (org-summary--iso (org-today)))
+          (yesterday (org-summary--iso (1- (org-today))))
+          (lines (lambda ()
+                   (with-temp-buffer
+                     (insert-file-contents org-summary-topics-file)
+                     (goto-char (point-min))
+                     (when (re-search-forward "^\\* Paused\n" nil t)
+                       (buffer-substring (point) (point-max))))))
+          from until)
+      (cl-letf (((symbol-function 'org-read-date)
+                 (lambda (&optional _wt _tt from-string &rest _) (or from-string from)))
+                ((symbol-function 'read-string) (lambda (&rest _) until))
+                ((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+        ;; A fortnight away, dates given.
+        (setq from "2026-11-01" until "2026-11-14")
+        (org-summary-pause-topic "dailywriting")
+        (should (equal (funcall lines) "- dailywriting :: 2026-11-01 .. 2026-11-14\n"))
+        ;; From today, open; then resumed today: as if it never was.
+        (setq from today until "")
+        (org-summary-pause-topic "guitarpractice")
+        (should (equal (funcall lines) (format "- dailywriting :: 2026-11-01 .. 2026-11-14\n- guitarpractice :: %s ..\n" today)))
+        (org-summary-pause-topic "guitarpractice")
+        (should (equal (funcall lines) "- dailywriting :: 2026-11-01 .. 2026-11-14\n"))
+        ;; Open since last month; resumed today: it ended yesterday.
+        (with-temp-file org-summary-topics-file
+          (insert topics-test--topics-file "\n* Paused\n- essaytime :: 2026-10-01 ..\n"))
+        (org-summary-pause-topic "essaytime")
+        (should (equal (funcall lines) (format "- essaytime :: 2026-10-01 .. %s\n" yesterday)))
+        ;; The topics themselves are untouched.
+        (should (= (length (org-summary-topics)) 5))))))
+
 ;;; org-summary-topics-test.el ends here

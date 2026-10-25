@@ -68,15 +68,23 @@ NAME as :by, and `period-summary' splits time by each of
 (defvar org-summary-plots-directory nil
   "Where charts are written; nil means plots/ in `org-lookbacks-directory'.")
 
-(defvar org-summary-review-keys '("rw" "rl" "rm" "rq" "rd" "ry")
+(defvar org-summary-review-keys '("rw" "rl" "rm" "rq")
   "Capture templates whose blocks fill in as the capture opens.")
 
 ;; One quiet palette for every chart: a white card, GitHub-ish greys,
 ;; and the habit states in green, amber and a muted red.
 (defconst org-summary--colors
-  '((done . "#2da44e") (skipped . "#f2a65a") (missed . "#e5534b")
+  '((done . "#2da44e") (skipped . "#f2a65a") (missed . "#e5534b") (paused . "#8c959f")
     (none . "#ebedf0") (pending . "#ebedf0") (future . "#f6f8fa"))
-  "Habit day fills.")
+  "Habit day fills.  Paused is a topic set aside (`org-summary-pause-topic').")
+
+(defun org-summary--states-shown (habits start end keys)
+  "KEYS, with paused added before none when any of HABITS paused in START..END."
+  (if (seq-some (lambda (h) (cl-loop for d from start to end
+                                     thereis (eq (gethash d (plist-get h :log)) 'paused)))
+                habits)
+      (append (remq 'none keys) '(paused) (and (memq 'none keys) '(none)))
+    keys))
 
 (defconst org-summary--grades
   '((all . "#2da44e") (most . "#aceebb") (some . "#f2a65a") (none . "#e5534b"))
@@ -371,23 +379,27 @@ Only a daily habit misses days; a weekly one is judged by its count."
               (t 'missed)))))
 
 (defun org-summary--habit-stats (habit start end)
-  "HABIT over START..END: plist of :done :skipped :expected :rate :streak."
+  "HABIT over START..END: plist of :done :skipped :paused :expected :rate :streak.
+Paused days are not expected, and a streak runs on across them."
   (let* ((today (org-today))
          (log (plist-get habit :log))
-         (last (min end (if (gethash today log) today (1- today))))
+         (last (min end (if (memq (gethash today log) '(done skipped)) today (1- today))))
          (from (max start (or (plist-get habit :first) start)))
-         (done 0) (skipped 0) (streak 0))
+         (done 0) (skipped 0) (paused 0) (streak 0))
     (cl-loop for d from start to end
              do (pcase (gethash d log)
                   ('done (cl-incf done))
                   ('skipped (cl-incf skipped))))
-    (let ((d (if (gethash today log) today (1- today))))
-      (while (memq (gethash d log) '(done skipped))
+    (cl-loop for d from from to last
+             when (eq (gethash d log) 'paused) do (cl-incf paused))
+    (let ((d (if (memq (gethash today log) '(done skipped)) today (1- today))))
+      (while (memq (gethash d log) '(done skipped paused))
         (when (eq (gethash d log) 'done) (cl-incf streak))
         (cl-decf d)))
     (let ((expected (if (< last from) 0
-                      (ceiling (/ (float (1+ (- last from))) (plist-get habit :every))))))
-      (list :done done :skipped skipped :expected expected :streak streak
+                      (ceiling (/ (float (max 0 (- (1+ (- last from)) paused)))
+                                  (plist-get habit :every))))))
+      (list :done done :skipped skipped :paused paused :expected expected :streak streak
             :rate (if (> expected 0) (min 1.0 (/ (float done) expected)) nil)))))
 
 (defun org-summary--active-habits (start end)
@@ -628,13 +640,15 @@ Each is (DAY . ANSWERS)."
           (svg-rectangle svg (+ x 1) (+ yy 1) (- cell 2) (- cell 2) :rx 6.5 :fill "none"
                          :stroke (org-summary--ink 'text) :stroke-width 1.5 :stroke-dasharray "4,3"))
         (org-summary--text svg (number-to-string (1+ i)) :x (+ x (/ cell 2)) :y (+ yy (/ cell 2) 4.5)
-                  :font-size 12.5 :font-weight (if (memq s '(done missed skipped)) "600" "400")
+                  :font-size 12.5 :font-weight (if (memq s '(done missed skipped paused)) "600" "400")
                   :text-anchor "middle"
                   :fill (pcase s
-                          ((or 'done 'missed) "#ffffff")
+                          ((or 'done 'missed 'paused) "#ffffff")
                           ('future (org-summary--ink 'faint))
                           (_ (org-summary--ink 'text))))))
-    (org-summary--legend svg left (+ top (* rows pitch) 16) '(done skipped missed none))
+    (org-summary--legend svg left (+ top (* rows pitch) 16)
+                         (org-summary--states-shown (list habit) (car range) (cdr range)
+                                                    '(done skipped missed none)))
     (org-summary--write-svg svg file)))
 
 (defun org-summary--longest-streak (habit start end)
@@ -642,7 +656,7 @@ Each is (DAY . ANSWERS)."
     (cl-loop for d from start to end
              do (pcase (gethash d log)
                   ('done (setq run (1+ run) best (max best run)))
-                  ('skipped)
+                  ((or 'skipped 'paused))
                   (_ (unless (= d (org-today)) (setq run 0)))))
     best))
 
@@ -709,7 +723,8 @@ The overview shades each day by the share of HABITS done on it."
                  (svg-rectangle svg (- x 1) (- y 1) (+ cell 2) (+ cell 2) :rx 3 :fill "none"
                                 :stroke (org-summary--ink 'text) :stroke-width 1.2))))))
      rows)
-    (let ((x (org-summary--legend svg left (- h 12) '(done skipped none))))
+    (let ((x (org-summary--legend svg left (- h 12)
+                                  (org-summary--states-shown habits first last '(done skipped none)))))
       (org-summary--text svg "overview:" :x (+ x 10) :y (- h 12) :font-size 10.5 :fill (org-summary--ink 'muted))
       (seq-do-indexed (lambda (c i)
                         (svg-rectangle svg (+ x 64 (* i 14)) (- h 21) 10 10 :rx 2.5 :fill c))
@@ -1163,13 +1178,110 @@ or \"Weekly\", ICON nil when the line names none."
     (cons name (delq nil (mapcar (lambda (tp) (and (equal (nth 1 tp) kind) (car tp)))
                                  (org-summary-topics))))))
 
+;;; Pausing a topic
+;; Away from the guitar for a fortnight: the topic is paused, not missed and
+;; not cancelled day after day.  Each pause is a line under * Paused in the
+;; topics file, kept after it ends so the charts stay grey on those days:
+;;   - guitarpractice :: 2026-10-25 .. 2026-11-08
+;;   - guitarpractice :: 2026-12-20 ..          (open: until resumed)
+
+(defun org-summary-topic-pauses ()
+  "The topics file's pauses, as (TAG FROM TO) in days, TO nil while open."
+  (let ((file (org-summary--topics-file)) in out)
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward
+                (concat "^\\(?:\\* +\\(.+?\\)\\|[ \t]*- +\\([^ \t\n:]+\\) +:: *"
+                        "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\) *\\.\\."
+                        " *\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)?\\)[ \t]*$")
+                nil t)
+          (if (match-string 1)
+              (setq in (equal (match-string 1) "Paused"))
+            (when in
+              ;; The strings first: parsing a date matches, losing the rest.
+              (let ((tag (match-string 2)) (from (match-string 3)) (to (match-string 4)))
+                (push (list tag (org-summary--parse-iso from) (org-summary--parse-iso to))
+                      out)))))))
+    (nreverse out)))
+
+(defun org-summary--pause-on (tag day &optional pauses)
+  "TAG's pause covering DAY, from PAUSES (`org-summary-topic-pauses'), or nil."
+  (seq-find (lambda (p) (and (equal (car p) tag) (<= (nth 1 p) day)
+                             (or (null (nth 2 p)) (<= day (nth 2 p)))))
+            (or pauses (org-summary-topic-pauses))))
+
+(defun org-summary--pause-label (p)
+  (format "paused since %s%s" (org-summary--fmt (nth 1 p) "%b %d")
+          (if (nth 2 p) (org-summary--fmt (nth 2 p) ", until %b %d") "")))
+
+;;;###autoload
+(defun org-summary-pause-topic (tag)
+  "Pause the topic TAG while you are away from it, or resume it if paused.
+Paused days are grey in the habit charts and count neither for nor against
+it, and the planners pass it by.  Asks from when, and until when: empty
+leaves it open, until you resume it here."
+  (interactive
+   (let* ((pauses (org-summary-topic-pauses))
+          (choices (mapcar (lambda (tp)
+                             (let ((p (org-summary--pause-on (car tp) (org-today) pauses)))
+                               (cons (if p (format "%s  (%s)" (car tp) (org-summary--pause-label p))
+                                       (car tp))
+                                     (car tp))))
+                           (org-summary-topics))))
+     (unless choices (user-error "No topics in %s" (org-summary--topics-file)))
+     (list (cdr (assoc (completing-read "Pause or resume: " choices nil t) choices)))))
+  (let* ((today (org-today))
+         (open (org-summary--pause-on tag today))
+         (file (org-summary--topics-file))
+         (old (find-buffer-visiting file)))
+    ;; Syncthing brings the phone's pauses: read them, don't ask.
+    (when (and old (not (buffer-modified-p old)) (not (verify-visited-file-modtime old)))
+      (with-current-buffer old (revert-buffer t t t)))
+    (with-current-buffer (find-file-noselect file)
+      (org-with-wide-buffer
+       (if open
+           (when (y-or-n-p (format "%s is %s.  Resume it today? " tag (org-summary--pause-label open)))
+             (goto-char (point-min))
+             (re-search-forward (format "^[ \t]*- +%s +:: *%s *\\.\\..*$"
+                                        (regexp-quote tag) (org-summary--iso (nth 1 open))))
+             (if (>= (nth 1 open) today)
+                 ;; Paused and resumed the same day: it never was.
+                 (delete-region (line-beginning-position) (min (point-max) (1+ (line-end-position))))
+               (replace-match (format "- %s :: %s .. %s" tag (org-summary--iso (nth 1 open))
+                                      (org-summary--iso (1- today)))
+                              t t))
+             (save-buffer)
+             (message "%s resumed" tag))
+         (let* ((from (org-summary--parse-iso (org-read-date nil nil nil (format "Pause %s from: " tag))))
+                (until (string-trim (read-string "Until, the last day away (empty: until you resume it): ")))
+                (to (unless (string-empty-p until)
+                      (org-summary--parse-iso (org-read-date nil nil until)))))
+           (when (and to (< to from)) (user-error "That ends before it starts"))
+           (goto-char (point-min))
+           (unless (re-search-forward "^\\* +Paused[ \t]*$" nil t)
+             (goto-char (point-max))
+             (unless (bolp) (insert "\n"))
+             (insert "\n* Paused\n"))
+           (goto-char (if (re-search-forward "^\\* " nil t) (match-beginning 0) (point-max)))
+           (skip-chars-backward " \t\n")
+           (end-of-line)
+           (insert "\n- " tag " :: " (org-summary--iso from) " .." (if to (concat " " (org-summary--iso to)) ""))
+           (unless (and (eolp) (not (eobp))) (insert "\n"))
+           (save-buffer)
+           (message "%s paused from %s%s" tag (org-summary--fmt from "%a %b %d")
+                    (if to (org-summary--fmt to " to %a %b %d") ", until you resume it"))))))))
+
 (defun org-summary-topic-habits ()
   "Each topic as a habit, for the habit charts: a day is done when a task
-with its tag was clocked or closed then, skipped when one was cancelled.
+with its tag was clocked or closed then, skipped when one was cancelled,
+paused when the topic was (`org-summary-pause-topic') and nothing else.
 Daily topics are daily habits, weekly ones weekly; :tag is the topic."
   (when-let* ((topics (org-summary-topics)))
     (let* ((clocks (org-summary-clocks 0 most-positive-fixnum))
-           (closed (org-summary-closed 0 most-positive-fixnum)))
+           (closed (org-summary-closed 0 most-positive-fixnum))
+           (pauses (org-summary-topic-pauses)))
       (mapcar
        (lambda (tp)
          (let ((log (make-hash-table)) first
@@ -1182,6 +1294,10 @@ Daily topics are daily habits, weekly ones weekly; :tag is the topic."
              (when (and (funcall tagged c) (not (member (plist-get c :todo) '("CANCELED" "CANCELLED"))))
                (puthash (plist-get c :day) 'done log)))
            (maphash (lambda (d _) (setq first (if first (min first d) d))) log)
+           (dolist (p pauses)
+             (when (equal (car p) (car tp))
+               (cl-loop for d from (nth 1 p) to (or (nth 2 p) (org-today))
+                        unless (gethash d log) do (puthash d 'paused log))))
            (list :title (if (org-string-nw-p (nth 2 tp)) (nth 2 tp) (car tp))
                  :tag (car tp) :log log :first first
                  :every (if (equal (nth 1 tp) "Weekly") 7 1)
@@ -1257,9 +1373,10 @@ planned, not a backlog (like the songs in a repertoire file tagged TAG)."
 
 (defun org-dblock-write:topics (params)
   "Each tag of the :group (default \"Topics\") over :span, a column a day.
-A day is ticked when a task with the tag was clocked or closed then; over a
-span longer than a week the days worked are counted instead.  Planned is
-the open tasks with a date; \"Nothing planned\" names the tags with none."
+A day is ticked when a task with the tag was clocked or closed then, and
+marked ‖ when the topic was paused instead; over a span longer than a week
+the days worked are counted.  Planned is the open tasks with a date;
+\"Nothing planned\" names the tags with none, paused ones aside."
   (let* ((range (org-summary--range params "thisweek"))
          (group (org-summary--group (or (plist-get params :group) "Topics")))
          (clocks (org-summary-clocks (car range) (cdr range)))
@@ -1269,7 +1386,8 @@ the open tasks with a date; \"Nothing planned\" names the tags with none."
          (days (number-sequence (car range) (cdr range)))
          (tagged (lambda (items tag) (seq-filter (lambda (it) (member tag (plist-get it :tags)))
                                                  items)))
-         rows idle)
+         (pauses (org-summary-topic-pauses))
+         rows idle paused)
     (dolist (tag (cdr group))
       (let* ((cl (funcall tagged clocks tag))
              (dn (funcall tagged closed tag))
@@ -1277,20 +1395,27 @@ the open tasks with a date; \"Nothing planned\" names the tags with none."
              (touched (mapcar (lambda (it) (plist-get it :day)) (append cl dn))))
         (push (append (list tag)
                       (if week
-                          (mapcar (lambda (d) (if (memq d touched) "✓" "")) days)
+                          (mapcar (lambda (d) (cond ((memq d touched) "✓")
+                                                    ((org-summary--pause-on tag d pauses) "‖")
+                                                    (t "")))
+                                  days)
                         (list (number-to-string (length (delete-dups touched)))))
                       (list (let ((m (apply #'+ (mapcar (lambda (c) (plist-get c :minutes)) cl))))
                               (if (> m 0) (org-summary--dur m) ""))
                             (number-to-string (length dn))
                             (number-to-string (length open))))
               rows)
-        (unless open (push tag idle))))
+        (if-let* ((p (org-summary--pause-on tag (org-today) pauses)))
+            (push (format "%s (%s)" tag (org-summary--pause-label p)) paused)
+          (unless open (push tag idle)))))
     (org-summary--table (append '("Topic")
                                 (if week (mapcar (lambda (d) (org-summary--fmt d "%a")) days) '("Days"))
                                 '("Time" "Done" "Planned"))
                         (nreverse rows))
     (when idle
       (insert (format "\nNothing planned: %s\n" (string-join (nreverse idle) ", "))))
+    (when paused
+      (insert (format "%sPaused: %s\n" (if idle "" "\n") (string-join (nreverse paused) ", "))))
     (org-summary--end-block)))
 
 (defvar org-tasks-file)
@@ -1305,12 +1430,15 @@ GROUP is a name in `org-summary-tag-groups', \"Topics\" (the weekly ones)
 by default; DAY is when they are scheduled, as `org-read-date' reads it,
 today by default.  Each answer becomes a TODO with the topic's tag in
 `org-summary-topic-category'; an empty answer moves on to the next topic.
+A topic paused that day (`org-summary-pause-topic') is not asked about.
 The topics blocks here refresh after."
   (interactive)
   (let* ((time (org-read-date nil t (or day ".")))
          (date (format-time-string "%Y-%m-%d" time))
+         (pauses (org-summary-topic-pauses))
          (made 0))
-    (dolist (tag (cdr (org-summary--group (or group "Topics"))))
+    (dolist (tag (seq-remove (lambda (tag) (org-summary--pause-on tag (org-summary--parse-iso date) pauses))
+                             (cdr (org-summary--group (or group "Topics")))))
       (let ((open (org-summary--open-tagged tag))
             (about (nth 2 (assoc tag (org-summary-topics))))
             title)
@@ -1447,8 +1575,10 @@ Rows answered yes every day are left out unless :all is t."
                                                  (format "%s_%04d-%02d" (plist-get h :title) y m))))
                   "\n"
                   (format "done %d of %d%s%s\n\n" (plist-get s :done) (plist-get s :expected)
-                          (if (> (plist-get s :skipped) 0)
-                              (format " · skipped %d" (plist-get s :skipped)) "")
+                          (concat (if (> (plist-get s :skipped) 0)
+                                      (format " · skipped %d" (plist-get s :skipped)) "")
+                                  (if (> (plist-get s :paused) 0)
+                                      (format " · paused %d" (plist-get s :paused)) ""))
                           (if (and (= 1 (plist-get h :every)) (> (plist-get s :streak) 0)
                                    (<= (car range) (org-today) (cdr range)))
                               (format " · streak %d" (plist-get s :streak)) ""))))))
@@ -1608,7 +1738,7 @@ sits on a tile coloured by its own state, four to a row."
            (let* ((st (org-summary--status hb day))
                   (tx (+ x 8 (* (mod j per-row) (+ tile tgap))))
                   (ty (+ yy 26 (* (/ j per-row) (+ tile tgap))))
-                  (solid (memq st '(done skipped missed))))
+                  (solid (memq st '(done skipped missed paused))))
              (svg-rectangle svg tx ty tile tile :rx 6
                             :fill (if solid (alist-get st org-summary--colors) "#ffffff")
                             :stroke (if solid "none" (org-summary--ink 'rule)) :stroke-width 1)
@@ -1622,7 +1752,7 @@ sits on a tile coloured by its own state, four to a row."
         (org-summary--text svg (cdr g) :x (+ x 26) :y legend-y :font-size 13 :fill (org-summary--ink 'text))
         (setq x (+ x 42 (* 7 (length (cdr g))))))
       (setq x (+ x 10))
-      (dolist (k '(done skipped missed))
+      (dolist (k (org-summary--states-shown habits first last '(done skipped missed)))
         (svg-rectangle svg x (- legend-y 12) 14 14 :rx 3 :fill (alist-get k org-summary--colors))
         (org-summary--text svg (symbol-name k) :x (+ x 19) :y legend-y :font-size 13 :fill (org-summary--ink 'text))
         (setq x (+ x 34 (* 7 (length (symbol-name k)))))))
@@ -1927,7 +2057,7 @@ TITLES nil means every habit active then.")
          (lead (mod (1- (calendar-day-of-week (list m 1 y))) 7))
          (faces (mapcar (lambda (k) (cons k (list :background (alist-get k org-summary--colors)
                                                   :foreground (if (eq k 'skipped) "black" "white"))))
-                        '(done skipped missed))))
+                        '(done skipped missed paused))))
     (insert (plist-get habit :title) " — " (calendar-month-name m) (format " %d\n\n" y))
     (insert "    M  T  W  T  F  S  S\n" (format "%2s " (org-summary--fmt first "%V"))
             (make-string (* 3 lead) ?\s))

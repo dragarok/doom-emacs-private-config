@@ -8,6 +8,7 @@
 ;;   - whatever is pressed on the toolbar
 ;;   - buttons that run through `usage-log-call': the homepage grid, the
 ;;     dashboard, Termux widgets, the clock's island
+;;   - the review keys, SPC o v, and the capture templates picked
 ;;
 ;; One file per machine, like the notes logs, so Syncthing brings the
 ;; phone's log to the Mac without conflicts:
@@ -27,8 +28,11 @@
   "This machine's usage log.")
 
 (defvar usage-log-commands-regexp
-  "\\`\\(rts-flow\\|micro-experiments\\|day-log\\|emacs-home\\)"
+  "\\`\\(rts-flow\\|micro-experiments\\|day-log\\|emacs-home\\|org-summary-\\|org-flow-\\|agent-time-\\)"
   "Commands logged however they were started.")
+
+(defvar usage-log-leader-regexp "\\`\\(M-\\)?SPC o v "
+  "Leader keys logged as typed, whatever they run -- some are lambdas.")
 
 (defun usage-log (source command)
   "Append COMMAND, pressed from SOURCE, to `usage-log-file'."
@@ -42,15 +46,29 @@
   (call-interactively command))
 
 (defun usage-log--post-command ()
-  "Log toolbar presses, and the watched commands run from a key or M-x."
-  (when (and this-command (symbolp this-command))
-    (let ((keys (this-command-keys-vector)))
-      (cond ((and (> (length keys) 0) (eq (aref keys 0) 'tool-bar))
+  "Log toolbar presses, the review keys (`usage-log-leader-regexp'), and
+the watched commands run from a key or M-x."
+  (when this-command
+    (let* ((keys (this-command-keys-vector))
+           (name (and (symbolp this-command) (symbol-name this-command))))
+      (cond ((and name (> (length keys) 0) (eq (aref keys 0) 'tool-bar))
              (usage-log "toolbar" this-command))
-            ((string-match-p usage-log-commands-regexp (symbol-name this-command))
+            ((and (> (length keys) 3)
+                  (string-match-p usage-log-leader-regexp (key-description keys)))
+             (usage-log "leader" (or name (key-description keys))))
+            ((and name (string-match-p usage-log-commands-regexp name))
              ;; M-x leaves the keys reading "M-x NAME RET".
              (usage-log (if (and (> (length keys) 0) (eql (aref keys 0) ?\M-x)) "M-x" "key")
                         this-command))))))
+
+(defun usage-log--capture (entry)
+  "After `org-capture-select-template': log the template picked, by key."
+  (when (and (consp entry) (stringp (car entry)))
+    (usage-log "capture" (format "capture %s %s" (car entry) (or (nth 1 entry) ""))))
+  entry)
+
+;; Advising a function not loaded yet is fine, and loads nothing.
+(advice-add 'org-capture-select-template :filter-return #'usage-log--capture)
 
 (add-hook 'post-command-hook #'usage-log--post-command)
 

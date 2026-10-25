@@ -213,6 +213,7 @@
 (require 'usage-log)
 ;; The daily review that writes itself, and closes itself on the phone.
 ;; Loaded on first use, not here: it loads org (see day-log.el).
+(autoload 'day-log-review "day-log" nil t)
 (autoload 'day-log-today "day-log" nil t)
 (autoload 'day-log-yesterday "day-log" nil t)
 (autoload 'day-log-open "day-log" nil t)
@@ -251,6 +252,7 @@
 (autoload 'org-summary-plan-topics "org-summary" nil t)
 (autoload 'org-summary-plan-tomorrow "org-summary" nil t)
 (autoload 'org-summary-add-topic "org-summary" nil t)
+(autoload 'org-summary-pause-topic "org-summary" nil t)
 (autoload 'org-summary-topic-tags "org-summary")
 ;; Every task dated, and offered a breakdown the second time it is
 ;; rescheduled: org-flow.el.
@@ -283,7 +285,7 @@
        :desc "Habits this year"        "y" #'org-summary-habit-year
        :desc "Charts folder"           "p" #'org-summary-plots
        :desc "Refresh review blocks"   "r" #'org-summary-refresh
-       :desc "Today's day log"         "t" #'day-log-today
+       :desc "Daily review"            "t" #'day-log-review
        :desc "Weekly review"           "w" (cmd! (org-capture nil "rw"))
        :desc "Last week's review"      "l" (cmd! (org-capture nil "rl"))
        :desc "Monthly review"          "m" (cmd! (org-capture nil "rm"))
@@ -292,6 +294,7 @@
        :desc "Plan the week's topics"  "o" #'org-summary-plan-topics
        :desc "Plan tomorrow's topics"  "n" #'org-summary-plan-tomorrow
        :desc "Set up a topic"          "s" #'org-summary-add-topic
+       :desc "Pause / resume a topic"  "z" #'org-summary-pause-topic
        :desc "Date undated tasks"      "u" #'org-flow-date-undated
        :desc "Break task down"         "b" #'org-flow-breakdown
        :desc "Edit the topics"         "e" (cmd! (find-file (expand-file-name "topics.org" org-directory)))))
@@ -1718,55 +1721,6 @@ selected, then the current line."
 
   (add-hook 'org-open-at-point-functions 'ibizaman/org-babel-goto-tangle-file))
 
-(after! org (add-to-list 'org-capture-templates
-                         `("l" "Link Capture" entry (file ,(concat org-directory "extra/links.org"))
-                           "* TODO [[%^{link}][%^{description}]]"
-                           :immediate-finish t)))
-
-(after! org (add-to-list 'org-capture-templates
-                         `("h" "Clip Link Capture" entry (file ,(concat org-directory "extra/links.org"))
-                           "* TODO %(org-cliplink-capture)"
-                           :immediate-finish t)))
-
-
-(after! org (add-to-list 'org-capture-templates
-                         `("pn" "New Project" entry
-                           (file ,org-inbox-file)
-                           (file ,(concat org-templates-directory "newprojtemplate.org")))
-                         ))
-
-
-(after! org (add-to-list 'org-capture-templates
-                         '("ps" "Create Project Subtask" entry (file org-inbox-file)
-                           "* TODO %^{taskname}%?
-:PROPERTIES:
-:TRIGGER: next-sibling scheduled!(\"++%^{NEXT_TASK_AFTER}\") todo!(NEXT)
-:BLOCKER:  previous-sibling
-:CREATED:    %U
-:END:
-" :immediate-finish t)))
-
-
-(after! org (add-to-list 'org-capture-templates
-                         '("v" "Create a new habit" entry (file org-recurring-file)
-                           "* TODO %^{description} %?
-SCHEDULED: %^{Start Time:}t
-:PROPERTIES:
-:STYLE: habit
-:CREATED: %U
-:END:
-")))
-
-(after! org (add-to-list 'org-capture-templates
-                         '("z" "Create EHP Task" entry (file org-tasks-file)
-                           "* TODO %^{Task Description} %(org-set-tags \"work:Day\")%(org-set-tags-command)
-SCHEDULED: %t
-:PROPERTIES:
-:CREATED: %U
-:CATEGORY: EHP
-:END:
-")))
-
 ;; TODO Upgrade this functionality to use a template
 ;; (after! org (add-to-list 'org-capture-templates
 ;;                          `("e" "Add an event" entry (file ,(concat org-agenda-directory "birthdays_and_anniversaries.org"))
@@ -1774,6 +1728,10 @@ SCHEDULED: %t
 ;; \%\%(org-anniversary %^{Date}) %^{Person}'s %^{Event}
 ;; " :immediate-finish t)))
 
+;; Capture is for c (a task, into the inbox), the reviews (r), the motto and
+;; the diary.  Tasks come in one way each: c, or Add on the phone; a habit
+;; or topic through SPC o v s; steps through SPC o v b.  The daily review is
+;; the day log (SPC o v t), not a template.  Doom's own t/n/j/p/o stay.
 (after! org (add-to-list 'org-capture-templates
                          '("d" "Diary Log" entry(file+olp+datetree org-diary-file)
                            "** <%<%I:%M:%S>> %^{diary entry}
@@ -1820,32 +1778,9 @@ SCHEDULED: %t
                  (file+olp+datetree ,org-quarterlyreview-file)
                  (file ,(concat org-templates-directory "quarterlyreviewtemplate.org")) :jump-to-captured t :tree-type quarter)))
 
-(after! org (add-to-list 'org-capture-templates
-                         `("rd" "Daily Review" entry (file+olp+datetree ,org-dailyreview-file)
-                           (file ,(concat org-templates-directory "dailyreviewtemplate.org"))
-                           :jump-to-captured t)))
-
-(after! org (add-to-list 'org-capture-templates
-                         `("ry" "Daily Review Yesterday" entry (file+olp+datetree ,org-dailyreview-file)
-                           (file ,(concat org-templates-directory "dailyreviewtemplate_yesterday.org"))
-                           :jump-to-captured t)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        REVIEW TEMPLATES DONE                                                    ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(after! org
-  (add-to-list 'org-capture-templates
-               '("C"  "Contact" entry (file (concat org-directory "extra/contacts.org"))
-                 "* %(org-contacts-template-name)
-    :PROPERTIES:
-    :EMAIL: %(org-contacts-template-email)
-    :PHONE: %^{Phone}
-    :ADDRESS: %^{Home Address}
-    :BIRTHDAY: %^{yyyy-mm-dd}
-    :ORG:  %^{Company}
-    :NOTE: %^{NOTE}
-    :END:"
-                 :empty-lines 1)))
 
 (after! org (add-to-list 'org-capture-templates
                          '("c" "Capture Immediate" entry (file org-inbox-file)

@@ -23,6 +23,10 @@
 ;; written the evening before, to take in the rest of that day.
 ;;
 ;; `day-log-today' (the dashboard's Day button) opens today's, drafted.
+;; `day-log-review' (SPC o v t, and the 8 PM prompt) is the whole review:
+;; your lines asked for in turn, then every task dated, then tomorrow's
+;; daily topics planned -- the old long template's only steps that change
+;; tomorrow.
 ;;
 ;; Loaded on first use, never at startup: it loads org, and through it the
 ;; whole org setup -- 11s on the Mac, and out of memory on the phone, where
@@ -396,6 +400,58 @@ A review from before the day log, made by the old template, counts."
     (let ((end (save-excursion (org-end-of-subtree t t))))
       (when (re-search-forward "^- .* :: *$" end t)
         (goto-char (match-end 0))))))
+
+;;; The review
+
+(defun day-log--line (prompt)
+  "Your line for PROMPT in the review at point, or \"\"."
+  (save-excursion
+    (if (re-search-forward (format "^- %s ::[ \t]*\\(.*\\)$" (regexp-quote prompt))
+                           (save-excursion (org-end-of-subtree t t)) t)
+        (string-trim (match-string-no-properties 1))
+      "")))
+
+(defun day-log--set-line (prompt text)
+  "Set your line for PROMPT in the review at point to TEXT."
+  (save-excursion
+    (let ((end (save-excursion (org-end-of-subtree t t))))
+      (if (re-search-forward (format "^- %s ::.*$" (regexp-quote prompt)) end t)
+          (replace-match (format "- %s :: %s" prompt text) t t)
+        (goto-char end)
+        (unless (bolp) (insert "\n"))
+        (insert (format "- %s :: %s\n" prompt text))))))
+
+;;;###autoload
+(defun day-log-review (&optional date)
+  "The daily review, start to end, with no navigating: the day's facts on
+screen, your three lines asked for one by one, then every undated task
+given a date (`org-flow-date-undated'), then the next day's task for each
+daily topic (`org-summary-plan-topics').  An empty answer skips a line or
+a topic; q stops the walk.  DATE is today's review (the day turns at
+`day-log-day-starts'); with \\[universal-argument], yesterday's."
+  (interactive (list (when current-prefix-arg (day-log--shift (day-log--today) -1))))
+  (let ((date (or date (day-log--today))))
+    (day-log-open date)
+    (let ((review (current-buffer)) (pos (day-log--entry date)))
+      (dolist (prompt day-log-prompts)
+        (let ((answer (string-trim
+                       (read-string (format "%s: " prompt)
+                                    (with-current-buffer review (goto-char pos) (day-log--line prompt))))))
+          (with-current-buffer review
+            (goto-char pos)
+            (day-log--set-line prompt answer))))
+      ;; Saving it written closes it, :written: (`day-log--close-if-written').
+      (with-current-buffer review (save-buffer))
+      (when (and (require 'org-flow nil t) (org-flow-undated))
+        (org-flow-date-undated))
+      (when (require 'org-summary nil t)
+        (org-summary-plan-topics "Daily topics" (day-log--shift date 1)))
+      (pop-to-buffer-same-window review)
+      (goto-char pos)
+      (org-fold-show-subtree)
+      (recenter 0)
+      (message "Review of %s done%s" date
+               (if (day-log-written-p date) "" " (nothing written: it closes on its own at 4am)")))))
 
 ;;; Closing
 

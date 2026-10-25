@@ -78,9 +78,9 @@ you added to it."
        (choice
         (cond
          ((string= choice "Today")
-          (day-log-today))
+          (day-log-review))
          ((string= choice "Yesterday")
-          (day-log-yesterday))
+          (let ((current-prefix-arg '(4))) (call-interactively #'day-log-review)))
          ((string= choice "Skip")
           (message "Daily review skipped for today")))
         (schedule-next-daily-prompt))))))
