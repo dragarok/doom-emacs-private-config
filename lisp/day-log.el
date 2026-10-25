@@ -1,9 +1,9 @@
 ;;; day-log.el --- The daily review that writes itself -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; Each day gets a Daily Review entry in `org-dailyreview-file' (the same
-;; datetree the old capture template wrote to) whose facts write themselves,
-;; from what is already recorded:
+;; Each day gets a Daily Review heading in its org-roam daily note -- the
+;; day's one page, beside its logs and photos; the diary stays personal --
+;; whose facts write themselves, from what is already recorded:
 ;;   - the org clock: what was clocked, when, for how long
 ;;   - what was marked DONE that day
 ;;   - the phone's foreground log: where screen time went, and how much of
@@ -37,6 +37,7 @@
 (require 'org)
 (require 'org-clock)
 (require 'org-datetree)
+(require 'org-id)
 (require 'meetings)
 (require 'cl-lib)
 (require 'seq)
@@ -48,7 +49,9 @@
 (declare-function org-summary--parse-iso "org-summary")
 (declare-function org-summary--link "org-summary")
 
-(defvar org-dailyreview-file)            ; config.el
+(defvar org-dailyreview-file)            ; config.el: the reviews before 2026-10-25
+(defvar org-roam-directory)
+(defvar org-roam-dailies-directory)
 
 (defvar day-log-habit-id "9851aecd-54c9-47cd-b0a6-570b43800cf4"
   "ID of the Daily Review habit, marked DONE as each day closes.")
@@ -319,6 +322,71 @@ each agent task beside the time CLOCKS give it."
     (delete-char -1)))
 
 ;;; The entry
+;;
+;; A day's review is the "* Daily Review" heading of its org-roam daily
+;; note, the day's one page: the review, the logs, the photos.  Reviews
+;; from before the move stay in `org-dailyreview-file''s datetree, and are
+;; found there when the day's note has none.
+
+(defun day-log-daily-file (date)
+  "DATE's org-roam daily note."
+  (expand-file-name (concat date ".org")
+                    (expand-file-name (or (bound-and-true-p org-roam-dailies-directory) "daily/")
+                                      org-roam-directory)))
+
+(defun day-log-daily-buffer (date &optional create)
+  "DATE's daily note's buffer; the note made first if CREATE and it isn't there."
+  (let ((file (day-log-daily-file date)))
+    (when (or (file-exists-p file) (find-buffer-visiting file) create)
+      (or (find-buffer-visiting file)
+          (with-current-buffer (progn (make-directory (file-name-directory file) t)
+                                      (find-file-noselect file))
+            (when (= (buffer-size) 0)
+              (insert ":PROPERTIES:\n:ID:       " (org-id-uuid) "\n"
+                      ":CREATED:  " (format-time-string "[%F %a %H:%M]") "\n:END:\n"
+                      "#+title: " date "\n"))
+            (current-buffer))))))
+
+(defun day-log--find (date &optional create)
+  "Where DATE's review is, as (BUFFER . POS): its daily note's, else an old
+one in `org-dailyreview-file'.  With CREATE, one is added to the daily
+note when there is none."
+  (or (when-let* ((buf (day-log-daily-buffer date)))
+        (with-current-buffer buf
+          (org-with-wide-buffer
+           (goto-char (point-min))
+           (when (re-search-forward "^\\* Daily Review\\b" nil t)
+             (cons buf (line-beginning-position))))))
+      (when (and (bound-and-true-p org-dailyreview-file) (file-exists-p org-dailyreview-file))
+        (let ((buf (find-file-noselect org-dailyreview-file)))
+          (with-current-buffer buf
+            (save-excursion
+              (and (day-log--goto-day date)
+                   (day-log--goto-review)
+                   (cons buf (point)))))))
+      (when create
+        (let ((buf (day-log-daily-buffer date t)))
+          (with-current-buffer buf
+            (widen)
+            (goto-char (point-max))
+            (unless (bolp) (insert "\n"))
+            (let ((pos (point)))
+              (insert "* Daily Review :daylog:\n"
+                      ":PROPERTIES:\n:DAY_LOG:  open\n:END:\n"
+                      (format "#+BEGIN: day-log :date \"%s\"\n#+END:\n" date)
+                      (mapconcat (lambda (p) (format "- %s :: \n" p)) day-log-prompts ""))
+              (cons buf pos)))))))
+
+(defmacro day-log--at (date &rest body)
+  "BODY at DATE's review, if there is one; point and buffer kept."
+  (declare (indent 1))
+  `(when-let* ((at (day-log--find ,date)))
+     (with-current-buffer (car at)
+       (save-excursion
+         (save-restriction
+           (widen)
+           (goto-char (cdr at))
+           ,@body)))))
 
 (defun day-log--goto-day (date &optional create)
   "Move to DATE's datetree heading in the current buffer; create it if CREATE.
@@ -340,20 +408,11 @@ Return non-nil if it is there."
       t)))
 
 (defun day-log--entry (date)
-  "Move to DATE's review in `org-dailyreview-file', creating it, and return point."
-  (set-buffer (find-file-noselect org-dailyreview-file))
-  (day-log--goto-day date t)
-  (unless (day-log--goto-review)
-    (let ((level (1+ (org-current-level))))
-      (org-end-of-subtree t t)
-      (unless (bolp) (insert "\n"))
-      (insert (make-string level ?*) " Daily Review :daylog:\n"
-              ":PROPERTIES:\n:DAY_LOG:  open\n:END:\n"
-              (format "#+BEGIN: day-log :date \"%s\"\n#+END:\n" date)
-              (mapconcat (lambda (p) (format "- %s :: \n" p)) day-log-prompts ""))
-      (day-log--goto-day date)
-      (day-log--goto-review)))
-  (point))
+  "Move to DATE's review, creating it in its daily note, and return point."
+  (let ((at (day-log--find date t)))
+    (set-buffer (car at))
+    (widen)
+    (goto-char (cdr at))))
 
 (defun day-log--refresh ()
   "Rewrite the day-log block in the review at point."
@@ -376,13 +435,9 @@ Return non-nil if it is there."
 (defun day-log-written-p (&optional date)
   "Non-nil if DATE's (today's) review exists and has something of yours in it.
 A review from before the day log, made by the old template, counts."
-  (let ((date (or date (day-log--today))))
-    (with-current-buffer (find-file-noselect org-dailyreview-file)
-      (save-excursion
-        (and (day-log--goto-day date)
-             (day-log--goto-review)
-             (or (null (org-entry-get nil "DAY_LOG"))
-                 (day-log--written-p)))))))
+  (day-log--at (or date (day-log--today))
+    (or (null (org-entry-get nil "DAY_LOG"))
+        (day-log--written-p))))
 
 ;;;###autoload
 (defun day-log-today ()
@@ -503,11 +558,8 @@ a topic; q stops the walk.  DATE is today's review (the day turns at
 
 (defun day-log--closed-p (date)
   "Non-nil if DATE's review is closed, or predates the day log."
-  (with-current-buffer (find-file-noselect org-dailyreview-file)
-    (save-excursion
-      (and (day-log--goto-day date)
-           (day-log--goto-review)
-           (not (equal (org-entry-get nil "DAY_LOG") "open"))))))
+  (day-log--at date
+    (not (equal (org-entry-get nil "DAY_LOG") "open"))))
 
 (defun day-log-close-pending ()
   "Close every unclosed day of the last `day-log-catch-up-days', oldest first."
@@ -523,28 +575,24 @@ a topic; q stops the walk.  DATE is today's review (the day turns at
 
 (defun day-log--finish (date)
   "Rewrite the facts of DATE's review if it was written before the day ended."
-  (with-current-buffer (find-file-noselect org-dailyreview-file)
-    (save-excursion
-      (when (and (day-log--goto-day date)
-                 (day-log--goto-review)
-                 (equal (org-entry-get nil "DAY_LOG") "written")
-                 (not (org-entry-get nil "FINAL")))
-        (day-log--refresh)
-        (org-entry-put nil "FINAL" (format-time-string "[%F %a %H:%M]"))
-        (save-buffer)))))
+  (day-log--at date
+    (when (and (equal (org-entry-get nil "DAY_LOG") "written")
+               (not (org-entry-get nil "FINAL")))
+      (day-log--refresh)
+      (org-entry-put nil "FINAL" (format-time-string "[%F %a %H:%M]"))
+      (save-buffer))))
 
 (defun day-log--close-if-written ()
-  "After saving the reviews: close today's if you've now written in it."
-  (when (and buffer-file-name org-dailyreview-file
-             (file-equal-p buffer-file-name org-dailyreview-file))
+  "After saving today's review: close it if you've now written in it."
+  (when (and buffer-file-name (derived-mode-p 'org-mode))
     (let ((today (day-log--today)))
-      (save-excursion
-        (when (and (day-log--goto-day today)
-                   (day-log--goto-review)
-                   (equal (org-entry-get nil "DAY_LOG") "open")
-                   (day-log--written-p))
-          (day-log-close today)
-          (message "Today's review closed: written"))))))
+      (when (and (seq-some (lambda (f) (and f (file-exists-p f) (file-equal-p buffer-file-name f)))
+                           (list (day-log-daily-file today) (bound-and-true-p org-dailyreview-file)))
+                 (day-log--at today
+                   (and (equal (org-entry-get nil "DAY_LOG") "open")
+                        (day-log--written-p))))
+        (day-log-close today)
+        (message "Today's review closed: written")))))
 
 (add-hook 'after-save-hook #'day-log--close-if-written)
 

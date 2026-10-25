@@ -449,7 +449,31 @@ item answers its text.  Blocks are skipped: they hold facts, not answers."
 
 (defun org-summary-reviews (file start end)
   "Answers in FILE's datetree for days START..END, oldest first.
-Each is (DAY . ANSWERS)."
+Each is (DAY . ANSWERS).  For the daily reviews, the days' daily notes
+too, where they have been since 2026-10-25 (day-log.el)."
+  (let ((old (when (file-exists-p file) (org-summary--datetree-reviews file start end)))
+        (new (when (equal file org-dailyreview-file) (org-summary--daily-note-reviews start end))))
+    (sort (append (seq-remove (lambda (d) (assq (car d) new)) old) new)
+          (lambda (a b) (< (car a) (car b))))))
+
+(defun org-summary--daily-note-reviews (start end)
+  "Answers of the Daily Review in each daily note of days START..END."
+  (require 'day-log)
+  (let (out)
+    (dotimes (i (1+ (- end start)))
+      (let ((file (day-log-daily-file (org-summary--iso (+ start i)))))
+        (when (file-exists-p file)
+          (org-summary--in-file file
+            (goto-char (point-min))
+            (when (re-search-forward "^\\* Daily Review\\b" nil t)
+              (let ((limit (save-excursion (org-end-of-subtree t t))))
+                (forward-line 1)
+                (when-let* ((answers (org-summary--answers limit)))
+                  (push (cons (+ start i) answers) out))))))))
+    out))
+
+(defun org-summary--datetree-reviews (file start end)
+  "Answers in FILE's datetree for days START..END."
   (org-summary--in-file file
     (let (out)
       (goto-char (point-min))

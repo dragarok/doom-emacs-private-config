@@ -15,6 +15,12 @@
    - *Plan for tomorrow* (=SPC o v n=): one specific task per daily topic,
      scheduled tomorrow.  Empty Enter skips a topic.
    - The habit month is in the day's facts.
+   The review is the =* Daily Review= heading of the day's org-roam daily
+   note (=notes/daily/YYYY-MM-DD.org=), the day's one page: the Log
+   button's lines and the camera's photos (from outside a note) are under
+   =* Logs= there.  The diary (capture =d=) stays for personal entries.
+   Reviews from before 2026-10-25 stay in =lookbacks/dailyreview.org= and
+   are still read; weekly and monthly reviews stay in =lookbacks/=.
 2. *Daytime*: the agenda shows what is dated today.  Clock in (=I=) when you
    start something; agents' work records itself.
 3. *Rescheduling* a task the second time asks: break it down instead?

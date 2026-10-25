@@ -107,11 +107,12 @@ Optimized for speed on Android by limiting to recent files (last 30 days)."
 
 ;; The camera button: one tap, take the photo, and it is attached when you
 ;; come back to Emacs -- no second tap.  In a note it goes at point; from
-;; anywhere else (the dashboard, a list) into today's diary entry.
+;; anywhere else (the dashboard, a list) under Logs in today's daily note,
+;; like the Log button's lines.  (The diary is kept for personal entries.)
 
 (defvar my/org-attach-media--pending nil
   "Camera shot in flight: (WHERE . TIME), or nil.
-WHERE is a marker in a note, or `diary'.  Set when the camera app is
+WHERE is a marker in a note, or `daily'.  Set when the camera app is
 launched from `my/org-attach-media'; coming back to Emacs with a newer
 photo on disk attaches it there.")
 
@@ -122,25 +123,31 @@ photo on disk attaches it there.")
   "Non-nil when a camera shot launched recently is still waiting."
   (and my/org-attach-media--pending
        (let ((where (car my/org-attach-media--pending)))
-         (or (eq where 'diary) (buffer-live-p (marker-buffer where))))
+         (or (eq where 'daily) (buffer-live-p (marker-buffer where))))
        (< (float-time (time-since (cdr my/org-attach-media--pending)))
           my/org-attach-media-pending-timeout)))
 
 (defun my/org-attach-media--here ()
-  "Where a photo goes: point, in a note; else `diary'."
-  (if (and (derived-mode-p 'org-mode) (buffer-file-name)) (point-marker) 'diary))
+  "Where a photo goes: point, in a note; else `daily'."
+  (if (and (derived-mode-p 'org-mode) (buffer-file-name)) (point-marker) 'daily))
 
 (defun my/org-attach-media--goto (where)
   "Go to WHERE, from `my/org-attach-media--here': the note's spot, or a
-new line under today in `org-diary-file'."
+new line under Logs in today's daily note."
   (unless (markerp where)
-    (require 'org-datetree)
-    (with-current-buffer (find-file-noselect org-diary-file)
+    (require 'day-log)
+    (with-current-buffer (day-log-daily-buffer (format-time-string "%F") t)
       (org-with-wide-buffer
-       (org-datetree-find-date-create (calendar-current-date))
-       (org-end-of-subtree t t)
+       (goto-char (point-min))
+       (if (re-search-forward "^\\* Logs\\b" nil t)
+           (if (re-search-forward "^\\* " nil t)
+               (goto-char (line-beginning-position))
+             (goto-char (point-max)))
+         (goto-char (point-max))
+         (unless (bolp) (insert "\n"))
+         (insert "* Logs\n"))
        (unless (bolp) (insert "\n"))
-       (insert (format-time-string "- %H:%M ") "\n")
+       (insert (format-time-string "- =%H:%M= ") "\n")
        (setq where (copy-marker (1- (point)))))))
   (pop-to-buffer-same-window (marker-buffer where))
   (goto-char where))
@@ -172,7 +179,7 @@ new line under today in `org-diary-file'."
 (add-function :after after-focus-change-function #'my/org-attach-media--on-return)
 
 (defun my/org-attach-media (&optional arg)
-  "Attach a photo or screenshot: in a note at point, else in today's diary.
+  "Attach a photo or screenshot: in a note at point, else today's daily note.
 Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/.
 
 [c]amera opens the camera app; take the photo and come back to Emacs,
