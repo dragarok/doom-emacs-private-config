@@ -39,6 +39,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(require 'meetings)
 
 (defvar org-recurring-file)              ; config.el
 (defvar org-projects-file)
@@ -945,6 +946,11 @@ GROUPS is ((LABEL YOU AGENTS PASSIVE) ...), in minutes."
          (dur #'org-summary--dur)
          (weekly (> (- (cdr range) (car range)) 13)))
     (insert (format "- You :: %s clocked\n" (funcall dur (funcall mins clocks))))
+    ;; Time with people: meetings.el's clocks, by person.
+    (when-let ((met (seq-filter (lambda (c) (meetings-file-p (plist-get c :file))) clocks)))
+      (insert (format "- Meetings :: %s — %s\n" (funcall dur (funcall mins met))
+                      (mapconcat (lambda (p) (format "%s %s" (car p) (funcall dur (cdr p))))
+                                 (org-summary--sum met title) " · "))))
     (insert (format "- Agents :: %s"
                     (if (null agent) "none"
                       (format "%s of agent time on %d task%s (%d done); %s with at least one running, up to %d at once"

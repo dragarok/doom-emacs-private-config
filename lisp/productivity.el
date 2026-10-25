@@ -6,6 +6,8 @@
 
 ;;; Code:
 
+(require 'meetings)
+
 ;;; Last Interacted Task Tracking (shared with productivity_flow.el)
 (defvar rts-last-task-marker nil
   "Marker to the last task we interacted with (clock-in, add time, etc.).
@@ -1833,7 +1835,7 @@ Returns list of (display . marker) pairs with duplicates removed."
                                                 heading)))
                           (cons display marker)))
                       all-tasks)))
-    candidates))
+    (append candidates (meetings-people))))
 
 (defun consult-add-clock-to-task ()
   "Select any task (scheduled, deadline, or mundane) and add clock time."
@@ -1939,6 +1941,7 @@ new task, asked for as Add > Task asks.  Returns marker or nil if cancelled."
                                      :category 'org-task))))
       (cond ((string-empty-p selected) nil)
             ((cdr (assoc selected candidates)))
+            ((meetings-new-name selected))
             (t (rts--read-instant-task selected)))))))
 
 (defun add-clock-time-by-offset ()

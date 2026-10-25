@@ -841,9 +841,17 @@ title for a new task (like `org-roam-node-find' behavior)."
                 (org-clock-in)
                 (org-save-all-org-buffers)
                 (message "Clocked in: %s" heading)))))))
-     ;; New task - use input as title
+     ;; New: a meeting with someone, or a task with input as title
      (t
-      (rts-flow--add-task-dispatch selected)))))
+      (let ((person (meetings-new-name selected)))
+        (if (not person)
+            (rts-flow--add-task-dispatch selected)
+          (with-current-buffer (marker-buffer person)
+            (save-excursion
+              (goto-char person)
+              (org-clock-in)
+              (org-save-all-org-buffers)))
+          (message "Clocked in: meeting with %s" org-clock-current-task)))))))
 
 ;;; ===================================================================
 ;;; Clock Goto - Smart Navigation
@@ -934,6 +942,8 @@ For habits in recurring.org:
   - Automatically marks as DONE
   - No prompts at all
 
+For a meeting (meetings.el): one optional line of notes, nothing done.
+
 For tasks in other files, one question: not done, done, done with
 focus, or done as deep work (the last two tag it :focus: / :deepwork:)."
   (interactive)
@@ -946,20 +956,24 @@ focus, or done as deep work (the last two tag it :focus: / :deepwork:)."
            (is-habit (and file-name
                           (string-match-p "recurring\\.org$" file-name))))
 
-      (if is-habit
-          ;; Habit in recurring.org: auto-DONE, no prompts
-          (progn
-            (org-clock-out)
-            (when (and buffer position)
-              (with-current-buffer buffer
-                (save-excursion
-                  (goto-char position)
-                  (org-back-to-heading t)
-                  (org-todo "DONE"))))
-            (org-save-all-org-buffers)
-            (message "Habit completed and marked DONE"))
+      (cond
+       ((meetings-file-p file-name)
+        (meetings-clock-out))
+       (is-habit
+        ;; Habit in recurring.org: auto-DONE, no prompts
+        (progn
+          (org-clock-out)
+          (when (and buffer position)
+            (with-current-buffer buffer
+              (save-excursion
+                (goto-char position)
+                (org-back-to-heading t)
+                (org-todo "DONE"))))
+          (org-save-all-org-buffers)
+          (message "Habit completed and marked DONE")))
 
-        ;; Non-habit: one question, done and how it went
+       ;; Non-habit: one question, done and how it went
+       (t
         (let* ((answer (rts-flow--read-clock-out))
                (mark-done (not (equal answer "not done")))
                (work-mode (pcase answer
@@ -992,7 +1006,7 @@ focus, or done as deep work (the last two tag it :focus: / :deepwork:)."
                    (if mark-done " and marked DONE" "")
                    (if (string= work-mode "normal")
                        ""
-                     (format ", added :%s: tag" work-mode))))))))
+                     (format ", added :%s: tag" work-mode)))))))))
 
 ;;; ===================================================================
 ;;; Last Task Tracking

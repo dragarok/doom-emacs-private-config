@@ -176,6 +176,7 @@
 (setq org-mundane-tasks-file (concat org-agenda-directory "mundane.org"))
 (setq org-blogsnvideos-file (concat org-agenda-directory "log_blogsnvideos.org"))
 (setq org-tasks-file (concat org-agenda-directory "tasks.org"))
+(setq org-meetings-file (concat org-agenda-directory "meetings.org"))
 (setq org-diary-file (concat org-directory "lookbacks/diary.org"))
 (setq org-motto-file (concat org-agenda-directory "motto.org"))
 (setq org-someday-file (concat org-directory "archive/someday.org"))

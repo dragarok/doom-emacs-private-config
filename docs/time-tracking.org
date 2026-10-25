@@ -109,10 +109,20 @@ The pauses stay under =* Paused= in topics.org, one dated line each:
 - guitarpractice :: 2026-10-25 .. 2026-11-08
 #+end_example
 
+*Meetings*: time with a person, never "done".  =meetings.org= has one
+heading per person and each meeting is a clock line under it -- no TODO, no
+date, so nothing on the agenda.  Clock in on the dashboard (live) or Add >
+Clock Time (afterwards), and pick "Meeting: Ram"; a new name asks "a task,
+or a meeting with NAME?" ("meeting Ram" skips the question).  Done on the
+floating clock asks only for a line of notes, kept under the person with
+the date.  The day log shows "Meeting: Ram"; the reviews' time block adds
+a *Meetings* line, by person.
+
 Tests: =ORG_TEMPLATES=~/org/templates emacs -Q --batch -L lisp -l
 test/org-summary-topics-test.el -f ert-run-tests-batch-and-exit=, and the
 same with =test/org-flow-test.el= for dating and breaking down, and
-=test/day-log-review-test.el= for the daily review.
+=test/day-log-review-test.el= for the daily review, =test/meetings-test.el=
+for meetings.
 
 * Phone
 - Pull the config (code); the org files -- topics.org, the templates,
