@@ -77,13 +77,16 @@
 (defun meetings-new-name (name)
   "For NAME, which matches nothing in a task picker: the person's marker
 when it is a meeting, nil when it is a new task.  \"meeting Ram\" or
-\"Meeting: Ram\" is a meeting without asking."
+\"Meeting: Ram\" is a meeting without asking.  Otherwise it asks, a
+meeting by default for a name of one or two words (a person, or two),
+a task for longer (a task is rarely that short)."
   (let ((case-fold-search t))
     (if (string-match "\\`meeting\\(?: with\\)?:?[ \t]+\\(.+\\)" name)
         (meetings-person (match-string 1 name))
-      (let ((answer (completing-read (format "\"%s\" is new.  It is: " name)
-                                     (list "a task" (format "a meeting with %s" name))
-                                     nil t nil nil "a task")))
+      (let* ((meeting (format "a meeting with %s" name))
+             (answer (completing-read (format "\"%s\" is new.  It is: " name)
+                                      (list "a task" meeting) nil t nil nil
+                                      (if (<= (length (split-string name)) 2) meeting "a task"))))
         (unless (equal answer "a task")
           (meetings-person name))))))
 

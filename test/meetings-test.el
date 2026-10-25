@@ -38,10 +38,12 @@ the pickers' candidates list them."
       (should-not (string-match-p "TODO\\|SCHEDULED" (meetings-test--text))))))
 
 (ert-deftest meetings-test-new-name ()
-  "\"meeting X\" is a meeting without asking; otherwise asked, a task by default."
+  "\"meeting X\" is a meeting without asking; otherwise asked, a meeting
+by default for one or two words, a task for more."
   (meetings-test--with
-    (let ((asked 0) (answer "a task"))
-      (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (cl-incf asked) answer)))
+    (let ((asked 0) (answer "a task") defaults)
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (_p _c _pr _rm _i _h def &rest _) (cl-incf asked) (push def defaults) answer)))
         (should (meetings-new-name "Meeting with Hari"))
         (should (meetings-new-name "meeting: Gita"))
         (should (= asked 0))
@@ -49,6 +51,10 @@ the pickers' candidates list them."
         (setq answer "a meeting with Sangeet")
         (should (meetings-new-name "Sangeet"))
         (should (= asked 2))
+        (cl-letf (((symbol-function 'meetings-person) #'ignore))
+          (meetings-new-name "Ram Sharma"))
+        (should (equal (reverse defaults)
+                       '("a task" "a meeting with Sangeet" "a meeting with Ram Sharma")))
         (should (equal (mapcar #'car (meetings-people))
                        '("Meeting: Hari" "Meeting: Gita" "Meeting: Sangeet")))))))
 
