@@ -105,12 +105,15 @@ Optimized for speed on Android by limiting to recent files (last 30 days)."
 (defvar my/android-captured-images-dir "attachments/captured-images"
   "Relative path within org-directory to store captured media.")
 
+;; The camera button: one tap, take the photo, and it is attached when you
+;; come back to Emacs -- no second tap.  In a note it goes at point; from
+;; anywhere else (the dashboard, a list) into today's diary entry.
+
 (defvar my/org-attach-media--pending nil
-  "Camera shot in flight: (MARKER . TIME), or nil.
-Set when the camera app is launched from `my/org-attach-media'; the
-next tap of the same button finishes the attachment.  Android hides
-the keyboard when you come back from the camera, so the old
-\"press any key to continue\" could never be answered.")
+  "Camera shot in flight: (WHERE . TIME), or nil.
+WHERE is a marker in a note, or `diary'.  Set when the camera app is
+launched from `my/org-attach-media'; coming back to Emacs with a newer
+photo on disk attaches it there.")
 
 (defvar my/org-attach-media-pending-timeout 900
   "Seconds after which a pending camera shot is forgotten.")
@@ -118,50 +121,85 @@ the keyboard when you come back from the camera, so the old
 (defun my/org-attach-media--pending-p ()
   "Non-nil when a camera shot launched recently is still waiting."
   (and my/org-attach-media--pending
-       (buffer-live-p (marker-buffer (car my/org-attach-media--pending)))
+       (let ((where (car my/org-attach-media--pending)))
+         (or (eq where 'diary) (buffer-live-p (marker-buffer where))))
        (< (float-time (time-since (cdr my/org-attach-media--pending)))
           my/org-attach-media-pending-timeout)))
 
+(defun my/org-attach-media--here ()
+  "Where a photo goes: point, in a note; else `diary'."
+  (if (and (derived-mode-p 'org-mode) (buffer-file-name)) (point-marker) 'diary))
+
+(defun my/org-attach-media--goto (where)
+  "Go to WHERE, from `my/org-attach-media--here': the note's spot, or a
+new line under today in `org-diary-file'."
+  (unless (markerp where)
+    (require 'org-datetree)
+    (with-current-buffer (find-file-noselect org-diary-file)
+      (org-with-wide-buffer
+       (org-datetree-find-date-create (calendar-current-date))
+       (org-end-of-subtree t t)
+       (unless (bolp) (insert "\n"))
+       (insert (format-time-string "- %H:%M ") "\n")
+       (setq where (copy-marker (1- (point)))))))
+  (pop-to-buffer-same-window (marker-buffer where))
+  (goto-char where))
+
+(defun my/org-attach-media--latest-since (time)
+  "The newest photo or screenshot written after TIME, or nil."
+  (let ((latest (my/android-get-latest-media-file)))
+    (and latest
+         (time-less-p time (file-attribute-modification-time (file-attributes latest)))
+         latest)))
+
+(defun my/org-attach-media--finish ()
+  "Attach the pending camera shot, if it has landed on disk."
+  (when (my/org-attach-media--pending-p)
+    (pcase-let ((`(,where . ,since) my/org-attach-media--pending))
+      (if-let* ((latest (my/org-attach-media--latest-since since)))
+          (progn
+            (setq my/org-attach-media--pending nil)
+            (my/org-attach-media--goto where)
+            (my/org-attach-media--attach-file latest)
+            (save-buffer))
+        (message "No new photo -- tap the camera button to try again")))))
+
+(defun my/org-attach-media--on-return (&rest _)
+  "Back in Emacs from the camera: attach the shot, once the file is there."
+  (when (and (frame-focus-state) (my/org-attach-media--pending-p))
+    (run-with-timer 1.5 nil #'my/org-attach-media--finish)))
+
+(add-function :after after-focus-change-function #'my/org-attach-media--on-return)
+
 (defun my/org-attach-media (&optional arg)
-  "Attach the latest photo or screenshot to the current Org node.
+  "Attach a photo or screenshot: in a note at point, else in today's diary.
 Stores in `org-directory`/attachments/captured-images/YYYY-MM-DD/.
 
-Choosing [c]amera opens the camera app and returns immediately.  Take
-the photo, come back to Emacs and tap this button again: the new photo
-is attached at the point where you started.  With prefix ARG, forget a
-pending camera shot instead."
+[c]amera opens the camera app; take the photo and come back to Emacs,
+and it is attached.  [l]atest attaches the newest photo or screenshot
+already there.  Tapping again while a shot is pending attaches it now;
+with prefix ARG, forget it instead."
   (interactive "P")
   (cond
    ((and arg my/org-attach-media--pending)
     (setq my/org-attach-media--pending nil)
     (message "Camera attachment cancelled"))
-   ;; Second tap: the camera shot is waiting to be attached.
    ((my/org-attach-media--pending-p)
-    (let* ((marker (car my/org-attach-media--pending))
-           (since (cdr my/org-attach-media--pending))
-           (latest (my/android-get-latest-media-file)))
-      (if (and latest
-               (time-less-p since (file-attribute-modification-time
-                                   (file-attributes latest))))
-          (progn
-            (setq my/org-attach-media--pending nil)
-            (unless (eq (current-buffer) (marker-buffer marker))
-              (pop-to-buffer-same-window (marker-buffer marker)))
-            (goto-char marker)
-            (my/org-attach-media--attach-file latest))
-        (message "No new photo yet -- take one and tap again (C-u to cancel)"))))
+    (my/org-attach-media--finish))
    (t
     (let ((choice (read-char-choice "Attach: [c]amera or [l]atest? " '(?c ?l))))
       (if (eq choice ?c)
           (progn
-            (setq my/org-attach-media--pending (cons (point-marker) (current-time)))
+            (setq my/org-attach-media--pending (cons (my/org-attach-media--here) (current-time)))
             (call-process-shell-command "am start -a android.media.action.STILL_IMAGE_CAMERA")
-            (message "Take the photo, come back, and tap the camera button again"))
+            (message "Take the photo and come back: it attaches itself"))
         (let ((latest (my/android-get-latest-media-file)))
-          (if (and latest (file-exists-p latest))
+          (if (not (and latest (file-exists-p latest)))
+              (error "No media files found in: %s" (string-join my/android-media-dirs ", "))
+            (progn
+              (my/org-attach-media--goto (my/org-attach-media--here))
               (my/org-attach-media--attach-file latest)
-            (error "No media files found in: %s"
-                   (string-join my/android-media-dirs ", ")))))))))
+              (save-buffer)))))))))
 
 (defun my/org-attach-media--attach-file (latest-file)
   "Copy LATEST-FILE under the captured-images dir and link it at point."
