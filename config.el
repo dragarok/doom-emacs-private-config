@@ -292,11 +292,13 @@
 (after! org-timegrid-org
   (setq org-timegrid-org-capture-file (expand-file-name "calendar.org" org-agenda-directory)
         org-timegrid-org-auto-save t))
-;; Its own single-letter keys (t, e, d, j, g, q) are the interface: keep evil off it.
 (after! org-timegrid
   ;; The day is 5am to 10pm; an hour either side, for safety.
   (setq org-timegrid-start-hour 4
         org-timegrid-end-hour 23)
+  ;; Its own plain keys (q closes), named on its mode line (timebox.el).
+  (require 'timebox)
+  (add-hook 'org-timegrid-mode-hook #'timebox-calendar-setup)
   (when (fboundp 'evil-set-initial-state)
     (evil-set-initial-state 'org-timegrid-mode 'emacs)))
 ;; On the phone it draws its text as shapes (Android's SVG has no fonts), from
@@ -312,9 +314,10 @@
 ;; Tomorrow's tasks in blocks of time, around what is fixed (timebox.el):
 ;; the evening review's last step; again by hand after adding a task.
 (autoload 'timebox-tomorrow "timebox" nil t)
+(autoload 'timebox-calendar "timebox" nil t)
 
 (map! :leader
-      :desc "Week calendar (timegrid)" "o c" #'org-timegrid-week
+      :desc "Calendar"                 "o c" #'timebox-calendar
       (:prefix ("o v" . "review")
        :desc "Summary dashboard"       "d" #'org-summary-dashboard
        :desc "Habits this month"       "h" #'org-summary-habit-calendar
@@ -325,7 +328,7 @@
        :desc "Weekly review"           "w" (cmd! (org-capture nil "rw"))
        :desc "Last week's review"      "l" (cmd! (org-capture nil "rl"))
        :desc "Monthly review"          "m" (cmd! (org-capture nil "rm"))
-       :desc "Week calendar"           "c" #'org-timegrid-week
+       :desc "Calendar"                "c" #'timebox-calendar
        :desc "Time-box tomorrow"       "T" #'timebox-tomorrow
        :desc "Passive activity on/off" "a" #'agent-time-passive
        :desc "Plan the week's topics"  "o" #'org-summary-plan-topics

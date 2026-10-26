@@ -75,6 +75,9 @@ of (START . END) minutes from midnight.")
 (defun timebox--hh-mm (minutes)
   (format "%02d:%02d" (/ minutes 60) (% minutes 60)))
 
+(defun timebox--now-minute ()
+  (let ((now (decode-time))) (+ (* 60 (nth 2 now)) (nth 1 now))))
+
 (defvar org-habit-show-habits-only-for-today)
 
 (defun timebox--agenda-busy (day)
@@ -208,7 +211,7 @@ it moves from an earlier day, logged as a reschedule."
          (start (max (timebox--minutes timebox-start)
                      ;; Today: from now on.
                      (if (= day (org-today))
-                         (let ((now (decode-time))) (+ (* 60 (nth 2 now)) (nth 1 now)))
+                         (timebox--now-minute)
                        0)))
          (starts (timebox-pack (mapcar (lambda (task) (nth 3 task)) tasks)
                                (funcall timebox-busy-function day)
@@ -232,15 +235,13 @@ it moves from an earlier day, logged as a reschedule."
 ;;;###autoload
 (defun timebox-tomorrow (&optional day)
   "Box tomorrow's tasks (DAY, an absolute day; with \\[universal-argument],
-today's, from now), say where they went, and open the week calendar on it
-to move them by dragging (the agenda's day, without org-timegrid)."
+today's, from now), say where they went, and open the calendar on the
+first block to move them about (`timebox-calendar')."
   (interactive (list (if current-prefix-arg (org-today) (timebox--tomorrow))))
   (let* ((day (or day (timebox--tomorrow)))
          (result (timebox-plan day))
          (boxed (car result)) (unfit (cadr result)))
-    (if (fboundp 'org-timegrid-week)
-        (org-timegrid-week day)
-      (org-agenda-list nil day 1))
+    (timebox-calendar day (caar boxed))
     (message "%s%s"
              (if boxed
                  (format "Boxed %d: %s" (length boxed)
@@ -251,6 +252,54 @@ to move them by dragging (the agenda's day, without org-timegrid)."
                  (format ".  Didn't fit (still dated, no time): %s" (string-join unfit ", "))
                ""))
     result))
+
+;;; The calendar
+
+;; org-timegrid's week calendar, opened where it is easy to use: the window
+;; you are in (the whole screen on the phone), on the day's first block,
+;; with its few keys on the mode line.
+
+(defvar org-timegrid--state)
+(declare-function org-timegrid--calendar-state-week-start "org-timegrid")
+(declare-function org-timegrid--set-cursor "org-timegrid")
+(declare-function org-timegrid--cursor-moved "org-timegrid")
+(declare-function org-timegrid--center-minute "org-timegrid")
+
+;;;###autoload
+(defun timebox-calendar-setup ()
+  "In `org-timegrid-mode': its keys on the mode line."
+  (setq-local mode-line-format
+              "  drag: move   n/p: next/prev block   RET: open   i: clock in   q: close"))
+
+(defun timebox--calendar-land (day minute)
+  "Cursor to DAY at MINUTE (selecting a block that starts there), and
+that time in the middle of the window."
+  ;; org-timegrid's internals: should a new version move them, the
+  ;; calendar still opens, only where it likes.
+  (ignore-errors
+    (org-timegrid--set-cursor (- day (org-timegrid--calendar-state-week-start org-timegrid--state))
+                              minute)
+    (org-timegrid--cursor-moved)
+    (org-timegrid--center-minute (selected-window) minute)))
+
+;;;###autoload
+(defun timebox-calendar (&optional day minute)
+  "The calendar on DAY (an absolute day; today), at MINUTE: by default now,
+on another day its first timed thing.  In this window, not a popup; on the
+phone, the whole screen.  q closes it."
+  (interactive)
+  (let* ((day (or day (org-today)))
+         (minute (or minute
+                     (if (= day (org-today))
+                         (timebox--now-minute)
+                       (or (car (sort (mapcar #'car (funcall timebox-busy-function day)) #'<))
+                           (timebox--minutes timebox-start))))))
+    (if (not (require 'org-timegrid-org nil t))
+        (org-agenda-list nil day 1)
+      (let ((display-buffer-overriding-action '(display-buffer-same-window)))
+        (org-timegrid-week day))
+      (when (eq system-type 'android) (delete-other-windows))
+      (timebox--calendar-land day minute))))
 
 (provide 'timebox)
 ;;; timebox.el ends here
