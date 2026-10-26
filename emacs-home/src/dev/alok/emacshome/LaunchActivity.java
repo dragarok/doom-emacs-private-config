@@ -16,7 +16,7 @@ import java.util.List;
  */
 public class LaunchActivity extends Activity {
     private static final java.util.Set<String> HAIL = new java.util.HashSet<>(java.util.Arrays.asList(
-            "FREEZE_ALL", "FREEZE_NON_WHITELISTED", "UNFREEZE_ALL", "LOCK", "LOCK_FREEZE"));
+            "FREEZE_ALL", "FREEZE_AUTO", "FREEZE_NON_WHITELISTED", "UNFREEZE_ALL", "LOCK", "LOCK_FREEZE"));
 
     @Override
     protected void onCreate(Bundle state) {

@@ -41,8 +41,8 @@
 ;; (Widgets.java), and Hail's freeze.  They are pinned like apps, as
 ;; entries ("LABEL" "widget" PROVIDER CELLS) and ("LABEL" "hail" ACTION).
 
-(defvar emacs-home-hail-action "FREEZE_NON_WHITELISTED"
-  "Hail's API action for its tile: freeze every app not whitelisted in Hail.")
+(defvar emacs-home-hail-action "FREEZE_AUTO"
+  "Hail's API action for its tile: Hail's auto freeze, of the apps not running.")
 
 (defun emacs-home--providers ()
   "Installed widgets as (\"App: Widget\" \"widget\" PROVIDER CELLS)."
