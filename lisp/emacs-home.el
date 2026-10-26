@@ -217,6 +217,28 @@ Loads the day log then, a moment after, rather than at startup."
         (svg-circle svg (* x size) (* y size) r :fill fg)))
     (propertize " " 'display (svg-image svg :scale 1 :ascent 'center))))
 
+(defvar emacs-home--started nil
+  "The day (turning at 4am) something was first clocked into.")
+
+(defun emacs-home--today ()
+  (format-time-string "%F" (time-subtract nil (* 4 3600))))
+
+(add-hook 'org-clock-in-hook (lambda () (setq emacs-home--started (emacs-home--today))))
+
+(defun emacs-home--first-thing ()
+  "Last night's first thing for today, until something is clocked today."
+  (and (not (equal emacs-home--started (emacs-home--today)))
+       (featurep 'day-log)              ; loaded by the first Home press
+       (ignore-errors (day-log-first-thing))))
+
+(defun emacs-home-start-first-thing ()
+  "Clock in on last night's first thing: the Clock in picker with it typed
+in -- pick the task it matches, or RET to make it one."
+  (interactive)
+  (let ((text (or (emacs-home--first-thing) "")))
+    (minibuffer-with-setup-hook (lambda () (insert text))
+      (rts-flow-manual))))
+
 (defun emacs-home-widget ()
   "Dashboard widget: the clock line, Pin and Day, then the pinned icons,
 `emacs-home-icons-per-row' to a row, big, with all apps as the last one."
@@ -246,6 +268,14 @@ Loads the day log then, a moment after, rather than at startup."
          'action (lambda (_) (usage-log-call "dashboard" #'org-clock-goto))
          'follow-link t
          'face 'android-homepage-title)
+      (when-let* ((first (emacs-home--first-thing)))
+        ;; The morning: what last night's review said to start with.
+        (insert-text-button
+         (format "☀  First: %s" first)
+         'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-start-first-thing))
+         'follow-link t
+         'face 'android-homepage-title)
+        (insert "\n  "))
       (insert-text-button
        (if emacs-home--last-task
            (format "○  No clock  ·  resume: %s" emacs-home--last-task)

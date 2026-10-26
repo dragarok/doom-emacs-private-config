@@ -93,6 +93,17 @@ the line empty: nothing is forced."
       (should (string-match-p "Caught up in the morning" (day-log-test--review-text yesterday)))
       (should (equal planned (list (list "Daily topics" (day-log--today))))))))
 
+(ert-deftest day-log-test-first-thing ()
+  "Last night's \"First thing tomorrow\" is today's first thing; none
+written, or no review last night, is nil."
+  (day-log-test--with
+    (let ((yesterday (day-log--shift (day-log--today) -1)))
+      (should-not (day-log-first-thing))
+      (day-log-test--answering '("" "" "") (lambda () (day-log-review yesterday)))
+      (should-not (day-log-first-thing))
+      (day-log-test--answering '("" "" "Guitar scales") (lambda () (day-log-review yesterday)))
+      (should (equal (day-log-first-thing) "Guitar scales")))))
+
 ;;; Where reviews live
 
 (ert-deftest day-log-test-daily-note ()

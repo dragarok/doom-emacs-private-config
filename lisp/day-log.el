@@ -440,6 +440,13 @@ A review from before the day log, made by the old template, counts."
         (day-log--written-p))))
 
 ;;;###autoload
+(defun day-log-first-thing ()
+  "Last night's \"First thing tomorrow\", or nil if it wasn't written."
+  (let ((line (day-log--at (day-log--shift (day-log--today) -1)
+                (day-log--line "First thing tomorrow"))))
+    (and line (not (string-empty-p line)) line)))
+
+;;;###autoload
 (defun day-log-today ()
   "Open today's review, its facts brought up to now."
   (interactive)

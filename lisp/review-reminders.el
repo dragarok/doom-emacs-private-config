@@ -4,10 +4,19 @@
 ;; Automatic reminder system for daily and weekly reviews.
 ;; Prompts at 8 PM for daily reviews and Mondays for weekly reviews.
 ;; Supports snoozing and timeout handling.
+;;
+;; On the phone Emacs is rarely on screen, so a minibuffer prompt goes
+;; unseen: from 8 PM until the day turns, a notification comes back every
+;; `daily-review-nag-minutes' until the review is written, and the next
+;; time Emacs comes to the front the review starts by itself.
+;;
+;; The weekly review is asked for only after a week of written daily
+;; reviews (`weekly-review-needs-days'): it is built from them.
 
 ;;; Code:
 
 (require 'org)
+(require 'cl-lib)
 
 (defvar daily-review-reminder-timer nil "Timer for daily review reminders")
 (defvar weekly-review-reminder-timer nil "Timer for weekly review reminders")
@@ -26,6 +35,16 @@ you added to it."
           (goto-char (point-min))
           (search-forward week-string nil t))
       (error nil))))
+
+(defvar weekly-review-needs-days 5
+  "Daily reviews written in the past 7 days before the weekly is asked for.")
+
+(defun weekly-review-days-written ()
+  "How many of the past 7 days' reviews were written."
+  (require 'day-log)
+  (let ((today (day-log--today)))
+    (cl-count-if (lambda (n) (ignore-errors (day-log-written-p (day-log--shift today (- n)))))
+                 (number-sequence 0 6))))
 
 (defun schedule-next-daily-prompt ()
   "Schedule the next daily review prompt for tomorrow at 8 PM."
@@ -88,6 +107,11 @@ you added to it."
 (defun prompt-weekly-review ()
   "Prompt for weekly review with timeout and auto-reschedule."
   (interactive)
+  (if (< (weekly-review-days-written) weekly-review-needs-days)
+      (progn
+        (message "Weekly review waits for a week of daily reviews (%d of %d written)"
+                 (weekly-review-days-written) weekly-review-needs-days)
+        (schedule-next-weekly-prompt))
   (unless (weekly-review-exists-p)
     (let* ((choices '("This Week" "Last Week" "Skip"))
            (timeout-timer (run-with-timer 30 nil (lambda () (throw 'exit :timeout))))
@@ -114,7 +138,7 @@ you added to it."
           (org-capture nil "rl"))
          ((string= choice "Skip")
           (message "Weekly review skipped for this week")))
-        (schedule-next-weekly-prompt))))))
+        (schedule-next-weekly-prompt)))))))
 
 ;;;###autoload
 (defun start-daily-review-reminders ()
@@ -124,6 +148,8 @@ you added to it."
   (when daily-review-reminder-timer
     (cancel-timer daily-review-reminder-timer)
     (setq daily-review-reminder-timer nil))
+  ;; The phone has the nag instead (below).
+  (unless (eq system-type 'android)
 
   ;; Check if we should start reminding today
   (let* ((now (decode-time))
@@ -137,7 +163,7 @@ you added to it."
              (current-secs (+ (* hour 3600) (* min 60) sec))
              (target-secs (* 20 3600))
              (secs-to-8pm (- target-secs current-secs)))
-        (setq daily-review-reminder-timer (run-at-time secs-to-8pm nil 'prompt-daily-review))))))
+        (setq daily-review-reminder-timer (run-at-time secs-to-8pm nil 'prompt-daily-review)))))))
 
 ;;;###autoload
 (defun start-weekly-review-reminders ()
@@ -150,6 +176,56 @@ you added to it."
 
   ;; Schedule for next Monday at 8 PM
   (schedule-next-weekly-prompt))
+
+;;; The phone: a notification every so often until the review is written
+
+(defvar daily-review-nag-minutes 20
+  "Minutes between the evening's review notifications on the phone.")
+
+(defvar daily-review-nag-from 20
+  "Hour the evening's notifications start; they stop when the day turns.")
+
+(defvar daily-review--nag-id nil "The notification shown, replaced by the next.")
+(defvar daily-review--nag-pending nil "Non-nil: start the review when Emacs is next in front.")
+
+(declare-function android-notifications-notify "androidselect.c")
+
+(defun daily-review--evening-p ()
+  "From `daily-review-nag-from' until the day turns (`day-log-day-starts')."
+  (let ((hour (decoded-time-hour (decode-time))))
+    (or (>= hour daily-review-nag-from)
+        (< hour (bound-and-true-p day-log-day-starts)))))
+
+(defun daily-review-nag ()
+  "In the evening, notify while today's review is unwritten."
+  (when (daily-review--evening-p)
+    (require 'day-log)
+    (if (day-log-written-p)
+        (setq daily-review--nag-pending nil)
+      (setq daily-review--nag-pending t
+            daily-review--nag-id
+            (android-notifications-notify
+             :title "Close the day"
+             :body "Three lines: the day, energy, first thing tomorrow."
+             :replaces-id daily-review--nag-id
+             :urgency 'normal
+             :actions '("review" "Write it")
+             :on-action (lambda (_id _key) (run-at-time 0 nil #'daily-review--start)))))))
+
+(defun daily-review--start ()
+  "Start the review if a notification asked for it."
+  (when (and daily-review--nag-pending (not (active-minibuffer-window)))
+    (setq daily-review--nag-pending nil)
+    (day-log-review)))
+
+(defun daily-review--on-focus ()
+  (when (and daily-review--nag-pending (frame-focus-state))
+    (run-at-time 1 nil #'daily-review--start)))
+
+(when (eq system-type 'android)
+  (run-at-time 60 (* 60 daily-review-nag-minutes)
+               (lambda () (with-demoted-errors "daily-review-nag: %S" (daily-review-nag))))
+  (add-function :after after-focus-change-function #'daily-review--on-focus))
 
 ;; Auto-start the reminder systems
 (add-hook 'emacs-startup-hook 'start-daily-review-reminders)

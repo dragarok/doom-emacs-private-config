@@ -2251,12 +2251,9 @@ appropriate.  In tables, insert a new row or end the table."
         (with-temp-buffer
           (insert (format "%s,%s\n" timestamp energy))
           (append-to-file (point-min) (point-max)
-                          (concat org-lookbacks-directory "energy_log.csv")))))
-    ;; Schedule next prompt in 2 minutes
-    (run-at-time "30 minutes" nil 'my-log-energy)))
-
-;; To start the logging, call this once:
-(run-at-time "30 minutes" nil 'my-log-energy)
+                          (concat org-lookbacks-directory "energy_log.csv")))))))
+;; It no longer asks again by itself every 30 minutes: energy is one line of
+;; the daily review (day-log.el), asked once a day.
 
 (setq org-refile-targets
       '((org-someday-file :maxlevel . 1)
