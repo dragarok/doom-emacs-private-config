@@ -299,6 +299,15 @@
         org-timegrid-end-hour 23)
   (when (fboundp 'evil-set-initial-state)
     (evil-set-initial-state 'org-timegrid-mode 'emacs)))
+;; On the phone it draws its text as shapes (Android's SVG has no fonts), from
+;; Noto Sans; Iosevka instead, like the rest of Emacs (etc/make-timegrid-font.py).
+(after! org-timegrid-android
+  (require 'timegrid-iosevka-font)
+  (setq org-timegrid-android-font-regular timegrid-iosevka-font-regular
+        org-timegrid-android-font-bold timegrid-iosevka-font-bold
+        ;; Where the year starts after the month: Iosevka is half an em wide.
+        org-timegrid-android-header-title-style
+        (plist-put (copy-sequence org-timegrid-android-header-title-style) :character-width 39)))
 ;; Tomorrow's tasks in blocks of time, around what is fixed (timebox.el):
 ;; the evening review's last step; again by hand after adding a task.
 (autoload 'timebox-tomorrow "timebox" nil t)
