@@ -194,7 +194,8 @@ you added to it."
   "From `daily-review-nag-from' until the day turns (`day-log-day-starts')."
   (let ((hour (decoded-time-hour (decode-time))))
     (or (>= hour daily-review-nag-from)
-        (< hour (bound-and-true-p day-log-day-starts)))))
+        ;; The day log loads on first use; until then, its default.
+        (< hour (or (bound-and-true-p day-log-day-starts) 4)))))
 
 (defun daily-review-nag ()
   "In the evening, notify while today's review is unwritten."
