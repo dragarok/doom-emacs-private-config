@@ -112,13 +112,15 @@ is clocked -- after a manual clock-in it would revert the wrong task."
     (org-clock-cancel)))
 
 (defun emacs-home-clock-action (action)
-  "Run ACTION from the app's floating clock: pause, resume, done, cancel, flow."
+  "Run ACTION from the app's floating clock: pause, resume, done, cancel,
+flow, clockin (any task, as the homepage's Clock in)."
   (when-let ((command (pcase action
                         ('pause #'org-clock-out)
                         ('resume #'org-clock-in-last)
                         ('done #'rts-flow-clock-out)
                         ('cancel #'emacs-home--cancel)
-                        ('flow #'rts-flow))))
+                        ('flow #'rts-flow)
+                        ('clockin #'rts-flow-manual))))
     ;; Called from emacsclient's process filter, so get out of it first.
     (run-at-time 0 nil #'usage-log-call "island" command))
   nil)

@@ -944,6 +944,8 @@ For habits in recurring.org:
 
 For a meeting (meetings.el): one optional line of notes, nothing done.
 
+For mundane.org's clock buckets (TONOTDO, never finished): just clock out.
+
 For tasks in other files, one question: not done, done, done with
 focus, or done as deep work (the last two tag it :focus: / :deepwork:)."
   (interactive)
@@ -959,6 +961,11 @@ focus, or done as deep work (the last two tag it :focus: / :deepwork:)."
       (cond
        ((meetings-file-p file-name)
         (meetings-clock-out))
+       ((and file-name (bound-and-true-p org-mundane-tasks-file)
+             (file-equal-p file-name org-mundane-tasks-file))
+        (org-clock-out)
+        (org-save-all-org-buffers)
+        (message "Clocked out of %s" (file-name-base file-name)))
        (is-habit
         ;; Habit in recurring.org: auto-DONE, no prompts
         (progn

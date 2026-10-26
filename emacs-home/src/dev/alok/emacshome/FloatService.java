@@ -142,8 +142,8 @@ public class FloatService extends Service {
         if (action.equals("lock")) { press("island-lock"); lock(); return; }
         if (action.equals("unlock")) { unlock(); return; }
         if (action.equals("reattach")) { reattach(); return; }
-        // Done and Flow prompt in the minibuffer, so they need Emacs on screen.
-        if (action.equals("done") || action.equals("flow")) {
+        // Done, Flow and Clock in prompt in the minibuffer, so they need Emacs on screen.
+        if (action.equals("done") || action.equals("flow") || action.equals("clockin")) {
             Intent emacs = getPackageManager().getLaunchIntentForPackage(Emacs.PACKAGE);
             if (emacs != null) startActivity(emacs.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
@@ -194,6 +194,7 @@ public class FloatService extends Service {
              .setContentText(task.isEmpty() ? null : "Last: " + task)
              .setShowWhen(false)
              .addAction(action("Resume", "resume"))
+             .addAction(action("Clock in", "clockin"))
              .addAction(action("Flow", "flow"));
         }
         return b.build();
@@ -470,8 +471,9 @@ public class FloatService extends Service {
                 ? new String[][] {{"Pause", "pause"}, {"Done", "done"},
                                   {"Cancel", "cancel"}, {"Lock", "lock"}}
                 : task.isEmpty()
-                ? new String[][] {{"Flow", "flow"}, {"Lock", "lock"}}
-                : new String[][] {{"Resume", "resume"}, {"Flow", "flow"}, {"Lock", "lock"}};
+                ? new String[][] {{"Clock in", "clockin"}, {"Flow", "flow"}, {"Lock", "lock"}}
+                : new String[][] {{"Resume", "resume"}, {"Clock in", "clockin"},
+                                  {"Flow", "flow"}, {"Lock", "lock"}};
         for (String[] b : bs) buttons.addView(chip(b[0], b[1]));
         paint();
         if (!opening && (morph == null || !morph.isRunning())) {
