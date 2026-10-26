@@ -82,7 +82,11 @@ final class Widgets {
             StringBuilder tsv = new StringBuilder();
             for (AppWidgetProviderInfo p : AppWidgetManager.getInstance(c).getInstalledProviders()) {
                 String app = pm.getApplicationLabel(pm.getApplicationInfo(p.provider.getPackageName(), 0)).toString();
-                String label = (app + ": " + p.loadLabel(pm)).replaceAll("[\t\n]", " ");
+                // An app's widgets often share one label ("Simple Patro" six
+                // times): name each by its class too, TodayMiniWidget -> Today Mini.
+                String kind = p.provider.getShortClassName().replaceAll(".*\\.", "")
+                        .replaceAll("Widget$", "").replaceAll("([a-z])([A-Z])", "$1 $2");
+                String label = (app + ": " + p.loadLabel(pm) + " (" + kind + ")").replaceAll("[\t\n]", " ");
                 int cells = Math.max(1, Math.min(4, Math.round((float) p.minWidth / Math.max(1, p.minHeight))));
                 tsv.append(label).append('\t').append(p.provider.flattenToString())
                    .append('\t').append(cells).append('\n');
@@ -148,7 +152,12 @@ final class Widgets {
         String provider = (String) v.getTag();
         int[] size = provider == null ? null : sizes.get(provider);
         if (size == null) return;
-        int w = size[0], h = size[1];
+        // Laid out no smaller than the provider's minimum, keeping the tile's
+        // shape: smaller squeezes its text to nothing.  Emacs scales it down.
+        AppWidgetProviderInfo info = mgr.getAppWidgetInfo(ids.getInt(provider, -1));
+        float scale = info == null ? 1
+                : Math.max(1, Math.max((float) info.minWidth / size[0], (float) info.minHeight / size[1]));
+        int w = Math.round(size[0] * scale), h = Math.round(size[1] * scale);
         float density = ctx.getResources().getDisplayMetrics().density;
         v.updateAppWidgetSize(null, (int) (w / density), (int) (h / density),
                               (int) (w / density), (int) (h / density));

@@ -295,8 +295,12 @@ slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
             (app (seq-find (lambda (a) (equal (nth 1 a) (car (split-string provider "/")))) apps)))
        (funcall want (list provider w size))
        (list (if (file-exists-p png)
-                 (propertize " " 'display (create-image png 'png nil :width w :height size
-                                                        :scale 1 :ascent 'center))
+                 (let ((img (create-image png 'png nil :width w :height size
+                                          :scale 1 :ascent 'center)))
+                   ;; The app redraws the file when the widget changes; the
+                   ;; image cache would keep showing the first drawing.
+                   (image-flush img)
+                   (propertize " " 'display img))
                (propertize " " 'display `(space :width (,w) :height (,size))))
              (lambda (_) (when app (emacs-home-open app)))
              (car entry) span)))
