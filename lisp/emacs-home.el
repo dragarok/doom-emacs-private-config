@@ -37,11 +37,11 @@
 (defun emacs-home--key (app)
   (format "%s/%s" (nth 1 app) (nth 2 app)))
 
-;; Besides apps, the grid takes other apps' widgets, drawn by the app
-;; (Widgets.java), apps' shortcuts (Shortcuts.java: Firefox's private tab)
-;; and Hail's freeze.  They are pinned like apps, as entries ("LABEL"
-;; "widget" PROVIDER CELLS), ("LABEL" "shortcut" "PACKAGE/ID") and ("LABEL"
-;; "hail" ACTION).
+;; Besides apps, the grid takes apps' shortcuts (Shortcuts.java: Firefox's
+;; private tab) and Hail's freeze; and other apps' widgets show under it as
+;; a line of their text, read off them by the app (Widgets.java).  They are
+;; pinned like apps, as entries ("LABEL" "widget" PROVIDER CELLS), ("LABEL"
+;; "shortcut" "PACKAGE/ID") and ("LABEL" "hail" ACTION).
 
 (defvar emacs-home-hail-action "FREEZE_AUTO"
   "Hail's API action for its tile: Hail's auto freeze, of the apps not running.")
@@ -85,14 +85,30 @@
                             (replace-regexp-in-string "[^A-Za-z0-9._-]" "_" provider))
                     emacs-home-dir))
 
+(defvar emacs-home-widget-text-drop
+  (rx bos (or (seq (or "आइत" "सोम" "मंगल" "बुध" "बिही" "शुक्र" "शनि") "बार")
+              (seq (+ digit) " " (= 3 alpha) ", " (= 4 digit))
+              (+ (any "-–·,")))
+      eos)
+  "A widget's text lines left out of its line: what the status bar already
+says (the weekday, the English date) and bare separators.")
+
 (defun emacs-home--widget-text (provider)
   "The text PROVIDER's widget shows, its lines joined, or nil."
   (let ((file (concat (file-name-sans-extension (emacs-home--widget-png provider)) ".txt")))
     (when (file-exists-p file)
       (with-temp-buffer
         (insert-file-contents file)
-        (let ((lines (split-string (buffer-string) "\n" t)))
-          (and lines (string-join lines "  ")))))))
+        (let ((lines (seq-remove (lambda (l) (string-match-p emacs-home-widget-text-drop l))
+                                 (split-string (buffer-string) "\n" t))))
+          ;; A bare day number goes with the month after it: "९ कार्तिक".
+          (let (parts)
+            (while lines
+              (push (if (and (cdr lines) (string-match-p "\\`[0-9०-९]+\\'" (car lines)))
+                        (concat (pop lines) " " (pop lines))
+                      (pop lines))
+                    parts))
+            (and parts (string-join (nreverse parts) "  ·  "))))))))
 
 (defun emacs-home--write-widget-sizes (sizes)
   "Tell the app which widgets to draw, at what size: SIZES, (PROVIDER W H)."
@@ -309,26 +325,9 @@ in -- pick the task it matches, or RET to make it one."
     (minibuffer-with-setup-hook (lambda () (insert text))
       (rts-flow-manual))))
 
-(defun emacs-home--cell (entry apps size cell want)
-  "ENTRY's tile, (ICON ACTION LABEL SPAN), SIZE pixels tall in CELL-wide
-slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
+(defun emacs-home--cell (entry apps size)
+  "ENTRY's tile, (ICON ACTION LABEL SPAN), SIZE pixels tall."
   (pcase (nth 1 entry)
-    ("widget"
-     (let* ((provider (nth 2 entry)) (span (nth 3 entry))
-            (w (- (* span cell) (- cell size)))
-            (png (emacs-home--widget-png provider))
-            (app (seq-find (lambda (a) (equal (nth 1 a) (car (split-string provider "/")))) apps)))
-       (funcall want (list provider w size))
-       (list (if (file-exists-p png)
-                 (let ((img (create-image png 'png nil :width w :height size
-                                          :scale 1 :ascent 'center)))
-                   ;; The app redraws the file when the widget changes; the
-                   ;; image cache would keep showing the first drawing.
-                   (image-flush img)
-                   (propertize " " 'display img))
-               (propertize " " 'display `(space :width (,w) :height (,size))))
-             (lambda (_) (when app (emacs-home-open app)))
-             (car entry) span)))
     ("hail"
      (list (emacs-home--icon (emacs-home--hail-app apps) size)
            (lambda (_)
@@ -374,10 +373,9 @@ slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
          (cell (/ (- (window-body-width nil t) (* 2 margin)) emacs-home-icons-per-row))
          (size (round (* cell emacs-home-icon-fill)))
          (gap (propertize " " 'display `(space :width (,(- cell size)))))
-         (widgets nil)
-         (cells (append (mapcar (lambda (app) (emacs-home--cell app apps size cell
-                                                               (lambda (w) (push w widgets))))
-                                pinned)
+         (widgets (seq-filter (lambda (e) (equal (nth 1 e) "widget")) pinned))
+         (cells (append (mapcar (lambda (app) (emacs-home--cell app apps size))
+                                (seq-difference pinned widgets))
                         (list (list (emacs-home--launcher-icon size)
                                     (lambda (_) (usage-log-call "dashboard" #'emacs-home-launch))
                                     (format "All apps (%d)" (length apps)) 1)))))
@@ -419,7 +417,10 @@ slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
                         'follow-link t
                         'face 'android-homepage-title)
     (insert "\n")
-    (emacs-home--write-widget-sizes (nreverse widgets))
+    ;; Drawn only to be read; the app lays each out at least at its
+    ;; provider's minimum size, which keeps all its text.
+    (emacs-home--write-widget-sizes
+     (mapcar (lambda (e) (list (nth 2 e) (* (nth 3 e) cell) cell)) widgets))
     (dolist (row (emacs-home--rows cells emacs-home-icons-per-row))
       (insert (propertize " " 'display `(space :width (,margin))))
       (pcase-dolist (`(,icon ,action ,label) row)
@@ -433,14 +434,15 @@ slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
         (insert gap))
       ;; A little air between rows too, so a tap lands on one icon.
       (insert (propertize "\n" 'line-spacing (/ (- cell size) 2))))
-    ;; Pinned widgets' text, read off their views: a line each, apart from
-    ;; the icons (Simple Patro's date, as Simple Patro writes it).
-    (dolist (entry pinned)
-      (when-let* (((equal (nth 1 entry) "widget"))
-                  (text (emacs-home--widget-text (nth 2 entry))))
+    ;; Pinned widgets, as their text read off their views: a line each
+    ;; (Simple Patro's date, as Simple Patro writes it).  Tap: their app.
+    (dolist (entry widgets)
+      (when-let* ((text (emacs-home--widget-text (nth 2 entry))))
         (insert "  ")
         (insert-text-button text
-                            'action (nth 1 (emacs-home--cell entry apps size cell #'ignore))
+                            'action (let ((app (seq-find (lambda (a) (equal (nth 1 a) (car (split-string (nth 2 entry) "/"))))
+                                                         apps)))
+                                      (lambda (_) (when app (emacs-home-open app))))
                             'follow-link t
                             'face 'android-homepage-title)
         (insert "\n")))))
