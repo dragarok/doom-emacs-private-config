@@ -1454,13 +1454,41 @@ the days worked are counted.  Planned is the open tasks with a date;
   "The CATEGORY of the tasks `org-summary-plan-topics' writes.")
 
 ;;;###autoload
+(defun org-summary--plan-show (title lines)
+  "LINES under TITLE in the *Plan topics* window, so the whole list is in view."
+  (with-current-buffer (get-buffer-create "*Plan topics*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert title "\n\n" (string-join lines "\n") "\n")
+      (goto-char (point-min))
+      (special-mode)))
+  (display-buffer "*Plan topics*" '(display-buffer-at-bottom (window-height . fit-window-to-buffer))))
+
+(defun org-summary--plan-insert (title tag date)
+  "TITLE as a TODO in `org-tasks-file' tagged TAG, scheduled DATE; its marker."
+  (with-current-buffer (find-file-noselect org-tasks-file)
+    (org-with-wide-buffer
+     (goto-char (point-max))
+     (unless (bolp) (insert "\n"))
+     (insert "* TODO " title "\n")
+     (forward-line -1)
+     (org-set-tags (list tag))
+     (org-schedule nil date)
+     (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
+     (org-entry-put nil "CATEGORY" org-summary-topic-category)
+     (prog1 (copy-marker (line-beginning-position))
+       (save-buffer)))))
+
 (defun org-summary-plan-topics (&optional group day ask-start)
   "Ask for specific tasks, topic by topic, into `org-tasks-file'.
 GROUP is a name in `org-summary-tag-groups', \"Topics\" (the weekly ones)
 by default; DAY is when they are scheduled, as `org-read-date' reads it,
-today by default.  With ASK-START (interactively, for the week's topics)
-each task also asks the day to start on it, DAY on RET, so a week's
-tasks spread over the week instead of crowding today's agenda.
+today by default.  All the topics are listed first, in the *Plan topics*
+window, and each question says which of how many it is.
+With ASK-START (interactively, for the week's topics) a second round
+follows: each task just written asks the day to start on it, DAY on RET,
+so a week's tasks spread over the week instead of crowding today's
+agenda.  Quitting that round leaves the rest on DAY.
 Each answer becomes a TODO with the topic's tag in
 `org-summary-topic-category'; an empty answer moves on to the next topic.
 A topic paused that day (`org-summary-pause-topic') is not asked about.
@@ -1469,37 +1497,56 @@ The topics blocks here refresh after."
   (let* ((time (org-read-date nil t (or day ".")))
          (date (format-time-string "%Y-%m-%d" time))
          (pauses (org-summary-topic-pauses))
-         (made 0))
-    (dolist (tag (seq-remove (lambda (tag) (org-summary--pause-on tag (org-summary--parse-iso date) pauses))
-                             (cdr (org-summary--group (or group "Topics")))))
-      (let ((open (org-summary--open-tagged tag))
-            (about (nth 2 (assoc tag (org-summary-topics))))
-            title)
-        (while (not (string-empty-p
-                     (setq title (string-trim
-                                  (read-string
-                                   (format "%s%s%s — task for %s (empty: next topic): " tag
-                                           (if (org-string-nw-p about) (format " (%s)" about) "")
-                                           (if open (format " [planned: %s]" (string-join open "; ")) "")
-                                           (format-time-string "%a %d" time)))))))
-          (let ((start (if ask-start
-                           (org-read-date nil nil nil (format "Start \"%s\" on (RET: %s): "
-                                                              title (format-time-string "%a %d" time))
-                                          time)
-                         date)))
-            (with-current-buffer (find-file-noselect org-tasks-file)
-              (org-with-wide-buffer
-               (goto-char (point-max))
-               (unless (bolp) (insert "\n"))
-               (insert "* TODO " title "\n")
-               (forward-line -1)
-               (org-set-tags (list tag))
-               (org-schedule nil start)
-               (org-entry-put nil "CREATED" (format-time-string "[%Y-%m-%d %a %H:%M]"))
-               (org-entry-put nil "CATEGORY" org-summary-topic-category))
-              (save-buffer)))
-          (push title open)
-          (cl-incf made))))
+         (tags (seq-remove (lambda (tag) (org-summary--pause-on tag (org-summary--parse-iso date) pauses))
+                           (cdr (org-summary--group (or group "Topics")))))
+         (n (length tags))
+         (i 0)
+         made)
+    (unwind-protect
+        (progn
+          (org-summary--plan-show
+           (format "%d topic%s to plan for %s:" n (if (= n 1) "" "s") (format-time-string "%a %d" time))
+           (seq-map-indexed (lambda (tag k)
+                              (let ((about (nth 2 (assoc tag (org-summary-topics)))))
+                                (format "%d. %s%s" (1+ k) tag
+                                        (if (org-string-nw-p about) (format " — %s" about) ""))))
+                            tags))
+          (dolist (tag tags)
+            (cl-incf i)
+            (let ((open (org-summary--open-tagged tag))
+                  (about (nth 2 (assoc tag (org-summary-topics))))
+                  title)
+              (while (not (string-empty-p
+                           (setq title (string-trim
+                                        (read-string
+                                         (format "%d/%d %s%s%s — task for %s (empty: next topic): " i n tag
+                                                 (if (org-string-nw-p about) (format " (%s)" about) "")
+                                                 (if open (format " [planned: %s]" (string-join open "; ")) "")
+                                                 (format-time-string "%a %d" time)))))))
+                (push (list title tag (org-summary--plan-insert title tag date)) made)
+                (push title open))))
+          (setq made (nreverse made))
+          (when (and ask-start made)
+            (let ((m (length made)))
+              (org-summary--plan-show
+               (format "%d task%s — now the day to start each:" m (if (= m 1) "" "s"))
+               (seq-map-indexed (lambda (task k) (format "%d. %s  :%s:" (1+ k) (car task) (nth 1 task)))
+                                made))
+              (seq-do-indexed
+               (lambda (task k)
+                 (let ((start (org-read-date nil nil nil
+                                             (format "%d/%d Start \"%s\" on (RET: %s): " (1+ k) m
+                                                     (car task) (format-time-string "%a %d" time))
+                                             time)))
+                   (unless (equal start date)
+                     (with-current-buffer (marker-buffer (nth 2 task))
+                       (org-with-wide-buffer
+                        (goto-char (nth 2 task))
+                        (org-schedule nil start)
+                        (save-buffer))))))
+               made))))
+      (when-let* ((win (get-buffer-window "*Plan topics*")))
+        (save-current-buffer (quit-window t win))))
     (when (derived-mode-p 'org-mode)
       (org-with-wide-buffer
        (goto-char (point-min))
@@ -1507,7 +1554,7 @@ The topics blocks here refresh after."
          (beginning-of-line)
          (org-update-dblock)
          (forward-line))))
-    (message "%d task%s planned in %s" made (if (= made 1) "" "s")
+    (message "%d task%s planned in %s" (length made) (if (= (length made) 1) "" "s")
              (file-name-nondirectory org-tasks-file))))
 
 ;;;###autoload

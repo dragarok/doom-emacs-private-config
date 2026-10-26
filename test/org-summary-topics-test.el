@@ -158,12 +158,18 @@ SCHEDULED: <2026-10-25 Sun .+1d>
   (when (string-match (format "^| %s +|\\(.*\\)|$" tag) text)
     (mapcar #'string-trim (split-string (match-string 1 text) "|"))))
 
+(defvar numbered nil "Every prompt `topics-test--answering' saw, whole, newest first.")
+
 (defmacro topics-test--answering (answers &rest body)
-  "BODY with `read-string' answering ANSWERS in turn; the prompts are in `prompts'."
+  "BODY with `read-string' answering ANSWERS in turn; the prompts, less
+their \"2/5 \" count, are in `prompts' (`numbered' keeps them whole)."
   (declare (indent 1))
   `(let ((queue ,answers) (prompts nil))
      (cl-letf (((symbol-function 'read-string)
-                (lambda (p &rest _) (push p prompts) (or (pop queue) ""))))
+                (lambda (p &rest _)
+                  (push p numbered)
+                  (push (replace-regexp-in-string "\\`[0-9]+/[0-9]+ " "" p) prompts)
+                  (or (pop queue) ""))))
        ,@body
        (setq prompts (nreverse prompts)))
      prompts))
@@ -246,23 +252,33 @@ CREATED, CATEGORY ToImprove; no STYLE, no ID; the rest of the file untouched."
             (should-not (nth 6 m))))))))
 
 (ert-deftest topics-test-plan-start-day ()
-  "Called as SPC o v o, each task asks the day to start on it: a date
-typed there is its SCHEDULED, RET keeps today.  Called from code, as the
-daily review does, nothing more is asked."
+  "Called as SPC o v o: every topic is listed first and each question
+counts, all the tasks are asked before any start day, then each task asks
+the day to start on it -- a date typed there is its SCHEDULED, RET keeps
+today.  Called from code, as the daily review does, no day is asked."
   (topics-test--with-org
-    (let ((asked nil)
+    (let ((asked nil) (order nil) (listed nil) (numbered nil)
           (answers (list (format-time-string "%Y-%m-%d" (time-add nil (* 3 86400))) nil)))
       (cl-letf (((symbol-function 'org-read-date)
                  (lambda (_with-time to-time &optional _from prompt default-time &rest _)
-                   (when prompt (push prompt asked))
+                   (when prompt (push prompt asked) (push (length numbered) order))
                    (let ((a (and prompt (pop answers))))
                      (if to-time (or default-time (current-time))
-                       (or a (format-time-string "%Y-%m-%d" default-time)))))))
+                       (or a (format-time-string "%Y-%m-%d" default-time))))))
+                ((symbol-function 'display-buffer)
+                 (lambda (b &rest _) (push (with-current-buffer b (buffer-string)) listed) nil)))
         (topics-test--answering '("Inversion: 3 examples" "" "Mental arithmetic drills" "")
           (call-interactively #'org-summary-plan-topics)))
+      (should (string-match-p "^6 topics to plan for .*\n\n1\\. mentalmodels\n2\\. notesrevision\n\\(.*\n\\)*6\\. roomcleanup\n"
+                              (car (last listed))))
+      (should (string-match-p "^2 tasks .*\n\n1\\. Inversion: 3 examples  :mentalmodels:\n2\\. Mental arithmetic drills  :notesrevision:"
+                              (car listed)))
+      (should (string-prefix-p "1/6 mentalmodels" (car (last numbered))))
+      (should (string-prefix-p "6/6 roomcleanup" (car numbered)))
+      (should (equal order '(8 8)))     ; both days asked after all eight task questions
       (should (equal (reverse asked)
-                     (list (format-time-string "Start \"Inversion: 3 examples\" on (RET: %a %d): ")
-                           (format-time-string "Start \"Mental arithmetic drills\" on (RET: %a %d): "))))
+                     (list (format-time-string "1/2 Start \"Inversion: 3 examples\" on (RET: %a %d): ")
+                           (format-time-string "2/2 Start \"Mental arithmetic drills\" on (RET: %a %d): "))))
       (with-current-buffer (find-file-noselect org-tasks-file)
         (revert-buffer t t)
         (should (equal (org-map-entries (lambda () (org-entry-get nil "SCHEDULED")) "CATEGORY=\"ToImprove\"")
