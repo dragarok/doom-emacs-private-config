@@ -33,6 +33,10 @@
 (defvar rts-flow-current-context nil
   "Current context. Set via `rts-flow-set-context' or prompted by `rts-flow'.")
 
+;; The last place survives a restart, so its default is right more often.
+(with-eval-after-load 'savehist
+  (add-to-list 'savehist-additional-variables 'rts-flow-current-context))
+
 (defvar rts-flow-current-energy nil
   "Current energy level. Set via `rts-flow-set-energy' or prompted by `rts-flow'.")
 
@@ -253,24 +257,24 @@ Each energy level is (SYMBOL . PLIST) where PLIST contains:
 ;;; Context & Energy Selection UI
 ;;; ===================================================================
 
+(defun rts-flow--read-choice (prompt alist current)
+  "One of ALIST's symbols, read by its emoji and name; CURRENT first and
+the default."
+  (let* ((cands (mapcar (lambda (c) (cons (format "%s %s" (plist-get (cdr c) :emoji)
+                                                  (plist-get (cdr c) :name))
+                                          (car c)))
+                        alist))
+         (cands (append (seq-filter (lambda (c) (eq (cdr c) current)) cands)
+                        (seq-remove (lambda (c) (eq (cdr c) current)) cands))))
+    ;; The label read back to its symbol: interning the label itself gave
+    ;; a symbol no context has, so no context ever applied.
+    (cdr (assoc (completing-read prompt cands nil t nil nil (car (rassq current cands)))
+                cands))))
+
 (defun rts-flow-set-context (context)
   "Set current CONTEXT interactively."
-  (interactive
-   (list (intern
-          (completing-read
-           "Context: "
-           (mapcar (lambda (ctx)
-                     (let ((sym (car ctx))
-                           (name (plist-get (cdr ctx) :name))
-                           (emoji (plist-get (cdr ctx) :emoji)))
-                       (cons (format "%s %s" emoji name) sym)))
-                   rts-flow-contexts)
-           nil t nil nil
-           (when rts-flow-current-context
-             (symbol-name rts-flow-current-context))))))
-  ;; Handle the cons cell from completing-read
-  (when (consp context)
-    (setq context (cdr context)))
+  (interactive (list (rts-flow--read-choice "Where are you? " rts-flow-contexts
+                                            rts-flow-current-context)))
   (setq rts-flow-current-context context)
   (message "Context set to: %s %s"
            (rts-flow--get-context-prop context :emoji)
@@ -278,22 +282,8 @@ Each energy level is (SYMBOL . PLIST) where PLIST contains:
 
 (defun rts-flow-set-energy (energy)
   "Set current ENERGY level interactively."
-  (interactive
-   (list (intern
-          (completing-read
-           "Energy level: "
-           (mapcar (lambda (eng)
-                     (let ((sym (car eng))
-                           (name (plist-get (cdr eng) :name))
-                           (emoji (plist-get (cdr eng) :emoji)))
-                       (cons (format "%s %s" emoji name) sym)))
-                   rts-flow-energy-levels)
-           nil t nil nil
-           (when rts-flow-current-energy
-             (symbol-name rts-flow-current-energy))))))
-  ;; Handle the cons cell from completing-read
-  (when (consp energy)
-    (setq energy (cdr energy)))
+  (interactive (list (rts-flow--read-choice "Energy level: " rts-flow-energy-levels
+                                            rts-flow-current-energy)))
   (setq rts-flow-current-energy energy)
   (message "Energy set to: %s %s"
            (rts-flow--get-energy-prop energy :emoji)
@@ -403,6 +393,73 @@ Single button to configure your current state."
          (not (member status '("TODO" "TOREAD" "TOSTUDY" "TOPRACTICE" "TOWATCH")))))
      items)))
 
+;; What an item needs that a place may not allow, read from the item itself
+;; -- few items are tagged for it, so tags alone let videos through in
+;; public.  A tag :anywhere: on an item overrides all of this.
+(defvar rts-flow-need-tags
+  '((:video "youtube" "video" "watchlist" "entertainment")
+    (:instruments "guitarpractice" "pianopractice" "guitaractive" "pianoactive"
+                  "musicactive" "instrument" "instruments")
+    (:talk "talk" "call" "weeklyvideo"))
+  "Tags (any case, inherited ones too) that mean an item needs something.")
+
+(defvar rts-flow-need-keywords
+  '((:video "TOWATCH" "WATCHING" "REWATCH"))
+  "TODO keywords that mean an item needs something.")
+
+(defvar rts-flow-need-title-words
+  '((:video . "\\bvideos?\\b\\|\\bdvd\\b\\|\\bpodcast\\b\\|\\bwatch\\b")
+    (:instruments . "\\bpiano\\b\\|\\bguitar\\b\\|\\bukulele\\b")
+    (:talk . "\\bcall\\b\\|\\brecord\\(?:ing\\)?\\b"))
+  "Words in an item's title that mean it needs something.")
+
+(defvar rts-flow-need-links
+  '((:video . "youtu\\.?be\\|vimeo\\.com\\|twitch\\.tv\\|\\.mp4\\b"))
+  "Links anywhere in an item that mean it needs something.")
+
+(defun rts-flow--needs-at-point ()
+  "What the entry at point needs that a place may not allow, as keywords."
+  (let* ((tags (mapcar #'downcase (org-get-tags)))
+         (todo (org-get-todo-state))
+         (case-fold-search t)
+         (title (org-get-heading t t t t))
+         (body (save-excursion
+                 (org-back-to-heading t)
+                 (buffer-substring-no-properties
+                  (point) (min (save-excursion (org-end-of-subtree t) (point))
+                               (+ (point) 4000)))))
+         needs)
+    (unless (member "anywhere" tags)
+      (pcase-dolist (`(,need . ,names) rts-flow-need-tags)
+        (when (seq-intersection names tags) (push need needs)))
+      (pcase-dolist (`(,need . ,kws) rts-flow-need-keywords)
+        (when (member todo kws) (push need needs)))
+      (pcase-dolist (`(,need . ,re) rts-flow-need-title-words)
+        (when (string-match-p re title) (push need needs)))
+      (pcase-dolist (`(,need . ,re) rts-flow-need-links)
+        (when (string-match-p re body) (push need needs))))
+    (delete-dups needs)))
+
+(defun rts-flow--needs (item)
+  "What ITEM, an org element from the selectors, needs (see above)."
+  (when-let* ((marker (org-element-property :org-marker item))
+              ((markerp marker))
+              ((buffer-live-p (marker-buffer marker))))
+    (with-current-buffer (marker-buffer marker)
+      (org-with-wide-buffer
+       (goto-char marker)
+       (rts-flow--needs-at-point)))))
+
+(defun rts-flow--filter-by-needs (items)
+  "Drop ITEMS needing something the current context doesn't allow."
+  (if (null rts-flow-current-context)
+      items
+    (seq-filter (lambda (item)
+                  (seq-every-p (lambda (need)
+                                 (rts-flow--context-allows-p rts-flow-current-context need))
+                               (rts-flow--needs item)))
+                items)))
+
 (defun rts-flow--filter-no-video (items)
   "Filter out items with video/youtube tags if video not allowed."
   (if (rts-flow--context-allows-p rts-flow-current-context :video)
@@ -502,7 +559,7 @@ Meta-group tags: :room: (matches personalroom and othersroom)"
                (rts-flow--filter-by-effort)
                (rts-flow--filter-by-difficulty)
                (rts-flow--filter-in-progress-only)
-               (rts-flow--filter-no-video)
+               (rts-flow--filter-by-needs)
                (rts-flow--filter-by-location-tags)))
 
 ;;; ===================================================================
@@ -1186,11 +1243,10 @@ Use `rts-flow-continue' to resume the last task.
 Use `rts-flow-cancel' to undo the last selection."
   (interactive)
 
-  ;; Prompt for context and energy if needed
-  (unless (and rts-flow-current-context rts-flow-current-energy)
-    (rts-flow--prompt-context-and-energy))
-
-  ;; Always pick a new task
+  ;; Where you are, every time: you move, and a stale place is how Flow
+  ;; came to offer videos in public.  RET keeps the last one.  Energy is
+  ;; not asked: it is a line of the daily review, once a day.
+  (call-interactively #'rts-flow-set-context)
   (rts-flow--pick-new-task))
 
 ;;; ===================================================================

@@ -47,13 +47,9 @@
          (list
           ;; One place per thing: nothing here that the toolbar (Add, Micro,
           ;; Zen, Camera, Keyboard) or the floating clock (Clock in, Flow,
-          ;; Pause, Done) already has.
+          ;; Pause, Done) already has.  No State: Flow asks where you are.
           (list "Quick Actions"
                 (list
-                 (list :icon (nerd-icons-faicon "nf-fa-compass")
-                       :title "State" :desc "Context + Energy" :action 'rts-flow-set-state)
-                 (list :icon (nerd-icons-faicon "nf-fa-info_circle")
-                       :title "Show State" :desc "View current" :action 'rts-flow-show-state)
                  (list :icon (nerd-icons-faicon "nf-fa-pencil")
                        :title "Log" :desc "Daily note" :action 'micro-experiments-log)))
 
