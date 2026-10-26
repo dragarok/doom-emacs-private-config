@@ -95,15 +95,11 @@ your room keeps everything; no place, nothing filtered."
     (should (member "Call the bank" (left 'travel)))))
 
 (ert-deftest rts-flow-test-paused ()
-  "A paused need or topic is left out wherever you are, your room too."
-  (rts-flow-test--with (format "* Paused\n- piano :: %s ..\n- weeklyvideo :: %s ..\n"
-                               (format-time-string "%F") (format-time-string "%F"))
-    (should (equal (rts-flow--paused) '("piano" "weeklyvideo")))
+  "A paused topic's tasks are left out wherever you are, your room too."
+  (rts-flow-test--with (format "* Paused\n- pianopractice :: %s ..\n" (format-time-string "%F"))
     (let ((room (left 'personalroom)))
       (should-not (member "Scales" room))
-      (should-not (member "Read the piano theory book" room))
-      (should-not (member "Initial Political Campaign Video" room))
-      (should (member "Call the bank" room)))))
+      (should (member "Read the piano theory book" room)))))
 
 (ert-deftest rts-flow-test-read-choice ()
   "The picker gives back the context's symbol, not its label, and offers
@@ -118,18 +114,5 @@ the current one first and as the default."
       (let ((rts-flow-current-context nil))
         (rts-flow-set-context (rts-flow--read-choice "Where? " rts-flow-contexts nil))
         (should (eq rts-flow-current-context 'public))))))
-
-(ert-deftest rts-flow-test-not-with-me ()
-  "\"Not with me\" in the place question pauses the need, then asks again."
-  (let (paused)
-    (cl-letf (((symbol-function 'org-summary-pause-topic) (lambda (n) (push n paused)))
-              ((symbol-function 'rts-flow--paused) (lambda () nil))
-              ((symbol-function 'completing-read)
-               (let ((answers (list "⏸ Not with me: piano, guitar…" "piano  (with me)" "🏠 Personal Room")))
-                 (lambda (&rest _) (pop answers)))))
-      (let ((rts-flow-current-context nil))
-        (call-interactively #'rts-flow-set-context)
-        (should (equal paused '("piano")))
-        (should (eq rts-flow-current-context 'personalroom))))))
 
 ;;; rts-flow-context-test.el ends here

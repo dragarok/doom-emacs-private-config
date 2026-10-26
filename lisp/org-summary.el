@@ -1274,9 +1274,7 @@ leaves it open, until you resume it here."
                                (cons (if p (format "%s  (%s)" (car tp) (org-summary--pause-label p))
                                        (car tp))
                                      (car tp))))
-                           ;; Needs too (Flow's): a thing not with you.
-                           (append (org-summary-topics)
-                                   (org-summary-topics-section "Needs")))))
+                           (org-summary-topics))))
      (unless choices (user-error "No topics in %s" (org-summary--topics-file)))
      (list (cdr (assoc (completing-read "Pause or resume: " choices nil t) choices)))))
   (let* ((today (org-today))

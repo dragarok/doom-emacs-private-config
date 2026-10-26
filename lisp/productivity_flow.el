@@ -257,34 +257,23 @@ Each energy level is (SYMBOL . PLIST) where PLIST contains:
 ;;; Context & Energy Selection UI
 ;;; ===================================================================
 
-(defun rts-flow--read-choice (prompt alist current &optional extra)
+(defun rts-flow--read-choice (prompt alist current)
   "One of ALIST's symbols, read by its emoji and name; CURRENT first and
-the default.  EXTRA, (LABEL . SYMBOL) choices, come last."
+the default."
   (let* ((cands (mapcar (lambda (c) (cons (format "%s %s" (plist-get (cdr c) :emoji)
                                                   (plist-get (cdr c) :name))
                                           (car c)))
                         alist))
          (cands (append (seq-filter (lambda (c) (eq (cdr c) current)) cands)
-                        (seq-remove (lambda (c) (eq (cdr c) current)) cands)
-                        extra)))
+                        (seq-remove (lambda (c) (eq (cdr c) current)) cands))))
     ;; The label read back to its symbol: interning the label itself gave
     ;; a symbol no context has, so no context ever applied.
     (cdr (assoc (completing-read prompt cands nil t nil nil (car (rassq current cands)))
                 cands))))
 
 (defun rts-flow--read-context ()
-  "Where you are; the last choice pauses what is not with you, then asks again."
-  (let (context)
-    (while (eq (setq context
-                     (let ((paused (rts-flow--paused)))
-                       (rts-flow--read-choice
-                        (format "Where are you?%s "
-                                (if paused (format " (paused: %s)" (string-join paused ", ")) ""))
-                        rts-flow-contexts rts-flow-current-context
-                        '(("⏸ Not with me: piano, guitar…" . away)))))
-               'away)
-      (call-interactively #'rts-flow-not-with-me))
-    context))
+  "Where you are: one of the places, the last one on RET."
+  (rts-flow--read-choice "Where are you? " rts-flow-contexts rts-flow-current-context))
 
 (defun rts-flow-set-context (context)
   "Set current CONTEXT interactively."
@@ -416,9 +405,9 @@ Single button to configure your current state."
 ;;   * Places                     per place, by tag or need name:
 ;;   - public :: -video +notes    -x hides what has x there; +x shows it
 ;;                                anyway, even when a minus would hide it
-;;   * Paused
-;;   - piano :: 2026-10-26 ..     not with you: left out wherever you are
 ;;
+;; What is with you goes with the place (your room has the piano; others'
+;; rooms and public places don't), so nothing is picked item by item.
 ;; A paused topic's items are left out too.  A tag :anywhere: on an item
 ;; overrides all of it.  The defaults below stand in for missing sections.
 (require 'org-summary)
@@ -507,8 +496,8 @@ with no sign is a minus."
   (rts-flow--item-at item #'rts-flow--needs-at-point))
 
 (defun rts-flow--filter-by-needs (items)
-  "Drop ITEMS the current place's filter hides, or that have something
-paused (a need, or a topic tag).  An item's names are its tags and needs."
+  "Drop ITEMS the current place's filter hides, or that carry a paused
+topic's tag.  An item's names are its tags and needs."
   (let* ((table (rts-flow--needs-table))
          (filter (and rts-flow-current-context (rts-flow--place-filter rts-flow-current-context)))
          (paused (rts-flow--paused)))
@@ -524,18 +513,6 @@ paused (a need, or a topic tag).  An item's names are its tags and needs."
                        (and (seq-intersection names (cdr filter))
                             (not (seq-intersection names (car filter)))))))))
        items))))
-
-(defun rts-flow-not-with-me (need)
-  "Pause NEED (a piano, a guitar) while it is not with you, or resume it:
-in the topics file's Paused, like a topic."
-  (interactive
-   (let* ((paused (rts-flow--paused))
-          (cands (mapcar (lambda (n) (cons (format "%s  (%s)" (car n)
-                                                   (if (member (car n) paused) "not with me" "with me"))
-                                           (car n)))
-                         (rts-flow--needs-table))))
-     (list (cdr (assoc (completing-read "Not with me / with me again: " cands nil t) cands)))))
-  (org-summary-pause-topic need))
 
 (defun rts-flow--get-context-tag (context)
   "Get the org tag name for CONTEXT."
