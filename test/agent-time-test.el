@@ -62,19 +62,19 @@ one running or recently worked on is left; yours goes back to TODO only if
 an agent put it in NEXT; the pane on a closed task lets it go."
   (agent-time-test--with
       (concat "* NEXT Old research :agent:\n:PROPERTIES:\n:ID: old\n:END:\n:RUNS:\n"
-              "AGENT: " (agent-time-test--ts 9) "--" (agent-time-test--ts 8) " =>  1:00  p1\n:END:\n"
+              "AGENT: " (agent-time-test--ts 31) "--" (agent-time-test--ts 30) " =>  1:00  p1\n:END:\n"
               "* NEXT Running :agent:\n:PROPERTIES:\n:ID: run\n:END:\n:RUNS:\n"
-              "AGENT: " (agent-time-test--ts 9) "--" (agent-time-test--ts 8) " =>  1:00  p2\n"
+              "AGENT: " (agent-time-test--ts 31) "--" (agent-time-test--ts 30) " =>  1:00  p2\n"
               "WAIT: " (agent-time-test--ts 7) "  p2\n:END:\n"
               "* TODO Recent :agent:\n:PROPERTIES:\n:ID: recent\n:END:\n:RUNS:\n"
-              "AGENT: " (agent-time-test--ts 2) "--" (agent-time-test--ts 1) " =>  1:00  p3\n:END:\n"
-              "* TODO Never ran :agent:\n:PROPERTIES:\n:ID: never\n:CREATED: " (agent-time-test--ts 30) "\n:END:\n"
+              "AGENT: " (agent-time-test--ts 11) "--" (agent-time-test--ts 10) " =>  1:00  p3\n:END:\n"
+              "* TODO Never ran :agent:\n:PROPERTIES:\n:ID: never\n:CREATED: " (agent-time-test--ts 40) "\n:END:\n"
               "* NEXT Yours, by an agent\n:PROPERTIES:\n:ID: yours\n:AGENT_NEXT: t\n:END:\n:RUNS:\n"
-              "AGENT: " (agent-time-test--ts 9) "--" (agent-time-test--ts 8) " =>  1:00  p4\n:END:\n"
+              "AGENT: " (agent-time-test--ts 31) "--" (agent-time-test--ts 30) " =>  1:00  p4\n:END:\n"
               "* NEXT Yours, by you\n:PROPERTIES:\n:ID: you\n:END:\n:RUNS:\n"
-              "AGENT: " (agent-time-test--ts 9) "--" (agent-time-test--ts 8) " =>  1:00  p5\n:END:\n"
+              "AGENT: " (agent-time-test--ts 31) "--" (agent-time-test--ts 30) " =>  1:00  p5\n:END:\n"
               "* Agent quick asks :agent:\n:RUNS:\n"
-              "AGENT: " (agent-time-test--ts 9) "--" (agent-time-test--ts 8) " =>  1:00  p6\n:END:\n")
+              "AGENT: " (agent-time-test--ts 31) "--" (agent-time-test--ts 30) " =>  1:00  p6\n:END:\n")
     (puthash "p1" (list :task "old" :how 'auto) agent-time--panes)
     (puthash "p4" (list :task "yours" :how 'user) agent-time--panes)
     (with-current-buffer (find-file-noselect org-tasks-file)

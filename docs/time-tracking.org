@@ -66,7 +66,7 @@ That is all.  Everything else happens on its own.
   - The agent finishes → it renames its own task to what was done, adds a
     summary, marks it DONE.
   - While an agent works on a TODO, it is NEXT.
-  - An agent's own task with no agent work for 6 hours is closed DONE by
+  - An agent's own task with no agent work for 24 hours is closed DONE by
     itself, with a note; its next work gets a new task.  Your task that an
     agent moved to NEXT goes back to TODO instead.  You never close agent
     tasks by hand.

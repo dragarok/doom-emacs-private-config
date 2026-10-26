@@ -74,7 +74,7 @@
   "Unassigned agent work longer than this gets a task of its own."
   :type 'integer)
 
-(defcustom agent-time-close-after (* 6 3600)
+(defcustom agent-time-close-after (* 24 3600)
   "Seconds without an agent run before its task is closed (or put back)."
   :type 'integer)
 
