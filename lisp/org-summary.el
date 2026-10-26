@@ -1215,6 +1215,21 @@ or \"Weekly\", ICON nil when the line names none."
 ;;   - guitarpractice :: 2026-10-25 .. 2026-11-08
 ;;   - guitarpractice :: 2026-12-20 ..          (open: until resumed)
 
+(defun org-summary-topics-section (name)
+  "The topics file's lines \"- KEY :: WORDS\" under \"* NAME\", as
+\(KEY WORD...), in order; nil if there is no such section."
+  (let ((file (org-summary--topics-file)) in out)
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward "^\\(?:\\* +\\(.+?\\)\\|[ \t]*- +\\([^ \t\n:]+\\) +::\\(.*\\)\\)[ \t]*$" nil t)
+          (if (match-string 1)
+              (setq in (equal (match-string 1) name))
+            (when in
+              (push (cons (match-string 2) (split-string (match-string 3))) out))))))
+    (nreverse out)))
+
 (defun org-summary-topic-pauses ()
   "The topics file's pauses, as (TAG FROM TO) in days, TO nil while open."
   (let ((file (org-summary--topics-file)) in out)
@@ -1259,7 +1274,9 @@ leaves it open, until you resume it here."
                                (cons (if p (format "%s  (%s)" (car tp) (org-summary--pause-label p))
                                        (car tp))
                                      (car tp))))
-                           (org-summary-topics))))
+                           ;; Needs too (Flow's): a thing not with you.
+                           (append (org-summary-topics)
+                                   (org-summary-topics-section "Needs")))))
      (unless choices (user-error "No topics in %s" (org-summary--topics-file)))
      (list (cdr (assoc (completing-read "Pause or resume: " choices nil t) choices)))))
   (let* ((today (org-today))

@@ -257,24 +257,38 @@ Each energy level is (SYMBOL . PLIST) where PLIST contains:
 ;;; Context & Energy Selection UI
 ;;; ===================================================================
 
-(defun rts-flow--read-choice (prompt alist current)
+(defun rts-flow--read-choice (prompt alist current &optional extra)
   "One of ALIST's symbols, read by its emoji and name; CURRENT first and
-the default."
+the default.  EXTRA, (LABEL . SYMBOL) choices, come last."
   (let* ((cands (mapcar (lambda (c) (cons (format "%s %s" (plist-get (cdr c) :emoji)
                                                   (plist-get (cdr c) :name))
                                           (car c)))
                         alist))
          (cands (append (seq-filter (lambda (c) (eq (cdr c) current)) cands)
-                        (seq-remove (lambda (c) (eq (cdr c) current)) cands))))
+                        (seq-remove (lambda (c) (eq (cdr c) current)) cands)
+                        extra)))
     ;; The label read back to its symbol: interning the label itself gave
     ;; a symbol no context has, so no context ever applied.
     (cdr (assoc (completing-read prompt cands nil t nil nil (car (rassq current cands)))
                 cands))))
 
+(defun rts-flow--read-context ()
+  "Where you are; the last choice pauses what is not with you, then asks again."
+  (let (context)
+    (while (eq (setq context
+                     (let ((paused (rts-flow--paused)))
+                       (rts-flow--read-choice
+                        (format "Where are you?%s "
+                                (if paused (format " (paused: %s)" (string-join paused ", ")) ""))
+                        rts-flow-contexts rts-flow-current-context
+                        '(("⏸ Not with me: piano, guitar…" . away)))))
+               'away)
+      (call-interactively #'rts-flow-not-with-me))
+    context))
+
 (defun rts-flow-set-context (context)
   "Set current CONTEXT interactively."
-  (interactive (list (rts-flow--read-choice "Where are you? " rts-flow-contexts
-                                            rts-flow-current-context)))
+  (interactive (list (rts-flow--read-context)))
   (setq rts-flow-current-context context)
   (message "Context set to: %s %s"
            (rts-flow--get-context-prop context :emoji)
@@ -393,84 +407,135 @@ Single button to configure your current state."
          (not (member status '("TODO" "TOREAD" "TOSTUDY" "TOPRACTICE" "TOWATCH")))))
      items)))
 
-;; What an item needs that a place may not allow, read from the item itself
-;; -- few items are tagged for it, so tags alone let videos through in
-;; public.  A tag :anywhere: on an item overrides all of this.
-(defvar rts-flow-need-tags
-  '((:video "youtube" "video" "watchlist" "entertainment")
-    (:instruments "guitarpractice" "pianopractice" "guitaractive" "pianoactive"
-                  "musicactive" "instrument" "instruments")
-    (:talk "talk" "call" "weeklyvideo"))
-  "Tags (any case, inherited ones too) that mean an item needs something.")
+;; What an item needs, and what each place can't do, are set in the topics
+;; file (org-summary.el), next to the topics:
+;;
+;;   * Needs                      what marks an item as needing it: a tag,
+;;   - video :: youtube video ... a TODO keyword, a word of its title, or
+;;                                (with a dot) text anywhere in it
+;;   * Places                     per place, by tag or need name:
+;;   - public :: -video +notes    -x hides what has x there; +x shows it
+;;                                anyway, even when a minus would hide it
+;;   * Paused
+;;   - piano :: 2026-10-26 ..     not with you: left out wherever you are
+;;
+;; A paused topic's items are left out too.  A tag :anywhere: on an item
+;; overrides all of it.  The defaults below stand in for missing sections.
+(require 'org-summary)
 
-(defvar rts-flow-need-keywords
-  '((:video "TOWATCH" "WATCHING" "REWATCH"))
-  "TODO keywords that mean an item needs something.")
+(defvar rts-flow-default-needs
+  '(("video" "video" "videos" "youtube" "watchlist" "entertainment" "dvd" "podcast" "watch"
+     "towatch" "watching" "rewatch" "youtu.be" "youtube.com" "vimeo.com" "twitch.tv" ".mp4")
+    ("talk" "talk" "call" "record" "recording" "weeklyvideo")
+    ("piano" "piano" "pianopractice" "pianoactive")
+    ("guitar" "guitar" "guitarpractice" "guitaractive")
+    ("instrument" "instrument" "instruments" "musicactive" "ukulele"))
+  "Needs and their marks, when the topics file has no Needs section.")
 
-(defvar rts-flow-need-title-words
-  '((:video . "\\bvideos?\\b\\|\\bdvd\\b\\|\\bpodcast\\b\\|\\bwatch\\b")
-    (:instruments . "\\bpiano\\b\\|\\bguitar\\b\\|\\bukulele\\b")
-    (:talk . "\\bcall\\b\\|\\brecord\\(?:ing\\)?\\b"))
-  "Words in an item's title that mean it needs something.")
+(defvar rts-flow-default-places
+  '(("personalroom")
+    ("othersroom" "-piano" "-guitar" "-instrument")
+    ("workleisure" "-video" "-talk" "-piano" "-guitar" "-instrument")
+    ("public" "-video" "-talk" "-piano" "-guitar" "-instrument")
+    ("travel" "-video" "-talk" "-piano" "-guitar" "-instrument")
+    ("outdoors" "-video" "-talk" "-piano" "-guitar" "-instrument"))
+  "Each place's filter (by context tag), when the topics file has no Places.")
 
-(defvar rts-flow-need-links
-  '((:video . "youtu\\.?be\\|vimeo\\.com\\|twitch\\.tv\\|\\.mp4\\b"))
-  "Links anywhere in an item that mean it needs something.")
+(defun rts-flow--needs-table ()
+  (or (ignore-errors (org-summary-topics-section "Needs")) rts-flow-default-needs))
 
-(defun rts-flow--needs-at-point ()
-  "What the entry at point needs that a place may not allow, as keywords."
+(defun rts-flow--places-table ()
+  (or (ignore-errors (org-summary-topics-section "Places")) rts-flow-default-places))
+
+(defun rts-flow--paused ()
+  "Topics and needs paused today, by name."
+  (let ((pauses (ignore-errors (org-summary-topic-pauses))) (today (org-today)))
+    (delete-dups (mapcar #'car (seq-filter (lambda (p) (org-summary--pause-on (car p) today pauses))
+                                           pauses)))))
+
+(defun rts-flow--place-filter (context &optional places)
+  "CONTEXT's place filter as (PLUS . MINUS), tag or need names; a word
+with no sign is a minus."
+  (let* ((tag (rts-flow--get-context-tag context))
+         (words (cdr (or (assoc tag (or places (rts-flow--places-table)))
+                         (assoc tag rts-flow-default-places))))
+         plus minus)
+    (dolist (w words)
+      (if (string-prefix-p "+" w)
+          (push (downcase (substring w 1)) plus)
+        (push (downcase (string-remove-prefix "-" w)) minus)))
+    (cons (nreverse plus) (nreverse minus))))
+
+(defun rts-flow--needs-at-point (&optional table)
+  "The names of what the entry at point needs, from TABLE (`rts-flow--needs-table')."
   (let* ((tags (mapcar #'downcase (org-get-tags)))
-         (todo (org-get-todo-state))
+         (todo (downcase (or (org-get-todo-state) "")))
          (case-fold-search t)
          (title (org-get-heading t t t t))
          (body (save-excursion
                  (org-back-to-heading t)
                  (buffer-substring-no-properties
                   (point) (min (save-excursion (org-end-of-subtree t) (point))
-                               (+ (point) 4000)))))
-         needs)
+                               (+ (point) 4000))))))
     (unless (member "anywhere" tags)
-      (pcase-dolist (`(,need . ,names) rts-flow-need-tags)
-        (when (seq-intersection names tags) (push need needs)))
-      (pcase-dolist (`(,need . ,kws) rts-flow-need-keywords)
-        (when (member todo kws) (push need needs)))
-      (pcase-dolist (`(,need . ,re) rts-flow-need-title-words)
-        (when (string-match-p re title) (push need needs)))
-      (pcase-dolist (`(,need . ,re) rts-flow-need-links)
-        (when (string-match-p re body) (push need needs))))
-    (delete-dups needs)))
+      (delq nil
+            (mapcar (lambda (need)
+                      (when (seq-some
+                             (lambda (mark)
+                               (let ((mark (downcase mark)))
+                                 (or (member mark tags)
+                                     (equal mark todo)
+                                     (if (string-search "." mark)
+                                         (string-search mark (downcase body))
+                                       (string-match-p (concat "\\b" (regexp-quote mark) "\\b") title)))))
+                             (cdr need))
+                        (car need)))
+                    (or table (rts-flow--needs-table)))))))
 
-(defun rts-flow--needs (item)
-  "What ITEM, an org element from the selectors, needs (see above)."
+(defun rts-flow--item-at (item fn)
+  "FN called at ITEM's entry, an org element from the selectors."
   (when-let* ((marker (org-element-property :org-marker item))
               ((markerp marker))
               ((buffer-live-p (marker-buffer marker))))
     (with-current-buffer (marker-buffer marker)
       (org-with-wide-buffer
        (goto-char marker)
-       (rts-flow--needs-at-point)))))
+       (funcall fn)))))
+
+(defun rts-flow--needs (item)
+  "What ITEM needs (see above)."
+  (rts-flow--item-at item #'rts-flow--needs-at-point))
 
 (defun rts-flow--filter-by-needs (items)
-  "Drop ITEMS needing something the current context doesn't allow."
-  (if (null rts-flow-current-context)
-      items
-    (seq-filter (lambda (item)
-                  (seq-every-p (lambda (need)
-                                 (rts-flow--context-allows-p rts-flow-current-context need))
-                               (rts-flow--needs item)))
-                items)))
+  "Drop ITEMS the current place's filter hides, or that have something
+paused (a need, or a topic tag).  An item's names are its tags and needs."
+  (let* ((table (rts-flow--needs-table))
+         (filter (and rts-flow-current-context (rts-flow--place-filter rts-flow-current-context)))
+         (paused (rts-flow--paused)))
+    (if (not (or (cdr filter) paused))
+        items
+      (seq-remove
+       (lambda (item)
+         (rts-flow--item-at
+          item (lambda ()
+                 (let ((names (append (rts-flow--needs-at-point table)
+                                      (mapcar #'downcase (org-get-tags)))))
+                   (or (seq-intersection names paused)
+                       (and (seq-intersection names (cdr filter))
+                            (not (seq-intersection names (car filter)))))))))
+       items))))
 
-(defun rts-flow--filter-no-video (items)
-  "Filter out items with video/youtube tags if video not allowed."
-  (if (rts-flow--context-allows-p rts-flow-current-context :video)
-      items
-    (seq-filter
-     (lambda (item)
-       (let ((tags (rts--get-task-tags item)))
-         (not (seq-some (lambda (tag)
-                          (member (downcase tag) '("youtube" "video" "watchlist")))
-                        tags))))
-     items)))
+(defun rts-flow-not-with-me (need)
+  "Pause NEED (a piano, a guitar) while it is not with you, or resume it:
+in the topics file's Paused, like a topic."
+  (interactive
+   (let* ((paused (rts-flow--paused))
+          (cands (mapcar (lambda (n) (cons (format "%s  (%s)" (car n)
+                                                   (if (member (car n) paused) "not with me" "with me"))
+                                           (car n)))
+                         (rts-flow--needs-table))))
+     (list (cdr (assoc (completing-read "Not with me / with me again: " cands nil t) cands)))))
+  (org-summary-pause-topic need))
 
 (defun rts-flow--get-context-tag (context)
   "Get the org tag name for CONTEXT."
@@ -653,31 +718,21 @@ This wraps `rts--display-selected-item' to track status changes."
 (defun rts-flow-select-music ()
   "Select a music practice item (only if instruments allowed)."
   (interactive)
-  (if (not (rts-flow--context-allows-p rts-flow-current-context :instruments))
-      (message "Instruments not available in %s context"
-               (rts-flow--get-context-prop rts-flow-current-context :name))
-    (let* ((items (rts--get-base-tasks 'music))
-           (filtered (rts-flow--apply-all-filters items)))
-      (if filtered
-          (let ((selected (rts-flow--select-with-neglect-awareness filtered 'music)))
-            (rts-flow--display-and-remember selected 'music))
-        (message "No music items available")))))
+  ;; Where an instrument can't be played, or it isn't with you, the needs
+  ;; filter leaves nothing.
+  (let* ((items (rts--get-base-tasks 'music))
+         (filtered (rts-flow--apply-all-filters items)))
+    (if filtered
+        (let ((selected (rts-flow--select-with-neglect-awareness filtered 'music)))
+          (rts-flow--display-and-remember selected 'music))
+      (message "No music to practise here, or its instrument isn't with you"))))
 
 (defun rts-flow-select-leisure ()
   "Select a leisure item respecting all filters."
   (interactive)
   (let* ((items (rts--get-base-tasks 'leisure))
-         ;; Filter out music if instruments not allowed
-         (no-music (if (rts-flow--context-allows-p rts-flow-current-context :instruments)
-                       items
-                     (seq-filter
-                      (lambda (item)
-                        (let ((tags (rts--get-task-tags item)))
-                          (not (or (member "guitaractive" tags)
-                                   (member "pianoactive" tags)
-                                   (member "musicactive" tags)))))
-                      items)))
-         (filtered (rts-flow--apply-all-filters no-music)))
+         ;; Music where it can't be played is left out by the needs filter.
+         (filtered (rts-flow--apply-all-filters items)))
     (if filtered
         (let ((selected (rts-flow--select-with-neglect-awareness filtered 'leisure)))
           (rts-flow--display-and-remember selected 'leisure))
