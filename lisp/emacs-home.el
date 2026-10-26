@@ -87,7 +87,7 @@
 
 (defvar emacs-home-widget-text-drop
   (rx bos (or (seq (or "आइत" "सोम" "मंगल" "बुध" "बिही" "शुक्र" "शनि") "बार")
-              (seq (+ digit) " " (= 3 alpha) ", " (= 4 digit))
+              (seq (+ (any "A-Za-z0-9 ,.")) (= 4 digit))      ; Oct 26, 2026
               (+ (any "-–·,")))
       eos)
   "A widget's text lines left out of its line: what the status bar already
