@@ -25,6 +25,8 @@
   "BODY with `dir' holding org/ (notes, references) and a library."
   (declare (indent 0))
   `(let* ((dir (file-name-as-directory (make-temp-file "papers-test" t)))
+          ;; Whatever buffer the tests run from, a directory that exists.
+          (default-directory dir)
           (org-directory (expand-file-name "org/" dir))
           (org-roam-directory (expand-file-name "org/notes/" dir))
           (citar-library-paths (list (expand-file-name "Books/Papers/articles/" dir)))

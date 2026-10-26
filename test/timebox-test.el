@@ -118,4 +118,34 @@ SCHEDULED: <2026-10-26 Mon>
       ;; 08:10 now: the first block at 08:15.
       (should (= (car (car (car (timebox-plan day)))) 495)))))
 
+(ert-deftest timebox-test-agenda-busy ()
+  "What is fixed comes from the agenda's day: a daily habit with a time,
+a timed range, an entry with no end (30 minutes); not a done one, not an
+untimed one."
+  (let* ((dir (file-name-as-directory (make-temp-file "timebox-test" t)))
+         (file (expand-file-name "fixed.org" dir))
+         (org-agenda-files (list file))
+         (org-todo-keywords '((sequence "TODO" "|" "DONE")))
+         (day (org-time-string-to-absolute "2026-10-27")))
+    (with-temp-file file
+      (insert "* TODO Stretching
+SCHEDULED: <2026-10-26 Mon 05:00 .+1d>
+:PROPERTIES:
+:STYLE:    habit
+:END:
+* Dentist
+<2026-10-27 Tue 10:00-11:00>
+* TODO Call
+SCHEDULED: <2026-10-27 Tue 14:00>
+* DONE Finished
+SCHEDULED: <2026-10-27 Tue 16:00>
+* TODO Untimed
+SCHEDULED: <2026-10-27 Tue>
+"))
+    (unwind-protect
+        (should (equal (sort (timebox--agenda-busy day) (lambda (a b) (< (car a) (car b))))
+                       '((300 . 330) (600 . 660) (840 . 870))))
+      (when (find-buffer-visiting file) (kill-buffer (find-buffer-visiting file)))
+      (delete-directory dir t))))
+
 ;;; timebox-test.el ends here

@@ -133,6 +133,8 @@ it, deletes it."
 
 (ert-deftest note-flow-test-no-database ()
   "Without org-roam's database, links are unknown, and nothing is deletable."
+  ;; Only where org-roam isn't loaded (batch): in a running Emacs it is.
+  (skip-unless (not (featurep 'org-roam)))
   (note-flow-test--with nil
     (note-flow-test--note dir "lonely.org" (format note-flow-test--stub "lonely" "Lonely"))
     (let (offered)
@@ -212,8 +214,11 @@ made from a note tagged ORIGIN-TAGS."
            (with-current-buffer origin
              (insert "#+TITLE: Origin\n" (if ,origin-tags (format "#+FILETAGS: %s\n" ,origin-tags) "")))
            (insert ":PROPERTIES:\n:ID:       new\n:END:\n#+TITLE: Spaced repetition\n")
-           (let ((note-flow--origin origin))
-             (note-flow-test--answering ,answers nil (note-flow-new-note)))
+           ;; As inside a capture of a new file (in a running Emacs, org-roam
+           ;; is loaded and says otherwise out of one).
+           (cl-letf (((symbol-function 'org-roam-capture--get) (lambda (key) (eq key :new-file))))
+             (let ((note-flow--origin origin))
+               (note-flow-test--answering ,answers nil (note-flow-new-note))))
            ,@body)
        (kill-buffer origin))))
 
@@ -374,8 +379,10 @@ first, only with something in them; never a daily; at most the max."
       (note-flow-test--with-nodes (list (list chords "Barre chords" '(("WHEN" . "guitarpractice"))))
         (cl-letf (((symbol-function 'note-flow--task-context) (lambda () '("Scales" ("guitarpractice") "scales")))
                   ((symbol-function 'message) (lambda (fmt &rest args) (push (apply #'format fmt args) said))))
-          (note-flow-surface)
-          (note-flow-surface)))
+          ;; The Mac's way (the phone's is a notification).
+          (let ((system-type 'darwin))
+            (note-flow-surface)
+            (note-flow-surface))))
       (should (equal said '("Notes for \"Scales\": Barre chords — SPC n r w"))))))
 
 (ert-deftest note-flow-test-needed-by-date ()

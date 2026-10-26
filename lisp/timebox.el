@@ -6,8 +6,8 @@
 ;; by giving each of tomorrow's tasks a block of time:
 ;;
 ;;   - the fixed things come first: whatever already has a time that day
-;;     (meetings, the morning ritual, the review -- as the week calendar
-;;     shows them, repeaters included);
+;;     (meetings, the morning ritual, the review -- as the agenda shows
+;;     that day, habits and repeaters included);
 ;;   - tomorrow's tasks fill the free time around them, highest priority
 ;;     first, each in the earliest gap it fits: its Effort long, or
 ;;     `timebox-minutes', with `timebox-gap' between blocks, from
@@ -19,8 +19,9 @@
 ;;
 ;; A block is written as the task's SCHEDULED time range, so the agenda,
 ;; the week calendar and the phone's reminders (reminders.el) all see it.
-;; Then the calendar opens on tomorrow: drag a block to move it, its edge
-;; to resize it.  Running it again only boxes what has no time yet.
+;; Then the week calendar (org-timegrid) opens on tomorrow: drag a block
+;; to move it, its edge to resize it -- or, where it isn't installed (the
+;; phone), the agenda's day.  Running it again only boxes what has no time.
 ;;
 ;; Left alone: habits and other repeating entries (a time on one would
 ;; stick to every repeat), projects, blocked steps, WAITING and SOMEDAY,
@@ -34,13 +35,7 @@
 (require 'subr-x)
 
 (declare-function org-flow-files "org-flow")
-(declare-function org-timegrid-backend-list "org-timegrid-model")
-(declare-function org-timegrid-event-all-day "org-timegrid-model")
-(declare-function org-timegrid-event-start "org-timegrid-model")
-(declare-function org-timegrid-event-end "org-timegrid-model")
-(declare-function org-timegrid-event-state "org-timegrid-model")
 (declare-function org-timegrid-week "org-timegrid-org")
-(defvar org-timegrid-org-backend)
 
 (defgroup timebox nil
   "Tomorrow, in blocks of time."
@@ -66,7 +61,7 @@
   "Blocks start on a multiple of this many minutes."
   :type 'integer)
 
-(defvar timebox-busy-function #'timebox--timegrid-busy
+(defvar timebox-busy-function #'timebox--agenda-busy
   "Called with an absolute day; returns that day's fixed times, as a list
 of (START . END) minutes from midnight.")
 
@@ -80,17 +75,27 @@ of (START . END) minutes from midnight.")
 (defun timebox--hh-mm (minutes)
   (format "%02d:%02d" (/ minutes 60) (% minutes 60)))
 
-(defun timebox--timegrid-busy (day)
-  "DAY's timed, not-done entries, as the week calendar shows them."
-  (when (require 'org-timegrid-org nil t)
-    (let ((base (* day 1440)))
-      (delq nil
-            (mapcar (lambda (e)
-                      (unless (or (org-timegrid-event-all-day e)
-                                  (member (org-timegrid-event-state e) org-done-keywords))
-                        (cons (max 0 (- (org-timegrid-event-start e) base))
-                              (min 1440 (- (org-timegrid-event-end e) base)))))
-                    (org-timegrid-backend-list org-timegrid-org-backend base (+ base 1440)))))))
+(defvar org-habit-show-habits-only-for-today)
+
+(defun timebox--agenda-busy (day)
+  "DAY's timed, not-done entries, as the agenda shows that day: habits
+and other repeaters included, an entry with no end taking 30 minutes."
+  (require 'org-agenda)
+  (require 'org-habit nil t)
+  (let ((date (calendar-gregorian-from-absolute day))
+        ;; Else a habit shows on today only, and tomorrow looks free.
+        (org-habit-show-habits-only-for-today nil)
+        (org-agenda-skip-scheduled-if-done t)
+        (org-agenda-skip-deadline-if-done t)
+        (org-agenda-skip-timestamp-if-done t)
+        out)
+    (dolist (file (org-agenda-files t) out)
+      (dolist (e (org-agenda-get-day-entries file date :scheduled :timestamp :deadline))
+        (let ((tod (get-text-property 0 'time-of-day e)))
+          (when tod
+            (let ((from (+ (* 60 (/ tod 100)) (% tod 100))))
+              (push (cons from (min 1440 (+ from (round (or (get-text-property 0 'duration e) 30)))))
+                    out))))))))
 
 ;;; Which tasks
 
@@ -228,13 +233,14 @@ it moves from an earlier day, logged as a reschedule."
 (defun timebox-tomorrow (&optional day)
   "Box tomorrow's tasks (DAY, an absolute day; with \\[universal-argument],
 today's, from now), say where they went, and open the week calendar on it
-to move them by dragging."
+to move them by dragging (the agenda's day, without org-timegrid)."
   (interactive (list (if current-prefix-arg (org-today) (timebox--tomorrow))))
   (let* ((day (or day (timebox--tomorrow)))
          (result (timebox-plan day))
          (boxed (car result)) (unfit (cadr result)))
-    (when (fboundp 'org-timegrid-week)
-      (org-timegrid-week day))
+    (if (fboundp 'org-timegrid-week)
+        (org-timegrid-week day)
+      (org-agenda-list nil day 1))
     (message "%s%s"
              (if boxed
                  (format "Boxed %d: %s" (length boxed)
