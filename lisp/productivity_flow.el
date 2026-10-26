@@ -211,8 +211,24 @@ Each energy level is (SYMBOL . PLIST) where PLIST contains:
 ;;; ===================================================================
 
 (defun rts-flow--get-context-prop (context prop)
-  "Get PROP from CONTEXT definition."
-  (plist-get (cdr (assq context rts-flow-contexts)) prop))
+  "Get PROP from CONTEXT definition.  A place added only in the topics
+file's Places has its tag for :tag and :name, and a pin for :emoji."
+  (or (plist-get (cdr (assq context rts-flow-contexts)) prop)
+      (and context (not (assq context rts-flow-contexts))
+           (pcase prop
+             ((or :tag :name) (symbol-name context))
+             (:emoji "📍")))))
+
+(defun rts-flow--contexts ()
+  "The places to choose from: `rts-flow-contexts', then any the topics
+file's Places adds."
+  (append rts-flow-contexts
+          (delq nil (mapcar (lambda (line)
+                              (let ((sym (intern (car line))))
+                                (unless (seq-find (lambda (c) (equal (plist-get (cdr c) :tag) (car line)))
+                                                  rts-flow-contexts)
+                                  (list sym :name (car line) :tag (car line) :emoji "📍"))))
+                            (ignore-errors (org-summary-topics-section "Places"))))))
 
 (defun rts-flow--get-energy-prop (energy prop)
   "Get PROP from ENERGY level definition."
@@ -273,7 +289,7 @@ the default."
 
 (defun rts-flow--read-context ()
   "Where you are: one of the places, the last one on RET."
-  (rts-flow--read-choice "Where are you? " rts-flow-contexts rts-flow-current-context))
+  (rts-flow--read-choice "Where are you? " (rts-flow--contexts) rts-flow-current-context))
 
 (defun rts-flow-set-context (context)
   "Set current CONTEXT interactively."
@@ -1258,9 +1274,14 @@ Clocks back into the previous task without selecting a new one."
          ((< roll 0.35) (rts-flow-select-study))
          (t (rts-flow-select-task))))))
 
-     ;; Fallback for any new contexts
+     ;; A place added in the topics file: a bit of everything, its
+     ;; Places line deciding what is left.
      (t
-      (rts-flow-select-task)))))
+      (pcase (random 4)
+        (0 (rts-flow-select-book))
+        (1 (rts-flow-select-study))
+        (2 (rts-flow-select-notes))
+        (_ (rts-flow-select-task)))))))
 
 (defun rts-flow ()
   "THE zero-decision entry point. Let the river carry you.

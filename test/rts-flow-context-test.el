@@ -115,4 +115,13 @@ the current one first and as the default."
         (rts-flow-set-context (rts-flow--read-choice "Where? " rts-flow-contexts nil))
         (should (eq rts-flow-current-context 'public))))))
 
+(ert-deftest rts-flow-test-new-place ()
+  "A place added only in the topics file is offered, and its line filters."
+  (rts-flow-test--with "* Places\n- gym :: -video -talk\n"
+    (should (assq 'gym (rts-flow--contexts)))
+    (should (= (length (rts-flow--contexts)) (1+ (length rts-flow-contexts))))
+    (should (equal (rts-flow--get-context-prop 'gym :name) "gym"))
+    (should-not (member "A film" (left 'gym)))
+    (should (member "Scales" (left 'gym)))))
+
 ;;; rts-flow-context-test.el ends here
