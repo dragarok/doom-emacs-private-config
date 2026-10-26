@@ -267,6 +267,17 @@
 (autoload 'note-flow-split "note-flow" nil t)
 (autoload 'note-flow-breakdown "note-flow" nil t)
 (autoload 'note-flow-reread "note-flow" nil t)
+(autoload 'note-flow-search-words "note-flow" nil t)
+;; How this Emacs works, docs/guide.org, one tip at a time: tips.el.
+;; The Tip button is on the dashboard (the phone's in android-homepage.el).
+(autoload 'tips-next "tips" nil t)
+(autoload 'tips-all "tips" nil t)
+(when (boundp '+dashboard-menu-sections)
+  (add-to-list '+dashboard-menu-sections
+               '("A tip: how this Emacs works"
+                 :icon (nerd-icons-faicon "nf-fa-graduation_cap" :face '+dashboard-menu-title)
+                 :action tips-next)
+               t))
 (with-eval-after-load 'org-roam (require 'note-flow) (note-flow-mode 1))
 ;; A paper in from its DOI or arXiv id -- entry, PDF, note -- and citar's
 ;; notes made the same way: papers.el.

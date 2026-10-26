@@ -34,18 +34,18 @@ to it, standing in for the org-roam database."
              (kill-buffer b)))
          (delete-directory dir t)))))
 
-(defvar note-flow-test--whens nil
-  "Answers to \"when will you need it\", in turn (each a list); none: no idea.")
+(defvar note-flow-test--words nil
+  "Answers to \"what would you type to find it\", in turn (each a list); none: nothing.")
 
 (defmacro note-flow-test--answering (strings chars &rest body)
   "BODY with `read-string' answering STRINGS and `read-char-choice' CHARS in
-turn, and \"when will you need it\" `note-flow-test--whens'."
+turn, and \"what would you type to find it\" `note-flow-test--words'."
   (declare (indent 2))
   `(let ((sq ,strings) (cq ,chars))
      (cl-letf (((symbol-function 'read-string) (lambda (&rest _) (or (pop sq) "")))
                ((symbol-function 'read-char-choice) (lambda (&rest _) (or (pop cq) ?q)))
-               ((symbol-function 'completing-read-multiple) (lambda (&rest _) (pop note-flow-test--whens)))
-               ((symbol-function 'note-flow--contexts) (lambda () nil))
+               ((symbol-function 'completing-read-multiple) (lambda (&rest _) (pop note-flow-test--words)))
+               ((symbol-function 'note-flow--search-offers) (lambda () nil))
                ((symbol-function 'recenter) #'ignore))
        ,@body)))
 
@@ -317,97 +317,36 @@ a month.  Not opened: not asked."
                                         (format-time-string "%Y-%m-%d" (time-add nil (days-to-time 30))))
                                 text))))))
 
-;;; When it is needed again
+;;; Found again by the words you'd search with
 
-(ert-deftest note-flow-test-new-note-when ()
-  "Asked when it will be needed again; kept as :WHEN:."
-  (let ((note-flow-test--whens '(("guitarpractice" "Subash Dai"))))
+(ert-deftest note-flow-test-new-note-search ()
+  "Asked what you'd type to find it; kept as :SEARCH:."
+  (let ((note-flow-test--words '(("barre" "guitar thumb"))))
     (note-flow-test--new-note nil '("Barre chords need the thumb low." "" "")
-      (should (string-match-p ":WHEN: +guitarpractice; Subash Dai" (buffer-string))))))
+      (should (string-match-p ":SEARCH: +barre; guitar thumb" (buffer-string))))))
 
-(defmacro note-flow-test--with-nodes (rows &rest body)
-  "BODY with the org-roam database holding ROWS: (FILE TITLE PROPERTIES)."
-  (declare (indent 1))
-  `(cl-letf (((symbol-function 'org-roam-db-query) (lambda (&rest _) ,rows)))
-     ,@body))
+(ert-deftest note-flow-test-search-offers ()
+  "Offered: every tag and every search word given before, once each."
+  (cl-letf (((symbol-function 'org-roam-db-query)
+             (lambda (sql &rest _)
+               (if (seq-contains-p sql 'tags)
+                   '(("guitar") ("ehp"))
+                 '(((("SEARCH" . "barre; guitar"))) (nil) ((("ID" . "x"))))))))
+    (should (equal (note-flow--search-offers) '("guitar" "ehp" "barre")))))
 
-(ert-deftest note-flow-test-notes-for ()
-  "For a task: the notes whose :WHEN: names one of its tags, words of its
-heading or outline -- then those whose title is in its heading, longest
-first, only with something in them; never a daily; at most the max."
-  (note-flow-test--with nil
-    (let* ((long (lambda (name title) (note-flow-test--note dir name (note-flow-test--long name title))))
-           (chords (funcall long "chords.org" "Barre chords"))
-           (letter (funcall long "letter.org" "How I write"))
-           (subash (funcall long "subash.org" "Talking points"))
-           (haskell (funcall long "haskell.org" "Haskell"))
-           (monads (funcall long "monads.org" "Haskell monads"))
-           (stub (note-flow-test--note dir "py.org" (format note-flow-test--stub "py" "Practice")))
-           (day (funcall long "daily/2026-10-26.org" "2026-10-26"))
-           (rows (list (list chords "Barre chords" '(("WHEN" . "guitarpractice")))
-                       (list letter "How I write" '(("WHEN" . "cover letter; 2026-12-01")))
-                       (list subash "Talking points" '(("WHEN" . "Subash Dai")))
-                       (list haskell "Haskell" nil)
-                       (list monads "Haskell monads" nil)
-                       (list stub "Practice" nil)
-                       (list day "2026-10-26" '(("WHEN" . "guitarpractice"))))))
-      (note-flow-test--with-nodes rows
-        (should (equal (mapcar #'cadr (note-flow-notes-for '("Scales" ("guitarpractice") "scales / tasks")))
-                       '("Barre chords")))
-        (should (equal (mapcar #'cadr (note-flow-notes-for '("Write cover letter for Acme" () "write cover letter for acme / tasks")))
-                       '("How I write")))
-        (should (equal (mapcar #'cadr (note-flow-notes-for '("Subash Dai" ("meeting") "subash dai / meetings")))
-                       '("Talking points")))
-        (should (equal (mapcar #'cadr (note-flow-notes-for '("Practice Haskell monads" () "practice haskell monads / tasks")))
-                       '("Haskell monads" "Haskell")))
-        (should (equal (length (note-flow-notes-for '("Practice Haskell monads" () "practice haskell monads") 1)) 1))
-        (should-not (note-flow-notes-for '("Laundry" () "laundry / tasks")))))))
-
-(ert-deftest note-flow-test-title-in ()
-  "Several words in any case; one word only capitalized, and not first."
-  (should (note-flow--title-in-p "Haskell monads" "practice haskell monads"))
-  (should (note-flow--title-in-p "Sanskrit" "Recite Chapter 3 of Sanskrit book"))
-  (should-not (note-flow--title-in-p "Time" "Can we do time/movement checks"))
-  (should-not (note-flow--title-in-p "Time" "Time the runs"))
-  (should-not (note-flow--title-in-p "About" "without worrying about it"))
-  (should-not (note-flow--title-in-p "python" "Learn python decorators")))
-
-(ert-deftest note-flow-test-surface ()
-  "Clocked in: the notes for it, said once a task a day."
-  (note-flow-test--with nil
-    (let* ((chords (note-flow-test--note dir "chords.org" (note-flow-test--long "c" "Barre chords")))
-           (note-flow--surfaced nil) said)
-      (note-flow-test--with-nodes (list (list chords "Barre chords" '(("WHEN" . "guitarpractice"))))
-        (cl-letf (((symbol-function 'note-flow--task-context) (lambda () '("Scales" ("guitarpractice") "scales")))
-                  ((symbol-function 'message) (lambda (fmt &rest args) (push (apply #'format fmt args) said))))
-          ;; The Mac's way (the phone's is a notification).
-          (let ((system-type 'darwin))
-            (note-flow-surface)
-            (note-flow-surface))))
-      (should (equal said '("Notes for \"Scales\": Barre chords — SPC n r w"))))))
-
-(ert-deftest note-flow-test-needed-by-date ()
-  "A date it is needed by makes it the reread that day, not before; read,
-it is not again for that date."
-  (note-flow-test--with nil
-    (let ((today (format-time-string "%Y-%m-%d")))
-      (set-file-times (note-flow-test--note dir "old.org" (note-flow-test--long "old" "Old"))
-                      (time-subtract nil (days-to-time 400)))
-      (note-flow-test--note dir "trip.org" (note-flow-test--long "trip" "Packing list" (format ":WHEN: travel; %s\n" today)))
-      (note-flow-test--note dir "later.org" (note-flow-test--long "later" "Later" ":WHEN: 2999-01-01\n"))
-      (should (equal (plist-get (note-flow-reread-pick) :title) "Packing list"))
-      (note-flow-test--note dir "trip.org" (note-flow-test--long "trip" "Packing list"
-                                                                (format ":WHEN: travel; %s\n:LAST_READ: [%s]\n:NEXT_READ: [2999-01-01]\n" today today)))
-      (should (equal (plist-get (note-flow-reread-pick) :title) "Old")))))
-
-(ert-deftest note-flow-test-reread-asks-when ()
-  "Reread, a note with no :WHEN: is asked when it will be needed again."
+(ert-deftest note-flow-test-reread-asks-search ()
+  "Reread, a note with no :SEARCH: is asked what you'd type to find it;
+the words add to what it had."
   (note-flow-test--with nil
     (let ((f (note-flow-test--note dir "idea.org" (note-flow-test--long "idea" "Idea")))
           (note-flow--reread-today nil)
-          (note-flow-test--whens '(("mentalmodels"))))
+          (note-flow-test--words '(("mental models"))))
       (note-flow-reread)
       (note-flow-test--answering '("Still true.") nil (note-flow-reread-review))
-      (should (string-match-p ":WHEN: +mentalmodels" (note-flow-test--text f))))))
+      (should (string-match-p ":SEARCH: +mental models" (note-flow-test--text f)))
+      (with-current-buffer (find-buffer-visiting f)
+        (let ((inhibit-read-only t)) (note-flow--set-search '("models" "mental models"))))
+      (should (equal (with-current-buffer (find-buffer-visiting f) (note-flow--file-property "SEARCH"))
+                     "mental models; models")))))
 
 ;;; note-flow-test.el ends here

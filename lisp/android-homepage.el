@@ -73,7 +73,9 @@
                  (list :icon (nerd-icons-faicon "nf-fa-image")
                        :title "Diary" :desc "Browse photos" :action 'my/diary-browse-images)
                  (list :icon (nerd-icons-faicon "nf-fa-bar_chart")
-                       :title "Neglect" :desc "Weekly report" :action 'rts-flow-weekly-neglect-report))))))
+                       :title "Neglect" :desc "Weekly report" :action 'rts-flow-weekly-neglect-report)
+                 (list :icon (nerd-icons-faicon "nf-fa-graduation_cap")
+                       :title "Tip" :desc "One at a time" :action 'tips-next))))))
     sections))
 
 ;;; Rendering

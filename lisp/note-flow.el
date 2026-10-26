@@ -36,13 +36,13 @@
 ;;     which goes under its * Rereads, and the next reread comes further off
 ;;     (`note-flow-reread-intervals').  Not opened, nothing is asked.
 ;;
-;;   - a note is for its future: each new note (and each one reread, or
-;;     written in the walk) is asked when it will be needed again -- a
-;;     topic, a person, a project, a date, or your words -- kept as :WHEN:.
-;;     Clocking into a task it names brings it to you: a notification on
-;;     the phone, a line on the Mac (`note-flow-surface'), with the notes
-;;     whose title is in the task's name, so old ones come back too.  A
-;;     date makes it that day's reread.  SPC n r w: the notes for now.
+;;   - a note is for its future, not for collecting: each new note (and
+;;     each one reread, or written in the walk) asks what you would type
+;;     to find it when you need it -- words, phrases, tags -- kept as
+;;     :SEARCH:.  `org-roam-node-find' and `org-roam-node-insert' match
+;;     them (org-roam-config shows them, dimmed, after the title), so the
+;;     note turns up for the search you'll make then, not only its title.
+;;     SPC n r w adds words to the note you are in.
 ;;
 ;; The daily review (`day-log-review') offers `note-flow-empty-per-review'
 ;; empty notes and `note-flow-big-per-review' big ones.  SPC n r e and
@@ -171,7 +171,6 @@ under a single top heading."
           :words (note-flow--own-words)
           :headings (note-flow--headings (note-flow--split-level))
           :tags (split-string (or (note-flow--keyword "filetags") "") ":" t)
-          :when (note-flow--when-of (note-flow--file-property "WHEN"))
           :decided (note-flow--file-property "NOTE_FLOW")
           :later (note-flow--later-p (note-flow--file-property "NOTE_FLOW_LATER"))
           :next-read (note-flow--file-property "NEXT_READ")
@@ -433,14 +432,14 @@ In `org-roam-capture-new-node-hook', only for a note made from
       (unless (string-empty-p what)
         (let* ((from (string-trim (read-string "Where is it from — a book, paper, link, person? (empty: your own thought) ")))
                (why (string-trim (read-string "Why does it matter to you? ")))
-               (needed (note-flow--ask-when title))
+               (words (note-flow--ask-search title))
                (link (when (fboundp 'org-roam-node-read)
                        (let ((node (org-roam-node-read nil nil nil nil "Connects to (empty: nothing): ")))
                          (when (and (note-flow--node-title node) (org-roam-node-file node))
                            node))))
                (url (string-match-p "\\`https?://" from)))
           (when url (save-excursion (goto-char (point-min)) (org-entry-put nil "ROAM_REFS" from)))
-          (when needed (save-excursion (goto-char (point-min)) (org-entry-put nil "WHEN" (string-join needed "; "))))
+          (when words (save-excursion (goto-char (point-min)) (org-entry-put nil "SEARCH" (string-join words "; "))))
           (unless (string-empty-p from) (note-flow--add-tags '("literaturenote")))
           (save-excursion
             (goto-char (point-max))
@@ -475,152 +474,50 @@ In `org-roam-capture-new-node-hook', only for a note made from
   (if note-flow-mode
       (progn (advice-add 'org-roam-node-find :around #'note-flow--find-a)
              (advice-add 'org-roam-node-insert :around #'note-flow--insert-a)
-             (add-hook 'org-roam-capture-new-node-hook #'note-flow-new-note 90)
-             (add-hook 'org-clock-in-hook #'note-flow--surface-later))
+             (add-hook 'org-roam-capture-new-node-hook #'note-flow-new-note 90))
     (advice-remove 'org-roam-node-find #'note-flow--find-a)
     (advice-remove 'org-roam-node-insert #'note-flow--insert-a)
-    (remove-hook 'org-roam-capture-new-node-hook #'note-flow-new-note)
-    (remove-hook 'org-clock-in-hook #'note-flow--surface-later)))
+    (remove-hook 'org-roam-capture-new-node-hook #'note-flow-new-note)))
 
-;;; When it is needed again
+;;; Found again by the words you'd search with
 
-(defcustom note-flow-surface-max 3
-  "Notes shown at most when you clock into something."
-  :type 'integer)
-
-(defvar org-meetings-file)
-(defvar org-projects-file)
-(declare-function android-notifications-notify "androidselect.c")
-
-(defun note-flow--headings-in (file regexp)
-  "The first group of REGEXP on each line of FILE, if it exists."
-  (when (and file (file-exists-p file))
-    (with-temp-buffer
-      (insert-file-contents file)
-      (let (out)
-        (while (re-search-forward regexp nil t) (push (match-string-no-properties 1) out))
-        (nreverse out)))))
-
-(defun note-flow--contexts ()
-  "What a note can be needed for, to offer: your topics, the people you
-meet, your projects.  Your own words are taken too."
-  (seq-uniq
-   (append (when (require 'org-summary nil t) (mapcar #'car (org-summary-topics)))
-           (note-flow--headings-in (bound-and-true-p org-meetings-file)
-                                   "^\\* \\(.+?\\)[ \t]+:\\(?:[^ \t\n]*:\\)?meeting:")
-           (note-flow--headings-in (bound-and-true-p org-projects-file)
-                                   "^\\*+ PROJ \\(.+?\\)\\(?:[ \t]+:[^ \t\n]+:\\)?[ \t]*$"))))
-
-(defun note-flow--ask-when (title)
-  "When TITLE will be needed again, as a list (empty: no idea)."
-  (mapcar #'string-trim
-          (completing-read-multiple
-           (format "When will you need \"%s\" again — a topic, person, project, a date, or your words? (empty: no idea) " title)
-           (note-flow--contexts))))
-
-(defun note-flow--set-when (contexts)
-  "Keep CONTEXTS as the note's :WHEN:, added to what it had."
-  (when contexts
-    (let ((old (note-flow--when-of (note-flow--file-property "WHEN"))))
-      (note-flow--set "WHEN" (string-join (seq-uniq (append old contexts)) "; ")))))
-
-(defun note-flow--when-of (value)
-  "A :WHEN: VALUE as its list of contexts."
+(defun note-flow--search-of (value)
+  "A :SEARCH: VALUE as its list of words and phrases."
   (and value (seq-remove #'string-empty-p (mapcar #'string-trim (split-string value ";")))))
 
-(defun note-flow--task-context ()
-  "What you are doing, from the clocked task: (HEADING TAGS TEXT), TAGS and
-TEXT (heading, its outline and category) in lower case; nil unclocked."
-  (when (and (bound-and-true-p org-clock-marker) (marker-buffer org-clock-marker))
-    (with-current-buffer (marker-buffer org-clock-marker)
-      (org-with-wide-buffer
-       (goto-char org-clock-marker)
-       (let ((heading (substring-no-properties (org-get-heading t t t t))))
-         (list heading
-               (mapcar #'downcase (org-get-tags))
-               (downcase (string-join (append (org-get-outline-path t) (list (or (org-get-category) "")))
-                                      " / "))))))))
+(defun note-flow--search-offers ()
+  "Words to offer: every tag, and every search word already given."
+  (when (fboundp 'org-roam-db-query)
+    (ignore-errors
+      (seq-uniq
+       (append (mapcar #'car (org-roam-db-query [:select :distinct [tag] :from tags]))
+               (mapcan (lambda (row) (note-flow--search-of (cdr (assoc "SEARCH" (car row)))))
+                       (org-roam-db-query [:select [properties] :from nodes :where (= level 0)])))))))
 
-(defun note-flow--needed-p (context task)
-  "Does CONTEXT (one of a note's :WHEN:) name TASK: one of its tags, or
-words in its heading, outline or category?"
-  (let ((c (downcase context)))
-    (or (member c (nth 1 task))
-        (string-match-p (concat "\\b" (regexp-quote c) "\\b") (nth 2 task)))))
+(defun note-flow--ask-search (title)
+  "The words you would type to find TITLE when you need it, as a list."
+  (mapcar #'string-trim
+          (completing-read-multiple
+           (format "What would you type to find \"%s\" when you need it? (words or phrases, commas; empty: none) " title)
+           (note-flow--search-offers))))
 
-(defun note-flow--title-in-p (title heading)
-  "Is the note TITLE named in the task HEADING?  A title of several words,
-in any case.  A one-word title only as it is written, capitalized, and
-not as the heading's first word: \"Sanskrit\" in \"Recite the Sanskrit
-book\", but not \"Time\" in \"track time\" -- a common word is written
-in lower case, a name or a term is not."
-  (if (string-match-p "[[:space:]]" title)
-      (string-match-p (concat "\\b" (regexp-quote (downcase title)) "\\b") (downcase heading))
-    (let ((case-fold-search nil))
-      (and (string-match-p "\\`[[:upper:]]" title)
-           (string-match (concat "\\b" (regexp-quote title) "\\b") heading)
-           (> (match-beginning 0) 0)))))
-
-(defun note-flow-notes-for (task &optional max)
-  "The notes needed for TASK (from `note-flow--task-context'), at most MAX:
-first those whose :WHEN: names it, then those whose title is in its
-heading -- the longest titles first, and only notes with something in them."
-  (when (and task (fboundp 'org-roam-db-query))
-    (let* ((rows (ignore-errors
-                   (org-roam-db-query [:select [file title properties] :from nodes :where (= level 0)])))
-           (daily (regexp-quote (concat "/" (or (bound-and-true-p org-roam-dailies-directory) "daily/"))))
-           named titled)
-      (pcase-dolist (`(,file ,title ,props) rows)
-        (unless (string-match-p daily file)
-          (cond ((seq-some (lambda (c) (note-flow--needed-p c task))
-                           (note-flow--when-of (cdr (assoc "WHEN" props))))
-                 (push (list file title) named))
-                ((and (>= (length title) 4) (note-flow--title-in-p title (car task)))
-                 (push (list file title) titled)))))
-      (setq titled (sort titled (lambda (a b) (> (length (cadr a)) (length (cadr b))))))
-      (let ((out (reverse named)) (max (or max note-flow-surface-max)))
-        (dolist (n titled)
-          (when (and (< (length out) max)
-                     (file-exists-p (car n))
-                     (>= (plist-get (note-flow--read (car n)) :words) note-flow-stub-words))
-            (setq out (append out (list n)))))
-        (seq-take out max)))))
-
-(defvar note-flow--surfaced nil
-  "(DATE . HEADINGS): what notes were already shown for today.")
-
-(defun note-flow-surface ()
-  "Show the notes needed for the task just clocked into: a notification on
-the phone, its buttons opening them; a line on the Mac.  Once a task a day."
-  (when-let* ((task (note-flow--task-context)))
-    (let ((today (note-flow--today)) (heading (car task)))
-      (unless (equal (car note-flow--surfaced) today) (setq note-flow--surfaced (list today)))
-      (unless (member heading (cdr note-flow--surfaced))
-        (push heading (cdr note-flow--surfaced))
-        (when-let* ((notes (note-flow-notes-for task)))
-          (if (eq system-type 'android)
-              (android-notifications-notify
-               :title (format "Notes for %s" heading)
-               :body (mapconcat #'cadr notes " · ")
-               :urgency 'normal
-               :actions (cl-loop for n in notes for i from 0
-                                 append (list (number-to-string i) (truncate-string-to-width (cadr n) 30 nil nil "…")))
-               :on-action (lambda (_id key)
-                            (run-at-time 0 nil #'find-file (car (nth (string-to-number key) notes)))))
-            (message "Notes for \"%s\": %s — SPC n r w" heading (mapconcat #'cadr notes " · "))))))))
-
-(defun note-flow--surface-later ()
-  "On clock-in: `note-flow-surface' a moment later, never in its way."
-  (run-with-idle-timer 1 nil (lambda () (with-demoted-errors "note-flow-surface: %S" (note-flow-surface)))))
+(defun note-flow--set-search (words)
+  "Keep WORDS as the note's :SEARCH:, added to what it had."
+  (when words
+    (let ((old (note-flow--search-of (note-flow--file-property "SEARCH"))))
+      (note-flow--set "SEARCH" (string-join (seq-uniq (append old words)) "; ")))))
 
 ;;;###autoload
-(defun note-flow-for-now ()
-  "Open one of the notes needed for what you are clocked into."
+(defun note-flow-search-words ()
+  "Add to the words this note is found by, in `org-roam-node-find' and
+`org-roam-node-insert'."
   (interactive)
-  (let* ((task (or (note-flow--task-context) (user-error "Not clocked into anything")))
-         (notes (or (note-flow-notes-for task 20) (user-error "No notes for \"%s\"" (car task))))
-         (pick (completing-read (format "Notes for \"%s\": " (car task)) (mapcar #'cadr notes) nil t)))
-    (find-file (car (seq-find (lambda (n) (equal (cadr n) pick)) notes)))))
+  (unless (derived-mode-p 'org-mode) (user-error "Not in a note"))
+  (let ((old (note-flow--file-property "SEARCH")))
+    (when old (message "Found by now: %s" old))
+    (note-flow--set-search (note-flow--ask-search (or (note-flow--keyword "title") (buffer-name))))
+    (save-buffer)
+    (note-flow--db-update buffer-file-name)))
 
 ;;; Rereading
 
@@ -657,13 +554,7 @@ untouched longest of those never reread.  Not logs or lists kept whole."
         (let ((note (note-flow--read f)))
           (when (and (>= (plist-get note :words) note-flow-reread-words)
                      (not (equal (plist-get note :decided) "whole")))
-            (let* ((last (note-flow--date-of (plist-get note :last-read)))
-                   ;; A date it is needed by makes it due that day, until read.
-                   (by (seq-find (lambda (d) (and (not (string< today d))
-                                                  (or (null last) (string< last d))))
-                                 (delq nil (mapcar (lambda (c) (and (string-match-p "\\`[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\'" c) c))
-                                                   (plist-get note :when)))))
-                   (next (or by (note-flow--date-of (plist-get note :next-read)))))
+            (let ((next (note-flow--date-of (plist-get note :next-read))))
               (cond ((null next) (push note fresh))
                     ((not (string< today next)) (push (plist-put note :next next) due))))))))
     (or (car (sort due (lambda (a b) (string< (plist-get a :next) (plist-get b :next)))))
@@ -719,8 +610,8 @@ you'd keep from it, and put the next reread further off.  Not opened, not asked.
         (note-flow--log-reread
          (string-trim (read-string (format "You reread \"%s\" today — what would you keep from it now? "
                                            (plist-get note :title)))))
-        (unless (note-flow--file-property "WHEN")
-          (note-flow--set-when (note-flow--ask-when (plist-get note :title))))
+        (unless (note-flow--file-property "SEARCH")
+          (note-flow--set-search (note-flow--ask-search (plist-get note :title))))
         (note-flow--save)
         (setq note-flow--reread-today nil)))))
 
@@ -771,7 +662,7 @@ w write it, h a hub, d delete (when nothing links to it), n later, q stop."
                                         title)))))
                     (if (string-empty-p text) (setq key ?n)
                       (note-flow--insert-paragraph text)
-                      (note-flow--set-when (note-flow--ask-when title)))
+                      (note-flow--set-search (note-flow--ask-search title)))
                     ;; A line or two is a start: if it is still short in a
                     ;; month, it comes back to be grown.
                     (note-flow--later)))

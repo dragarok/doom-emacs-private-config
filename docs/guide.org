@@ -1,0 +1,168 @@
+#+TITLE: How this Emacs works
+#+STARTUP: overview
+
+Each second-level heading below is one tip.  The dashboard's *Tip* button
+shows them one at a time, in order, and picks up where you left off.
+*All tips* opens this file.
+
+* Reminders on the phone
+
+** A task with a time rings by itself
+Give a task a time and the Emacs Home app rings it *10 minutes before*,
+even when Emacs is asleep.  The notification has three buttons: *Open*,
+*Clock in* and *Snooze*.
+
+To give it a time, schedule it with =SPC m d s= and type a time, for
+example =9:30=, =tomorrow 9am= or =fri 14:00=.  A deadline or a plain
+timestamp with a time rings too.
+
+** Change when it rings: SPC m R
+On the task (or its line in the agenda) press =SPC m R= and answer:
+- =30m=, =1h= or =1d=: that long before its time
+- =8:30= or =tomorrow 9am=: at a time of its own, even for a task with no
+  time at all
+- =none=: never rings
+- empty: back to the default, 10 minutes before
+
+This is kept as the task's =:REMIND:= property.
+
+** Setting a reminder from the phone
+1. Tap *Agenda* on the home page.
+2. Move to the task's line.
+3. Press =SPC m R= (or =SPC m d s= to give it a time first).
+
+A new task from the toolbar's *Add* rings once it is scheduled with a
+time.  Reminders are written when an agenda file is saved on the phone,
+and again every half hour, so tasks synced from the Mac ring too.  Only
+the next 7 days are set.  Done tasks don't ring.
+
+* Notes
+
+** A new note: SPC n r f, then a new title
+Type a title that doesn't exist and press RET.  The note asks:
+1. What is it, in your own words?  (Empty answer: write it later.  The
+   empty-notes walk will bring it back.)
+2. Where is it from?  A link becomes its =ROAM_REFS=, and a source makes
+   it a literature note.
+3. Why does it matter to you?
+4. What would you type to find it later?
+5. What does it connect to?
+A note made from an EHP note is tagged =ehp= too.
+
+** Write for the search you'll make later
+Don't just collect.  When you write a note, think: *when I need this in
+six months, what will I type?*  Put those words in, whether or not the
+title has them: a problem (=slow startup=), a person (=Subash=), a
+place, or the moment you'll need it (=before an interview=).  Commas
+separate them.  Words and tags you used before are offered.
+
+They show, dimmed after a magnifier, in =SPC n r f= and =SPC n r i=,
+and typing them finds the note.  They are kept as =:SEARCH:=.
+
+** Give an old note search words: SPC n r w
+In any note, =SPC n r w= adds words to find it by.  When you reread a
+note (or write one in the empty-notes walk), you're asked too, if it
+has none yet.
+
+** Only the notes that have search words
+In =SPC n r f=, type =has:search= to list only the notes with search
+words.  =has:tags= does the same for notes with tags.  Add more words
+after a space to narrow the list: =has:search guitar=.
+
+** Link while you write: SPC n r i
+=SPC n r i= inserts a link to a note.  A title that doesn't exist yet
+makes a new note, which asks the same questions as =SPC n r f=.
+
+** See what links here: SPC n r t
+=SPC n r t= opens the side buffer: the notes that link to this one.  A
+note with no links is easy to lose.  Link it from a note you'll visit.
+
+** Another name for a note: SPC n r l a
+An alias is a second title.  It shows as its own entry in =SPC n r f=,
+and links can use it.  Use an alias for a true other name (an
+abbreviation, a translation).  For anything else, use search words.
+
+** Empty notes walk: SPC n r e
+Goes through the notes with almost nothing in them, the most linked
+first.  For each one:
+- =w=: write a line or two
+- =h=: a hub (its links are its content; never asked again)
+- =d=: delete (only when nothing links to it)
+- =n=: later
+- =q=: stop
+The daily review offers one a day.
+
+** Break a big note down: SPC n r b
+In a long note, =SPC n r b= goes through its headings.  Each one either
+becomes its own note (a link is left in its place) or stays.  First it
+asks for one line on what the whole note is about.  =SPC n r B= walks
+all the big notes.  =k= keeps a note whole: a log or a list is never
+asked again.
+
+** Reread one note a day: SPC n r o
+=SPC n r o= (or *Reread* on the phone's home page) opens today's note,
+read-only: the most overdue one, or the one untouched longest.  In the
+evening, the review asks what you'd keep from it now.  Your answer goes
+under its =* Rereads= heading.  The next reread is a week away, then a
+month, 3 months, 6 months, then a year.  A note you didn't open asks
+nothing.
+
+** Add a paper: SPC n r p
+Paste a DOI or an arXiv id.  You get:
+- its entry in =added.bib=
+- its PDF
+- a note with =ROAM_REFS= set
+Zotero is not needed.
+
+* Tasks and the day
+
+** Every task gets a date
+The daily review walks the tasks with no date (=SPC o v u= runs that
+walk any time).  A task rescheduled a second time is offered a
+breakdown into smaller steps (=SPC o v b=).
+
+** Say how long a task takes: SPC m c E
+Set an effort (=0:30=, =1:30=) on a task.  Time boxing gives the task a
+block that long.  Without an effort, a task gets 45 minutes.
+
+** Tomorrow in blocks: SPC o v T
+The evening review ends with it, or press =SPC o v T= any time.  It
+fits tomorrow's tasks around the things that already have a time,
+highest priority first, between 5:00 and 23:00, with 15 minutes between
+blocks.  Tasks that don't fit stay without a time.  Each block is a
+scheduled time, so it rings.
+
+** The calendar: SPC o c
+It opens full screen.  On the phone it shows one day:
+- =f= / =b=: next or previous day
+- =.=: today
+- =j=: go to a date
+- =q=: close
+The keys are also on the mode line.
+
+** Move a block on the calendar
+Long-press a block and drag it to move it.  Drag its edge to make it
+longer or shorter.  A long-press without moving opens its menu.  With
+keys:
+- =n= / =p=: next or previous block
+- =t=: give it a new time
+- =d=: remove its time
+- =RET=: open the task
+- =i=: clock in
+
+* Reviews
+
+** The daily review: SPC o v t
+On the phone it nags after 8 PM until the review is written.  In order,
+it:
+1. shows the day's facts and asks for your three lines
+2. dates the undated tasks
+3. asks what you'd keep from today's reread
+4. offers one empty note and one big note
+5. plans tomorrow's topics
+6. puts tomorrow in blocks on the calendar
+An empty answer skips; =q= stops a walk.
+
+** The weekly review: SPC o v w
+It opens once five of the week's seven dailies are written.  The
+monthly review is =SPC o v m=.

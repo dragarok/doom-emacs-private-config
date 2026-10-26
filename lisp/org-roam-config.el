@@ -61,8 +61,15 @@ the second element is the other tags."
            (othertags-str (when othertags
                             (concat
                              (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'nerd-icons-dgreen :v-adjust 0.02)) " "
-                             (propertize (string-join othertags ", ") 'face 'nerd-icons-dgreen)))))
-      (format " %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str ""))))
+                             (propertize (string-join othertags ", ") 'face 'nerd-icons-dgreen))))
+           ;; The words the note is to be found by (note-flow's :SEARCH:):
+           ;; shown, so the completion matches them.
+           (search (cdr (assoc "SEARCH" (org-roam-node-properties node))))
+           (search-str (when (org-string-nw-p search)
+                         (concat
+                          (propertize "=has:search=" 'display (nerd-icons-faicon "nf-fa-search" :face 'shadow :v-adjust 0.02)) " "
+                          (propertize (replace-regexp-in-string "[ \t]*;[ \t]*" ", " search) 'face 'shadow)))))
+      (format " %s %s %s %s" functiontag-str (org-roam-node-title node) (or othertags-str "") (or search-str ""))))
 
   ;; Override Doom's default display template with our custom one
   (setq org-roam-node-display-template "${fullformat}")
@@ -240,7 +247,7 @@ References from files that are already backlinking to NODE are excluded."
          :desc "Break big notes down"          "B" #'note-flow-split
          :desc "Reread today's note"           "o" #'note-flow-reread
          :desc "Add a paper"                   "p" #'papers-add
-         :desc "Notes for what I'm doing"      "w" #'note-flow-for-now
+         :desc "Words to find this note by"    "w" #'note-flow-search-words
          (:prefix ("l" . "Roam Alias")
           :desc "Add alias"                    "a" #'org-roam-alias-add
           :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
@@ -400,23 +407,6 @@ If in Evil normal mode, switch to insert mode."
     ('today (org-roam-dailies-goto-today))
     ('current-monday (org-roam-dailies-goto-monday-of-week))
     ('next-monday (org-roam-dailies-goto-monday-of-next-week))))
-
-
-;; ============================================================
-;; NOTES FROM THE OTHER MACHINE
-;; ============================================================
-
-;; Autosync indexes only what is saved here; a note written on the phone
-;; (or the Mac) waited for the next session's first sync to be found.
-;; Now an idle Emacs syncs, at most every half hour (1s on the Mac).
-(defvar my/org-roam-last-sync 0)
-(run-with-idle-timer
- 120 t
- (lambda ()
-   (when (and (featurep 'org-roam)
-              (> (- (float-time) my/org-roam-last-sync) 1800))
-     (setq my/org-roam-last-sync (float-time))
-     (let ((inhibit-message t)) (ignore-errors (org-roam-db-sync))))))
 
 (provide 'org-roam-config)
 ;;; org-roam-config.el ends here
