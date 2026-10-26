@@ -45,21 +45,15 @@
   "Build the homepage button grid."
   (let ((sections
          (list
-          ;; No River Flow section: the clock is the floating clock (Pause,
-          ;; Done, Cancel; Resume, Flow) and the clock line above the apps
-          ;; (tap: go to the task).  Clock in is the one thing it can't do.
+          ;; One place per thing: nothing here that the toolbar (Add, Micro,
+          ;; Zen, Camera, Keyboard) or the floating clock (Clock in, Flow,
+          ;; Pause, Done) already has.
           (list "Quick Actions"
                 (list
-                 (list :icon (nerd-icons-faicon "nf-fa-plus_circle")
-                       :title "Add" :desc "Task / Bean / Clock" :action 'rts-flow-add)
-                 (list :icon (nerd-icons-faicon "nf-fa-clock_o")
-                       :title "Clock in" :desc "Any task" :action 'rts-flow-manual)
                  (list :icon (nerd-icons-faicon "nf-fa-compass")
                        :title "State" :desc "Context + Energy" :action 'rts-flow-set-state)
                  (list :icon (nerd-icons-faicon "nf-fa-info_circle")
                        :title "Show State" :desc "View current" :action 'rts-flow-show-state)
-                 (list :icon (nerd-icons-faicon "nf-fa-bolt")
-                       :title "Micro" :desc "5-min task" :action 'micro-experiments-pick)
                  (list :icon (nerd-icons-faicon "nf-fa-pencil")
                        :title "Log" :desc "Daily note" :action 'micro-experiments-log)))
 
@@ -80,12 +74,6 @@
                 (list
                  (list :icon (nerd-icons-faicon "nf-fa-list")
                        :title "Buffers" :desc "Buffer list" :action 'ibuffer)
-                 (list :icon (nerd-icons-faicon "nf-fa-leaf")
-                       :title "Zen" :desc "Writeroom" :action 'global-writeroom-mode)
-                 (list :icon (nerd-icons-faicon "nf-fa-camera")
-                       :title "Camera" :desc "Attach media" :action 'my/org-attach-media)
-                 (list :icon (nerd-icons-faicon "nf-fa-keyboard_o")
-                       :title "Keyboard" :desc "Toggle input" :action 'my/toggle-touch-keyboard)
                  (list :icon (nerd-icons-faicon "nf-fa-image")
                        :title "Diary" :desc "Browse photos" :action 'my/diary-browse-images)
                  (list :icon (nerd-icons-faicon "nf-fa-bar_chart")

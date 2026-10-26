@@ -19,8 +19,11 @@
 (defconst emacs-home-dir "/data/data/com.termux/files/home/.emacs-home/"
   "Where the app writes the catalog.  It shares Emacs's uid, so both can.")
 
-(defvar emacs-home-icon-lines 1.4
-  "Pinned icon height, in lines.")
+(defvar emacs-home-icons-per-row 8
+  "Pinned apps across the homepage; the icons grow to fill the width.")
+
+(defvar emacs-home-icon-fill 0.78
+  "How much of its cell an icon takes; the rest is the gap between them.")
 
 (defun emacs-home--apps ()
   "Installed apps as (LABEL PACKAGE ACTIVITY), from the app's catalog."
@@ -39,7 +42,9 @@
   (let ((png (expand-file-name (format "icons/%s_%s.png" (nth 1 app) (nth 2 app))
                                emacs-home-dir)))
     (if (file-exists-p png)
-        (propertize " " 'display (create-image png 'png nil :height height
+        ;; :scale 1 -- HEIGHT is meant in screen pixels, not before
+        ;; `image-scaling-factor'.
+        (propertize " " 'display (create-image png 'png nil :height height :scale 1
                                                :ascent 'center))
       " ")))
 
@@ -198,21 +203,39 @@ Loads the day log then, a moment after, rather than at startup."
     (run-at-time 0 nil #'abort-recursive-edit))
   nil)
 
+(defun emacs-home--launcher-icon (size)
+  "A SIZE-pixel square of three by three dots: the button for all apps."
+  (require 'svg)
+  (let ((svg (svg-create size size))
+        (fg (face-attribute 'android-homepage-title :foreground nil 'default))
+        (r (/ size 14.0)))
+    (svg-rectangle svg 0 0 size size :rx (/ size 4.5)
+                   :fill (face-attribute 'default :background) :stroke fg
+                   :stroke-width (max 2 (/ size 30)))
+    (dolist (x '(0.3 0.5 0.7))
+      (dolist (y '(0.3 0.5 0.7))
+        (svg-circle svg (* x size) (* y size) r :fill fg)))
+    (propertize " " 'display (svg-image svg :scale 1 :ascent 'center))))
+
 (defun emacs-home-widget ()
-  "Dashboard widget: All apps and Pin buttons, then the pinned icons."
+  "Dashboard widget: the clock line, Pin and Day, then the pinned icons,
+`emacs-home-icons-per-row' to a row, big, with all apps as the last one."
   (let* ((apps (emacs-home--apps))
          (by-key (mapcar (lambda (app) (cons (emacs-home--key app) app)) apps))
          (pinned (delq nil (mapcar (lambda (key) (cdr (assoc key by-key)))
                                    (emacs-home--pins))))
-         (height (round (* emacs-home-icon-lines (default-line-height))))
-         (gap (frame-char-width))
-         ;; Measured, not HEIGHT: `image-scaling-factor' enlarges it on screen.
-         (icon (and pinned (get-text-property 0 'display
-                                              (emacs-home--icon (car pinned) height))))
-         (width (if (consp icon) (car (image-size icon t)) height))
-         ;; Two spaces lead each row, one follows each icon.
-         (per-row (max 1 (/ (- (window-body-width nil t) (* 2 gap))
-                            (+ width gap)))))
+         (margin (frame-char-width))
+         (cell (/ (- (window-body-width nil t) (* 2 margin)) emacs-home-icons-per-row))
+         (size (round (* cell emacs-home-icon-fill)))
+         (gap (propertize " " 'display `(space :width (,(- cell size)))))
+         (cells (append (mapcar (lambda (app)
+                                  (list (emacs-home--icon app size)
+                                        (lambda (_) (emacs-home-open app))
+                                        (car app)))
+                                pinned)
+                        (list (list (emacs-home--launcher-icon size)
+                                    (lambda (_) (usage-log-call "dashboard" #'emacs-home-launch))
+                                    (format "All apps (%d)" (length apps)))))))
     (insert "\n  ")
     ;; First button, so the dashboard parks point -- and the line highlight
     ;; and box cursor that come with it -- on this text, not the icons.
@@ -233,11 +256,6 @@ Loads the day log then, a moment after, rather than at startup."
        'follow-link t
        'face 'android-homepage-desc))
     (insert "\n  ")
-    (insert-text-button (format "All apps (%d)" (length apps))
-                        'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-launch))
-                        'follow-link t
-                        'face 'android-homepage-title)
-    (insert "    ")
     (insert-text-button "Pin / unpin"
                         'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-toggle-pin))
                         'follow-link t
@@ -248,18 +266,19 @@ Loads the day log then, a moment after, rather than at startup."
                         'follow-link t
                         'face 'android-homepage-title)
     (insert "\n")
-    (dolist (row (seq-partition pinned per-row))
-      (insert "  ")
-      (dolist (app row)
+    (dolist (row (seq-partition cells emacs-home-icons-per-row))
+      (insert (propertize " " 'display `(space :width (,margin))))
+      (pcase-dolist (`(,icon ,action ,label) row)
         ;; Not the `button' face: its underline sits on the baseline, which
         ;; `:ascent center' puts straight through the middle of the icon.
-        (insert-text-button (emacs-home--icon app height)
+        (insert-text-button icon
                             'face 'default
-                            'action (lambda (_) (emacs-home-open app))
+                            'action action
                             'follow-link t
-                            'help-echo (car app))
-        (insert " "))
-      (insert "\n"))))
+                            'help-echo label)
+        (insert gap))
+      ;; A little air between rows too, so a tap lands on one icon.
+      (insert (propertize "\n" 'line-spacing (/ (- cell size) 2))))))
 
 (add-to-list '+dashboard-functions #'emacs-home-widget)
 
