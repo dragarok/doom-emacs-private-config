@@ -32,7 +32,10 @@
    #'doom-root--q
    (append
     (delq nil (mapcar (lambda (v) (when (getenv v) (format "%s=%s" v (getenv v))))
-                      '("EMACS_CLASS_PATH" "EMACS_LD_LIBRARY_PATH" "TMPDIR")))
+                      ;; A proxy, when the phone's own network is down
+                      ;; (one over `adb reverse' from the Mac, say).
+                      '("EMACS_CLASS_PATH" "EMACS_LD_LIBRARY_PATH" "TMPDIR"
+                        "http_proxy" "https_proxy" "no_proxy")))
     (list (format "HOME=%s" doom-root--files)
           (format "EMACS=%s" doom-root--emacs)
           (concat "PATH=/data/data/com.termux/files/usr/bin:" (getenv "PATH"))
