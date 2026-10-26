@@ -38,8 +38,10 @@
   (format "%s/%s" (nth 1 app) (nth 2 app)))
 
 ;; Besides apps, the grid takes other apps' widgets, drawn by the app
-;; (Widgets.java), and Hail's freeze.  They are pinned like apps, as
-;; entries ("LABEL" "widget" PROVIDER CELLS) and ("LABEL" "hail" ACTION).
+;; (Widgets.java), apps' shortcuts (Shortcuts.java: Firefox's private tab)
+;; and Hail's freeze.  They are pinned like apps, as entries ("LABEL"
+;; "widget" PROVIDER CELLS), ("LABEL" "shortcut" "PACKAGE/ID") and ("LABEL"
+;; "hail" ACTION).
 
 (defvar emacs-home-hail-action "FREEZE_AUTO"
   "Hail's API action for its tile: Hail's auto freeze, of the apps not running.")
@@ -56,13 +58,25 @@
                           (string-to-number (or cells "1")))))
                 (split-string (buffer-string) "\n" t))))))
 
+(defun emacs-home--shortcuts ()
+  "Apps' shortcuts as (\"App: Shortcut\" \"shortcut\" \"PACKAGE/ID\" ICON-FILE)."
+  (let ((file (expand-file-name "shortcuts.tsv" emacs-home-dir)))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (mapcar (lambda (line)
+                  (pcase-let ((`(,label ,pkg ,id ,icon) (split-string line "\t")))
+                    (list label "shortcut" (concat pkg "/" id) icon)))
+                (split-string (buffer-string) "\n" t))))))
+
 (defun emacs-home--hail-app (apps)
   (seq-find (lambda (a) (equal (nth 1 a) "com.aistra.hail")) apps))
 
 (defun emacs-home--pinnable (apps)
-  "Everything that can be pinned: APPS, the widgets, and Hail's freeze."
+  "Everything that can be pinned: APPS, the widgets, shortcuts and Hail's freeze."
   (append apps
           (emacs-home--providers)
+          (emacs-home--shortcuts)
           (when (emacs-home--hail-app apps)
             (list (list "Hail: freeze apps" "hail" emacs-home-hail-action)))))
 
@@ -82,7 +96,9 @@
 
 (defun emacs-home--icon (app height)
   "APP's icon as a string displaying an image HEIGHT pixels tall."
-  (let ((png (expand-file-name (format "icons/%s_%s.png" (nth 1 app) (nth 2 app))
+  (let ((png (expand-file-name (if (equal (nth 1 app) "shortcut")
+                                   (concat "icons/" (nth 3 app))
+                                 (format "icons/%s_%s.png" (nth 1 app) (nth 2 app)))
                                emacs-home-dir)))
     (if (file-exists-p png)
         ;; :scale 1 -- HEIGHT is meant in screen pixels, not before
@@ -310,6 +326,16 @@ slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
              (usage-log "dashboard" "hail-freeze")
              (android-browse-url (format "emacs-home://hail/%s" (nth 2 entry))))
            "Freeze apps (Hail)" 1))
+    ("shortcut"
+     (list (emacs-home--icon entry size)
+           (lambda (_)
+             (usage-log "dashboard" (nth 2 entry))
+             ;; The id may hold a / itself; the package can't.
+             (string-match "\\`\\([^/]+\\)/" (nth 2 entry))
+             (android-browse-url (format "emacs-home://shortcut/%s/%s"
+                                         (match-string 1 (nth 2 entry))
+                                         (url-hexify-string (substring (nth 2 entry) (match-end 0))))))
+           (car entry) 1))
     (_ (list (emacs-home--icon entry size)
              (lambda (_) (emacs-home-open entry))
              (car entry) 1))))

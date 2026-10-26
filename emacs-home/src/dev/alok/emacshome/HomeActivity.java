@@ -20,6 +20,7 @@ public class HomeActivity extends Activity {
             Emacs.eval(app, "(emacs-home-on-home)");
             Catalog.write(app);
             Widgets.writeProviders(app);
+            Shortcuts.write(app);
         }).start();
         finish();
     }

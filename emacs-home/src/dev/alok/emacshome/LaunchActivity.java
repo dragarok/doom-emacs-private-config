@@ -13,6 +13,7 @@ import java.util.List;
  * started -- never one of our own user's unexported activities.
  * emacs-home://hail/ACTION sends Hail one of its own API actions
  * (com.aistra.hail.action.ACTION), from a fixed list.
+ * emacs-home://shortcut/PACKAGE/ID starts an app's own published shortcut.
  */
 public class LaunchActivity extends Activity {
     private static final java.util.Set<String> HAIL = new java.util.HashSet<>(java.util.Arrays.asList(
@@ -31,6 +32,8 @@ public class LaunchActivity extends Activity {
             } catch (Exception e) {
                 android.util.Log.w("EmacsHome", "hail " + seg.get(0), e);
             }
+        } else if (uri != null && "shortcut".equals(uri.getHost()) && seg.size() == 2) {
+            Shortcuts.start(this, seg.get(0), seg.get(1));
         } else if (uri != null && "launch".equals(uri.getHost()) && seg.size() == 2) {
             Intent launchable = new Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_LAUNCHER).setPackage(seg.get(0));
