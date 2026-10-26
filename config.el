@@ -305,9 +305,10 @@
   (require 'timegrid-iosevka-font)
   (setq org-timegrid-android-font-regular timegrid-iosevka-font-regular
         org-timegrid-android-font-bold timegrid-iosevka-font-bold
-        ;; Where the year starts after the month: Iosevka is half an em wide.
+        ;; Where the year starts after the month: Iosevka is half an em wide
+        ;; (39 at the title's size), plus room for a space.
         org-timegrid-android-header-title-style
-        (plist-put (copy-sequence org-timegrid-android-header-title-style) :character-width 39)))
+        (plist-put (copy-sequence org-timegrid-android-header-title-style) :character-width 44)))
 ;; Tomorrow's tasks in blocks of time, around what is fixed (timebox.el):
 ;; the evening review's last step; again by hand after adding a task.
 (autoload 'timebox-tomorrow "timebox" nil t)
