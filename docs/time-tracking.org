@@ -65,6 +65,11 @@ That is all.  Everything else happens on its own.
     (tag =:agent:=) after 2 minutes; shorter runs go to "Agent quick asks".
   - The agent finishes → it renames its own task to what was done, adds a
     summary, marks it DONE.
+  - While an agent works on a TODO, it is NEXT.
+  - An agent's own task with no agent work for 6 hours is closed DONE by
+    itself, with a note; its next work gets a new task.  Your task that an
+    agent moved to NEXT goes back to TODO instead.  You never close agent
+    tasks by hand.
   - Blocked on you → counted as waiting.
 - You looking at an agent in Emacs (=SPC j j=), active → the clock moves to
   its task after 30 s; leave it and your previous task comes back.  Idle 3

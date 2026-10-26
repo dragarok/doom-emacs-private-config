@@ -21,6 +21,14 @@
 ;; (a quick question) go under "Agent quick asks".  On task_finish the agent
 ;; retitles its own task with what was done, notes a summary, marks it DONE.
 ;;
+;; States follow the work, so nothing needs closing by hand.  A TODO an
+;; agent starts working on becomes NEXT.  An agent's own task (tagged
+;; :agent:) with no run for `agent-time-close-after' is closed DONE, with a
+;; note saying so -- agents forget task_finish, and sessions stay open for
+;; days; later work in the same session gets a task of its own.  Your
+;; task that an agent moved to NEXT goes back to TODO instead.  A second
+;; task_start closes the agent's previous task the same way.
+;;
 ;; You.  While an agent's pane is in the selected window (the Herdr TUI or
 ;; an attach buffer) and you have been active in the last
 ;; `agent-time-active-secs', the org clock runs on that agent's task -- after
@@ -64,6 +72,10 @@
 
 (defcustom agent-time-quick-secs 120
   "Unassigned agent work longer than this gets a task of its own."
+  :type 'integer)
+
+(defcustom agent-time-close-after (* 6 3600)
+  "Seconds without an agent run before its task is closed (or put back)."
   :type 'integer)
 
 (defconst agent-time--quick-heading "Agent quick asks")
@@ -226,6 +238,82 @@ segment left open by a stopped Emacs can be said to have run.")
   `(setq ,st (thread-first ,st ,@(cl-loop for (k v) on kvs by #'cddr
                                          collect `(plist-put ,k ,v)))))
 
+;;;; States
+
+(defun agent-time--working (marker)
+  "An agent works on MARKER's task: TODO becomes NEXT, remembered as the
+agent's doing so it can be put back."
+  (agent-time--at marker
+    (when (equal (org-get-todo-state) "TODO")
+      (org-todo "NEXT")
+      (org-entry-put nil "AGENT_NEXT" "t"))))
+
+(defun agent-time--done (marker &optional title note)
+  "Mark MARKER's task DONE, retitled TITLE if given, with NOTE if given."
+  ;; DONE clocks out a clock on it; that isn't you stopping by hand.
+  (let ((agent-time--self t))
+    (agent-time--at marker
+      (when title (org-edit-headline title))
+      (org-todo "DONE")
+      ;; Its "State DONE" line waits for the end of a command, which an
+      ;; emacsclient call or a timer never has: write it now.
+      (when (memq 'org-add-log-note post-command-hook) (org-add-log-note))))
+  (when note (agent-time--note marker note)))
+
+(defun agent-time--last-run ()
+  "The entry at point's latest run end in seconds, t while one runs, else
+its CREATED time; nil if it has none of these."
+  (save-excursion
+    (org-back-to-heading t)
+    (let ((limit (save-excursion (outline-next-heading) (point))) last)
+      (while (and (not (eq last t))
+                  (re-search-forward "^[ \t]*\\(?:AGENT\\|WAIT\\): \\[[^]]+\\]\\(?:--\\[\\([^]]+\\)\\]\\)?"
+                                     limit t))
+        (setq last (if (match-beginning 1)
+                       (max (or last 0) (org-time-string-to-seconds (match-string 1)))
+                     t)))
+      (or last
+          (when-let* ((created (org-entry-get nil "CREATED")))
+            (org-time-string-to-seconds created))))))
+
+(defun agent-time-close-quiet ()
+  "Close agents' own tasks quiet for `agent-time-close-after'; put back to
+TODO your tasks an agent moved to NEXT.  Runs by itself now and then."
+  (interactive)
+  (let ((now (float-time)) closed)
+    (with-current-buffer (agent-time--tasks-buffer)
+      (org-with-wide-buffer
+       (goto-char (point-min))
+       (while (re-search-forward org-heading-regexp nil t)
+         (when-let* (((member (org-get-todo-state) '("TODO" "NEXT")))
+                     (whose (if (member "agent" (org-get-tags nil t)) 'agent 'yours))
+                     ((or (eq whose 'agent) (org-entry-get nil "AGENT_NEXT")))
+                     (last (agent-time--last-run))
+                     ((numberp last))
+                     ((> (- now last) agent-time-close-after)))
+           (let ((m (point-marker)))
+             (if (eq whose 'agent)
+                 (progn
+                   (agent-time--done m nil (format "Closed by itself: no agent work since %s."
+                                                   (agent-time--ts last)))
+                   (push (org-id-get) closed))
+               (agent-time--at m
+                 (org-todo "TODO")
+                 (org-entry-delete nil "AGENT_NEXT"))))))))
+    ;; The agents on them -- or on one you closed yourself -- start a new
+    ;; task with their next work.
+    (maphash (lambda (pane st)
+               (when (and (not (eq (plist-get st :how) 'user))
+                          (or (member (plist-get st :task) closed)
+                              (when-let* ((m (agent-time--marker (plist-get st :task))))
+                                (agent-time--at m (org-entry-is-done-p)))))
+                 (puthash pane (agent-time--put st :task nil :how nil :release nil)
+                          agent-time--panes)))
+             agent-time--panes)
+    (when (called-interactively-p 'any)
+      (message "%d agent task%s closed" (length closed) (if (= (length closed) 1) "" "s")))
+    closed))
+
 (defun agent-time--project (cwd)
   (when (and cwd (file-directory-p cwd))
     (file-name-nondirectory
@@ -240,7 +328,9 @@ segment left open by a stopped Emacs can be said to have run.")
 (defun agent-time--begin (pane st kind now)
   "Start a KIND segment for ST at NOW; the new ST."
   (let ((m (agent-time--marker (plist-get st :task))))
-    (when m (agent-time--append m (agent-time--open-line kind now pane)))
+    (when m
+      (agent-time--append m (agent-time--open-line kind now pane))
+      (when (equal kind "AGENT") (agent-time--working m)))
     (agent-time--put st :kind kind :since now)))
 
 (defun agent-time--end (pane st now)
@@ -267,6 +357,7 @@ The new ST."
     (dolist (seg (plist-get st :pending))
       (agent-time--append m (apply #'agent-time--closed-line (append seg (list pane)))))
     (when kind (agent-time--append m (agent-time--open-line kind since pane)))
+    (when (equal kind "AGENT") (agent-time--working m))
     (agent-time--put st :task id :how how :release nil :pending nil :since since)))
 
 (defun agent-time--pending-secs (st)
@@ -373,14 +464,20 @@ The new ST."
     (pcase (and m (not (plist-get st :release)) (plist-get st :how))
       ('user (format "The user assigned this agent to \"%s\"; your working time is recorded there. Don't rename it."
                      (agent-time--title-at m)))
+      ('agent (agent-time--done m nil "Closed by itself: the agent started other work.")
+              (agent-time--put st :task nil :how nil)
+              (agent-time--mcp-start-new pane st cwd title))
       ('auto (agent-time--at m (org-edit-headline title))
              (agent-time--put st :how 'agent)
              (puthash pane st agent-time--panes)
              (format "Task \"%s\" started; your working time is recorded to it." title))
-      (_ (let ((id (agent-time--create-task title (or (plist-get st :project)
-                                                       (agent-time--project cwd)))))
-           (puthash pane (agent-time--adopt pane st id 'agent) agent-time--panes)
-           (format "Task \"%s\" created and started; your working time is recorded to it." title))))))
+      (_ (agent-time--mcp-start-new pane st cwd title)))))
+
+(defun agent-time--mcp-start-new (pane st cwd title)
+  (let ((id (agent-time--create-task title (or (plist-get st :project)
+                                               (agent-time--project cwd)))))
+    (puthash pane (agent-time--adopt pane st id 'agent) agent-time--panes)
+    (format "Task \"%s\" created and started; your working time is recorded to it." title)))
 
 (defun agent-time--mcp-finish (pane title summary)
   (let* ((st (gethash pane agent-time--panes))
@@ -391,15 +488,7 @@ The new ST."
       (agent-time--note m summary)
       (format "Summary noted on \"%s\" (the user's task; left open)." (agent-time--title-at m)))
      (t
-      ;; DONE clocks out a clock on it; that isn't you stopping by hand.
-      (let ((agent-time--self t))
-        (agent-time--at m
-          (org-edit-headline title)
-          (org-todo "DONE")
-          ;; Its "State DONE" line waits for the end of a command, which an
-          ;; emacsclient call never has: write it now.
-          (when (memq 'org-add-log-note post-command-hook) (org-add-log-note))))
-      (agent-time--note m summary)
+      (agent-time--done m title summary)
       (agent-time--put st :release t)
       (puthash pane st agent-time--panes)
       (format "Task \"%s\" is DONE with your summary." title)))))
@@ -477,6 +566,8 @@ so the phone sees them."
         (org-with-point-at m (org-clock-in nil (seconds-to-time at)))
         (agent-time--save-clock-buffers)))))
 
+(defvar agent-time--last-sweep 0)
+
 (defun agent-time--tick ()
   (condition-case err
       (let* ((now (float-time))
@@ -504,7 +595,10 @@ so the phone sees them."
             (when active (agent-time--resume-now agent-time--away))
             (setq agent-time--away nil)))
          ((and active agent-time--resume)
-          (agent-time--resume-now now))))
+          (agent-time--resume-now now)))
+        (when (> now (+ agent-time--last-sweep 600))
+          (setq agent-time--last-sweep now)
+          (agent-time-close-quiet)))
     (error (message "agent-time: %s" (error-message-string err)))))
 
 (defun agent-time--by-hand ()
