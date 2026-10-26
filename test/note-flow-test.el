@@ -216,7 +216,8 @@ made from a note tagged ORIGIN-TAGS."
            (insert ":PROPERTIES:\n:ID:       new\n:END:\n#+TITLE: Spaced repetition\n")
            ;; As inside a capture of a new file (in a running Emacs, org-roam
            ;; is loaded and says otherwise out of one).
-           (cl-letf (((symbol-function 'org-roam-capture--get) (lambda (key) (eq key :new-file))))
+           (cl-letf (((symbol-function 'org-roam-capture--get) (lambda (key) (eq key :new-file)))
+                     ((symbol-function 'org-roam-node-read) (lambda (&rest _) nil)))
              (let ((note-flow--origin origin))
                (note-flow-test--answering ,answers nil (note-flow-new-note))))
            ,@body)
