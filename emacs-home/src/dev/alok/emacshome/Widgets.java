@@ -14,6 +14,8 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.RemoteViews;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -21,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,6 +32,7 @@ import java.util.Set;
  *   providers.tsv      (we write)   LABEL \t PROVIDER \t CELLS-WIDE
  *   widgets.tsv        (Emacs)      PROVIDER \t WIDTH-PX \t HEIGHT-PX
  *   widgets/KEY.png    (we write)   each wanted widget as it looks now
+ *   widgets/KEY.txt    (we write)   its text, one shown line a line
  * Hosted by FloatService, which always runs: a provider pushing an update
  * gets its widget drawn again.  Binding one takes a right granted once:
  *   adb shell appwidget grantbind --package dev.alok.emacshome
@@ -148,6 +152,18 @@ final class Widgets {
         return v;
     }
 
+    /** The text V shows, in layout order: Emacs can show it as text. */
+    private static void texts(View v, List<String> out) {
+        if (v.getVisibility() != View.VISIBLE) return;
+        if (v instanceof TextView) {
+            String t = ((TextView) v).getText().toString().replaceAll("\\s+", " ").trim();
+            if (!t.isEmpty()) out.add(t);
+        } else if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) texts(g.getChildAt(i), out);
+        }
+    }
+
     private void render(AppWidgetHostView v) {
         String provider = (String) v.getTag();
         int[] size = provider == null ? null : sizes.get(provider);
@@ -173,6 +189,13 @@ final class Widgets {
                 b.compress(Bitmap.CompressFormat.PNG, 100, out);
             }
             tmp.renameTo(new File(OUT, key(provider) + ".png"));
+            List<String> lines = new java.util.ArrayList<>();
+            texts(v, lines);
+            File txt = new File(OUT, key(provider) + ".txt.tmp");
+            try (FileOutputStream out = new FileOutputStream(txt)) {
+                out.write(String.join("\n", lines).getBytes(StandardCharsets.UTF_8));
+            }
+            txt.renameTo(new File(OUT, key(provider) + ".txt"));
         } catch (Exception e) {
             Log.w(TAG, "render " + provider, e);
         }

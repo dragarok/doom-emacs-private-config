@@ -85,6 +85,15 @@
                             (replace-regexp-in-string "[^A-Za-z0-9._-]" "_" provider))
                     emacs-home-dir))
 
+(defun emacs-home--widget-text (provider)
+  "The text PROVIDER's widget shows, its lines joined, or nil."
+  (let ((file (concat (file-name-sans-extension (emacs-home--widget-png provider)) ".txt")))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (let ((lines (split-string (buffer-string) "\n" t)))
+          (and lines (string-join lines "  ")))))))
+
 (defun emacs-home--write-widget-sizes (sizes)
   "Tell the app which widgets to draw, at what size: SIZES, (PROVIDER W H)."
   (let ((file (expand-file-name "widgets.tsv" emacs-home-dir))
@@ -423,7 +432,18 @@ slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
                             'help-echo label)
         (insert gap))
       ;; A little air between rows too, so a tap lands on one icon.
-      (insert (propertize "\n" 'line-spacing (/ (- cell size) 2))))))
+      (insert (propertize "\n" 'line-spacing (/ (- cell size) 2))))
+    ;; Pinned widgets' text, read off their views: a line each, apart from
+    ;; the icons (Simple Patro's date, as Simple Patro writes it).
+    (dolist (entry pinned)
+      (when-let* (((equal (nth 1 entry) "widget"))
+                  (text (emacs-home--widget-text (nth 2 entry))))
+        (insert "  ")
+        (insert-text-button text
+                            'action (nth 1 (emacs-home--cell entry apps size cell #'ignore))
+                            'follow-link t
+                            'face 'android-homepage-title)
+        (insert "\n")))))
 
 (add-to-list '+dashboard-functions #'emacs-home-widget)
 
