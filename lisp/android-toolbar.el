@@ -228,8 +228,9 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       ;; ===================================================================
       ;; REMOTE EMACS (claude-remote: one window per machine, all at once)
       ;; ===================================================================
-      ;; Two machine buttons + three that drive whichever machine you last
-      ;; entered.  Mac and Kai each keep their own connection, workspace and
+      ;; Two machine buttons, always there, and the ones that drive the
+      ;; machine -- shown only inside its remote view, as the Kairoam ones
+      ;; are only in org.  Mac and Kai each keep their own connection, workspace and
       ;; keyboard state, so tapping between them never tears one down: tap
       ;; the machine you are already driving to hand the keyboard back to
       ;; Android, tap the other to land straight in it.
@@ -248,11 +249,13 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-prev>"
         `(menu-item "Prev" claude-remote-prev-session
           :help "Previous agent in the remote Herdr"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/backward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-next>"
         `(menu-item "Next" claude-remote-next-session
           :help "Next agent in the remote Herdr"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/forward-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       ;; (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-talk>"
@@ -268,16 +271,19 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-escape>"
         `(menu-item "Esc" claude-remote-escape
           :help "Send ESC to the focused agent: interrupt it, or back out of a prompt"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/logout-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-add>"
         `(menu-item "Add" claude-remote-add-session
           :help "Add an agent in Herdr (asks which project)"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/add-circle-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-refresh>"
         `(menu-item "Refresh" claude-remote-refresh-session
           :help "Start the Herdr view afresh (fixes a garbled display; agents keep running)"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/continue-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
       ;; The phone's clipboard has no other road to the remote: a link or an
@@ -287,6 +293,7 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-paste>"
         `(menu-item "Paste" claude-remote-paste
           :help "Paste the Android clipboard into the focused agent"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/paste-clipboard.svg"
                         :height ,icon-size :width ,icon-size)))
       ;; The one thing the Paste button cannot carry.  Android has no image
@@ -298,6 +305,7 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
       (keymap-set-after (default-value 'tool-bar-map) "<claude-remote-image>"
         `(menu-item "Image" claude-remote-paste-image
           :help "Send the newest screenshot to the focused agent"
+          :visible (bound-and-true-p claude-remote--machine-name)
           :image (image :type svg :file "~/.doom.d/toolbar-assets/camera-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 

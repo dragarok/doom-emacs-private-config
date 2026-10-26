@@ -19,6 +19,7 @@ public class HomeActivity extends Activity {
         new Thread(() -> {
             Emacs.eval(app, "(emacs-home-on-home)");
             Catalog.write(app);
+            Widgets.writeProviders(app);
         }).start();
         finish();
     }

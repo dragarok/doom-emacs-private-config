@@ -37,6 +37,49 @@
 (defun emacs-home--key (app)
   (format "%s/%s" (nth 1 app) (nth 2 app)))
 
+;; Besides apps, the grid takes other apps' widgets, drawn by the app
+;; (Widgets.java), and Hail's freeze.  They are pinned like apps, as
+;; entries ("LABEL" "widget" PROVIDER CELLS) and ("LABEL" "hail" ACTION).
+
+(defvar emacs-home-hail-action "FREEZE_NON_WHITELISTED"
+  "Hail's API action for its tile: freeze every app not whitelisted in Hail.")
+
+(defun emacs-home--providers ()
+  "Installed widgets as (\"App: Widget\" \"widget\" PROVIDER CELLS)."
+  (let ((file (expand-file-name "providers.tsv" emacs-home-dir)))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (mapcar (lambda (line)
+                  (pcase-let ((`(,label ,provider ,cells) (split-string line "\t")))
+                    (list (concat "Widget: " label) "widget" provider
+                          (string-to-number (or cells "1")))))
+                (split-string (buffer-string) "\n" t))))))
+
+(defun emacs-home--hail-app (apps)
+  (seq-find (lambda (a) (equal (nth 1 a) "com.aistra.hail")) apps))
+
+(defun emacs-home--pinnable (apps)
+  "Everything that can be pinned: APPS, the widgets, and Hail's freeze."
+  (append apps
+          (emacs-home--providers)
+          (when (emacs-home--hail-app apps)
+            (list (list "Hail: freeze apps" "hail" emacs-home-hail-action)))))
+
+(defun emacs-home--widget-png (provider)
+  (expand-file-name (format "widgets/%s.png"
+                            (replace-regexp-in-string "[^A-Za-z0-9._-]" "_" provider))
+                    emacs-home-dir))
+
+(defun emacs-home--write-widget-sizes (sizes)
+  "Tell the app which widgets to draw, at what size: SIZES, (PROVIDER W H)."
+  (let ((file (expand-file-name "widgets.tsv" emacs-home-dir))
+        (text (mapconcat (lambda (s) (format "%s\t%d\t%d\n" (car s) (nth 1 s) (nth 2 s))) sizes "")))
+    ;; Only when it changes: the app redraws on every write.
+    (unless (and (file-exists-p file)
+                 (equal text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+      (with-temp-file file (insert text)))))
+
 (defun emacs-home--icon (app height)
   "APP's icon as a string displaying an image HEIGHT pixels tall."
   (let ((png (expand-file-name (format "icons/%s_%s.png" (nth 1 app) (nth 2 app))
@@ -130,12 +173,13 @@ flow, clockin (any task, as the homepage's Clock in)."
     (run-at-time 0 nil #'usage-log-call "island" command))
   nil)
 
-(defun emacs-home--read-app (prompt &optional mark)
+(defun emacs-home--read-app (prompt &optional mark apps)
   "Read an installed app with PROMPT, showing icons.
-MARK, if non-nil, is called with each app and returns a suffix string."
+MARK, if non-nil, is called with each app and returns a suffix string.
+APPS, if given, is what to choose from instead of the installed apps."
   (let ((table (make-hash-table :test #'equal))
         (height (* 2 (default-line-height))))
-    (dolist (app (emacs-home--apps))
+    (dolist (app (or apps (emacs-home--apps)))
       ;; Two launcher entries can share a label; tell them apart.
       (puthash (if (gethash (car app) table)
                    (format "%s (%s)" (car app) (nth 1 app))
@@ -172,7 +216,8 @@ MARK, if non-nil, is called with each app and returns a suffix string."
                (emacs-home--read-app
                 "Pin/unpin: "
                 (lambda (app)
-                  (if (member (emacs-home--key app) pins) "  ★ pinned" ""))))))
+                  (if (member (emacs-home--key app) pins) "  ★ pinned" ""))
+                (emacs-home--pinnable (emacs-home--apps))))))
     (with-temp-file (expand-file-name "pins.eld" emacs-home-dir)
       (prin1 (if (member key pins) (delete key pins) (append pins (list key)))
              (current-buffer)))
@@ -239,25 +284,64 @@ in -- pick the task it matches, or RET to make it one."
     (minibuffer-with-setup-hook (lambda () (insert text))
       (rts-flow-manual))))
 
+(defun emacs-home--cell (entry apps size cell want)
+  "ENTRY's tile, (ICON ACTION LABEL SPAN), SIZE pixels tall in CELL-wide
+slots.  A widget calls WANT with (PROVIDER W H), the size to draw it at."
+  (pcase (nth 1 entry)
+    ("widget"
+     (let* ((provider (nth 2 entry)) (span (nth 3 entry))
+            (w (- (* span cell) (- cell size)))
+            (png (emacs-home--widget-png provider))
+            (app (seq-find (lambda (a) (equal (nth 1 a) (car (split-string provider "/")))) apps)))
+       (funcall want (list provider w size))
+       (list (if (file-exists-p png)
+                 (propertize " " 'display (create-image png 'png nil :width w :height size
+                                                        :scale 1 :ascent 'center))
+               (propertize " " 'display `(space :width (,w) :height (,size))))
+             (lambda (_) (when app (emacs-home-open app)))
+             (car entry) span)))
+    ("hail"
+     (list (emacs-home--icon (emacs-home--hail-app apps) size)
+           (lambda (_)
+             (usage-log "dashboard" "hail-freeze")
+             (android-browse-url (format "emacs-home://hail/%s" (nth 2 entry))))
+           "Freeze apps (Hail)" 1))
+    (_ (list (emacs-home--icon entry size)
+             (lambda (_) (emacs-home-open entry))
+             (car entry) 1))))
+
+(defun emacs-home--rows (cells per-row)
+  "CELLS, (ICON ACTION LABEL SPAN), in rows of PER-ROW slots."
+  (let (rows row (used 0))
+    (dolist (c cells)
+      (let ((span (min per-row (or (nth 3 c) 1))))
+        (when (> (+ used span) per-row)
+          (push (nreverse row) rows)
+          (setq row nil used 0))
+        (push c row)
+        (cl-incf used span)))
+    (when row (push (nreverse row) rows))
+    (nreverse rows)))
+
 (defun emacs-home-widget ()
   "Dashboard widget: the clock line, Pin and Day, then the pinned icons,
 `emacs-home-icons-per-row' to a row, big, with all apps as the last one."
   (let* ((apps (emacs-home--apps))
-         (by-key (mapcar (lambda (app) (cons (emacs-home--key app) app)) apps))
+         (by-key (mapcar (lambda (app) (cons (emacs-home--key app) app))
+                         (emacs-home--pinnable apps)))
          (pinned (delq nil (mapcar (lambda (key) (cdr (assoc key by-key)))
                                    (emacs-home--pins))))
          (margin (frame-char-width))
          (cell (/ (- (window-body-width nil t) (* 2 margin)) emacs-home-icons-per-row))
          (size (round (* cell emacs-home-icon-fill)))
          (gap (propertize " " 'display `(space :width (,(- cell size)))))
-         (cells (append (mapcar (lambda (app)
-                                  (list (emacs-home--icon app size)
-                                        (lambda (_) (emacs-home-open app))
-                                        (car app)))
+         (widgets nil)
+         (cells (append (mapcar (lambda (app) (emacs-home--cell app apps size cell
+                                                               (lambda (w) (push w widgets))))
                                 pinned)
                         (list (list (emacs-home--launcher-icon size)
                                     (lambda (_) (usage-log-call "dashboard" #'emacs-home-launch))
-                                    (format "All apps (%d)" (length apps)))))))
+                                    (format "All apps (%d)" (length apps)) 1)))))
     (insert "\n  ")
     ;; First button, so the dashboard parks point -- and the line highlight
     ;; and box cursor that come with it -- on this text, not the icons.
@@ -296,7 +380,8 @@ in -- pick the task it matches, or RET to make it one."
                         'follow-link t
                         'face 'android-homepage-title)
     (insert "\n")
-    (dolist (row (seq-partition cells emacs-home-icons-per-row))
+    (emacs-home--write-widget-sizes (nreverse widgets))
+    (dolist (row (emacs-home--rows cells emacs-home-icons-per-row))
       (insert (propertize " " 'display `(space :width (,margin))))
       (pcase-dolist (`(,icon ,action ,label) row)
         ;; Not the `button' face: its underline sits on the baseline, which

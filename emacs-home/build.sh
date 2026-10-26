@@ -29,6 +29,8 @@ if [ "$1" = install ]; then
   adb shell appops set dev.alok.emacshome SYSTEM_ALERT_WINDOW allow
   adb shell appops set dev.alok.emacshome GET_USAGE_STATS allow
   adb shell pm grant dev.alok.emacshome android.permission.POST_NOTIFICATIONS || true
+  # Host other apps' widgets (Widgets.java) without asking each time.
+  adb shell appwidget grantbind --package dev.alok.emacshome --user 0 || true
   # The clock's island above the status bar (IslandAccess), added to the
   # accessibility services already on rather than replacing them.
   ISLAND=dev.alok.emacshome/dev.alok.emacshome.IslandAccess

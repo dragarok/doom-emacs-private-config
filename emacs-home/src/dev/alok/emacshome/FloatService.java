@@ -83,6 +83,7 @@ public class FloatService extends Service {
     private ValueAnimator morph;
     private final Runnable autoHide = () -> setOpen(false);
     private FileObserver observer;
+    private Widgets widgets;
 
     // Locked: shrunk to a dot that touches pass through (games), until
     // Emacs is back in front -- Home, or the foreground log seeing it.
@@ -108,9 +109,12 @@ public class FloatService extends Service {
                                     FileObserver.CLOSE_WRITE | FileObserver.MOVED_TO) {
             @Override public void onEvent(int event, String path) {
                 if (CLOCK.getName().equals(path)) main.post(FloatService.this::refresh);
+                if (Widgets.WANTED.getName().equals(path)) main.post(widgets::sync);
             }
         };
         observer.startWatching();
+        widgets = new Widgets(this, main);
+        widgets.start();
         main.post(tick);
     }
 
@@ -125,6 +129,7 @@ public class FloatService extends Service {
     public void onDestroy() {
         main.removeCallbacks(tick);
         if (observer != null) observer.stopWatching();
+        if (widgets != null) widgets.stop();
         if (island != null) wm.removeView(island);
         super.onDestroy();
     }
