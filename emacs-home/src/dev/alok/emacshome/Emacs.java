@@ -9,6 +9,11 @@ final class Emacs {
     static final String PACKAGE = "org.gnu.emacs";
 
     static void eval(Context c, String form) {
+        tryEval(c, form);
+    }
+
+    /** As eval; true when Emacs answered (it may not be running yet). */
+    static boolean tryEval(Context c, String form) {
         try {
             String client = c.getPackageManager().getApplicationInfo(PACKAGE, 0)
                     .nativeLibraryDir + "/libemacsclient.so";
@@ -17,9 +22,11 @@ final class Emacs {
                     + android.os.Process.myUid() + "/server";
             Process p = new ProcessBuilder(client, "-s", socket, "--eval", form)
                     .redirectErrorStream(true).start();
-            if (!p.waitFor(10, TimeUnit.SECONDS)) p.destroy();
+            if (!p.waitFor(10, TimeUnit.SECONDS)) { p.destroy(); return false; }
+            return p.exitValue() == 0;
         } catch (Exception e) {
             Log.w("EmacsHome", "eval " + form, e);
+            return false;
         }
     }
 }

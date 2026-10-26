@@ -27,6 +27,7 @@ Everything here either removes friction or collects data with no effort.
 | Dashboard | `emacs-home.el` | Clock line, All apps / Pin buttons, pinned icon rows |
 | Day log | `../lisp/day-log.el` | The daily review that writes itself from the clock, the logs and DONEs; closes each day by itself (Day button) |
 | Toolbar widgets | `../lisp/android-launcher.el` | Older: Termux:Widget shortcuts via `org-protocol://emacs-cmd` (still works) |
+| Reminders | `Reminders`, `ReminderReceiver`, `../lisp/reminders.el` | Emacs writes `reminders.tsv` (next 7 days: a timed task 10 min before, or its `:REMIND:`); the app sets an exact alarm per line and rings it as a notification — tap opens the task, Clock in, Snooze 10m — even with Emacs asleep. Re-read on every write and when FloatService starts (alarms don't survive a reboot) |
 
 ### The clock island
 

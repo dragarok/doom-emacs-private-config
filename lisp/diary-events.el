@@ -273,7 +273,9 @@ Works with org-roam-dailies if available, otherwise uses simple dated file."
           (unless (file-exists-p daily-file)
             ;; Create via org-roam-dailies to get proper template
             (save-window-excursion
-              (org-roam-dailies-goto-date date)
+              ;; Its first argument is PREFER-FUTURE, not a date: given
+              ;; one, it asked for the date.  This goes to DATE itself.
+              (org-roam-dailies--capture (org-read-date nil t date) t)
               (save-buffer)))
           daily-file)
       ;; Fallback: simple dated file in org-directory

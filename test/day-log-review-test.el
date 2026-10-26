@@ -16,6 +16,8 @@
 ;; Loaded now, so loading them mid-test can't undo the stand-ins below.
 (require 'org-summary)
 (require 'org-flow)
+(require 'note-flow)
+(require 'timebox)
 
 (defmacro day-log-test--with (&rest body)
   "BODY with an empty review file and no agenda; `planned' collects the
@@ -28,11 +30,13 @@ planner's calls, `walked' whether the undated walk ran."
           (org-agenda-files nil)
           (org-summary-plots-directory dir)
           (org-summary-topics-file (expand-file-name "topics.org" dir))
-          (planned nil) (walked nil) (asked nil))
+          (planned nil) (walked nil) (noted nil) (asked nil) (boxed nil))
      (with-temp-file org-dailyreview-file (insert "#+title: Daily reviews\n"))
      (with-temp-file org-recurring-file (insert ""))
      (cl-letf (((symbol-function 'org-flow-undated) (lambda () '(undated)))
                ((symbol-function 'org-flow-date-undated) (lambda () (setq walked t)))
+               ((symbol-function 'note-flow-review) (lambda () (setq noted t)))
+               ((symbol-function 'timebox-tomorrow) (lambda (day) (setq boxed day)))
                ((symbol-function 'org-summary-plan-topics)
                 (lambda (&rest args) (push args planned))))
        (unwind-protect (progn ,@body)
@@ -56,7 +60,8 @@ planner's calls, `walked' whether the undated walk ran."
 
 (ert-deftest day-log-test-review ()
   "Three lines asked in turn and written; written, so closed; every task
-dated; tomorrow's daily topics planned for the day after the review's."
+dated; tomorrow's daily topics planned for the day after the review's,
+and that day boxed."
   (day-log-test--with
     (let* ((today (day-log--today))
            (prompts (day-log-test--answering '("Long day, got the essay out" "6" "Guitar scales")
@@ -70,7 +75,9 @@ dated; tomorrow's daily topics planned for the day after the review's."
       (should (string-match-p ":DAY_LOG: +written" text))
       (should (day-log-written-p today))
       (should walked)
-      (should (equal planned (list (list "Daily topics" (day-log--shift today 1))))))))
+      (should noted)
+      (should (equal planned (list (list "Daily topics" (day-log--shift today 1)))))
+      (should (= boxed (1+ (org-time-string-to-absolute today)))))))
 
 (ert-deftest day-log-test-review-again ()
   "Run again, it offers what you wrote to edit, and an empty answer keeps

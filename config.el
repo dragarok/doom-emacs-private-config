@@ -143,16 +143,17 @@
 ;; it; it does not follow symlinks.  A no-op on the Mac, where ~/org is real.
 (if IS-ANDROID
     (progn
-      (setq project-resources-dir "/sdcard/workspace/resources")
+      (setq project-resources-dir "/sdcard/workspace/resources/")
       (setq org-directory (file-truename "/sdcard/org/"))
-      (setq! citar-bibliography '("/sdcard/org/references/articles.bib"))
+      ;; added.bib: papers added from Emacs (papers.el), apart from Zotero's export.
+      (setq! citar-bibliography '("/sdcard/org/references/articles.bib" "/sdcard/org/references/added.bib"))
       (setq! citar-library-paths '("/sdcard/Books/Papers/articles/"))
       (setq org-roam-directory (file-truename "/sdcard/org/notes/"))
       (setq org-agenda-files (list (file-truename "/sdcard/org/agenda/"))))
   (progn
     (setq project-resources-dir "~/workspace/resources/")
     (setq org-directory (file-truename "~/org/"))
-    (setq! citar-bibliography '("~/org/references/articles.bib"))
+    (setq! citar-bibliography '("~/org/references/articles.bib" "~/org/references/added.bib"))
     (setq! citar-library-paths '("~/Books/Papers/articles/"))
     (setq org-roam-directory (file-truename "~/org/notes/"))
     (setq org-agenda-files (list (file-truename "~/org/agenda/")))))
@@ -260,6 +261,24 @@
 (autoload 'org-flow-date-undated "org-flow" nil t)
 (autoload 'org-flow-breakdown "org-flow" nil t)
 (with-eval-after-load 'org (require 'org-flow) (org-flow-mode 1))
+;; Empty notes offered to be written, big ones a breakdown, in the daily
+;; review: note-flow.el.
+(autoload 'note-flow-fill "note-flow" nil t)
+(autoload 'note-flow-split "note-flow" nil t)
+(autoload 'note-flow-breakdown "note-flow" nil t)
+(autoload 'note-flow-reread "note-flow" nil t)
+(with-eval-after-load 'org-roam (require 'note-flow) (note-flow-mode 1))
+;; A paper in from its DOI or arXiv id -- entry, PDF, note -- and citar's
+;; notes made the same way: papers.el.
+(autoload 'papers-add "papers" nil t)
+;; A task's reminder (:REMIND:, or 10 min before its time), rung by the
+;; Emacs Home app's alarms; Emacs writes them only on the phone: reminders.el.
+(autoload 'reminders-set "reminders" nil t)
+(map! :after org :map org-mode-map :localleader :desc "Reminder" "R" #'reminders-set)
+(map! :after org-agenda :map org-agenda-mode-map :localleader :desc "Reminder" "R" #'reminders-set)
+(when IS-ANDROID
+  (with-eval-after-load 'org (require 'reminders) (reminders-mode 1)))
+(with-eval-after-load 'citar-org-roam (require 'papers))
 ;; C-c C-c on a block whose writer is not loaded yet.
 (with-eval-after-load 'org
   (dolist (name '("period-summary" "clock-score" "clock-chart" "review-days" "review-stats"
@@ -275,8 +294,14 @@
         org-timegrid-org-auto-save t))
 ;; Its own single-letter keys (t, e, d, j, g, q) are the interface: keep evil off it.
 (after! org-timegrid
+  ;; The day is 5am to 10pm; an hour either side, for safety.
+  (setq org-timegrid-start-hour 4
+        org-timegrid-end-hour 23)
   (when (fboundp 'evil-set-initial-state)
     (evil-set-initial-state 'org-timegrid-mode 'emacs)))
+;; Tomorrow's tasks in blocks of time, around what is fixed (timebox.el):
+;; the evening review's last step; again by hand after adding a task.
+(autoload 'timebox-tomorrow "timebox" nil t)
 
 (map! :leader
       :desc "Week calendar (timegrid)" "o c" #'org-timegrid-week
@@ -291,6 +316,7 @@
        :desc "Last week's review"      "l" (cmd! (org-capture nil "rl"))
        :desc "Monthly review"          "m" (cmd! (org-capture nil "rm"))
        :desc "Week calendar"           "c" #'org-timegrid-week
+       :desc "Time-box tomorrow"       "T" #'timebox-tomorrow
        :desc "Passive activity on/off" "a" #'agent-time-passive
        :desc "Plan the week's topics"  "o" #'org-summary-plan-topics
        :desc "Plan tomorrow's topics"  "n" #'org-summary-plan-tomorrow
@@ -1179,10 +1205,12 @@ Otherwise, it begins with ## and is indented accordingly."
   (if (and org-roam-autoread-enabled
            (eq major-mode 'org-mode)
            (string-prefix-p org-roam-directory buffer-file-name)
+           ;; The day's page is written in all day.
+           (not (string-match-p "/daily/" buffer-file-name))
            (< org-roam-autoread-max-words (buffer-count-words))
            (not (or (string-prefix-p "ln_" (file-name-nondirectory buffer-file-name))
                     (string-prefix-p "br_" (file-name-nondirectory buffer-file-name))
-                    (string-prefix-p "private_" (file-name-nondirectory buffer-file-name)))))
+                    (string-prefix-p "private" (file-name-nondirectory buffer-file-name)))))
       (read-only-mode)))
 
 (add-hook 'after-save-hook #'org-roam-autoread-mode-check)
@@ -1208,7 +1236,7 @@ Ignores files prefixed with 'ln_', 'br_', or 'private_'. Uses Org-roam DB for fi
                             (let ((fname (file-name-nondirectory file)))
                               (and (not (or (string-prefix-p "ln_" fname)
                                             (string-prefix-p "br_" fname)
-                                            (string-prefix-p "private_" fname)))
+                                            (string-prefix-p "private" fname)))
                                    (> (count-words-in-file file)
                                       org-roam-autoread-max-words))))
                           all-files))
@@ -1242,7 +1270,7 @@ N defaults to 1 (largest)."
                             (let ((fname (file-name-nondirectory file)))
                               (not (or (string-prefix-p "ln_" fname)
                                        (string-prefix-p "br_" fname)
-                                       (string-prefix-p "private_" fname)))))
+                                       (string-prefix-p "private" fname)))))
                           all-files))
          (sized-files (seq-map
                        (lambda (file)
@@ -1395,9 +1423,9 @@ selected, then the current line."
 (bind-key "C-M-s-d" 'projectile-find-dir-other-window)
 (bind-key "C-M-s-z" 'consult-recent-file)
 (bind-key "C-M-s-x" 'consult-buffer)
-(bind-key "C-M-s-{" 'org-roam-dailies-find-today)
-(bind-key "C-M-s-}" 'org-roam-dailies-find-tomorrow)
-(bind-key "C-M-s-:" 'org-roam-dailies-find-yesterday)
+(bind-key "C-M-s-{" 'org-roam-dailies-goto-today)
+(bind-key "C-M-s-}" 'org-roam-dailies-goto-tomorrow)
+(bind-key "C-M-s-:" 'org-roam-dailies-goto-yesterday)
 (bind-key "C-M-s-r" 'org-roam-node-find)
 (bind-key "C-M-s-SPC" 'insert-org-roam-link)
 ;; (bind-key "C-M-s-a" '+ivy/switch-workspace-buffer)
@@ -1498,7 +1526,6 @@ selected, then the current line."
        :n "j" (if IS-ANDROID #'ignore #'grab-x-link-firefox-insert-org-link)
        :n "b" (if IS-ANDROID #'ignore #'grab-x-link-brave-insert-org-link))
       (:prefix "d"
-       :n "h" #'org-ref-bibtex-hydra/body
        :n "w" #'+hydra/window-nav/body
        :n "m" #'hydra-multiple-cursors/body
        :n "s" #'+org-private@org-babel-hydra/body
@@ -1508,7 +1535,6 @@ selected, then the current line."
        :n "w" #'+hydra/window-nav/body
        :n "p" #'scimax-python-mode/body
        :n "o" (if IS-ANDROID #'ignore #'org-noter)
-       :n "c" (if IS-ANDROID #'ignore #'org-noter-pdftools-create-skeleton)
        :n "j" #'org-hugo-auto-export-mode
        :n "p" #'poetry
        :n "r" #'poetry-run
@@ -1517,7 +1543,7 @@ selected, then the current line."
 
 (unless IS-ANDROID
   (setq scihub-homepage "https://sci-hub.st"
-        scihub-download-directory "~/pdfs"
+        scihub-download-directory "~/Books/Papers/articles/"
         scihub-open-after-download nil))
 
 (setq org-agenda-category-icon-alist

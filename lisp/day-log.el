@@ -490,9 +490,11 @@ A review from before the day log, made by the old template, counts."
 (defun day-log-review (&optional date)
   "The daily review, start to end, with no navigating: the day's facts on
 screen, your three lines asked for one by one, then every undated task
-given a date (`org-flow-date-undated'), then the next day's task for each
-daily topic (`org-summary-plan-topics').  An empty answer skips a line or
-a topic; q stops the walk.  DATE is today's review (the day turns at
+given a date (`org-flow-date-undated'), then an empty note to write and a
+big one to break down (`note-flow-review'), then the next day's task for
+each daily topic (`org-summary-plan-topics'), and last tomorrow's tasks in
+blocks of time, on the week calendar (`timebox-tomorrow').  An empty answer
+skips a line or a topic; q stops the walk.  DATE is today's review (the day turns at
 `day-log-day-starts'); with \\[universal-argument], yesterday's."
   (interactive (list (when current-prefix-arg (day-log--shift (day-log--today) -1))))
   (let ((date (or date (day-log--today))))
@@ -509,6 +511,8 @@ a topic; q stops the walk.  DATE is today's review (the day turns at
       (with-current-buffer review (save-buffer))
       (when (and (require 'org-flow nil t) (org-flow-undated))
         (org-flow-date-undated))
+      (when (require 'note-flow nil t)
+        (note-flow-review))
       (when (require 'org-summary nil t)
         (org-summary-plan-topics "Daily topics" (day-log--shift date 1)))
       (pop-to-buffer-same-window review)
@@ -516,7 +520,10 @@ a topic; q stops the walk.  DATE is today's review (the day turns at
       (org-fold-show-subtree)
       (recenter 0)
       (message "Review of %s done%s" date
-               (if (day-log-written-p date) "" " (nothing written: it closes on its own at 4am)")))))
+               (if (day-log-written-p date) "" " (nothing written: it closes on its own at 4am)"))
+      ;; Last, tomorrow in blocks, on the calendar to drag about.
+      (when (require 'timebox nil t)
+        (timebox-tomorrow (1+ (org-time-string-to-absolute date)))))))
 
 ;;; Closing
 

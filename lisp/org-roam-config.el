@@ -32,68 +32,13 @@
     '("bibnote" "bookreview" "literaturenote" "default" "abstract" "blog" "person" "creativewriting")
     "Special tags that are unique to each file to represent the note's function.")
 
-  (defconst my/frg-roam-generalnote-tags
-    '("beautiful" "idgi" "seed" "readmore" "talkabout" "tmi" "research")
-    "Special tags that are unique to each file to represent the note's function.")
-
   (defconst my/org-roam-ignored-tags
     '("ATTACH")
     "Tags that are ignored when displaying function and other tags.")
 
-  (defun my/org-roam-filtered-tags (node)
-    "Return the tags of NODE after filtering out ignored tags."
-    (seq-remove (lambda (tag)
-                  (member tag my/org-roam-ignored-tags))
-                (org-roam-node-tags node)))
-
-  ;; Custom hierarchy display with icons
-  (cl-defmethod org-roam-node-hierarchy ((node org-roam-node))
-    "Return the node's TITLE, as well as it's HIERARCHY."
-    (let* ((title (org-roam-node-title node))
-           (olp (mapcar (lambda (s) (if (> (length s) 30) (concat (substring s 0 30) "...") s)) (org-roam-node-olp node)))
-           (level (org-roam-node-level node))
-           (filetitle (org-roam-get-keyword "TITLE" (org-roam-node-file node)))
-           (shortentitle (if (> (length filetitle) 30) (concat (substring filetitle 0 30) "...") filetitle))
-           (separator (concat " " (nerd-icons-faicon "nf-fa-chevron_right") " ")))
-      (cond
-       ((= level 1) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-green)) " "
-                            (propertize shortentitle 'face 'org-roam-dim) separator title))
-       ((= level 2) (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-dpurple)) " "
-                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
-       ((> level 2) (concat (propertize (format "=level:%d=" level) 'display (all-the-icons-material "list" :face 'all-the-icons-dsilver)) " "
-                            (propertize (concat shortentitle separator (string-join olp separator)) 'face 'org-roam-dim) separator title))
-       (t (concat (propertize (format "=level:%d=" level) 'display (nerd-icons-faicon "nf-fa-list" :face 'all-the-icons-yellow)) " " title)))))
-
-  (cl-defmethod org-roam-node-functiontag ((node org-roam-node))
-    "Return the FUNCTION TAG for each node."
-    (let* ((tags (my/org-roam-filtered-tags node))
-           (functiontag (seq-intersection my/org-roam-special-tags tags 'string=)))
-      (concat
-       (if functiontag
-           (propertize "=has:functions=" 'display (nerd-icons-faicon "nf-fa-gear" :face 'all-the-icons-silver :v-adjust 0.02))
-         (propertize "=not-functions=" 'display (nerd-icons-faicon "nf-fa-gear" :face 'org-roam-dim :v-adjust 0.02)))
-       " " (string-join functiontag ", "))))
-
-  (cl-defmethod org-roam-node-othertags ((node org-roam-node))
-    "Return the OTHER TAGS of each notes."
-    (let* ((tags (my/org-roam-filtered-tags node))
-           (othertags (seq-difference tags my/org-roam-special-tags 'string=)))
-      (when othertags
-        (concat
-         (propertize "=has:tags=" 'display (nerd-icons-faicon "nf-fa-tags" :face 'all-the-icons-dgreen :v-adjust 0.02)) " "
-         (propertize (string-join othertags ", ") 'face 'all-the-icons-dgreen)))))
-
-  (cl-defmethod org-roam-node-backlinkscount ((node org-roam-node))
-    (let* ((count (caar (org-roam-db-query
-                         [:select (funcall count source)
-                          :from links
-                          :where (= dest $s1)
-                          :and (= type "id")]
-                         (org-roam-node-id node)))))
-      (if (> count 0)
-          (concat (propertize "=has:backlinks=" 'display (nerd-icons-octicon "nf-oct-link" :face 'all-the-icons-dblue)) (format "%d" count))
-        (concat (propertize "=not-backlinks=" 'display (nerd-icons-octicon "nf-oct-link" :face 'org-roam-dim)) " "))))
-
+  ;; Only fullformat is shown (the display template below); the other
+  ;; accessors (hierarchy, functiontag, othertags, backlinkscount) were never
+  ;; used and went on 2026-10-26.
   (defun my/org-roam-compute-tags (node)
     "Compute the function tags and other tags for the given NODE.
 Return a list where the first element is the function tags and
@@ -142,16 +87,18 @@ References from files that are already backlinking to NODE are excluded."
                                   (shell-command-to-string "rg --pcre2-version"))))
       (let* ((titles (cons (org-roam-node-title node)
                            (org-roam-node-aliases node)))
-             (rg-command (concat "rg -L -o --vimgrep -P -i "
-                                 (mapconcat (lambda (glob) (concat "-g " glob))
-                                            (org-roam--list-files-search-globs org-roam-file-extensions)
-                                            " ")
-                                 (format " '\\[([^[]]++|(?R))*\\]%s' "
-                                         (mapconcat (lambda (title)
-                                                      (format "|(\\b%s\\b)" (shell-quote-argument title)))
-                                                    titles ""))
-                                 org-roam-directory))
-             (results (split-string (shell-command-to-string rg-command) "\n"))
+             ;; No shell: a title with a ' broke the command line.  Titles are
+             ;; quoted for PCRE, or one with ( or + matched something else.
+             (pcre-quote (lambda (s) (replace-regexp-in-string "[][\\^$.|?*+(){}]" "\\\\\\&" s)))
+             (results (apply #'process-lines-ignore-status "rg"
+                             (append '("-L" "-o" "--vimgrep" "-P" "-i")
+                                     (mapcan (lambda (glob) (list "-g" (string-trim glob "\"" "\"")))
+                                             (org-roam--list-files-search-globs org-roam-file-extensions))
+                                     (list (concat "\\[([^[]]++|(?R))*\\]"
+                                                   (mapconcat (lambda (title)
+                                                                (format "|(\\b%s\\b)" (funcall pcre-quote title)))
+                                                              titles ""))
+                                           (expand-file-name org-roam-directory)))))
              (backlink-files (my/org-roam--backlink-files node))
              f row col match)
         (magit-insert-section (unlinked-references)
@@ -189,74 +136,58 @@ References from files that are already backlinking to NODE are excluded."
   ;; CAPTURE TEMPLATES
   ;; ============================================================
 
+  ;; A new note from find or insert (SPC n r f / i) is made from one
+  ;; template, with no menu, and asks what makes a good note (note-flow.el).
+  ;; Papers: SPC n r p (papers.el).  These are the kinds SPC n r n still
+  ;; offers, cut on 2026-10-26 to what the notes actually used; "w" and "R"
+  ;; errored every time, "t" and "c" went unused.  "r" stays for
+  ;; `title-to-org-roam-node'.
   (setq org-roam-capture-templates
         '(("d" "Default" plain "%?"
-           :if-new (file+head "${slug}.org"
+           :target (file+head "${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS: :default:\n")
            :immediate-finish t)
 
           ("r" "Default but open buffer" plain "%?"
-           :if-new (file+head "${slug}.org"
+           :target (file+head "${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS:\n")
            :unnarrowed t)
 
-          ("t" "Tagged" plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}\n#+FILETAGS: %^G\n")
-           :unnarrowed t)
-
           ("o" "Abstract ON Note " plain "%?"
-           :if-new (file+head "on_${slug}.org"
+           :target (file+head "on_${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS: :abstract:\n")
            :unnarrowed t)
 
           ("l" "Literature Note " plain "%?"
-           :if-new (file+head "ln_${slug}.org"
+           :target (file+head "ln_${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS: :literaturenote:%^{definition|theory|course|video|article|library|subject|chapter|topic|research}:%^G\n#+REF_URL:\n")
            :unnarrowed t)
 
           ("e" "EHP Note" plain "%?"
-           :if-new (file+head "${slug}.org"
+           :target (file+head "${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS: :ehp:%^{type|ultra|dragonfly|architecture}:%^G\n#+REF_URL:\n")
            :unnarrowed t)
 
+          ;; br_, as the 64 book reviews before it (it was ln_ by mistake).
           ("b" "Book Review " plain "%?"
-           :if-new (file+head "ln_${slug}.org"
+           :target (file+head "br_${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS: :bookreview:\n")
            :unnarrowed t)
 
-          ("c" "Composition" plain "%?"
-           :if-new (file+head "${slug}.org"
-                              "#+TITLE: ${title}\n#+FILETAGS: :composition:\n")
-           :unnarrowed t)
-
           ("p" "Person" plain "%?"
-           :if-new (file+head "${slug}.org"
+           :target (file+head "${slug}.org"
                               "#+TITLE: ${title}\n#+FILETAGS: :person:\n")
-           :unnarrowed t)
-
-          ("R" "Bibliography Reference" plain
-           (file (concat org-templates-directory "orbreftemplate.org"))
-           :if-new
-           (file+head "papers/${citekey}.org"
-                      "#+title: ${title}\n#+FILETAGS: :bibnote:\n")
            :unnarrowed t)
 
           ("h" "Blog Post" plain
            "%?"
-           :if-new (file+head "blogs/%<%Y%m%d%H%M%S>-${slug}.org"
+           :target (file+head "blogs/%<%Y%m%d%H%M%S>-${slug}.org"
                               "#+SETUPFILE:../hugo_in_setup.org\n#+HUGO_SECTION: ${ai|emacs|neuroscience}\n#+HUGO_SLUG: ${slug}\n#+HUGO_TAGS:\n#+HUGO_CATEGORIES:\n#+HUGO_DRAFT: false\n\n#+AUTHOR: Alok Regmi\n#+FILETAGS: :blog:${filetags}\n\n#+TITLE: ${title}\n")
            :unnarrowed t)
 
           ("k" "private" plain
-           "%?" :if-new (file+head "private-${slug}.org"
+           "%?" :target (file+head "private-${slug}.org"
                                    "#+TITLE: ${title}\n\n#+FILETAGS: %^G\n")
-           :unnarrowed t)
-
-          ("w" "webref" entry "* ${title} ([[${ref}][${hostname}]])\n%?"
-           :if-new
-           (file+head (concat org-roam-dailies-directory "%<%Y-%m-%d>.org")
-                      "#+title: %<%Y-%m-%d %a>\n#+FILETAGS: journal\n#+STARTUP: overview\n")
            :unnarrowed t)))
 
   ;; Set CREATED property on new nodes
@@ -275,7 +206,7 @@ References from files that are already backlinking to NODE are excluded."
   ;;;###autoload
   (defun title-to-org-roam-node (title)
     "Create an Org-roam note from the current headline and jump to it."
-    (interactive)
+    (interactive (list (substring-no-properties (org-get-heading t t t t))))
     (let ((node nil)
           (filetag ""))
       (setq node (org-roam-node-create :title title))
@@ -297,9 +228,19 @@ References from files that are already backlinking to NODE are excluded."
 
   (map! :leader
         :prefix "n"
-        (:prefix ("r" . "Org-roam")
+        ;; A plain "r", not ("r" . "Org-roam"): the description form makes
+        ;; SPC n r a fresh, empty keymap, which wiped Doom's own roam keys
+        ;; (find, insert, capture, dailies...) whenever org-roam loaded.
+        (:prefix "r"
+         :desc "Find node"                     "f" #'org-roam-node-find
          :desc "Toggle roam buffer"            "t" #'org-roam-buffer-toggle
          :desc "Refile"                        "r" #'org-roam-refile
+         :desc "Fill empty notes"              "e" #'note-flow-fill
+         :desc "Break this note down"          "b" #'note-flow-breakdown
+         :desc "Break big notes down"          "B" #'note-flow-split
+         :desc "Reread today's note"           "o" #'note-flow-reread
+         :desc "Add a paper"                   "p" #'papers-add
+         :desc "Notes for what I'm doing"      "w" #'note-flow-for-now
          (:prefix ("l" . "Roam Alias")
           :desc "Add alias"                    "a" #'org-roam-alias-add
           :desc "Remove alias"                 "d" #'org-roam-alias-remove)))
@@ -335,7 +276,8 @@ References from files that are already backlinking to NODE are excluded."
 
 (use-package! org-roam-ui
   :after org-roam
-  :hook (org-roam . org-roam-ui-mode)
+  ;; Started by hand (the homepage's Graph): an `org-roam' hook it used to
+  ;; hang on is never run.
   :config
   (setq org-roam-ui-sync-theme t
         org-roam-ui-follow t
@@ -350,8 +292,7 @@ References from files that are already backlinking to NODE are excluded."
 (defun bms/org-roam-rg-search ()
   "Search org-roam directory using consult-ripgrep. With live-preview."
   (interactive)
-  (let ((consult-ripgrep-command "rg --null --ignore-case --type org --line-buffered --color=always --max-columns=500 --no-heading --line-number . -e ARG OPTS"))
-    (consult-ripgrep org-roam-directory)))
+  (consult-ripgrep org-roam-directory))
 
 ;; ============================================================
 ;; ORG EXPORT JUPYTER PYTHON BLOCKS
@@ -362,26 +303,6 @@ References from files that are already backlinking to NODE are excluded."
     "Replace jupyter-python src blocks with python blocks."
     (replace-regexp-in-string "```jupyter-python" "```python" text))
   (add-hook 'org-export-filter-src-block-functions #'jupyter-python-to-only-python))
-
-;; ============================================================
-;; TASK TO ORG NOTE
-;; ============================================================
-
-(defun my/convert-task-to-org-note ()
-  "Convert a task in a `org-roam' note."
-  (interactive)
-  (let* ((heading (org-get-heading t t t t))
-         (body (org-get-entry))
-         (link (format "[[id:%s][%s]]" (org-id-get-create) heading))
-         (filepath (on/make-filepath heading (current-time))))
-    (on/insert-org-roam-file
-     filepath
-     heading
-     nil
-     (list link)
-     (format "* Note stored from tasks\n%s" body)
-     nil)
-    (find-file filepath)))
 
 ;; ============================================================
 ;; ORG ROAM SEARCH
@@ -417,19 +338,6 @@ References from files that are already backlinking to NODE are excluded."
       (goto-char (point-min))
       (org-mode)
       (read-only-mode 1))))
-
-(defun my-org-open-at-point-in-right-split ()
-  (interactive)
-  (let ((path (get-text-property (point) 'path))
-        (type (get-text-property (point) 'type)))
-    (when (string-equal type "file")
-      (let* ((file (file-truename (car path)))
-             (line (string-to-number (cadr path))))
-        (split-window-right)
-        (other-window 1)
-        (find-file file)
-        (goto-char (point-min))
-        (forward-line (1- line))))))
 
 ;; ============================================================
 ;; ORG ROAM QUICK INSERT LINK
@@ -476,6 +384,9 @@ If in Evil normal mode, switch to insert mode."
 (defun my/org-roam-dailies-cycle-focus ()
   "Cycle through dailies focus: Today -> Current Monday -> Next Monday -> Today."
   (interactive)
+  ;; A first tap is today; tapped again straight after, the Mondays.
+  (unless (eq last-command this-command)
+    (setq my/org-roam-dailies-focus-mode 'next-monday))
   (setq my/org-roam-dailies-focus-mode
         (pcase my/org-roam-dailies-focus-mode
           ('today 'current-monday)
@@ -490,6 +401,22 @@ If in Evil normal mode, switch to insert mode."
     ('current-monday (org-roam-dailies-goto-monday-of-week))
     ('next-monday (org-roam-dailies-goto-monday-of-next-week))))
 
+
+;; ============================================================
+;; NOTES FROM THE OTHER MACHINE
+;; ============================================================
+
+;; Autosync indexes only what is saved here; a note written on the phone
+;; (or the Mac) waited for the next session's first sync to be found.
+;; Now an idle Emacs syncs, at most every half hour (1s on the Mac).
+(defvar my/org-roam-last-sync 0)
+(run-with-idle-timer
+ 120 t
+ (lambda ()
+   (when (and (featurep 'org-roam)
+              (> (- (float-time) my/org-roam-last-sync) 1800))
+     (setq my/org-roam-last-sync (float-time))
+     (let ((inhibit-message t)) (ignore-errors (org-roam-db-sync))))))
 
 (provide 'org-roam-config)
 ;;; org-roam-config.el ends here

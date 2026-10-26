@@ -17,6 +17,9 @@
 
     <service android:name=".FloatService" android:exported="false" />
 
+    <!-- Reminders' alarms and their notification's buttons (Reminders.java). -->
+    <receiver android:name=".ReminderReceiver" android:exported="false" />
+
     <!-- Lets the clock's island sit above the status bar; reads nothing. -->
     <service android:name=".IslandAccess"
              android:exported="true"

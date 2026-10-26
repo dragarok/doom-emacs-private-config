@@ -62,7 +62,7 @@
                  (list :icon (nerd-icons-faicon "nf-fa-sun_o")
                        :title "Dailies" :desc "Cycle focus" :action 'my/org-roam-dailies-cycle-focus)
                  (list :icon (nerd-icons-faicon "nf-fa-lightbulb_o")
-                       :title "Old note" :desc "Untouched a while" :action 'org-roam-open-large-note-randomly)
+                       :title "Reread" :desc "Today's note" :action 'note-flow-reread)
                  (list :icon (nerd-icons-faicon "nf-fa-share_alt")
                        :title "Graph" :desc "Org-roam graph" :action 'org-roam-ui-open)))
 

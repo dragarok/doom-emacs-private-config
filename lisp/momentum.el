@@ -85,8 +85,10 @@ If input doesn't match existing sequence, creates new one with that title."
                             ,(format "#+title: %s\n#+filetags: :%s:\n\n* Progress\n" title momentum-tag))
                    :immediate-finish t
                    :unnarrowed t)))
-    ;; Sync db and get the node
-    (org-roam-db-sync)
+    ;; Index the new file -- only it, not a sync of every note.
+    (let ((file (expand-file-name (format "%s-momentum.org" slug) org-roam-directory)))
+      (when-let* ((buf (find-buffer-visiting file))) (with-current-buffer buf (save-buffer)))
+      (org-roam-db-update-file file))
     ;; Find and return the newly created node
     (car (seq-filter
           (lambda (n) (string= (org-roam-node-title n) title))

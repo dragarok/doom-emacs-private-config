@@ -110,9 +110,11 @@ public class FloatService extends Service {
             @Override public void onEvent(int event, String path) {
                 if (CLOCK.getName().equals(path)) main.post(FloatService.this::refresh);
                 if (Widgets.WANTED.getName().equals(path)) main.post(widgets::sync);
+                if (Reminders.FILE.getName().equals(path)) bg.execute(() -> Reminders.schedule(FloatService.this));
             }
         };
         observer.startWatching();
+        bg.execute(() -> Reminders.schedule(this));  // alarms don't outlive a reboot
         widgets = new Widgets(this, main);
         widgets.start();
         main.post(tick);
