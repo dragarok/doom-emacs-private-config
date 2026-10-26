@@ -269,7 +269,7 @@ first block to move them about (`timebox-calendar')."
 (defun timebox-calendar-setup ()
   "In `org-timegrid-mode': its keys on the mode line."
   (setq-local mode-line-format
-              "  drag: move   n/p: next/prev block   RET: open   i: clock in   q: close"))
+              "  f/b: next/prev day   drag: move   n/p: block   RET: open   i: clock in   q: close"))
 
 (defun timebox--calendar-land (day minute)
   "Cursor to DAY at MINUTE (selecting a block that starts there), and
