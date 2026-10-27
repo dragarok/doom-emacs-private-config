@@ -23,6 +23,42 @@
                         "strange" "party" "qr" "raw" "wallpaper" "memory")
   "Default list of image tags.")
 
+(defun my/image-exiftool ()
+  "The exiftool program, or nil.  On the phone it is Termux's."
+  (or (executable-find "exiftool")
+      (let ((termux "/data/data/com.termux/files/usr/bin/exiftool"))
+        (and (file-executable-p termux) termux))))
+
+(defun my/image-embed-tags (file tags)
+  "Write TAGS into FILE's XMP Subject, in the background.
+This replaces what image_embed_tags.sh did as a second pass over
+imageindex.csv: the tags go into the image the moment it is tagged.
+Several assignments in one exiftool call make one list, replacing the old
+one."
+  (let ((exiftool (my/image-exiftool)))
+    (cond
+     ((null tags))
+     ((null exiftool)
+      (display-warning 'image-workflow
+                       (format "exiftool not found, tags not written into %s (Termux: pkg install exiftool)" file)))
+     (t
+      (make-process
+       :name "image-embed-tags"
+       :buffer (generate-new-buffer " *image-embed-tags*")
+       :command `(,exiftool "-overwrite_original" "-P"
+                  ,@(mapcar (lambda (tag) (concat "-XMP-dc:Subject=" tag)) tags)
+                  "-XMP-xmp:MetadataDate=now"
+                  ,file)
+       :sentinel
+       (lambda (proc _event)
+         (unless (process-live-p proc)
+           (let ((buf (process-buffer proc)))
+             (unless (zerop (process-exit-status proc))
+               (display-warning 'image-workflow
+                                (format "Tags not written into %s:\n%s" file
+                                        (with-current-buffer buf (string-trim (buffer-string))))))
+             (kill-buffer buf)))))))))
+
 (after! image-mode
   (defun my/delete-image-and-next ()
     "Move to the next image and delete the previous one."
@@ -78,6 +114,7 @@
         (with-temp-buffer
           (insert index-entry)
           (append-to-file (point-min) (point-max) my-image-index-file))
+        (my/image-embed-tags processed-path final-tags)
         (message "Moved to %s with tags: %s" processed-path (string-join final-tags ",")))
       (my/delete-image-and-next)))
 
