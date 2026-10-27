@@ -63,7 +63,8 @@ one."
 (defun my/image-media-scan (file)
   "Have Android's media index read FILE again, so galleries see its tags.
 exiftool swaps in a rewritten copy, and the index lost the file each time:
-Aves never showed it at all.  Elsewhere this does nothing.
+Aves never showed it at all.  For a FILE moved or deleted away, the scan
+drops its stale entry.  Elsewhere this does nothing.
 `--user 0': am's default, the current user, is refused to an app."
   (when (eq system-type 'android)
     (call-process "/system/bin/am" nil 0 nil
@@ -79,6 +80,7 @@ Aves never showed it at all.  Elsewhere this does nothing.
       (if (and (eq major-mode 'image-mode) (image-next-file 1))
           (when previous-file
             (delete-file previous-file)
+            (my/image-media-scan previous-file)
             (message "Deleted file %s" previous-file)))))
 
   (defun read-tags-from-imageindex-csv (csv-file)
@@ -123,6 +125,7 @@ Aves never showed it at all.  Elsewhere this does nothing.
       (when file
         (evil-save file t)
         (rename-file file processed-path)
+        (my/image-media-scan file)
         (with-temp-buffer
           (insert index-entry)
           (append-to-file (point-min) (point-max) my-image-index-file))
