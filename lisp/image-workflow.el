@@ -63,10 +63,12 @@ one."
 (defun my/image-media-scan (file)
   "Have Android's media index read FILE again, so galleries see its tags.
 exiftool swaps in a rewritten copy, and the index lost the file each time:
-Aves never showed it at all.  Elsewhere this does nothing."
+Aves never showed it at all.  Elsewhere this does nothing.
+`--user 0': am's default, the current user, is refused to an app."
   (when (eq system-type 'android)
     (call-process "/system/bin/am" nil 0 nil
-                  "broadcast" "-a" "android.intent.action.MEDIA_SCANNER_SCAN_FILE"
+                  "broadcast" "--user" "0"
+                  "-a" "android.intent.action.MEDIA_SCANNER_SCAN_FILE"
                   "-d" (concat "file://" (file-truename file)))))
 
 (after! image-mode
