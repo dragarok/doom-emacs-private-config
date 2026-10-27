@@ -68,6 +68,17 @@
         doom-serif-font (font-spec :family "RobotoMono Nerd Font" :size 16)
         doom-big-font (font-spec :family "Maple Mono SC NF" :size 20))))
 
+;; Under the daemon, Doom sets the fonts on every new frame and saves the
+;; selected frame's family and height as the `user' theme spec for all
+;; displays.  A terminal frame (emacsclient -t from Herdr or SSH) saved
+;; "default" at height 1, and the next face recalculation -- a light/dark
+;; theme switch -- put every GUI frame in Helvetica 12.  Terminal frames
+;; have no fonts to set, so only a graphical frame runs it.
+(defadvice! my/doom-init-fonts-gui-only-a (fn &optional reload)
+  :around #'doom-init-fonts-h
+  (when (display-graphic-p)
+    (funcall fn reload)))
+
 ;;;###autoload
 (defun my/apply-theme (appearance)
   "Load theme and set `doom-theme` based on system APPEARANCE."
