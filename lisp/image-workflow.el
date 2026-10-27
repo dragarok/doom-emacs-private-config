@@ -53,11 +53,21 @@ one."
        (lambda (proc _event)
          (unless (process-live-p proc)
            (let ((buf (process-buffer proc)))
-             (unless (zerop (process-exit-status proc))
+             (if (zerop (process-exit-status proc))
+                 (my/image-media-scan file)
                (display-warning 'image-workflow
                                 (format "Tags not written into %s:\n%s" file
                                         (with-current-buffer buf (string-trim (buffer-string))))))
              (kill-buffer buf)))))))))
+
+(defun my/image-media-scan (file)
+  "Have Android's media index read FILE again, so galleries see its tags.
+exiftool swaps in a rewritten copy, and the index lost the file each time:
+Aves never showed it at all.  Elsewhere this does nothing."
+  (when (eq system-type 'android)
+    (call-process "/system/bin/am" nil 0 nil
+                  "broadcast" "-a" "android.intent.action.MEDIA_SCANNER_SCAN_FILE"
+                  "-d" (concat "file://" (file-truename file)))))
 
 (after! image-mode
   (defun my/delete-image-and-next ()
