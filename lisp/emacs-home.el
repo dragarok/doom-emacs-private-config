@@ -2,13 +2,14 @@
 
 ;;; Commentary:
 ;; The Emacs Home app (~/.doom.d/emacs-home) is the phone's launcher.  It has
-;; no screen of its own: Home brings Emacs forward and calls
+;; no screen of its own: Home brings Emacs forward, as it was, and calls
 ;; `emacs-home-on-home', it keeps apps.tsv and icons/ in `emacs-home-dir'
 ;; current, and it opens emacs-home://launch/PACKAGE/ACTIVITY for us.
 ;;
 ;; The homepage shows your pinned apps as rows of small icons, so a couple of
-;; rows still fit above the touch keyboard.  `emacs-home-launch' picks from
-;; every app; `emacs-home-toggle-pin' pins or unpins one.
+;; rows still fit above the touch keyboard.  `emacs-home-launch' (the
+;; toolbar's Apps) picks from every app; `emacs-home-toggle-pin' pins or
+;; unpins one.
 
 ;;; Code:
 
@@ -278,30 +279,16 @@ Loads the day log then, a moment after, rather than at startup."
                                      (day-log-close-pending)))))))
 
 (defun emacs-home-on-home ()
-  "Called by the app on every Home press: show the homepage."
+  "Called by the app on every Home press: back to whatever was open.
+Only a minibuffer is closed; the toolbar's Home button is the homepage."
   (usage-log "home" "home")
   (emacs-home--close-past-days)
-  ;; Called from emacsclient's process filter, so get out of it first.
-  (run-at-time 0 nil (lambda ()
-                       (+dashboard/open (selected-frame))
-                       (+dashboard-reload t)))  ; fresh clock line
+  (when (+dashboard-buffer-p (window-buffer (selected-window)))
+    ;; Called from emacsclient's process filter, so get out of it first.
+    (run-at-time 0 nil #'+dashboard-reload t))  ; fresh clock line
   (when (active-minibuffer-window)
     (run-at-time 0 nil #'abort-recursive-edit))
   nil)
-
-(defun emacs-home--launcher-icon (size)
-  "A SIZE-pixel square of three by three dots: the button for all apps."
-  (require 'svg)
-  (let ((svg (svg-create size size))
-        (fg (face-attribute 'android-homepage-title :foreground nil 'default))
-        (r (/ size 14.0)))
-    (svg-rectangle svg 0 0 size size :rx (/ size 4.5)
-                   :fill (face-attribute 'default :background) :stroke fg
-                   :stroke-width (max 2 (/ size 30)))
-    (dolist (x '(0.3 0.5 0.7))
-      (dolist (y '(0.3 0.5 0.7))
-        (svg-circle svg (* x size) (* y size) r :fill fg)))
-    (propertize " " 'display (svg-image svg :scale 1 :ascent 'center))))
 
 (defvar emacs-home--started nil
   "The day (turning at 4am) something was first clocked into.")
@@ -363,7 +350,7 @@ in -- pick the task it matches, or RET to make it one."
 
 (defun emacs-home-widget ()
   "Dashboard widget: the clock line, Pin and Day, then the pinned icons,
-`emacs-home-icons-per-row' to a row, big, with all apps as the last one."
+`emacs-home-icons-per-row' to a row, big.  All apps is on the toolbar."
   (let* ((apps (emacs-home--apps))
          (by-key (mapcar (lambda (app) (cons (emacs-home--key app) app))
                          (emacs-home--pinnable apps)))
@@ -374,11 +361,8 @@ in -- pick the task it matches, or RET to make it one."
          (size (round (* cell emacs-home-icon-fill)))
          (gap (propertize " " 'display `(space :width (,(- cell size)))))
          (widgets (seq-filter (lambda (e) (equal (nth 1 e) "widget")) pinned))
-         (cells (append (mapcar (lambda (app) (emacs-home--cell app apps size))
-                                (seq-difference pinned widgets))
-                        (list (list (emacs-home--launcher-icon size)
-                                    (lambda (_) (usage-log-call "dashboard" #'emacs-home-launch))
-                                    (format "All apps (%d)" (length apps)) 1)))))
+         (cells (mapcar (lambda (app) (emacs-home--cell app apps size))
+                        (seq-difference pinned widgets))))
     (insert "\n  ")
     ;; First button, so the dashboard parks point -- and the line highlight
     ;; and box cursor that come with it -- on this text, not the icons.

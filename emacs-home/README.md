@@ -17,14 +17,14 @@ Everything here either removes friction or collects data with no effort.
 
 | Piece | Where | What it does |
 |---|---|---|
-| Home button | `HomeActivity` | Brings Emacs forward, runs `(emacs-home-on-home)` → dashboard |
+| Home button | `HomeActivity` | Brings Emacs forward, runs `(emacs-home-on-home)`: closes any minibuffer, leaves the buffer as it was (the toolbar's Home is the dashboard) |
 | App catalog | `Catalog` | Writes `apps.tsv` + `icons/` on every Home press (icons only re-rendered on app update) |
 | App launching | `LaunchActivity` | Opens `emacs-home://launch/PKG/ACTIVITY`, only for real app-drawer entries |
 | Clock island | `FloatService` | Island round the camera hole, over every app + ongoing notification; grows into a card with the clock's buttons |
 | Island above the status bar | `IslandAccess` | Accessibility service that only lends its overlay window type; reads nothing |
 | Foreground log | `FloatService` | Every app that comes to the front, and screen off/on, → `~/org/logs/foreground_localhost.tsv` |
 | Usage log | `../lisp/usage-log.el` | River Flow and other workflow commands, toolbar presses, homepage/dashboard/widget/island buttons → `~/org/logs/usage_log_HOST.tsv`; `M-x usage-log-report` |
-| Dashboard | `emacs-home.el` | Clock line, All apps / Pin buttons, pinned icon rows |
+| Dashboard | `emacs-home.el` | Clock line, Pin button, pinned icon rows; all apps is the toolbar's Apps button, next to Home |
 | Day log | `../lisp/day-log.el` | The daily review that writes itself from the clock, the logs and DONEs; closes each day by itself (Day button) |
 | Toolbar widgets | `../lisp/android-launcher.el` | Older: Termux:Widget shortcuts via `org-protocol://emacs-cmd` (still works) |
 | Reminders | `Reminders`, `ReminderReceiver`, `../lisp/reminders.el` | Emacs writes `reminders.tsv` (next 7 days: a timed task 10 min before, or its `:REMIND:`); the app sets an exact alarm per line and rings it as a notification — tap opens the task, Clock in, Snooze 10m — even with Emacs asleep. Re-read on every write and when FloatService starts (alarms don't survive a reboot) |

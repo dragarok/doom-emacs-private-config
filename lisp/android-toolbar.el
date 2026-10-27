@@ -140,6 +140,14 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/bank-svgrepo-com.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      ;; The one way to every app: a picker in the minibuffer, so whatever
+      ;; is open stays put and is still there on coming back.
+      (keymap-set-after (default-value 'tool-bar-map) "<emacs-home-launch>"
+        `(menu-item "Apps" emacs-home-launch
+          :help "Launch any installed app"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/apps-grid.svg"
+                        :height ,icon-size :width ,icon-size)))
+
       ;; The one habit the rest stands on: three lines, every task dated,
       ;; tomorrow planned.  Same as SPC o v t and the 8 PM prompt.
       (keymap-set-after (default-value 'tool-bar-map) "<day-log-review>"
