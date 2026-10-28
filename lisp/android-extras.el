@@ -73,6 +73,18 @@ Emacs loses focus."
   (setq ghostel-shell "/data/data/com.termux/files/usr/bin/bash"))
 
 ;; ──────────────────────────────────────────────────────────────
+;; agents.org is the Mac's to write (agent-time.el) all day long: here it
+;; is only read, so an edit from the phone can't meet one from the Mac in
+;; Syncthing.  Org refuses changes from the agenda too.
+;; ──────────────────────────────────────────────────────────────
+
+(defun my/agents-org-read-only ()
+  (when (and buffer-file-name
+             (equal (file-name-nondirectory buffer-file-name) "agents.org"))
+    (setq buffer-read-only t)))
+(add-hook 'find-file-hook #'my/agents-org-read-only)
+
+;; ──────────────────────────────────────────────────────────────
 ;; Minibuffer: tap a candidate to pick it (Apps' recent apps, any prompt)
 ;; ──────────────────────────────────────────────────────────────
 
