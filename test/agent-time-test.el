@@ -40,6 +40,15 @@ tasks.org beside it, and no pane state."
 (defun agent-time-test--ts (hours-ago)
   (agent-time--ts (- (float-time) (* hours-ago 3600))))
 
+(defmacro agent-time-test--at-heading (title &rest body)
+  "BODY at TITLE's heading in agents.org, saved after."
+  (declare (indent 1))
+  `(with-current-buffer (find-file-noselect (agent-time--file))
+     (goto-char (point-min))
+     (re-search-forward (concat "^\\*.* " (regexp-quote ,title)))
+     ,@body
+     (save-buffer)))
+
 (defun agent-time-test--entry (title)
   "TITLE's entry text, heading to the next heading."
   (let ((text (agent-time-test--text)))
@@ -128,6 +137,25 @@ the pane on a closed task lets it go."
       (should (string-match-p "^\\* TODO Research tourism" text)))
     (should (equal (agent-time--title-at (agent-time--marker (plist-get (gethash "p1" agent-time--panes) :task)))
                    "Research tourism"))))
+
+(ert-deftest agent-time-test-running-moves ()
+  "A running line never stays open on a task the agent has left: a second
+task_start closes it there and reopens it on the new task, and so does
+closing the task by hand while the agent works."
+  (agent-time-test--with ""
+    (cl-letf (((symbol-function 'agent-time--project) (lambda (_) "proj")))
+      (agent-time--mcp-start "p1" "/tmp" "First")
+      (let ((st (gethash "p1" agent-time--panes)))
+        (puthash "p1" (agent-time--begin "p1" st "AGENT" (- (float-time) 600)) agent-time--panes))
+      (agent-time--mcp-start "p1" "/tmp" "Second"))
+    (should (string-match-p "AGENT: \\[[^]]+\\]--\\[[^]]+\\] =>  0:10  p1" (agent-time-test--entry "First")))
+    (should (string-match-p "AGENT: \\[[^]]+\\]  p1$" (agent-time-test--entry "Second")))
+    (agent-time-test--at-heading "Second" (org-todo "DONE"))
+    (agent-time-close-quiet)
+    (should-not (string-match-p "AGENT: \\[[^]]+\\]  p1$" (agent-time-test--entry "Second")))
+    (let ((st (gethash "p1" agent-time--panes)))
+      (should (null (plist-get st :task)))
+      (should (equal (plist-get st :kind) "AGENT")))))
 
 (defmacro agent-time-test--typing (viewed &rest body)
   "BODY with every agent buffer showing pane p1 and VIEWED (a pane or nil)

@@ -327,8 +327,7 @@ Runs by itself now and then."
                           (or (member (plist-get st :task) closed)
                               (when-let* ((m (agent-time--marker (plist-get st :task))))
                                 (agent-time--read-at m (org-entry-is-done-p)))))
-                 (puthash pane (agent-time--put st :task nil :how nil :release nil)
-                          agent-time--panes)))
+                 (puthash pane (agent-time--let-go pane st) agent-time--panes)))
              agent-time--panes)
     (when (called-interactively-p 'any)
       (message "%d agent task%s closed" (length closed) (if (= (length closed) 1) "" "s")))
@@ -379,6 +378,14 @@ The new ST."
     (when kind (agent-time--append m (agent-time--open-line kind since pane)))
     (when (equal kind "AGENT") (agent-time--working m))
     (agent-time--put st :task id :how how :release nil :pending nil :since since)))
+
+(defun agent-time--let-go (pane st)
+  "ST without its task; a running segment is closed there and goes on
+with no task.  The new ST."
+  (let ((kind (plist-get st :kind)) (now (float-time)))
+    (setq st (agent-time--end pane st now))
+    (agent-time--put st :task nil :how nil :release nil)
+    (if kind (agent-time--begin pane st kind now) st)))
 
 (defun agent-time--pending-secs (st)
   "How long ST's agent has worked or waited without a task (your time aside)."
@@ -489,8 +496,8 @@ The new ST."
     (pcase (and m (not (plist-get st :release)) (or (eq how 'user) (agent-time--own-p m)) how)
       ('user (format "The user assigned this agent to \"%s\"; your working time is recorded there. Don't rename it."
                      (agent-time--title-at m)))
+      ;; Still on the old task, so the running line moves (closed there).
       ('agent (agent-time--done m nil "Closed by itself: the agent started other work.")
-              (agent-time--put st :task nil :how nil)
               (agent-time--mcp-start-new pane st cwd title))
       ('auto (agent-time--at m (org-edit-headline title))
              (agent-time--put st :how 'agent)
