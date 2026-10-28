@@ -68,8 +68,11 @@ run from a key or M-x; toolbar presses were logged as they started."
   (let* ((keys (this-command-keys-vector))
          (name (and (symbolp this-command) (symbol-name this-command))))
     (cond ((null this-command))
-          ((equal (car usage-log--toolbar) (cons (recursion-depth) this-command))
-           (pop usage-log--toolbar))
+          ;; Logged already.  The minibuffer's command loop runs this hook
+          ;; on entry too, one level down, with the button's command.
+          ((rassq this-command usage-log--toolbar)
+           (when (equal (car usage-log--toolbar) (cons (recursion-depth) this-command))
+             (pop usage-log--toolbar)))
           ((and (> (length keys) 3)
                 (string-match-p usage-log-leader-regexp (key-description keys)))
            (usage-log "leader" (or name (key-description keys))))
