@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 ;; Org has one clock, and it stays yours: what you are doing.  Nothing here
-;; moves it.  More kinds of time are kept beside it, in a :RUNS: drawer on
-;; the task, in lines Org's clocktable never reads (so totals stay honest):
+;; moves it.  More kinds of time are kept beside it, in :RUNS: drawers, in
+;; lines Org's clocktable never reads (so totals stay honest):
 ;;
 ;;   AGENT:   [start]--[end] =>  0:52  wZ:p1   an agent working on the task
 ;;   WAIT:    [start]--[end] =>  0:05  wZ:p1   the agent blocked, waiting on you
@@ -12,12 +12,18 @@
 ;;
 ;; An open line ([start] alone) is time still running; it survives a restart.
 ;;
+;; Everything this file writes by itself goes to agents.org, beside
+;; tasks.org, which only this Emacs writes: your files, edited on the phone
+;; too, are never changed behind your back, so Syncthing has nothing to
+;; conflict on.  An agent's own tasks live there; a task of yours that an
+;; agent works on gets a heading there linking to it, holding its runs.
+;;
 ;; Agents.  Each Herdr poll is compared with what is recorded: an agent that
 ;; starts working opens an AGENT line on its task, blocked switches it to
 ;; WAIT, idle or done closes it.  The task is the one you gave it
 ;; (`agent-time-assign', SPC j o), else the one the agent named through the
 ;; MCP layer (mcp/agent-tasks.mjs: task_start / task_finish), else one made
-;; in tasks.org once it has worked `agent-time-quick-secs', titled from the
+;; in agents.org once it has worked `agent-time-quick-secs', titled from the
 ;; agent's terminal title until the agent names it.  Shorter unassigned runs
 ;; (a quick question) go under "Agent quick asks".  On task_finish the agent
 ;; retitles its own task with what was done, notes a summary, marks it DONE.
@@ -27,11 +33,11 @@
 ;; :agent:) with no run for `agent-time-close-after' is closed DONE, with a
 ;; note saying so -- agents forget task_finish, and sessions stay open for
 ;; days; later work in the same session gets a task of its own.  Your
-;; task that an agent moved to NEXT goes back to TODO instead.  A second
-;; task_start closes the agent's previous task the same way.
+;; tasks keep the state you gave them.  A second task_start closes the
+;; agent's previous task the same way.
 ;;
 ;; You.  Typing to an agent (in the Herdr TUI or an attach buffer) opens a
-;; YOU line on its task, from your first key to `agent-time-you-tail'
+;; YOU line for its task, from your first key to `agent-time-you-tail'
 ;; seconds past your last; leaving the agent ends it then, though never
 ;; under that long.  The clock is not touched, so a book you are clocked
 ;; into keeps running while you answer an agent.
@@ -77,7 +83,10 @@
 (defconst agent-time--quick-heading "Agent quick asks")
 (defconst agent-time--passive-heading "Passive")
 
-(defun agent-time--file () org-tasks-file)
+(defun agent-time--file ()
+  "agents.org, beside tasks.org: the agents' tasks and every run.  Only
+this Emacs writes it, so it never meets your edits from the phone."
+  (expand-file-name "agents.org" (file-name-directory org-tasks-file)))
 
 (defun agent-time--state-file ()
   (expand-file-name "agent-time.eld" (if (boundp 'doom-cache-dir) doom-cache-dir
@@ -121,6 +130,12 @@
      (prog1 (org-with-wide-buffer (goto-char ,marker) ,@body)
        (agent-time--save-buffer))))
 
+(defmacro agent-time--read-at (marker &rest body)
+  "Run BODY at MARKER's entry, widened, changing and saving nothing."
+  (declare (indent 1))
+  `(with-current-buffer (marker-buffer ,marker)
+     (org-with-wide-buffer (goto-char ,marker) ,@body)))
+
 (defun agent-time--append (marker line)
   (agent-time--at marker
     (agent-time--goto-drawer-end)
@@ -144,13 +159,38 @@
   (and id (ignore-errors (org-id-find id 'marker))))
 
 (defun agent-time--title-at (marker)
-  (agent-time--at marker (substring-no-properties (org-get-heading t t t t))))
+  (agent-time--read-at marker (substring-no-properties (org-get-heading t t t t))))
 
 (defun agent-time--tasks-buffer ()
   (find-file-noselect (agent-time--file)))
 
+(defun agent-time--own-p (marker)
+  "Non-nil if MARKER is in agents.org: an agent's task, this file's to change."
+  (and marker (equal (file-truename (buffer-file-name (marker-buffer marker)))
+                     (file-truename (agent-time--file)))))
+
+(defun agent-time--runs-at (id)
+  "Where task ID's runs are written: the task, if it is in agents.org; else
+a heading there linking to it (made if missing), so your files are never
+written behind your back.  Nil if ID is gone."
+  (when-let* ((m (agent-time--marker id)))
+    (if (agent-time--own-p m)
+        m
+      (let ((title (agent-time--title-at m)))
+        (with-current-buffer (agent-time--tasks-buffer)
+          (prog1 (org-with-wide-buffer
+                  (if-let* ((pos (org-find-property "TASK_ID" id)))
+                      (copy-marker pos)
+                    (goto-char (point-max))
+                    (unless (bolp) (insert "\n"))
+                    (insert (format "* [[id:%s][%s]]\n" id title))
+                    (forward-line -1)
+                    (org-entry-put nil "TASK_ID" id)
+                    (point-marker)))
+            (agent-time--save-buffer)))))))
+
 (defun agent-time--create-task (title project)
-  "A TODO named TITLE for an agent in PROJECT, at the end of tasks.org,
+  "A TODO named TITLE for an agent in PROJECT, at the end of agents.org,
 scheduled today (every task has a date: org-flow.el); its ID."
   (with-current-buffer (agent-time--tasks-buffer)
     (prog1 (org-with-wide-buffer
@@ -165,9 +205,9 @@ scheduled today (every task has a date: org-flow.el); its ID."
             (org-id-get-create))
       (agent-time--save-buffer))))
 
-(defun agent-time--heading (title &optional tag)
-  "Marker of the top-level heading TITLE in tasks.org, made if missing."
-  (with-current-buffer (agent-time--tasks-buffer)
+(defun agent-time--heading (title &optional tag file)
+  "Marker of the top-level heading TITLE in FILE (agents.org), made if missing."
+  (with-current-buffer (find-file-noselect (or file (agent-time--file)))
     (prog1 (org-with-wide-buffer
             (goto-char (point-min))
             (if (re-search-forward (concat "^\\* " (regexp-quote title)
@@ -230,12 +270,12 @@ segment left open by a stopped Emacs can be said to have run.")
 ;;;; States
 
 (defun agent-time--working (marker)
-  "An agent works on MARKER's task: TODO becomes NEXT, remembered as the
-agent's doing so it can be put back."
-  (agent-time--at marker
-    (when (equal (org-get-todo-state) "TODO")
-      (org-todo "NEXT")
-      (org-entry-put nil "AGENT_NEXT" "t"))))
+  "An agent works on MARKER's task: TODO becomes NEXT.  Only an agent's
+own task; yours are left as you have them."
+  (when (agent-time--own-p marker)
+    (agent-time--at marker
+      (when (equal (org-get-todo-state) "TODO")
+        (org-todo "NEXT")))))
 
 (defun agent-time--done (marker &optional title note)
   "Mark MARKER's task DONE, retitled TITLE if given, with NOTE if given."
@@ -264,8 +304,8 @@ its CREATED time; nil if it has none of these."
             (org-time-string-to-seconds created))))))
 
 (defun agent-time-close-quiet ()
-  "Close agents' own tasks quiet for `agent-time-close-after'; put back to
-TODO your tasks an agent moved to NEXT.  Runs by itself now and then."
+  "Close agents' own tasks quiet for `agent-time-close-after'.
+Runs by itself now and then."
   (interactive)
   (let ((now (float-time)) closed)
     (with-current-buffer (agent-time--tasks-buffer)
@@ -273,27 +313,20 @@ TODO your tasks an agent moved to NEXT.  Runs by itself now and then."
        (goto-char (point-min))
        (while (re-search-forward org-heading-regexp nil t)
          (when-let* (((member (org-get-todo-state) '("TODO" "NEXT")))
-                     (whose (if (member "agent" (org-get-tags nil t)) 'agent 'yours))
-                     ((or (eq whose 'agent) (org-entry-get nil "AGENT_NEXT")))
+                     ((member "agent" (org-get-tags nil t)))
                      (last (agent-time--last-run))
                      ((numberp last))
                      ((> (- now last) agent-time-close-after)))
-           (let ((m (point-marker)))
-             (if (eq whose 'agent)
-                 (progn
-                   (agent-time--done m nil (format "Closed by itself: no agent work since %s."
-                                                   (agent-time--ts last)))
-                   (push (org-id-get) closed))
-               (agent-time--at m
-                 (org-todo "TODO")
-                 (org-entry-delete nil "AGENT_NEXT"))))))))
+           (agent-time--done (point-marker) nil (format "Closed by itself: no agent work since %s."
+                                                        (agent-time--ts last)))
+           (push (org-id-get) closed)))))
     ;; The agents on them -- or on one you closed yourself -- start a new
     ;; task with their next work.
     (maphash (lambda (pane st)
                (when (and (not (eq (plist-get st :how) 'user))
                           (or (member (plist-get st :task) closed)
                               (when-let* ((m (agent-time--marker (plist-get st :task))))
-                                (agent-time--at m (org-entry-is-done-p)))))
+                                (agent-time--read-at m (org-entry-is-done-p)))))
                  (puthash pane (agent-time--put st :task nil :how nil :release nil)
                           agent-time--panes)))
              agent-time--panes)
@@ -314,7 +347,7 @@ TODO your tasks an agent moved to NEXT.  Runs by itself now and then."
 
 (defun agent-time--begin (pane st kind now)
   "Start a KIND segment for ST at NOW; the new ST."
-  (let ((m (agent-time--marker (plist-get st :task))))
+  (let ((m (agent-time--runs-at (plist-get st :task))))
     (when m
       (agent-time--append m (agent-time--open-line kind now pane))
       (when (equal kind "AGENT") (agent-time--working m)))
@@ -324,7 +357,7 @@ TODO your tasks an agent moved to NEXT.  Runs by itself now and then."
   "End ST's running segment at NOW; the new ST."
   (when-let* ((kind (plist-get st :kind)))
     (let ((since (plist-get st :since))
-          (m (agent-time--marker (plist-get st :task))))
+          (m (agent-time--runs-at (plist-get st :task))))
       (if m
           (agent-time--close m kind since now pane)
         (agent-time--put st :pending (append (plist-get st :pending)
@@ -334,11 +367,11 @@ TODO your tasks an agent moved to NEXT.  Runs by itself now and then."
 (defun agent-time--adopt (pane st id how)
   "Record ST's work from now on to task ID; write what was pending there.
 The new ST."
-  (let ((m (agent-time--marker id))
+  (let ((m (agent-time--runs-at id))
         (kind (plist-get st :kind)) (since (plist-get st :since)))
     ;; The running segment moves: close it where it was, reopen it here.
     (when kind
-      (when-let* ((old (agent-time--marker (plist-get st :task))))
+      (when-let* ((old (agent-time--runs-at (plist-get st :task))))
         (agent-time--close old kind since (float-time) pane)
         (setq since (float-time))))
     (dolist (seg (plist-get st :pending))
@@ -386,7 +419,8 @@ The new ST."
           (setq changed t)
           ;; Its own title follows the conversation until the agent names it.
           (when-let* (((eq (plist-get st :how) 'auto))
-                      (m (agent-time--marker (plist-get st :task))))
+                      (m (agent-time--marker (plist-get st :task)))
+                      ((agent-time--own-p m)))
             (agent-time--at m (org-edit-headline (agent-time--auto-title st)))))
         (unless (equal want (plist-get st :kind))
           (setq changed t)
@@ -449,8 +483,10 @@ The new ST."
 (defun agent-time--mcp-start (pane cwd title)
   (let* ((st (or (gethash pane agent-time--panes)
                  (list :project (agent-time--project cwd))))
-         (m (agent-time--marker (plist-get st :task))))
-    (pcase (and m (not (plist-get st :release)) (plist-get st :how))
+         (m (agent-time--marker (plist-get st :task)))
+         (how (plist-get st :how)))
+    ;; One of the agent's tasks from before agents.org: start afresh there.
+    (pcase (and m (not (plist-get st :release)) (or (eq how 'user) (agent-time--own-p m)) how)
       ('user (format "The user assigned this agent to \"%s\"; your working time is recorded there. Don't rename it."
                      (agent-time--title-at m)))
       ('agent (agent-time--done m nil "Closed by itself: the agent started other work.")
@@ -473,8 +509,8 @@ The new ST."
          (m (agent-time--marker (plist-get st :task))))
     (cond
      ((null m) "No task is open for this agent; call task_start first next time.")
-     ((eq (plist-get st :how) 'user)
-      (agent-time--note m summary)
+     ((or (eq (plist-get st :how) 'user) (not (agent-time--own-p m)))
+      (agent-time--note (agent-time--runs-at (plist-get st :task)) summary)
       (format "Summary noted on \"%s\" (the user's task; left open)." (agent-time--title-at m)))
      (t
       (agent-time--done m title summary)
@@ -539,7 +575,7 @@ Cheap, since it runs on every key; the tick works out which agent."
   (pcase-let ((`(,pane ,start . ,_) agent-time--you))
     (setq agent-time--you nil)
     (let* ((st (gethash pane agent-time--panes))
-           (m (and (not (plist-get st :release)) (agent-time--marker (plist-get st :task)))))
+           (m (and (not (plist-get st :release)) (agent-time--runs-at (plist-get st :task)))))
       (if m
           (agent-time--append m (agent-time--closed-line "YOU" start at pane))
         ;; No task yet: it goes where the agent's own work goes.
@@ -585,7 +621,7 @@ Cheap, since it runs on every key; the tick works out which agent."
 
 (defun agent-time--passive-items ()
   "(LABEL MARKER OPEN-START) for each activity under Passive."
-  (let ((root (agent-time--heading agent-time--passive-heading "passive")) out)
+  (let ((root (agent-time--heading agent-time--passive-heading "passive" org-tasks-file)) out)
     (with-current-buffer (marker-buffer root)
       (org-with-wide-buffer
        (goto-char root)
@@ -625,7 +661,7 @@ Cheap, since it runs on every key; the tick works out which agent."
       (message "Passive: %s started" (car it)))
      ((string-empty-p (string-trim pick)) nil)
      (t
-      (let ((root (agent-time--heading agent-time--passive-heading "passive")))
+      (let ((root (agent-time--heading agent-time--passive-heading "passive" org-tasks-file)))
         (agent-time--at root
           (org-end-of-subtree t t)
           (unless (bolp) (insert "\n"))

@@ -952,6 +952,34 @@ GROUPS is ((LABEL YOU AGENTS PASSIVE) ...), in minutes."
      groups)
     (org-summary--write-svg svg file)))
 
+(defun org-summary-agents-block (&rest _)
+  "Agenda block: today's agent tasks, a line each, with the agent's time,
+yours with it (YOU runs) and its waits on you.  Your few minutes of
+answers are summed here rather than shown as clocks; RET opens the task."
+  (let* ((today (org-today))
+         (runs (seq-remove (lambda (r) (equal (plist-get r :kind) "PASSIVE"))
+                           (org-summary-runs today today)))
+         ;; By title: a task of yours keeps its runs on a heading in agents.org.
+         (tasks (seq-group-by (lambda (r) (plist-get r :title)) runs))
+         (mins (lambda (rs kind)
+                 (apply #'+ (mapcar (lambda (r) (plist-get r :minutes))
+                                    (seq-filter (lambda (r) (equal (plist-get r :kind) kind)) rs))))))
+    (when tasks
+      (insert (propertize "Agents today" 'face 'org-agenda-structure) "\n")
+      (dolist (task (sort tasks (lambda (a b) (> (funcall mins (cdr a) "AGENT")
+                                                 (funcall mins (cdr b) "AGENT")))))
+        (let* ((rs (cdr task))
+               (wait (funcall mins rs "WAIT"))
+               (m (with-current-buffer (find-file-noselect (plist-get (car rs) :file))
+                    (copy-marker (plist-get (car rs) :pos)))))
+          (insert (propertize (format "  %5s agent · %5s you%s  %s\n"
+                                      (org-summary--dur (funcall mins rs "AGENT"))
+                                      (org-summary--dur (funcall mins rs "YOU"))
+                                      (if (> wait 0) (format " · %s waiting" (org-summary--dur wait)) "")
+                                      (car task))
+                              'org-marker m 'org-hd-marker m))))
+      (insert "\n"))))
+
 (defun org-dblock-write:time-kinds (params)
   "Your time, your agents' time and passive time over :span (default this week)."
   (let* ((range (org-summary--range params "thisweek"))

@@ -237,6 +237,7 @@
 (autoload 'org-summary-dashboard "org-summary" nil t)
 (autoload 'org-summary-habit-calendar "org-summary" nil t)
 (autoload 'org-summary-refresh "org-summary" nil t)
+(autoload 'org-summary-agents-block "org-summary")
 (with-eval-after-load 'org-capture (require 'org-summary))
 ;; What ~/.config/orgsummary/*.yaml used to say.  File paths are the org-*-file
 ;; variables above; done states are Org's own (`org-done-keywords').
@@ -1923,6 +1924,8 @@ selected, then the current line."
                                       )
                                      )
                              (org-time-budgets-in-agenda-maybe)
+                             ;; A line per agent task, your time with it summed (agent-time.el)
+                             (org-summary-agents-block)
                              (todo "SUMMARISING"
                                    ((org-agenda-overriding-header "Books I am currently reading and summarizing\n ======================================================\n")))
                              )
