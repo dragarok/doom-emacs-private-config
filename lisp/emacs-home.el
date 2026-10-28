@@ -8,8 +8,8 @@
 ;;
 ;; The homepage shows your pinned apps as rows of small icons, so a couple of
 ;; rows still fit above the touch keyboard.  `emacs-home-launch' (the
-;; toolbar's Apps) picks from every app; `emacs-home-toggle-pin' pins or
-;; unpins one.
+;; toolbar's Apps) picks from every app and the pinned shortcuts;
+;; `emacs-home-toggle-pin' pins or unpins one.
 
 ;;; Code:
 
@@ -121,11 +121,13 @@ says (the weekday, the English date) and bare separators.")
       (with-temp-file file (insert text)))))
 
 (defun emacs-home--icon (app height)
-  "APP's icon as a string displaying an image HEIGHT pixels tall."
-  (let ((png (expand-file-name (if (equal (nth 1 app) "shortcut")
-                                   (concat "icons/" (nth 3 app))
-                                 (format "icons/%s_%s.png" (nth 1 app) (nth 2 app)))
-                               emacs-home-dir)))
+  "APP's icon as a string displaying an image HEIGHT pixels tall.
+Hail's freeze shows Hail's own."
+  (let* ((app (if (equal (nth 1 app) "hail") (emacs-home--hail-app (emacs-home--apps)) app))
+         (png (expand-file-name (if (equal (nth 1 app) "shortcut")
+                                    (concat "icons/" (nth 3 app))
+                                  (format "icons/%s_%s.png" (nth 1 app) (nth 2 app)))
+                                emacs-home-dir)))
     (if (file-exists-p png)
         ;; :scale 1 -- HEIGHT is meant in screen pixels, not before
         ;; `image-scaling-factor'.
@@ -245,10 +247,30 @@ APPS, if given, is what to choose from instead of the installed apps."
       nil t)
      table)))
 
+(defun emacs-home--run (entry source)
+  "Launch ENTRY -- an app, a shortcut or Hail's freeze -- logged as from SOURCE."
+  (pcase (nth 1 entry)
+    ("hail"
+     (usage-log source "hail-freeze")
+     (android-browse-url (format "emacs-home://hail/%s" (nth 2 entry))))
+    ("shortcut"
+     (usage-log source (nth 2 entry))
+     ;; The id may hold a / itself; the package can't.
+     (string-match "\\`\\([^/]+\\)/" (nth 2 entry))
+     (android-browse-url (format "emacs-home://shortcut/%s/%s"
+                                 (match-string 1 (nth 2 entry))
+                                 (url-hexify-string (substring (nth 2 entry) (match-end 0))))))
+    (_ (emacs-home-open entry))))
+
 (defun emacs-home-launch ()
-  "Pick an installed app and launch it."
+  "Pick an installed app, or a pinned shortcut or Hail's freeze, and launch it."
   (interactive)
-  (emacs-home-open (emacs-home--read-app "App: ")))
+  (let* ((apps (emacs-home--apps))
+         (pins (emacs-home--pins))
+         (pinned (seq-filter (lambda (e) (and (member (nth 1 e) '("shortcut" "hail"))
+                                              (member (emacs-home--key e) pins)))
+                             (emacs-home--pinnable apps))))
+    (emacs-home--run (emacs-home--read-app "App: " nil (append pinned apps)) "app")))
 
 (defun emacs-home-toggle-pin ()
   "Pin an app to the homepage, or unpin it if it is pinned."
@@ -312,27 +334,14 @@ in -- pick the task it matches, or RET to make it one."
     (minibuffer-with-setup-hook (lambda () (insert text))
       (rts-flow-manual))))
 
-(defun emacs-home--cell (entry apps size)
+(defun emacs-home--cell (entry size)
   "ENTRY's tile, (ICON ACTION LABEL SPAN), SIZE pixels tall."
   (pcase (nth 1 entry)
-    ("hail"
-     (list (emacs-home--icon (emacs-home--hail-app apps) size)
-           (lambda (_)
-             (usage-log "dashboard" "hail-freeze")
-             (android-browse-url (format "emacs-home://hail/%s" (nth 2 entry))))
-           "Freeze apps (Hail)" 1))
-    ("shortcut"
-     (list (emacs-home--icon entry size)
-           (lambda (_)
-             (usage-log "dashboard" (nth 2 entry))
-             ;; The id may hold a / itself; the package can't.
-             (string-match "\\`\\([^/]+\\)/" (nth 2 entry))
-             (android-browse-url (format "emacs-home://shortcut/%s/%s"
-                                         (match-string 1 (nth 2 entry))
-                                         (url-hexify-string (substring (nth 2 entry) (match-end 0))))))
-           (car entry) 1))
+    ("hail" (list (emacs-home--icon entry size)
+                  (lambda (_) (emacs-home--run entry "dashboard"))
+                  "Freeze apps (Hail)" 1))
     (_ (list (emacs-home--icon entry size)
-             (lambda (_) (emacs-home-open entry))
+             (lambda (_) (emacs-home--run entry "dashboard"))
              (car entry) 1))))
 
 (defun emacs-home--rows (cells per-row)
@@ -361,7 +370,7 @@ in -- pick the task it matches, or RET to make it one."
          (size (round (* cell emacs-home-icon-fill)))
          (gap (propertize " " 'display `(space :width (,(- cell size)))))
          (widgets (seq-filter (lambda (e) (equal (nth 1 e) "widget")) pinned))
-         (cells (mapcar (lambda (app) (emacs-home--cell app apps size))
+         (cells (mapcar (lambda (app) (emacs-home--cell app size))
                         (seq-difference pinned widgets))))
     (insert "\n  ")
     ;; First button, so the dashboard parks point -- and the line highlight

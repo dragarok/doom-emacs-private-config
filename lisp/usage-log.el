@@ -45,21 +45,38 @@
   (usage-log source command)
   (call-interactively command))
 
+(defvar usage-log--toolbar nil
+  "Toolbar commands still running, as (DEPTH . COMMAND), innermost first.")
+
+(defun usage-log--pre-command ()
+  "Log a toolbar press as it starts.  A button that asks in the minibuffer
+\(Apps, Add) leaves the keys reading what was typed there by its end, so
+`post-command-hook' would take it for a key and the RET for the toolbar."
+  (let ((depth (recursion-depth))
+        (keys (this-command-keys-vector)))
+    ;; Anything left at this depth or deeper ended without its post hook.
+    (setq usage-log--toolbar (seq-filter (lambda (e) (< (car e) depth)) usage-log--toolbar))
+    (when (and this-command (symbolp this-command)
+               (> (length keys) 1) (eq (aref keys 0) 'tool-bar)
+               (eq (key-binding (vector 'tool-bar (aref keys 1))) this-command))
+      (usage-log "toolbar" this-command)
+      (push (cons depth this-command) usage-log--toolbar))))
+
 (defun usage-log--post-command ()
-  "Log toolbar presses, the review keys (`usage-log-leader-regexp'), and
-the watched commands run from a key or M-x."
-  (when this-command
-    (let* ((keys (this-command-keys-vector))
-           (name (and (symbolp this-command) (symbol-name this-command))))
-      (cond ((and name (> (length keys) 0) (eq (aref keys 0) 'tool-bar))
-             (usage-log "toolbar" this-command))
-            ((and (> (length keys) 3)
-                  (string-match-p usage-log-leader-regexp (key-description keys)))
-             (usage-log "leader" (or name (key-description keys))))
-            ((and name (string-match-p usage-log-commands-regexp name))
-             ;; M-x leaves the keys reading "M-x NAME RET".
-             (usage-log (if (and (> (length keys) 0) (eql (aref keys 0) ?\M-x)) "M-x" "key")
-                        this-command))))))
+  "Log the review keys (`usage-log-leader-regexp') and the watched commands
+run from a key or M-x; toolbar presses were logged as they started."
+  (let* ((keys (this-command-keys-vector))
+         (name (and (symbolp this-command) (symbol-name this-command))))
+    (cond ((null this-command))
+          ((equal (car usage-log--toolbar) (cons (recursion-depth) this-command))
+           (pop usage-log--toolbar))
+          ((and (> (length keys) 3)
+                (string-match-p usage-log-leader-regexp (key-description keys)))
+           (usage-log "leader" (or name (key-description keys))))
+          ((and name (string-match-p usage-log-commands-regexp name))
+           ;; M-x leaves the keys reading "M-x NAME RET".
+           (usage-log (if (and (> (length keys) 0) (eql (aref keys 0) ?\M-x)) "M-x" "key")
+                      this-command)))))
 
 (defun usage-log--capture (entry)
   "After `org-capture-select-template': log the template picked, by key."
@@ -70,6 +87,7 @@ the watched commands run from a key or M-x."
 ;; Advising a function not loaded yet is fine, and loads nothing.
 (advice-add 'org-capture-select-template :filter-return #'usage-log--capture)
 
+(add-hook 'pre-command-hook #'usage-log--pre-command)
 (add-hook 'post-command-hook #'usage-log--post-command)
 
 ;;; Report
