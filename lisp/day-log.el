@@ -222,21 +222,28 @@ cut at 20 minutes and the total marked estimated."
 ;;; Facts: agents and passive time
 
 (defun day-log--runs (runs clocks)
-  "Lines for the day's agent, waiting and passive RUNS (`org-summary-runs'),
-each agent task beside the time CLOCKS give it."
+  "Lines for the day's agent, waiting, your and passive RUNS (`org-summary-runs'),
+each agent task beside your time with it: its YOU runs, and CLOCKS from
+before those (the clock used to follow the agent you were with)."
   (let* ((of (lambda (k) (seq-filter (lambda (r) (equal (plist-get r :kind) k)) runs)))
          (agent (funcall of "AGENT")) (wait (funcall of "WAIT")) (passive (funcall of "PASSIVE"))
+         (with (funcall of "YOU"))
          (len (lambda (r) (- (plist-get r :to) (plist-get r :from))))
          (secs (lambda (items) (apply #'+ (mapcar len items))))
          (by-title (lambda (items) (day-log--sum items (lambda (r) (cons (plist-get r :title)
                                                                          (funcall len r))))))
          (tasks (funcall by-title (append agent wait))))
-    (insert (format "Agents %s on %d task%s, up to %d at once · waited on you %s · passive %s\n"
+    (insert (format "Agents %s on %d task%s, up to %d at once · waited on you %s · you with them %s · passive %s\n"
                     (day-log--dur (funcall secs agent)) (length tasks) (if (= 1 (length tasks)) "" "s")
                     (org-summary--most-at-once agent)
-                    (day-log--dur (funcall secs wait)) (day-log--dur (funcall secs passive))))
+                    (day-log--dur (funcall secs wait)) (day-log--dur (funcall secs with))
+                    (day-log--dur (funcall secs passive))))
     (when tasks
-      (let ((you (day-log--sum clocks (lambda (c) (cons (nth 2 c) (- (cadr c) (car c))))))
+      (let ((you (day-log--sum (append (mapcar (lambda (r) (cons (plist-get r :title) (funcall len r)))
+                                               with)
+                                       (mapcar (lambda (c) (cons (nth 2 c) (- (cadr c) (car c))))
+                                               clocks))
+                               #'identity))
             (agents (funcall by-title agent))
             (waits (funcall by-title wait)))
         (insert "\nAgents\n")

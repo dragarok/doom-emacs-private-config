@@ -536,7 +536,7 @@
   (setopt herdr-menu-key "C-9"            ; herdr-menu, also from inside the TUI
           herdr-menu-repeat-command #'herdr-agents)
   (herdr-mode 1)                          ; poll, ● N blocked, notifications
-  ;; Agents' runs from each poll, your clock on the agent you're with.
+  ;; Agents' runs from each poll, and your time with them as you type to them.
   (with-eval-after-load 'org
     (require 'agent-time)
     (agent-time-mode 1))

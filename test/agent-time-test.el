@@ -111,4 +111,66 @@ an agent put it in NEXT; the pane on a closed task lets it go."
     (should (equal (agent-time--title-at (agent-time--marker (plist-get (gethash "p1" agent-time--panes) :task)))
                    "Research tourism"))))
 
+(defmacro agent-time-test--typing (viewed &rest body)
+  "BODY with every agent buffer showing pane p1 and VIEWED (a pane or nil)
+in the selected window, and nobody with an agent yet."
+  (declare (indent 1))
+  `(let ((agent-time--keys nil) (agent-time--you nil)
+         (buf (get-buffer-create "*herdr*")))
+     (cl-letf (((symbol-function 'agent-time--buffer-pane) (lambda (_) "p1"))
+               ((symbol-function 'agent-time--viewed-pane) (lambda () ,viewed)))
+       (unwind-protect (progn ,@body) (kill-buffer buf)))))
+
+(defun agent-time-test--you-line (title)
+  (let ((entry (agent-time-test--entry title)))
+    (and (string-match "^[ \t]*YOU: \\[[^]]+ \\([0-9:]+\\)\\]--\\[[^]]+ \\([0-9:]+\\)\\] => +\\([0-9:]+\\)  p1$" entry)
+         (list (match-string 1 entry) (match-string 2 entry) (match-string 3 entry)))))
+
+(ert-deftest agent-time-test-you-typing ()
+  "Typing to an agent writes a YOU line from the first key to a minute past
+the last, and leaves the clock on the book you are reading."
+  (agent-time-test--with "* TODO Fix sink\n:PROPERTIES:\n:ID: a\n:END:\n* TODO Read a book\n"
+    (puthash "p1" (list :task "a") agent-time--panes)
+    (with-current-buffer (find-file-noselect org-tasks-file)
+      (goto-char (point-min))
+      (re-search-forward "Read a book")
+      (org-clock-in))
+    (let ((t0 (float-time (encode-time '(0 0 10 28 10 2026 nil -1 nil)))))
+      (agent-time-test--typing "p1"
+        (setq agent-time--keys (cons buf (cons t0 (+ t0 5))))
+        (agent-time--you-tick (+ t0 10))
+        (setq agent-time--keys (cons buf (cons (+ t0 12) (+ t0 125))))
+        (agent-time--you-tick (+ t0 130))
+        (agent-time--you-tick (+ t0 180))    ; still within the minute
+        (should agent-time--you)
+        (agent-time--you-tick (+ t0 190))))  ; past it
+    (should-not agent-time--you)
+    (should (equal (agent-time-test--you-line "Fix sink") '("10:00" "10:03" "0:03")))
+    (should (org-clocking-p))
+    (should (equal org-clock-current-task "Read a book"))
+    (org-clock-cancel)))
+
+(ert-deftest agent-time-test-you-leave ()
+  "Going back to something else ends your time with the agent then, but a
+minute at least; with no task yet it waits with the agent's own work."
+  (agent-time-test--with "* TODO Fix sink\n:PROPERTIES:\n:ID: a\n:END:\n"
+    (puthash "p1" (list :task "a") agent-time--panes)
+    (let ((t0 (float-time (encode-time '(0 0 10 28 10 2026 nil -1 nil)))))
+      (agent-time-test--typing nil
+        (setq agent-time--keys (cons buf (cons t0 (+ t0 5))))
+        (agent-time--you-tick (+ t0 10))   ; typed, then left at once
+        (should agent-time--you)
+        (agent-time--you-tick (+ t0 20)))
+      (should (equal (agent-time-test--you-line "Fix sink") '("10:00" "10:01" "0:01")))
+      (puthash "p1" (list :kind "AGENT" :since t0) agent-time--panes)
+      (agent-time-test--typing nil
+        (setq agent-time--keys (cons buf (cons t0 (+ t0 200))))
+        (agent-time--you-tick (+ t0 210))
+        (agent-time--you-tick (+ t0 220)))
+      (let ((st (gethash "p1" agent-time--panes)))
+        (should (equal (plist-get st :pending) (list (list "YOU" t0 (+ t0 220)))))
+        ;; Your time doesn't count toward the agent's own task.
+        (cl-letf (((symbol-function 'float-time) (lambda (&rest _) (+ t0 30))))
+          (should (= (agent-time--pending-secs st) 30)))))))
+
 ;;; agent-time-test.el ends here

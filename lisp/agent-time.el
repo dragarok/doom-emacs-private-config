@@ -1,12 +1,13 @@
 ;;; agent-time.el --- Your time, your agents' time, passive time -*- lexical-binding: t -*-
 
 ;;; Commentary:
-;; Org has one clock, and it stays yours: what you are doing.  Two more
-;; kinds of time are kept beside it, in a :RUNS: drawer on the task, in
-;; lines Org's clocktable never reads (so totals stay honest):
+;; Org has one clock, and it stays yours: what you are doing.  Nothing here
+;; moves it.  More kinds of time are kept beside it, in a :RUNS: drawer on
+;; the task, in lines Org's clocktable never reads (so totals stay honest):
 ;;
 ;;   AGENT:   [start]--[end] =>  0:52  wZ:p1   an agent working on the task
 ;;   WAIT:    [start]--[end] =>  0:05  wZ:p1   the agent blocked, waiting on you
+;;   YOU:     [start]--[end] =>  0:04  wZ:p1   you typing to the agent
 ;;   PASSIVE: [start]--[end] =>  1:00          music, cleaning, a podcast
 ;;
 ;; An open line ([start] alone) is time still running; it survives a restart.
@@ -29,12 +30,11 @@
 ;; task that an agent moved to NEXT goes back to TODO instead.  A second
 ;; task_start closes the agent's previous task the same way.
 ;;
-;; You.  While an agent's pane is in the selected window (the Herdr TUI or
-;; an attach buffer) and you have been active in the last
-;; `agent-time-active-secs', the org clock runs on that agent's task -- after
-;; `agent-time-dwell' seconds, so a glance doesn't count.  Leaving the agent
-;; (or going idle) clocks out, and the task you were clocked into before
-;; resumes.  Clocking in or out yourself always wins.
+;; You.  Typing to an agent (in the Herdr TUI or an attach buffer) opens a
+;; YOU line on its task, from your first key to `agent-time-you-tail'
+;; seconds past your last; leaving the agent ends it then, though never
+;; under that long.  The clock is not touched, so a book you are clocked
+;; into keeps running while you answer an agent.
 ;;
 ;; Passive.  `agent-time-passive' (SPC o v a) toggles activities kept under
 ;; "Passive" in tasks.org; any number can run at once, none touch the clock.
@@ -62,12 +62,8 @@
   "Agent, attention and passive time in org."
   :group 'org-clock)
 
-(defcustom agent-time-active-secs 180
-  "You count as with an agent while idle less than this many seconds."
-  :type 'integer)
-
-(defcustom agent-time-dwell 30
-  "Seconds with (or away from) an agent before the clock follows."
+(defcustom agent-time-you-tail 60
+  "Seconds your time with an agent runs past your last key, and its least."
   :type 'integer)
 
 (defcustom agent-time-quick-secs 120
@@ -195,13 +191,6 @@ scheduled today (every task has a date: org-flow.el); its ID."
                       (replace-regexp-in-string "\n" "\n  " (string-trim text))))
       (indent-region beg (point)))))
 
-(defvar agent-time--focus nil "(PANE . SINCE): the agent in view, and since when.")
-(defvar agent-time--away nil "When you left the agent the clock is on.")
-(defvar agent-time--auto nil "Non-nil while the clock runs because of an agent.")
-(defvar agent-time--resume nil "The task you were clocked into before, to go back to.")
-(defvar agent-time--held nil "A pane you clocked away from yourself: leave it be.")
-(defvar agent-time--self nil "Bound while this file moves the clock.")
-
 ;;;; Agents
 
 ;; One plist per Herdr pane:
@@ -250,14 +239,12 @@ agent's doing so it can be put back."
 
 (defun agent-time--done (marker &optional title note)
   "Mark MARKER's task DONE, retitled TITLE if given, with NOTE if given."
-  ;; DONE clocks out a clock on it; that isn't you stopping by hand.
-  (let ((agent-time--self t))
-    (agent-time--at marker
-      (when title (org-edit-headline title))
-      (org-todo "DONE")
-      ;; Its "State DONE" line waits for the end of a command, which an
-      ;; emacsclient call or a timer never has: write it now.
-      (when (memq 'org-add-log-note post-command-hook) (org-add-log-note))))
+  (agent-time--at marker
+    (when title (org-edit-headline title))
+    (org-todo "DONE")
+    ;; Its "State DONE" line waits for the end of a command, which an
+    ;; emacsclient call or a timer never has: write it now.
+    (when (memq 'org-add-log-note post-command-hook) (org-add-log-note)))
   (when note (agent-time--note marker note)))
 
 (defun agent-time--last-run ()
@@ -361,7 +348,9 @@ The new ST."
     (agent-time--put st :task id :how how :release nil :pending nil :since since)))
 
 (defun agent-time--pending-secs (st)
-  (+ (apply #'+ (mapcar (lambda (s) (- (nth 2 s) (nth 1 s))) (plist-get st :pending)))
+  "How long ST's agent has worked or waited without a task (your time aside)."
+  (+ (apply #'+ (mapcar (lambda (s) (if (equal (car s) "YOU") 0 (- (nth 2 s) (nth 1 s))))
+                        (plist-get st :pending)))
      (if (plist-get st :kind) (- (float-time) (plist-get st :since)) 0)))
 
 (defun agent-time--episode-over (pane st)
@@ -509,103 +498,88 @@ The new ST."
                  (error (concat "Error: " (error-message-string err))))))
     (base64-encode-string (encode-coding-string (json-encode `((text . ,text))) 'utf-8) t)))
 
-;;;; You: the clock follows the agent you are with
+;;;; You: your time with the agent you type to
+
+(defun agent-time--buffer-pane (buf)
+  "The agent pane BUF shows: an attach buffer's, or the TUI's focused one."
+  (or (with-current-buffer buf (bound-and-true-p herdr--attached-pane))
+      (and (string-prefix-p "*herdr" (buffer-name buf))
+           (fboundp 'herdr--snapshot-sync)
+           (let* ((snap (alist-get 'snapshot (alist-get 'result (herdr--snapshot-sync))))
+                  (pane (alist-get 'focused_pane_id snap)))
+             (and (seq-find (lambda (a) (equal (alist-get 'pane_id a) pane))
+                            (alist-get 'agents snap))
+                  pane)))))
 
 (defun agent-time--viewed-pane ()
   "The agent pane in the selected window, if any."
-  (let ((buf (window-buffer (selected-window))))
-    (or (buffer-local-value 'herdr--attached-pane buf)
-        (and (string-prefix-p "*herdr" (buffer-name buf))
-             (fboundp 'herdr--snapshot-sync)
-             (let* ((snap (alist-get 'snapshot (alist-get 'result (herdr--snapshot-sync))))
-                    (pane (alist-get 'focused_pane_id snap)))
-               (and (seq-find (lambda (a) (equal (alist-get 'pane_id a) pane))
-                              (alist-get 'agents snap))
-                    pane))))))
+  (agent-time--buffer-pane (window-buffer (selected-window))))
 
-(defun agent-time--idle ()
-  (if-let* ((i (current-idle-time))) (float-time i) 0))
+(defvar agent-time--keys nil
+  "(BUFFER FIRST . LAST): keys typed to an agent since the last tick.")
+(defvar agent-time--you nil
+  "(PANE START . LAST): you with an agent now, from your first key to your latest.")
 
-(defun agent-time--clocked-id ()
-  (and (org-clocking-p) (org-with-point-at org-clock-marker (org-id-get))))
+(defun agent-time--typed ()
+  "After each command: note a key sent to an agent's terminal.
+Cheap, since it runs on every key; the tick works out which agent."
+  (when (and (symbolp this-command)
+             ;; Keys and pastes going to the terminal, not window moves.
+             (string-match-p "\\`ghostel-\\(?:-self-insert\\|-send-event\\|send-\\|paste\\|yank\\)"
+                             (symbol-name this-command))
+             (or (bound-and-true-p herdr--attached-pane)
+                 (string-prefix-p "*herdr" (buffer-name))))
+    (let ((now (float-time)))
+      (if (eq (car agent-time--keys) (current-buffer))
+          (setcdr (cdr agent-time--keys) now)
+        (setq agent-time--keys (cons (current-buffer) (cons now now)))))))
 
-(defun agent-time--save-clock-buffers (&rest bufs)
-  "Save BUFS and the clock's buffer, whose clocks this file just moved,
-so the phone sees them."
-  (dolist (buf (cons (marker-buffer org-clock-marker) bufs))
-    (when (buffer-live-p buf)
-      (with-current-buffer buf (agent-time--save-buffer)))))
+(defun agent-time--you-end (at)
+  "Write your time with the agent, which ran until AT."
+  (pcase-let ((`(,pane ,start . ,_) agent-time--you))
+    (setq agent-time--you nil)
+    (let* ((st (gethash pane agent-time--panes))
+           (m (and (not (plist-get st :release)) (agent-time--marker (plist-get st :task)))))
+      (if m
+          (agent-time--append m (agent-time--closed-line "YOU" start at pane))
+        ;; No task yet: it goes where the agent's own work goes.
+        (puthash pane (agent-time--put st :pending (append (plist-get st :pending)
+                                                           (list (list "YOU" start at))))
+                 agent-time--panes)))))
 
-(defun agent-time--clock-in (marker start)
-  (let ((agent-time--self t)
-        (org-clock-auto-clock-resolution nil))
-    (when (org-clocking-p)
-      (unless agent-time--auto
-        (setq agent-time--resume (copy-marker org-clock-marker)))
-      (org-clock-out nil t (seconds-to-time (max start (float-time org-clock-start-time)))))
-    (org-with-point-at marker (org-clock-in nil (seconds-to-time start)))
-    (agent-time--save-clock-buffers (and agent-time--resume (marker-buffer agent-time--resume)))
-    (setq agent-time--auto t)))
+(defun agent-time--you-tick (now)
+  "Start, stretch or end your time with an agent, from the keys typed since."
+  (let* ((keys (prog1 agent-time--keys (setq agent-time--keys nil)))
+         (typed (and keys (buffer-live-p (car keys)) (agent-time--buffer-pane (car keys)))))
+    (pcase-let ((`(,pane ,start . ,last) agent-time--you))
+      (cond
+       ((null pane))
+       ((equal typed pane) (setcdr (cdr agent-time--you) (cddr keys)))
+       ;; Gone to another agent, or away: it ends now, a minute at least.
+       ((or typed (not (equal (agent-time--viewed-pane) pane)))
+        (agent-time--you-end (max (+ start agent-time-you-tail)
+                                  (min now (+ last agent-time-you-tail)))))
+       ((>= now (+ last agent-time-you-tail))
+        (agent-time--you-end (+ last agent-time-you-tail)))))
+    (when (and typed (not agent-time--you))
+      (setq agent-time--you (cons typed (cons (cadr keys) (cddr keys)))))))
 
-(defun agent-time--clock-out (at)
-  ;; Gone idle before the dwell even ended: no 0:00 line.
-  (let ((agent-time--self t)
-        (org-clock-out-remove-zero-time-clocks t))
-    (when (org-clocking-p)
-      (let ((buf (marker-buffer org-clock-marker)))
-        (org-clock-out nil t (seconds-to-time (max at (float-time org-clock-start-time))))
-        (agent-time--save-clock-buffers buf)))
-    (setq agent-time--auto nil)))
-
-(defun agent-time--resume-now (at)
-  (when-let* ((m agent-time--resume))
-    (setq agent-time--resume nil)
-    (when (and (marker-buffer m) (not (org-clocking-p)))
-      (let ((agent-time--self t)
-            (org-clock-auto-clock-resolution nil))
-        (org-with-point-at m (org-clock-in nil (seconds-to-time at)))
-        (agent-time--save-clock-buffers)))))
+(defun agent-time--you-stop ()
+  "Emacs is going: end your time with an agent as it stands."
+  (when-let* ((you agent-time--you))
+    (agent-time--you-end (max (+ (cadr you) agent-time-you-tail)
+                              (min (float-time) (+ (cddr you) agent-time-you-tail))))))
 
 (defvar agent-time--last-sweep 0)
 
 (defun agent-time--tick ()
   (condition-case err
-      (let* ((now (float-time))
-             (idle (agent-time--idle))
-             (active (< idle agent-time-active-secs))
-             (pane (and active (agent-time--viewed-pane))))
-        (unless (equal pane (car agent-time--focus))
-          (setq agent-time--focus (and pane (cons pane now))))
-        (unless (equal pane agent-time--held) (setq agent-time--held nil))
-        (cond
-         ((and pane (not (equal pane agent-time--held)))
-          (setq agent-time--away nil)
-          (when-let* (((>= (- now (cdr agent-time--focus)) agent-time-dwell))
-                      (st (gethash pane agent-time--panes))
-                      ((not (plist-get st :release)))
-                      (id (plist-get st :task))
-                      ((not (equal id (agent-time--clocked-id))))
-                      (m (agent-time--marker id)))
-            (agent-time--clock-in m (cdr agent-time--focus))))
-         (agent-time--auto
-          (unless agent-time--away
-            (setq agent-time--away (if active now (- now idle))))
-          (when (or (not active) (>= (- now agent-time--away) agent-time-dwell))
-            (agent-time--clock-out agent-time--away)
-            (when active (agent-time--resume-now agent-time--away))
-            (setq agent-time--away nil)))
-         ((and active agent-time--resume)
-          (agent-time--resume-now now)))
+      (let ((now (float-time)))
+        (agent-time--you-tick now)
         (when (> now (+ agent-time--last-sweep 600))
           (setq agent-time--last-sweep now)
           (agent-time-close-quiet)))
     (error (message "agent-time: %s" (error-message-string err)))))
-
-(defun agent-time--by-hand ()
-  "You moved the clock yourself: stop following agents until you look away."
-  (unless agent-time--self
-    (setq agent-time--auto nil agent-time--resume nil agent-time--away nil
-          agent-time--held (car agent-time--focus))))
 
 ;;;; Passive time
 
@@ -667,20 +641,20 @@ so the phone sees them."
 
 ;;;###autoload
 (define-minor-mode agent-time-mode
-  "Record agents' time from Herdr and clock yours to the agent you are with."
+  "Record agents' time from Herdr, and yours with them as you type to them."
   :global t
   (if agent-time-mode
       (progn
         (when (zerop (hash-table-count agent-time--panes)) (agent-time--load-state))
         (advice-add 'herdr--notify-status-changes :after #'agent-time--on-poll)
-        (add-hook 'org-clock-in-hook #'agent-time--by-hand)
-        (add-hook 'org-clock-out-hook #'agent-time--by-hand)
+        (add-hook 'post-command-hook #'agent-time--typed)
         (add-hook 'kill-emacs-hook #'agent-time--save-state)
+        (add-hook 'kill-emacs-hook #'agent-time--you-stop) ; runs first
         (setq agent-time--timer (run-with-timer 10 10 #'agent-time--tick)))
     (advice-remove 'herdr--notify-status-changes #'agent-time--on-poll)
-    (remove-hook 'org-clock-in-hook #'agent-time--by-hand)
-    (remove-hook 'org-clock-out-hook #'agent-time--by-hand)
+    (remove-hook 'post-command-hook #'agent-time--typed)
     (when agent-time--timer (cancel-timer agent-time--timer) (setq agent-time--timer nil))
+    (agent-time--you-stop)
     (agent-time--save-state)))
 
 (provide 'agent-time)

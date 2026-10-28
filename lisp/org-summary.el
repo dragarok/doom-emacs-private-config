@@ -250,14 +250,14 @@ A day heading (2026-10-24 Saturday) gives that day; a month heading
                 (org-back-to-heading t)
                 (push (append (list :day day) (org-summary--heading-info file)) out)))))))))
 
-;; Agent, waiting and passive time (agent-time.el), in :RUNS: drawers.  An
+;; Agent, waiting, your and passive time (agent-time.el), in :RUNS: drawers.  An
 ;; open line is still running: it counts up to now.
 (defconst org-summary--run-re
-  "^[ \t]*\\(AGENT\\|WAIT\\|PASSIVE\\): \\[\\([^]]+\\)\\]\\(?:--\\[\\([^]]+\\)\\]\\)?")
+  "^[ \t]*\\(AGENT\\|WAIT\\|YOU\\|PASSIVE\\): \\[\\([^]]+\\)\\]\\(?:--\\[\\([^]]+\\)\\]\\)?")
 
 (defun org-summary-runs (start end &optional files)
-  "Runs begun on days START..END in FILES, as plists: :kind (\"AGENT\", \"WAIT\"
-or \"PASSIVE\"), :from and :to (float times), :day, :minutes, :open, and
+  "Runs begun on days START..END in FILES, as plists: :kind (\"AGENT\", \"WAIT\",
+\"YOU\" or \"PASSIVE\"), :from and :to (float times), :day, :minutes, :open, and
 the entry's heading info."
   (let (out)
     (dolist (file (or files (org-summary--files)) out)
@@ -959,6 +959,7 @@ GROUPS is ((LABEL YOU AGENTS PASSIVE) ...), in minutes."
          (runs (org-summary-runs (car range) (cdr range)))
          (kind (lambda (k) (seq-filter (lambda (r) (equal (plist-get r :kind) k)) runs)))
          (agent (funcall kind "AGENT")) (wait (funcall kind "WAIT")) (passive (funcall kind "PASSIVE"))
+         (with (funcall kind "YOU"))
          (mins (lambda (items) (apply #'+ (mapcar (lambda (i) (plist-get i :minutes)) items))))
          (title (lambda (i) (plist-get i :title)))
          (tasks (org-summary--sum (append agent wait) title))
@@ -987,6 +988,11 @@ GROUPS is ((LABEL YOU AGENTS PASSIVE) ...), in minutes."
       (insert (format "- Agents waiting on you :: %s over %d wait%s, longest %s\n"
                       (funcall dur (funcall mins wait)) (length wait) (if (= 1 (length wait)) "" "s")
                       (funcall dur (apply #'max (mapcar (lambda (w) (plist-get w :minutes)) wait))))))
+    (when with
+      (insert (format "- You with agents :: %s typing to them, not clocked — %s\n"
+                      (funcall dur (funcall mins with))
+                      (mapconcat (lambda (p) (format "%s %s" (car p) (funcall dur (cdr p))))
+                                 (seq-take (org-summary--sum with title) 5) " · "))))
     (insert (format "- Passive :: %s\n"
                     (if (null passive) "none"
                       (concat (funcall dur (funcall mins passive)) " — "
