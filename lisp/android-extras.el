@@ -73,6 +73,17 @@ Emacs loses focus."
   (setq ghostel-shell "/data/data/com.termux/files/usr/bin/bash"))
 
 ;; ──────────────────────────────────────────────────────────────
+;; Minibuffer: tap a candidate to pick it (Apps' recent apps, any prompt)
+;; ──────────────────────────────────────────────────────────────
+
+(after! vertico
+  (require 'vertico-mouse)
+  (vertico-mouse-mode 1)
+  ;; Vertico ignores touches outright, so a tap never became the click
+  ;; vertico-mouse acts on; let touch-screen.el translate them again.
+  (keymap-unset vertico-map "<touchscreen-begin>" t))
+
+;; ──────────────────────────────────────────────────────────────
 ;; Android UI settings
 ;; ──────────────────────────────────────────────────────────────
 
