@@ -92,6 +92,66 @@ this Emacs writes it, so it never meets your edits from the phone."
   (expand-file-name "agent-time.eld" (if (boundp 'doom-cache-dir) doom-cache-dir
                                        user-emacs-directory)))
 
+(defun agent-time--lock-file ()
+  (expand-file-name "agent-time.pid" (file-name-directory (agent-time--state-file))))
+
+;; One Emacs writes: two writing agents.org make each prompt about the
+;; other's saves.  Seen: an Emacs that loaded config.el and quit a minute
+;; later (likely a second daemon finding the server taken), and an orphaned
+;; daemon whose socket a newer one took, still polling Herdr.
+
+(defvar server-process)
+(defvar agent-time--socket nil
+  "Inode of this Emacs's server socket, seen while it was still ours.")
+
+(defun agent-time--socket-inode ()
+  (when-let* ((proc (bound-and-true-p server-process))
+              ((process-live-p proc))
+              (file (process-contact proc :local))
+              ((stringp file)))
+    (file-attribute-inode-number (file-attributes file))))
+
+(defun agent-time--orphan-p ()
+  "Non-nil if a newer Emacs server has replaced this one's socket."
+  (unless agent-time--socket (setq agent-time--socket (agent-time--socket-inode)))
+  (and agent-time--socket (not (equal agent-time--socket (agent-time--socket-inode)))))
+
+(defun agent-time--holder ()
+  "PID of the live Emacs holding the lock, else nil."
+  (when-let* ((pid (ignore-errors
+                     (with-temp-buffer
+                       (insert-file-contents (agent-time--lock-file))
+                       (string-to-number (buffer-string)))))
+              (attrs (process-attributes pid))
+              ((string-match-p "\\`[Ee]macs" (or (alist-get 'comm attrs) ""))))
+    pid))
+
+(defun agent-time--writer-p ()
+  "Non-nil if this Emacs records agents' time.  The lock goes to the first
+that asks, and stays with it while it lives, unless it is orphaned."
+  (let ((holder (agent-time--holder)))
+    (cond ((agent-time--orphan-p)
+           (when (eql holder (emacs-pid)) (ignore-errors (delete-file (agent-time--lock-file))))
+           nil)
+          ((eql holder (emacs-pid)) t)
+          (holder nil)
+          (t (make-directory (file-name-directory (agent-time--lock-file)) t)
+             (write-region (number-to-string (emacs-pid)) nil (agent-time--lock-file) nil 'silent)
+             t))))
+
+(defun agent-time--fresh ()
+  "Reread the current buffer's file if it changed on disk, without asking.
+Background writes must never prompt, nor save over what is on disk."
+  (when (and buffer-file-name (not (buffer-modified-p))
+             (not (verify-visited-file-modtime)))
+    (revert-buffer t t t)))
+
+(defun agent-time--find (file)
+  "FILE's buffer, fresh from disk, found without prompting."
+  (with-current-buffer (find-file-noselect file t)
+    (agent-time--fresh)
+    (current-buffer)))
+
 ;;;; Lines in the :RUNS: drawer
 
 (defun agent-time--ts (time)
@@ -127,6 +187,7 @@ this Emacs writes it, so it never meets your edits from the phone."
   "Run BODY at MARKER's entry, widened, then save its buffer."
   (declare (indent 1))
   `(with-current-buffer (marker-buffer ,marker)
+     (agent-time--fresh)
      (prog1 (org-with-wide-buffer (goto-char ,marker) ,@body)
        (agent-time--save-buffer))))
 
@@ -162,7 +223,7 @@ this Emacs writes it, so it never meets your edits from the phone."
   (agent-time--read-at marker (substring-no-properties (org-get-heading t t t t))))
 
 (defun agent-time--tasks-buffer ()
-  (find-file-noselect (agent-time--file)))
+  (agent-time--find (agent-time--file)))
 
 (defun agent-time--own-p (marker)
   "Non-nil if MARKER is in agents.org: an agent's task, this file's to change."
@@ -207,7 +268,7 @@ scheduled today (every task has a date: org-flow.el); its ID."
 
 (defun agent-time--heading (title &optional tag file)
   "Marker of the top-level heading TITLE in FILE (agents.org), made if missing."
-  (with-current-buffer (find-file-noselect (or file (agent-time--file)))
+  (with-current-buffer (agent-time--find (or file (agent-time--file)))
     (prog1 (org-with-wide-buffer
             (goto-char (point-min))
             (if (re-search-forward (concat "^\\* " (regexp-quote title)
@@ -455,7 +516,7 @@ with no task.  The new ST."
 
 (defun agent-time--on-poll (_old new)
   (condition-case err
-      (agent-time--sync new)
+      (when (agent-time--writer-p) (agent-time--sync new))
     (error (message "agent-time: %s" (error-message-string err)))))
 
 ;;;###autoload
@@ -617,11 +678,12 @@ Cheap, since it runs on every key; the tick works out which agent."
 
 (defun agent-time--tick ()
   (condition-case err
-      (let ((now (float-time)))
-        (agent-time--you-tick now)
-        (when (> now (+ agent-time--last-sweep 600))
-          (setq agent-time--last-sweep now)
-          (agent-time-close-quiet)))
+      (when (agent-time--writer-p)
+        (let ((now (float-time)))
+          (agent-time--you-tick now)
+          (when (> now (+ agent-time--last-sweep 600))
+            (setq agent-time--last-sweep now)
+            (agent-time-close-quiet))))
     (error (message "agent-time: %s" (error-message-string err)))))
 
 ;;;; Passive time
@@ -682,23 +744,35 @@ Cheap, since it runs on every key; the tick works out which agent."
 
 (defvar agent-time--timer nil)
 
+(defun agent-time--unhook ()
+  (advice-remove 'herdr--notify-status-changes #'agent-time--on-poll)
+  (remove-hook 'post-command-hook #'agent-time--typed)
+  (when agent-time--timer (cancel-timer agent-time--timer) (setq agent-time--timer nil)))
+
+(defun agent-time--stop ()
+  "End your time with an agent as it stands and save state, if this Emacs
+is the one recording: any other has only stale state to write."
+  (when (eql (agent-time--holder) (emacs-pid))
+    (agent-time--you-stop)
+    (agent-time--save-state)))
+
 ;;;###autoload
 (define-minor-mode agent-time-mode
-  "Record agents' time from Herdr, and yours with them as you type to them."
+  "Record agents' time from Herdr, and yours with them as you type to them.
+Only one Emacs records (`agent-time--writer-p'); in any other this does
+nothing."
   :global t
   (if agent-time-mode
       (progn
         (when (zerop (hash-table-count agent-time--panes)) (agent-time--load-state))
         (advice-add 'herdr--notify-status-changes :after #'agent-time--on-poll)
         (add-hook 'post-command-hook #'agent-time--typed)
-        (add-hook 'kill-emacs-hook #'agent-time--save-state)
-        (add-hook 'kill-emacs-hook #'agent-time--you-stop) ; runs first
+        (add-hook 'kill-emacs-hook #'agent-time--stop)
+        (when agent-time--timer (cancel-timer agent-time--timer))
         (setq agent-time--timer (run-with-timer 10 10 #'agent-time--tick)))
-    (advice-remove 'herdr--notify-status-changes #'agent-time--on-poll)
-    (remove-hook 'post-command-hook #'agent-time--typed)
-    (when agent-time--timer (cancel-timer agent-time--timer) (setq agent-time--timer nil))
-    (agent-time--you-stop)
-    (agent-time--save-state)))
+    (agent-time--unhook)
+    (remove-hook 'kill-emacs-hook #'agent-time--stop)
+    (agent-time--stop)))
 
 (provide 'agent-time)
 ;;; agent-time.el ends here
