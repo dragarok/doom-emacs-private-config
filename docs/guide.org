@@ -36,6 +36,14 @@ time.  Reminders are written when an agenda file is saved on the phone,
 and again every half hour, so tasks synced from the Mac ring too.  Only
 the next 7 days are set.  Done tasks don't ring.
 
+** Bypass charging in one tap
+The home page's button line shows *⚡ Bypass ON* or *⚡ Bypass off*.  Tap
+it to switch: before a game, so the phone runs off the charger and the
+battery doesn't heat up.  It presses the Bypass Charging app's Quick
+Settings tile for you, so that tile has to stay in Quick Settings.  If you
+switch it inside the app instead, the button can show the old state until
+you next pull Quick Settings down.
+
 * Notes
 
 ** A new note: SPC n r f, then a new title

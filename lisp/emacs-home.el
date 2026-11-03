@@ -334,6 +334,117 @@ in -- pick the task it matches, or RET to make it one."
     (minibuffer-with-setup-hook (lambda () (insert text))
       (rts-flow-manual))))
 
+;;; Bypass charging: one tap on the homepage, for games
+
+;; The Bypass Charging app (com.sakataprjkt.bypasscharging) has a Quick
+;; Settings tile.  As root (KernelSU, granted to Emacs/Termux's uid) we press
+;; that tile with `cmd statusbar click-tile' and read its on/off state back
+;; from SystemUI's whole dump (a tenth of a second; on Android 17 the tiles
+;; are under no dumpable of their own).  So the tile must be in the Quick
+;; Settings panel -- SystemUI only clicks tiles it is showing.  The state
+;; SystemUI holds can lag a switch made inside the app itself until the
+;; panel is next opened.
+
+(defvar emacs-home-bypass-package "com.sakataprjkt.bypasscharging"
+  "The app whose Quick Settings tile switches bypass charging.")
+
+(defvar emacs-home--bypass-state nil
+  "The tile's state as last read: on, off, unavailable, missing (not in the
+Quick Settings panel), none (no such tile), busy, or nil (not read yet).")
+
+(defvar emacs-home--bypass-proc nil)
+
+(defvar android-use-exec-loader)        ; special, so `let' reaches the C side
+
+(defun emacs-home--bypass-script ()
+  "Write the root script and return its file name.
+`toggle' as its argument clicks the tile first, then waits for the app."
+  (let ((file (expand-file-name "bypass.sh" emacs-home-dir)))
+    (with-temp-file file
+      (insert (format "p=%s
+c=$(cmd package query-services --components -a android.service.quicksettings.action.QS_TILE | grep -m1 \"^$p/\")
+[ -z \"$c\" ] && { echo none; exit 0; }
+if [ \"$1\" = toggle ]; then cmd statusbar click-tile \"$c\"; sleep 2; fi
+d='dumpsys activity service com.android.systemui/.SystemUIService'
+s=$($d | grep -m1 -F \"spec=custom($p/\")
+echo \"${s:-missing}\"
+" emacs-home-bypass-package)))
+    file))
+
+(defun emacs-home--bypass-parse (out)
+  (cond ((string-match-p "\\`none" out) 'none)
+        ((string-match-p "\\`missing" out) 'missing)
+        ((string-match ",state=\\([0-9]\\)" out)
+         (pcase (match-string 1 out) ("2" 'on) ("1" 'off) (_ 'unavailable)))
+        (t nil)))
+
+(defun emacs-home--bypass-run (&optional toggle)
+  "Read the tile's state as root, in the background; first click it if TOGGLE."
+  (when (and (eq system-type 'android)
+             (or toggle (not (process-live-p emacs-home--bypass-proc))))
+    (let ((out (generate-new-buffer " *bypass*"))
+          (script (emacs-home--bypass-script))
+          ;; KernelSU's su is an exec hook, which Emacs's own loader would
+          ;; bypass (see android-doom-root.el).
+          (android-use-exec-loader nil))
+      (setq emacs-home--bypass-proc
+            (make-process
+             :name "emacs-home-bypass" :buffer out :noquery t
+             :connection-type 'pipe
+             :command (list "su" "-c" (format "sh %s%s" script (if toggle " toggle" "")))
+             :sentinel
+             (lambda (proc _event)
+               (unless (process-live-p proc)
+                 (let ((state (with-current-buffer out
+                                (emacs-home--bypass-parse (string-trim (buffer-string))))))
+                   (kill-buffer out)
+                   (unless (eq state emacs-home--bypass-state)
+                     (setq emacs-home--bypass-state state)
+                     (emacs-home--bypass-redraw))))))))))
+
+(defun emacs-home-bypass-toggle ()
+  "Switch bypass charging on or off: press the Bypass Charging app's tile."
+  (interactive)
+  ;; A read already under way would answer with the old state.
+  (when (process-live-p emacs-home--bypass-proc)
+    (set-process-sentinel emacs-home--bypass-proc #'ignore)
+    (delete-process emacs-home--bypass-proc))
+  (setq emacs-home--bypass-state 'busy)
+  (emacs-home--bypass-redraw)
+  (emacs-home--bypass-run t))
+
+(defun emacs-home--bypass-insert ()
+  "Insert the homepage's bypass button for `emacs-home--bypass-state'."
+  (let ((start (point)))
+    (insert-text-button
+     (pcase emacs-home--bypass-state
+       ('on "⚡ Bypass ON")
+       ('off "⚡ Bypass off")
+       ('busy "⚡ Bypass …")
+       ('unavailable "⚡ Bypass n/a")
+       ('missing "⚡ Bypass: add its tile to Quick Settings")
+       ('none "⚡ Bypass: no tile")
+       (_ "⚡ Bypass ?"))
+     'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-bypass-toggle))
+     'follow-link t
+     'face (if (eq emacs-home--bypass-state 'on) 'android-homepage-title 'android-homepage-desc))
+    (put-text-property start (point) 'emacs-home-bypass t)))
+
+(defun emacs-home--bypass-redraw ()
+  "Redraw the bypass button in place on the homepage, if it is showing."
+  (dolist (buf (buffer-list))
+    (when (and (+dashboard-buffer-p buf)
+               (with-current-buffer buf
+                 (text-property-any (point-min) (point-max) 'emacs-home-bypass t)))
+      (with-current-buffer buf
+        (let* ((inhibit-read-only t)
+               (start (text-property-any (point-min) (point-max) 'emacs-home-bypass t))
+               (end (or (next-single-property-change start 'emacs-home-bypass) (point-max))))
+          (save-excursion
+            (delete-region start end)
+            (goto-char start)
+            (emacs-home--bypass-insert)))))))
+
 (defun emacs-home--cell (entry size)
   "ENTRY's tile, (ICON ACTION LABEL SPAN), SIZE pixels tall."
   (pcase (nth 1 entry)
@@ -409,6 +520,12 @@ in -- pick the task it matches, or RET to make it one."
                         'action (lambda (_) (usage-log-call "dashboard" #'day-log-today))
                         'follow-link t
                         'face 'android-homepage-title)
+    (when (eq system-type 'android)
+      (insert "    ")
+      (emacs-home--bypass-insert)
+      ;; Read afresh on every draw (every Home press while it shows); the
+      ;; button redraws itself when the answer differs.
+      (emacs-home--bypass-run))
     (insert "\n")
     ;; Drawn only to be read; the app lays each out at least at its
     ;; provider's minimum size, which keeps all its text.

@@ -26,6 +26,7 @@ Everything here either removes friction or collects data with no effort.
 | Usage log | `../lisp/usage-log.el` | River Flow and other workflow commands, toolbar presses, homepage/dashboard/widget/island buttons → `~/org/logs/usage_log_HOST.tsv`; `M-x usage-log-report` |
 | Dashboard | `emacs-home.el` | Clock line, Pin button, pinned icon rows; all apps is the toolbar's Apps button, next to Home |
 | Day log | `../lisp/day-log.el` | The daily review that writes itself from the clock, the logs and DONEs; closes each day by itself (Day button) |
+| Bypass charging | `emacs-home.el` | "⚡ Bypass ON/off" on the dashboard's Pin/Day line; a tap presses the Bypass Charging app's Quick Settings tile as root (`cmd statusbar click-tile`), and the state is read back from SystemUI's dump. The tile has to be in the QS panel |
 | Toolbar widgets | `../lisp/android-launcher.el` | Older: Termux:Widget shortcuts via `org-protocol://emacs-cmd` (still works) |
 | Reminders | `Reminders`, `ReminderReceiver`, `../lisp/reminders.el` | Emacs writes `reminders.tsv` (next 7 days: a timed task 10 min before, or its `:REMIND:`); the app sets an exact alarm per line and rings it as a notification — tap opens the task, Clock in, Snooze 10m — even with Emacs asleep. Re-read on every write and when FloatService starts (alarms don't survive a reboot) |
 
