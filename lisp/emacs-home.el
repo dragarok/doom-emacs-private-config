@@ -15,6 +15,7 @@
 
 (require 'seq)
 (require 'subr-x)
+(require 'svg)
 (require 'usage-log)
 
 (defconst emacs-home-dir "/data/data/com.termux/files/home/.emacs-home/"
@@ -413,21 +414,43 @@ echo \"${s:-missing}\"
   (emacs-home--bypass-redraw)
   (emacs-home--bypass-run t))
 
+(defconst emacs-home--bypass-icons
+  ;; Material Design Icons (etc/mdi-icons.tsv), 24x24: drawn, since the
+  ;; phone has no icon font and an emoji comes out in its own colours.
+  '((on . "M16,7V3H14V7H10V3H8V7H8C7,7 6,8 6,9V14.5L9.5,18V21H14.5V18L18,14.5V9C18,8 17,7 16,7Z")
+    (busy . "M16 7V3H14V7H10V3H8V7C7 7 6 8 6 9V14.5L9.5 18V21H14.5V18L18 14.5V9C18 8 17 7 16 7M16 13.67L13.09 16.59L12.67 17H11.33L10.92 16.59L8 13.67V9.09C8 9.06 8.06 9 8.09 9H15.92C15.95 9 16 9.06 16 9.09V13.67Z")
+    (off . "M22.11 21.46L2.39 1.73L1.11 3L6.25 8.14C6.1 8.41 6 8.7 6 9V14.5L9.5 18V21H14.5V18L15.31 17.2L20.84 22.73L22.11 21.46M13.09 16.59L12.67 17H11.33L10.92 16.59L8 13.67V9.89L13.89 15.78L13.09 16.59M12.2 9L10.2 7H14V3H16V7C17 7 18 8 18 9V14.5L17.85 14.65L16 12.8V9.09C16 9.06 15.95 9 15.92 9H12.2M10 6.8L8 4.8V3H10V6.8Z"))
+  "The bypass button's plug: filled when on, outlined while switching,
+crossed out otherwise.")
+
+(defun emacs-home--bypass-icon (face)
+  "The plug for the current state, a line of FACE tall, in FACE's colour."
+  (let* ((size (window-font-height nil face))
+         (svg (svg-create size size)))
+    (svg-node svg 'path
+              :d (alist-get (if (memq emacs-home--bypass-state '(on busy)) emacs-home--bypass-state 'off)
+                            emacs-home--bypass-icons)
+              :fill (or (face-foreground face nil t) "gray")
+              :transform (format "scale(%s)" (/ size 24.0)))
+    (propertize " " 'display (svg-image svg :ascent 'center :scale 1))))
+
 (defun emacs-home--bypass-insert ()
   "Insert the homepage's bypass button for `emacs-home--bypass-state'."
-  (let ((start (point)))
+  (let ((start (point))
+        (face (if (eq emacs-home--bypass-state 'on) 'android-homepage-title 'android-homepage-desc)))
     (insert-text-button
-     (pcase emacs-home--bypass-state
-       ('on "⚡ Bypass ON")
-       ('off "⚡ Bypass off")
-       ('busy "⚡ Bypass …")
-       ('unavailable "⚡ Bypass n/a")
-       ('missing "⚡ Bypass: add its tile to Quick Settings")
-       ('none "⚡ Bypass: no tile")
-       (_ "⚡ Bypass ?"))
+     (concat (emacs-home--bypass-icon face)
+             (pcase emacs-home--bypass-state
+               ('on " Bypass ON")
+               ('off " Bypass off")
+               ('busy " Bypass …")
+               ('unavailable " Bypass n/a")
+               ('missing " Bypass: add its tile to Quick Settings")
+               ('none " Bypass: no tile")
+               (_ " Bypass ?")))
      'action (lambda (_) (usage-log-call "dashboard" #'emacs-home-bypass-toggle))
      'follow-link t
-     'face (if (eq emacs-home--bypass-state 'on) 'android-homepage-title 'android-homepage-desc))
+     'face face)
     (put-text-property start (point) 'emacs-home-bypass t)))
 
 (defun emacs-home--bypass-redraw ()
