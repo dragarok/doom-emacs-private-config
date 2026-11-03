@@ -451,6 +451,45 @@ Rides `herdr-status-change-functions' next to the desktop notification."
   (evil-insert-state)
   (message "herdr prefix: next key goes to Herdr (C-b ? for help)"))
 
+;; Scrolling.  Herdr draws on the alternate screen, so the Emacs buffer has
+;; no scrollback and evil's C-u / C-d have nothing to move through.  Herdr
+;; scrolls a pane on mouse-wheel input, so these send wheel presses at
+;; point: the pane under point scrolls (the focused agent, after ESC).
+;; C-u / C-d half a screen, C-y / C-e a few lines; C-b stays Herdr's prefix.
+
+(defvar herdr-workspace-scroll-lines-per-press 3
+  "Lines Herdr scrolls per wheel press (its `ui.mouse_scroll_lines').")
+
+(defun herdr-workspace--wheel (button lines)
+  "Send wheel BUTTON (4 up, 5 down) at point, enough presses for LINES."
+  (let ((row (or (evil-ghostel--point-viewport-row) 0))
+        (col (current-column)))
+    (dotimes (_ (max 1 (round lines herdr-workspace-scroll-lines-per-press)))
+      (ghostel--mouse-event ghostel--term 0 button row col 0))))
+
+(defun herdr-workspace--half-page ()
+  (/ (window-body-height) 2))
+
+(defun herdr-workspace-scroll-up-half ()
+  "Scroll the Herdr pane under point up half a screen (evil's C-u)."
+  (interactive)
+  (herdr-workspace--wheel 4 (herdr-workspace--half-page)))
+
+(defun herdr-workspace-scroll-down-half ()
+  "Scroll the Herdr pane under point down half a screen (evil's C-d)."
+  (interactive)
+  (herdr-workspace--wheel 5 (herdr-workspace--half-page)))
+
+(defun herdr-workspace-scroll-up-line ()
+  "Scroll the Herdr pane under point up a little (evil's C-y)."
+  (interactive)
+  (herdr-workspace--wheel 4 herdr-workspace-scroll-lines-per-press))
+
+(defun herdr-workspace-scroll-down-line ()
+  "Scroll the Herdr pane under point down a little (evil's C-e)."
+  (interactive)
+  (herdr-workspace--wheel 5 herdr-workspace-scroll-lines-per-press))
+
 (defvar-keymap herdr-workspace-evil-mode-map)
 
 (define-minor-mode herdr-workspace-evil-mode
@@ -466,7 +505,11 @@ Rides `herdr-status-change-functions' next to the desktop notification."
   (evil-define-key* '(normal insert) herdr-workspace-evil-mode-map
     (kbd "C-b") #'herdr-workspace-herdr-prefix)
   (evil-define-key* 'normal herdr-workspace-evil-mode-map
-    (kbd "q") #'herdr-workspace-close))
+    (kbd "q") #'herdr-workspace-close
+    (kbd "C-u") #'herdr-workspace-scroll-up-half
+    (kbd "C-d") #'herdr-workspace-scroll-down-half
+    (kbd "C-y") #'herdr-workspace-scroll-up-line
+    (kbd "C-e") #'herdr-workspace-scroll-down-line))
 
 (defun herdr-workspace--evilify (buf)
   "Turn on `herdr-workspace-evil-mode' in BUF and return BUF."

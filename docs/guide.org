@@ -174,3 +174,11 @@ An empty answer skips; =q= stops a walk.
 ** The weekly review: SPC o v w
 It opens once five of the week's seven dailies are written.  The
 monthly review is =SPC o v m=.
+
+* Agents in Herdr
+
+** Scroll an agent's chat with C-u and C-d
+In the Herdr buffer press ESC, then C-u / C-d to go up and down half a
+screen, or C-y / C-e for a few lines, just like the mouse wheel.  It
+scrolls the pane your cursor is in, which is the agent you were typing
+to.  Press i to type again.
