@@ -23,6 +23,12 @@
                         "strange" "party" "qr" "raw" "wallpaper" "memory")
   "Default list of image tags.")
 
+;; Doom turns `auto-mode-case-fold' off, so vlf took IMG_1234.JPG for a large
+;; file of no known kind and asked "open normally, with vlf, or abort?"
+;; before each big photo; .jpg was fine.  Upper-case names are photos too.
+(add-to-list 'auto-mode-alist
+             '("\\.\\(?:JPE?G\\|PNG\\|GIF\\|WEBP\\|TIFF?\\|SVG\\|BMP\\)\\'" . image-mode))
+
 (defun my/image-exiftool ()
   "The exiftool program, or nil.  On the phone it is Termux's."
   (or (executable-find "exiftool")

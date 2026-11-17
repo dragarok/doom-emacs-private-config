@@ -242,9 +242,12 @@ photo waiting in Pictures/S23.  Then, from the clock or the toolbar:
 - "delete": into Trash/ beside the photos, kept 30 days
 - "skip", "back", "rotate"
 - "undo": the last tagging or delete taken back
-- "stop tagging": closes the photo and the clock it started
-A tag you say that isn't one yet is left out; say none and the tag
-question opens.
+- "stop tagging", from anywhere (or "done" on a photo): closes the
+  photo and clocks out of Image Tagging
+Each word you say is one tag, the closest ("app" is app, not apps).
+A word that is no tag yet is left out and named in the message ("no
+such tag: exploration"); say none and the tag question opens.  Big
+.JPG photos open without asking about vlf.
 
 ** On the phone, with agents
 - "attach camera photo", "attach latest photo"

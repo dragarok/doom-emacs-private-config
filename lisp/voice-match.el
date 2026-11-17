@@ -87,6 +87,15 @@
       (concat (substring word 0 1)
               (replace-regexp-in-string "[aeiouy]" "" (substring word 1))))))
 
+(defun voice-match--devoice (word)
+  "WORD single, its voiced consonants unvoiced: recognisers swap d and t
+\(\"dagging\" for \"tagging\"), b and p, g and k, v and f, z and s."
+  (let ((w (voice-match--single word)))
+    (dotimes (i (length w))
+      (let ((c (assq (aref w i) '((?d . ?t) (?b . ?p) (?g . ?k) (?v . ?f) (?z . ?s)))))
+        (when c (aset w i (cdr c)))))
+    w))
+
 (defun voice-match-sim (x y)
   "How alike words X and Y are, 0 to 1."
   (let ((lx (length x)) (ly (length y)))
@@ -94,7 +103,8 @@
           ((string-match-p "\\`[0-9]+\\'" (concat x y)) 0.0) ; numbers are exact
           ((string= (voice-match--single x) (voice-match--single y)) 0.95)
           ((and (>= lx 4) (>= ly 4)
-                (string= (voice-match--skeleton x) (voice-match--skeleton y)))
+                (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
+                    (string= (voice-match--devoice x) (voice-match--devoice y))))
            0.9)
           ((and (>= (min lx ly) 3)
                 (or (string-prefix-p x y) (string-prefix-p y x)))

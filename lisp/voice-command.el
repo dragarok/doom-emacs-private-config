@@ -688,9 +688,15 @@ command phrases use them, never task names.  Yours go under * Sounds in
                             (cdr (voice--rules))))))
     (if hit (cdr hit) text)))
 
+(defvar voice-learn-refuse-regexp
+  "\\`\\(?:stop\\|end\\|finish\\|done\\|pause\\|quit\\|close\\|cancel\\|delete\\|undo\\|clock out\\)\\b"
+  "A sentence starting so is never learned as another name for a task:
+\"stop him is tagging\" was learned as Image Tagging.")
+
 (defun voice--learn-name (said title)
   "Add \"- SAID :: TITLE\" under Names in voice.org, unless SAID is there."
   (when (and voice-learn said title (not (string-empty-p said))
+             (not (string-match-p voice-learn-refuse-regexp (voice-match-normalize said)))
              (not (assoc (voice-match-normalize said)
                          (mapcar (lambda (n) (cons (voice-match-normalize (car n)) n))
                                  (car (voice--rules))))))
@@ -1417,6 +1423,43 @@ PROMPT, TEXT's words typed, so a tap finishes it."
   (claude-remote--send "\r")
   "Sent")
 
+;;;; Which process failed
+
+(defvar voice-sentinel-log
+  (and voice--android "/sdcard/Documents/voice-audio/sentinel-errors.log")
+  "Where a sentinel's error is written down with its process's name and
+command: Emacs says only \"error in process sentinel\", not whose.
+Nil: don't.  Added 2026-11-17 for a \"listp, Internal\" error while
+tagging photos; remove once found.")
+
+(defun voice--sentinel-traced (fn)
+  (lambda (proc event)
+    (condition-case err
+        (funcall fn proc event)
+      (error
+       (with-demoted-errors "voice sentinel log: %S"
+         (write-region (format "%s\t%s\t%S\t%S\t%s\n" (format-time-string "%F %T")
+                               (process-name proc) (process-command proc) err
+                               (string-trim (format "%s" event)))
+                       nil voice-sentinel-log t 'silent))
+       (signal (car err) (cdr err))))))
+
+(defun voice--make-process-a (args)
+  (let ((s (plist-get args :sentinel)))
+    (if (and voice-sentinel-log (functionp s))
+        (plist-put (copy-sequence args) :sentinel (voice--sentinel-traced s))
+      args)))
+
+(defun voice--set-process-sentinel-a (args)
+  (if (and voice-sentinel-log (functionp (nth 1 args))
+           (not (memq (nth 1 args) '(ignore internal-default-process-sentinel))))
+      (list (car args) (voice--sentinel-traced (nth 1 args)))
+    args))
+
+(when voice-sentinel-log
+  (advice-add 'make-process :filter-args #'voice--make-process-a)
+  (advice-add 'set-process-sentinel :filter-args #'voice--set-process-sentinel-a))
+
 ;;;; Tagging photos
 
 (defvar voice-photo-inbox nil
@@ -1448,30 +1491,64 @@ PROMPT, TEXT's words typed, so a tap finishes it."
     (if (and voice--photo-tags-cache (equal (car voice--photo-tags-cache) mtime))
         (cdr voice--photo-tags-cache)
       (let ((tags (delete-dups
-                   (copy-sequence
-                    (or (and mtime (fboundp 'read-tags-from-imageindex-csv)
-                             (ignore-errors (read-tags-from-imageindex-csv f)))
-                        (bound-and-true-p my-image-tags))))))
+                   (append (and mtime (fboundp 'read-tags-from-imageindex-csv)
+                                (ignore-errors (read-tags-from-imageindex-csv f)))
+                           (bound-and-true-p my-image-tags)
+                           nil))))
         (setq voice--photo-tags-cache (cons mtime tags))
         tags))))
 
-(defun voice--spoken-tags (text tags)
-  "The TAGS (strings) TEXT says, in the order said: by name, by a near
-name, or run together from two words (\"learning note\": learningnote)."
-  (let* ((words (seq-remove (lambda (w) (member w voice-match-stop-words)) (voice-match-words text)))
-         (pairs (cl-loop for (a b) on words while b collect (concat a b)))
-         hits)
-    (dolist (tag tags)
-      (let* ((norm (downcase (replace-regexp-in-string "[^[:alnum:]]" "" tag)))
-             (stem (voice-match-stem norm))
-             (pos (or (cl-position norm words :test #'equal)
-                      (cl-position stem words :test (lambda (st w) (equal st (voice-match-stem w))))
-                      (cl-position norm pairs :test #'equal)
-                      (cl-position stem words
-                                   :test (lambda (st w) (and (>= (length w) 4)
-                                                             (>= (voice-match-sim st (voice-match-stem w)) 0.9)))))))
-        (when (and pos (not (string-empty-p norm))) (push (cons pos tag) hits))))
-    (delete-dups (mapcar #'cdr (sort hits (lambda (a b) (< (car a) (car b))))))))
+(defvar voice-tag-filler '("about" "also" "plus" "photo" "picture" "image" "pic" "tag" "tags" "maybe" "then")
+  "Words said between tags that are no tag and not worth telling about.")
+
+(defun voice--spoken-words (text)
+  (seq-remove (lambda (w) (or (member w voice-match-stop-words) (member w voice-tag-filler)))
+              (voice-match-words text)))
+
+(defvar voice--tag-forms-cache nil "(TAGS . FORMS): each tag with its name and stem.")
+
+(defun voice--tag-forms (tags)
+  (unless (eq (car voice--tag-forms-cache) tags)
+    (setq voice--tag-forms-cache
+          (cons tags
+                (seq-remove (lambda (f) (string-empty-p (nth 1 f)))
+                            (mapcar (lambda (tag)
+                                      (let ((norm (downcase (replace-regexp-in-string "[^[:alnum:]]" "" tag))))
+                                        (list tag norm (voice-match-stem norm))))
+                                    tags)))))
+  (cdr voice--tag-forms-cache))
+
+(defun voice--tag-score (tag-norm tag-stem word)
+  "How well WORD names a tag: 3 its name, 2 its stem, 1 nearly, else nil."
+  (cond ((equal tag-norm word) 3)
+        ((equal tag-stem (voice-match-stem word)) 2)
+        ((and (>= (length word) 4)
+              (>= (voice-match-sim tag-stem (voice-match-stem word)) 0.9))
+         1)))
+
+(defun voice--spoken-tags (text tags &optional unknown)
+  "The TAGS (strings) TEXT says, in the order said.  Each word names one
+tag, the closest (\"app\" is app, not apps); two words may name one run
+together (\"learning note\": learningnote).  Ties go to the tag earlier
+in TAGS, the more used.  With UNKNOWN, return (TAGS . WORDS-NAMING-NONE)."
+  (let* ((words (vconcat (voice--spoken-words text)))
+         (forms (voice--tag-forms tags))
+         (i 0) found none)
+    (while (< i (length words))
+      (let* ((w (aref words i))
+             (pair (and (< (1+ i) (length words)) (concat w (aref words (1+ i)))))
+             (joined (and pair (seq-find (lambda (f) (equal (nth 1 f) pair)) forms)))
+             best)
+        (if joined
+            (progn (push (car joined) found) (setq i (+ i 2)))
+          (dolist (f forms)
+            (let ((score (voice--tag-score (nth 1 f) (nth 2 f) w)))
+              (when (and score (or (null best) (> score (car best))))
+                (setq best (cons score (car f))))))
+          (if best (push (cdr best) found) (push w none))
+          (setq i (1+ i)))))
+    (let ((found (delete-dups (nreverse found))))
+      (if unknown (cons found (nreverse none)) found))))
 
 (defun voice--photo-window ()
   "The window showing a photo, or an error."
@@ -1506,12 +1583,22 @@ name, or run together from two words (\"learning note\": learningnote)."
     (format "%d photos to tag: say the tags, or delete, skip, back, undo, stop tagging"
             (length photos))))
 
+(defun voice-stop (&optional text)
+  "Clock out.  Said of photos (\"stop him is tagging\", \"clock out of
+image tagging\"), end the tagging session too."
+  (if (string-match-p "\\btagg\\|\\bphoto\\|\\bimage\\|\\bpicture" (or text ""))
+      (voice-stop-tagging)
+    (org-clock-out)))
+
 (defun voice-stop-tagging ()
   "End the tagging session: close the photo, and the clock it started."
   (let ((s voice-photo-session))
     (setq voice-photo-session nil)
     (ignore-errors (kill-buffer (window-buffer (voice--photo-window))))
-    (when (and (plist-get s :clocked) (fboundp 'org-clocking-p) (org-clocking-p))
+    (when (and (fboundp 'org-clocking-p) (org-clocking-p)
+               (or (plist-get s :clocked)
+                   (equal (downcase (or (bound-and-true-p org-clock-current-task) ""))
+                          (downcase voice-photo-task))))
       (org-clock-out))
     (format "Tagging done: %d tagged, %d deleted"
             (or (plist-get s :tagged) 0) (or (plist-get s :deleted) 0))))
@@ -1519,7 +1606,8 @@ name, or run together from two words (\"learning note\": learningnote)."
 (defun voice-tag-photo (text)
   "Tag the photo with the tags TEXT says, file it as the e key does, and
 show the next.  No tag heard: the tag question is asked as usual."
-  (let* ((tags (voice--spoken-tags text (voice--photo-tags)))
+  (let* ((heard (voice--spoken-tags text (voice--photo-tags) t))
+         (tags (car heard))
          (win (voice--photo-window))
          (file (buffer-file-name (window-buffer win)))
          (dir (file-name-directory file))
@@ -1547,7 +1635,9 @@ show the next.  No tag heard: the tag question is asked as usual."
                               (when (fboundp 'my/image-media-scan) (my/image-media-scan file))
                               (with-selected-window (voice--photo-window) (find-alternate-file file))))))))
     (voice--photo-count :tagged)
-    (format "Tagged %s, %s" (if tags (string-join tags ", ") "it") (voice--photos-left dir))))
+    (format "Tagged %s%s, %s" (if tags (string-join tags ", ") "it")
+            (if (cdr heard) (format " (no such tag: %s)" (string-join (cdr heard) " ")) "")
+            (voice--photos-left dir))))
 
 (defun voice-delete-photo ()
   "Move the photo to Trash/ beside it, where undo can find it, and show
@@ -1705,8 +1795,10 @@ from what was said."
               #'voice-add-task :slot 'text :name "add task")
 (voice-action '("done …" "finished …" "not done …") #'rts-flow-clock-out
               :when 'clocking :quiet t :name "clock out")
-(voice-action '("pause" "stop" "clock out" "stop the clock" "stop clock")
-              #'org-clock-out :when 'clocking :quiet t :name "pause")
+(voice-action '("pause" "stop" "clock out" "stop the clock" "stop clock"
+                "clock out …" "clock out of …" "clock out on …" "clock out from …"
+                "stop working on …" "stop …")
+              #'voice-stop :slot 'text :when 'clocking :quiet t :name "pause")
 (voice-action '("resume" "continue" "clock in again" "back to it")
               #'org-clock-in-last :quiet t :name "resume")
 (voice-action '("cancel the clock" "cancel clock" "cancel")
@@ -1742,8 +1834,11 @@ from what was said."
 (voice-action '("start image tagging" "image tagging" "tag photos" "tag images" "tag my photos"
                 "start tagging" "tag pictures")
               #'voice-start-tagging :name "tag photos")
-(voice-action '("stop tagging" "done tagging" "finish tagging" "end tagging" "that's all" "done")
-              #'voice-stop-tagging :when 'image :quiet t :name "stop tagging")
+(voice-action '("stop tagging" "stop image tagging" "stop tagging photos" "done tagging"
+                "finish tagging" "finish image tagging" "end tagging" "end image tagging")
+              #'voice-stop-tagging :quiet t :name "stop tagging")
+(voice-action '("that's all" "done" "i'm done" "that's it")
+              #'voice-stop-tagging :when 'image :quiet t :name "stop tagging here")
 (voice-action '("agenda" "open agenda" "my agenda") #'my-org-agenda :name "agenda")
 (voice-action '("help" "what can i say" "voice commands" "commands" "show help" "help me"
                 "what can you do")

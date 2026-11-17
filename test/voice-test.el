@@ -438,6 +438,39 @@ SCHEDULED: <2020-01-01 Wed>
     (should (equal (voice--spoken-tags "learning note memories" tags) '("learningnote" "memory")))
     (should-not (voice--spoken-tags "the weather today" tags))))
 
+(ert-deftest voice-test-one-tag-per-word ()
+  (let ((tags '("apps" "app" "screenshot" "learningnote" "learning" "note")))
+    ;; The closest tag, not every tag the word is near.
+    (should (equal (voice--spoken-tags "app screenshot" tags) '("app" "screenshot")))
+    (should (equal (voice--spoken-tags "apps" tags) '("apps")))
+    ;; Two words run together win over each alone.
+    (should (equal (voice--spoken-tags "learning note" tags) '("learningnote")))
+    ;; Words that are no tag are told.
+    (should (equal (voice--spoken-tags "cave app exploration" '("cave" "app") t)
+                   '(("cave" "app") "exploration")))))
+
+(ert-deftest voice-test-voiced-and-unvoiced-sound-alike ()
+  (should (>= (voice-match-sim "dagging" "tagging") 0.9))
+  (should (>= (voice-match-sim "bizza" "pissa") 0.9))
+  (should (< (voice-match-sim "dog" "tok") 0.9)))   ; short words stay apart
+
+(ert-deftest voice-test-stop-sentences-are-never-learned ()
+  (let ((voice-learn t) wrote)
+    (cl-letf (((symbol-function 'voice--rules) (lambda () '(nil)))
+              ((symbol-function 'find-file-noselect) (lambda (&rest _) (setq wrote t) (generate-new-buffer "v"))))
+      (should-not (voice--learn-name "Stop him is tagging" "Image Tagging"))
+      (should-not (voice--learn-name "clock out on image tagging" "Image Tagging"))
+      (should-not wrote))))
+
+(ert-deftest voice-test-stop-said-of-photos-ends-tagging ()
+  (let (did)
+    (cl-letf (((symbol-function 'voice-stop-tagging) (lambda () (setq did 'tagging)))
+              ((symbol-function 'org-clock-out) (lambda (&rest _) (setq did 'clock))))
+      (voice-stop "him is tagging") (should (eq did 'tagging))
+      (voice-stop "image tagging") (should (eq did 'tagging))
+      (voice-stop "") (should (eq did 'clock))
+      (voice-stop "guitar practice") (should (eq did 'clock)))))
+
 (defmacro voice-test--with-photos (&rest body)
   "BODY with three photos waiting in a temporary inbox, the first shown."
   (declare (indent 0))
