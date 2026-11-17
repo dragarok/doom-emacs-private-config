@@ -9,6 +9,7 @@
 (require 'org)
 (require 'org-clock)
 (require 'voice-command)
+(defvar emacs-home-dir)                 ; emacs-home.el's, bound in a test
 
 (defconst voice-test--books "\
 #+TODO: TOREAD READING | READ
@@ -289,6 +290,54 @@ SCHEDULED: <2020-01-01 Wed>
         (unread-command-events nil))
     (should (string-match-p "doesn't answer" (voice--answer-prompt "yes")))
     (should-not unread-command-events)))
+
+;;;; Questions answered by the rest of the sentence
+
+(ert-deftest voice-test-rest-answers-the-question ()
+  (let ((got nil))
+    (voice-test--with
+      (let ((voice-actions nil))
+        (voice-action '("diary …") (lambda () (setq got (completing-read "Diary entry: " nil)) "ok")
+                      :asks '((:prompt "diary entry" :type rest)) :name "diary")
+        (voice-dispatch "Diary: went running by the river." :source "test")
+        (should (equal got "went running by the river"))
+        ;; "Diary" alone names the tile, not an empty diary line.
+        (voice-action '("diary") #'ignore :name "Diary tile")
+        (should (equal (plist-get (plist-get (voice-plan "Diary." "test") :action) :name) "Diary tile"))
+        (should (equal (plist-get (plist-get (voice-plan "diary a quiet day" "test") :action) :name) "diary"))))))
+
+(ert-deftest voice-test-help-and-status ()
+  (voice-test--with
+    (should (equal (plist-get (voice-plan "what can I say" "test") :kind) 'action))
+    (should (equal (plist-get (plist-get (voice-plan "what am I doing" "test") :action) :name) "status"))
+    (should (equal (voice-status) "Not clocked in"))
+    (should (equal (voice-help t) "What you can say"))
+    (with-current-buffer "*Voice commands*"
+      (should (string-match-p "\\*clock in\\*" (buffer-string)))
+      (should (string-match-p "while clocked in" (buffer-string))))))
+
+(ert-deftest voice-test-wav-header ()
+  (let ((h (voice--wav-header 32000)))
+    (should (= (length h) 44))
+    (should (string-prefix-p "RIFF" h))
+    (should (equal (substring h 40 44) (unibyte-string 0 125 0 0)))))
+
+(ert-deftest voice-test-test-mode-only-plans ()
+  (voice-test--with
+    (let* ((dir (file-name-directory voice-log-file))
+           (voice-test-marker (expand-file-name "TEST" dir))
+           (voice-audio-directory dir)
+           (emacs-home-dir dir)
+           (voice--android nil))
+      (with-temp-file voice-test-marker)
+      (with-temp-file (expand-file-name "voice-heard.tsv" dir)
+        (insert (format "%d\tisland\tclock in to the bicycle brakes\n" (float-time))))
+      (should (eq (voice-from-app) 'quiet))
+      (accept-process-output nil 0.3)
+      (should-not (org-clocking-p))
+      (with-temp-buffer
+        (insert-file-contents (expand-file-name "test-log.tsv" dir))
+        (should (string-match-p "Fix the bicycle brakes.*Would task" (buffer-string)))))))
 
 (ert-deftest voice-test-stale-words-are-dropped ()
   (let* ((dir (make-temp-file "voice-home" t))

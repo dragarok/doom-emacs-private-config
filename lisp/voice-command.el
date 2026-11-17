@@ -86,7 +86,7 @@ agents.org is the Mac's alone (agent-time.el).")
 the voice app's own copy (16 kHz mono PCM, kept 24 hours there), taken as
 root.  On the phone only, not synced: pull it over USB to debug.  Nil: none.")
 
-(defconst voice--app-history "/data/data/org.futo.voiceinput.moonshine/no_backup/audio-history"
+(defconst voice--app-history "/data/user/0/org.futo.voiceinput.moonshine/no_backup/audio-history"
   "The voice app's recordings, one .pcm and .txt per utterance.")
 
 (defvar voice-listen-function nil
@@ -293,7 +293,9 @@ stop word may be left out: \"clock in guitar\" matches \"clock in to …\"."
 (defun voice--claim (asks words)
   "Answer ASKS from WORDS (pairs) before the command runs.
 Each ask is a plist: :prompt (regexp), :key (a word said before the
-answer: \"priority b\"), :type (choice, letter or duration), :choices.  A
+answer: \"priority b\"), :type (choice, letter, duration or rest),
+:choices.  A rest ask, last, takes whatever is still unclaimed: \"diary
+went running\" answers the diary's question with \"went running\".  A
 choice with no :key is found by name after to/in/into/under/for: \"add
 task scales to guitar\", while \"practice guitar\" stays a title.
 Return (WORDS-LEFT . ANSWERS)."
@@ -322,6 +324,8 @@ Return (WORDS-LEFT . ANSWERS)."
                               choices (voice-match-tokens (string-join (seq-take after n) " ") t)))
                      (unless v (cl-incf n)))
                    (when v (setq value v span (cons kpos (+ kpos 1 n)))))))))
+         ((eq type 'rest)
+          (when words (setq value (voice--join words) span (cons 0 (length words)))))
          ((eq type 'choice)
           ;; By name: the last one to three words, or after a preposition.
           (let ((choices (voice--choices (plist-get ask :choices))) (n (length words)))
@@ -338,7 +342,7 @@ Return (WORDS-LEFT . ANSWERS)."
                                       (when (and v (equal (voice-match-tokens v t) (mapcar #'cdr run)))
                                         (setq value v
                                               span (cons (if prep (1- start) start) (+ start len))))))))))
-        (when (and value span (> (car span) 0))
+        (when (and value span (or (eq type 'rest) (> (car span) 0)))
           (push (cons (plist-get ask :prompt) value) answers)
           (setq words (append (seq-take words (car span)) (nthcdr (cdr span) words))))))
     (cons words (nreverse answers))))
@@ -876,14 +880,17 @@ hour\", \"category hobby\" in it answer those questions."
 
 (defun voice--best-action (words actions)
   "The action WORDS (pairs) call for, as (ACTION SLOT-WORDS LITERAL),
-by phrase: the longest literal match, a buffer's own first."
+by phrase: the longest literal match, a buffer's own first.  A phrase
+whose … got nothing loses to one that names it whole: \"diary\" alone is
+the Diary tile, \"diary went running\" a diary line."
   (let (best)
     (dolist (a actions)
       (dolist (p (plist-get a :patterns))
         (let ((m (voice--match-literal p words)))
           (when (and m (or (cdr p) (= (car m) (length words))))
-            (let ((cand (list a (voice--slot-words (nthcdr (car m) words)) (cdr m)
-                              (voice--specificity (plist-get a :when)))))
+            (let* ((slot (voice--slot-words (nthcdr (car m) words)))
+                   (cand (list a slot (- (cdr m) (if (and (cdr p) (null slot)) 0.5 0))
+                               (voice--specificity (plist-get a :when)))))
               (when (or (null best) (> (nth 2 cand) (nth 2 best))
                         (and (= (nth 2 cand) (nth 2 best)) (> (nth 3 cand) (nth 3 best))))
                 (setq best cand)))))))
@@ -944,11 +951,14 @@ by phrase: the longest literal match, a buffer's own first."
          (slot (or (plist-get plan :slot) ""))
          (kind (plist-get action :slot))
          (pool (let ((all (voice-match-tokens (plist-get plan :text) t)))
-                 (if (eq kind 'text) (seq-difference all (voice-match-tokens slot t)) all))))
+                 (if (eq kind 'text) (seq-difference all (voice-match-tokens slot t)) all)))
+         (asks (plist-get action :asks))
+         (claimed (and asks (voice--claim asks (voice--words slot)))))
     (when (and (plist-get action :confirm)
                (not (y-or-n-p (format "Voice: %s? " (plist-get action :name)))))
       (user-error "Voice: not done"))
-    (let ((voice--fill (list :pool pool :answers nil :owned nil)))
+    (let ((voice--fill (list :pool pool :answers (cdr claimed)
+                             :owned (mapcar (lambda (a) (plist-get a :prompt)) asks))))
       (let ((result (cond ((eq kind 'text) (funcall run slot))
                           ((commandp run) (call-interactively run))
                           (t (funcall run)))))
@@ -981,7 +991,7 @@ by phrase: the longest literal match, a buffer's own first."
            (clean (lambda (s) (replace-regexp-in-string "[\t\n]+" " " (format "%s" (or s ""))))))
       (write-region
        (concat (mapconcat (lambda (x) (funcall clean x))
-                          (list (format-time-string "%F %T")
+                          (list (format-time-string "%F %T" (plist-get plan :t0))
                                 (plist-get plan :source)
                                 (with-current-buffer (window-buffer (selected-window)) major-mode)
                                 (plist-get plan :text)
@@ -997,21 +1007,46 @@ by phrase: the longest literal match, a buffer's own first."
                "\n")
        nil (voice--log-file) t 'silent))))
 
+(defun voice--wav-header (bytes)
+  "A WAV header for BYTES of 16 kHz mono 16-bit PCM."
+  (let ((le (lambda (n k) (apply #'unibyte-string
+                                 (cl-loop for i below k collect (logand (ash n (* -8 i)) 255))))))
+    (concat "RIFF" (funcall le (+ 36 bytes) 4) "WAVEfmt " (funcall le 16 4)
+            (funcall le 1 2) (funcall le 1 2) (funcall le 16000 4) (funcall le 32000 4)
+            (funcall le 2 2) (funcall le 16 2) "data" (funcall le bytes 4))))
+
 (defun voice--save-audio (stamp)
-  "Copy the voice app's newest recording and transcript as STAMP.pcm/.txt
-in `voice-audio-directory', a moment later so its files are complete."
+  "Save the voice app's newest finished recording as STAMP.wav in
+`voice-audio-directory', a moment later so it is complete.  Read as
+root: its files are private to it, and other apps' data is hidden from
+ours, hence the main mount view; KernelSU's su needs Emacs's own loader
+off (see android-doom-root.el)."
   (when (and voice--android voice-audio-directory)
     (run-at-time
      2 nil
      (lambda ()
        (with-demoted-errors "voice audio: %S"
          (make-directory voice-audio-directory t)
-         (let ((dest (expand-file-name stamp voice-audio-directory)))
-           (start-process
-            "voice-audio" nil "su" "-c"
-            (format "f=$(ls -t %s/*.pcm 2>/dev/null | head -1); [ -n \"$f\" ] || exit 0; cp \"$f\" %s.pcm; cp \"${f%%.pcm}.txt\" %s.txt 2>/dev/null; chmod 644 %s.*"
-                    voice--app-history (shell-quote-argument dest)
-                    (shell-quote-argument dest) (shell-quote-argument dest)))))))))
+         (let ((buf (generate-new-buffer " *voice-audio*"))
+               (dest (expand-file-name (concat stamp ".wav") voice-audio-directory))
+               (android-use-exec-loader nil))
+           (with-current-buffer buf (set-buffer-multibyte nil))
+           (make-process
+            :name "voice-audio" :buffer buf :noquery t :connection-type 'pipe
+            :coding 'binary
+            :command (list "su" "--mount-master" "-c"
+                           (format "f=$(ls -t %s/*.txt 2>/dev/null | head -1); [ -n \"$f\" ] && cat \"${f%%.txt}.pcm\""
+                                   voice--app-history))
+            :sentinel
+            (lambda (proc _event)
+              (unless (process-live-p proc)
+                (with-current-buffer buf
+                  (when (> (buffer-size) 1000)
+                    (goto-char (point-min))
+                    (insert (voice--wav-header (buffer-size)))
+                    (let ((coding-system-for-write 'binary))
+                      (write-region nil nil dest nil 'silent))))
+                (kill-buffer buf))))))))))
 
 (defun voice--tell (plan message)
   "Show MESSAGE; from the island also as a toast, Emacs being out of sight."
@@ -1028,7 +1063,7 @@ in `voice-audio-directory', a moment later so its files are complete."
 only say what would happen.  Return the plan."
   (let* ((t0 (float-time))
          (said (voice--rewrite text))
-         (plan (plist-put (voice-plan said source) :source source))
+         (plan (plist-put (plist-put (voice-plan said source) :source source) :t0 t0))
          result)
     (when (fboundp 'usage-log) (usage-log "voice" (or (plist-get (plist-get plan :action) :name)
                                                       (plist-get plan :kind))))
@@ -1069,6 +1104,18 @@ only say what would happen.  Return the plan."
 (defun voice--heard-file ()
   (expand-file-name "voice-heard.tsv" (bound-and-true-p emacs-home-dir)))
 
+(defvar voice-test-marker (and voice--android "/sdcard/Documents/voice-audio/TEST")
+  "While this file is under three hours old, words from the app are only
+planned, never done, and logged to test-log.tsv beside the recordings:
+for a test run (test/voice-speak-test.py), so Emacs does nothing to your
+tasks while the Mac speaks at the phone.")
+
+(defun voice--testing-p ()
+  (and voice-test-marker (file-exists-p voice-test-marker)
+       (< (float-time (time-since (file-attribute-modification-time
+                                   (file-attributes voice-test-marker))))
+          10800)))
+
 (defun voice-from-app ()
   "Called by the voice app once it heard something: plan it now, do it
 just after.  Return front when Emacs should come forward, else quiet."
@@ -1084,6 +1131,12 @@ just after.  Return front when Emacs should come forward, else quiet."
            ((or (null when-heard) (string-empty-p text)) 'quiet)
            ((> (- (float-time) when-heard) voice-stale-seconds)
             (message "Voice: dropped \"%s\", heard too long ago" text) 'quiet)
+           ((voice--testing-p)
+            (run-at-time 0 nil
+                         (lambda ()
+                           (let ((voice-log-file (expand-file-name "test-log.tsv" voice-audio-directory)))
+                             (voice-dispatch text :source source :dry-run t))))
+            'quiet)
            (t
             (let ((plan (voice-plan (voice--rewrite text) source)))
               (run-at-time 0 nil (lambda () (voice-dispatch text :source source)))
@@ -1101,7 +1154,109 @@ just after.  Return front when Emacs should come forward, else quiet."
 (with-eval-after-load 'emacs-home
   (when voice--android (setq voice-listen-function #'voice--ask-app)))
 
+;;;; Checking phrases against what they should do
+
+(defun voice-expect-ok (expect plan)
+  "Non-nil when PLAN does what EXPECT says: action:NAME, task:WORDS (clocks
+in, the top task's title containing WORDS), pick:WORDS (a pick list,
+WORDS among its top five), or none."
+  (let* ((kind (plist-get plan :kind))
+         (ranked (plist-get plan :ranked))
+         (titles (mapcar (lambda (r) (downcase (plist-get (nth 2 r) :title))) (seq-take ranked 5)))
+         (want (and (string-match ":\\(.*\\)" expect) (downcase (string-trim (match-string 1 expect))))))
+    (pcase (car (split-string expect ":"))
+      ("action" (and (eq kind 'action)
+                     (equal (downcase (plist-get (plist-get plan :action) :name)) want)))
+      ("task" (and (eq kind 'task) (eq (plist-get plan :decision) 'act)
+                   (car titles) (string-match-p (regexp-quote want) (car titles))))
+      ("pick" (and (eq kind 'task) (eq (plist-get plan :decision) 'pick)
+                   (seq-some (lambda (ti) (string-match-p (regexp-quote want) ti)) titles)))
+      ("none" (or (eq kind 'none) (eq (plist-get plan :decision) 'none))))))
+
+(defun voice-check-corpus (file &optional source)
+  "Plan every phrase in FILE (PHRASE TAB EXPECT per line, # comments), as
+heard from SOURCE (default island), doing nothing.  Write FILE-results.tsv
+beside it: ok, phrase, expected, kind, action, top task, score, decision.
+Return how many passed."
+  (let ((rows nil) (ok 0) (n 0))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (dolist (line (split-string (buffer-string) "\n" t))
+        (unless (string-prefix-p "#" line)
+          (let* ((parts (split-string line "\t"))
+                 (phrase (car parts)) (expect (or (nth 1 parts) "none"))
+                 (plan (voice-plan (voice--rewrite phrase) (or source "island")))
+                 (good (voice-expect-ok expect plan))
+                 (top (car (plist-get plan :ranked))))
+            (cl-incf n) (when good (cl-incf ok))
+            (push (mapconcat (lambda (x) (format "%s" (or x "")))
+                             (list (if good "ok" "MISS") phrase expect (plist-get plan :kind)
+                                   (plist-get (plist-get plan :action) :name)
+                                   (and top (plist-get (nth 2 top) :title))
+                                   (and top (format "%.2f" (nth 1 top)))
+                                   (plist-get plan :decision))
+                             "\t")
+                  rows)))))
+    (with-temp-file (concat (file-name-sans-extension file) "-results.tsv")
+      (insert (mapconcat #'identity (nreverse rows) "\n") "\n"))
+    (format "%d of %d phrases do what they should" ok n)))
+
 ;;;; What you can say
+
+(defun voice--when-label (when)
+  (pcase when
+    ('nil nil) ('clocking "while clocked in") ('android "phone") ('remote "in an agent's chat")
+    ('image-mode "on a photo") ((pred symbolp) (symbol-name when)) (_ "sometimes")))
+
+(defun voice-help (&optional all)
+  "Show what you can say here; with ALL (\\[universal-argument]), everything and when."
+  (interactive "P")
+  (let* ((context (voice-context))
+         (mine (reverse (if all voice-actions
+                          (seq-filter (lambda (a) (voice--when-p (plist-get a :when) context))
+                                      voice-actions))))
+         (mine-cmds (mapcar (lambda (a) (plist-get a :run)) voice-actions))
+         (others (delete-dups
+                  (mapcar (lambda (a) (plist-get a :name))
+                          (seq-remove (lambda (a) (memq (plist-get a :run) mine-cmds))
+                                      (append (voice--toolbar-actions) (voice--homepage-actions)))))))
+    (with-current-buffer (get-buffer-create "*Voice commands*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (if all "#+title: Everything you can say\n\n" "#+title: What you can say here\n\n")
+                "/A phrase with … takes the rest of what you say./\n\n* Commands\n")
+        (dolist (a mine)
+          (let ((label (voice--when-label (plist-get a :when))))
+            (insert (format "- *%s*%s :: %s\n" (plist-get a :name)
+                            (if label (format " (%s)" label) "")
+                            (mapconcat (lambda (p) (format "\"%s\"" p)) (plist-get a :phrases) ", ")))))
+        (when others
+          (insert "\n* Buttons and tiles, by their names\n"
+                  (mapconcat #'identity others ", ") "\n"))
+        (insert "\n* Anything else\n"
+                "- A task's name alone: the closest tasks, to pick one.\n"
+                "- With a question open: its answer.  A choice by name or \"the second one\", yes or no, the text; \"cancel\" closes it.\n"
+                "- Your own words for things: ~/org/voice.org (* Phrases, * Names).\n")
+        (org-mode)
+        (read-only-mode 1)
+        (goto-char (point-min)))
+      (pop-to-buffer (current-buffer)))
+    "What you can say"))
+
+(defun voice-status ()
+  "What the clock is on, and for how long."
+  (if (and (fboundp 'org-clocking-p) (org-clocking-p))
+      (format "Clocked in: %s, %s" org-clock-current-task
+              (org-duration-from-minutes
+               (floor (float-time (time-since org-clock-start-time)) 60)))
+    "Not clocked in"))
+
+(defun voice-diary ()
+  "A diary line, through the diary template; its question is answered
+from what was said."
+  (org-capture nil "d")
+  (when (bound-and-true-p org-capture-mode) (org-capture-finalize))
+  "Added to the diary")
 
 (voice-action '("clock in to …" "clock into …" "clock in …" "start …" "work on …"
                 "read …" "watch …" "practice …" "study …" "meeting with …" "meeting …")
@@ -1144,6 +1299,11 @@ just after.  Return front when Emacs should come forward, else quiet."
 (voice-action '("tag …" "tag it …" "tags …") #'set-image-tags-and-rename-and-next
               :when 'image-mode :name "tag image")
 (voice-action '("agenda" "open agenda" "my agenda") #'my-org-agenda :name "agenda")
+(voice-action '("help" "what can i say" "voice commands" "commands") #'voice-help :name "help")
+(voice-action '("status" "what am i doing" "what am i on" "what's running" "how long")
+              #'voice-status :quiet t :name "status")
+(voice-action '("diary …" "dear diary …" "diary entry …" "write in diary …") #'voice-diary
+              :asks '((:prompt "diary entry" :type rest)) :name "diary")
 
 (provide 'voice-command)
 ;;; voice-command.el ends here
