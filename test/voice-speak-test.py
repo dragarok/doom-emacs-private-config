@@ -161,11 +161,14 @@ def main():
     ap.add_argument("--only", help="regexp: phrases to run")
     ap.add_argument("--volume", type=int, default=75, help="Mac output volume while speaking")
     ap.add_argument("--rate", type=int, default=175, help="words per minute")
-    ap.add_argument("--lead", type=float, default=0.2, help="seconds between the microphone opening and speaking")
+    ap.add_argument("--lead", type=float, default=0.8,
+                    help="seconds between the microphone opening and speaking: the voice app needs a moment "
+                         "of room sound first, or it takes the first pause for the end and keeps one word")
     ap.add_argument("--level", type=int, default=6000, help="speech level of the rendered phrases")
     ap.add_argument("--heard", type=int, default=2500,
                     help="speech level the phone should record; the Mac volume is tuned to it first")
-    ap.add_argument("--no-calibrate", action="store_true")
+    ap.add_argument("--calibrate", action="store_true",
+                    help="tune the Mac's volume to --heard first (off: a run with it kept one word in three)")
     ap.add_argument("--timeout", type=float, default=15)
     ap.add_argument("--island", default="640,86", help="x,y of the clock island")
     ap.add_argument("--out", help="run directory (default: beside the corpus, by time)")
@@ -196,7 +199,7 @@ def main():
     volume(args.volume)
     results = []
     try:
-        if not args.no_calibrate:
+        if args.calibrate:
             args.volume = calibrate(cases[0][0], voices[0], args, run)
         for voice in voices:
             for phrase, expect in cases:

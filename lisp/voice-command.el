@@ -536,7 +536,7 @@ the exit throws, and the voice step that called this still logs."
   (run-at-time 0 nil #'voice--exit-minibuffer))
 
 (defvar voice-refused-prompt-regexp
-  "exit emacs\\|kill emacs\\|quit emacs\\|restart emacs\\|delete\\|discard\\|revert\\|overwrite\\|kill buffer"
+  "exit emacs\\|kill emacs\\|quit emacs\\|restart emacs\\|delete\\|discard\\|revert\\|overwrite\\|kill buffer\\|answer by hand"
   "Questions voice never answers: a stray \"yes\" must not quit Emacs or lose work.")
 
 (defconst voice--refused-histories
@@ -1404,6 +1404,63 @@ PROMPT, TEXT's words typed, so a tap finishes it."
   (claude-remote--send "\r")
   "Sent")
 
+;;;; Any command, as M-x
+
+(defvar voice--commands-cache nil "(TIME . INDEX) of every command, for \"run …\".")
+
+(defun voice--commands-index ()
+  "An index of every command by its name's words, rebuilt every ten minutes
+as packages load more."
+  (if (and voice--commands-cache
+           (< (float-time (time-since (car voice--commands-cache))) 600))
+      (cdr voice--commands-cache)
+    (let (cands)
+      (mapatoms (lambda (sym)
+                  (when (and (commandp sym) (not (get sym 'byte-obsolete-info)))
+                    (push (list :title (symbol-name sym)) cands))))
+      (let ((index (voice-match-index cands)))
+        (setq voice--commands-cache (cons (current-time) index))
+        index))))
+
+(defun voice--best-first (names)
+  "A completion table of NAMES that keeps their order: best first."
+  (lambda (string pred action)
+    (if (eq action 'metadata)
+        '(metadata (category . command) (display-sort-function . identity)
+                   (cycle-sort-function . identity))
+      (complete-with-action action names string pred))))
+
+(defun voice-run-command (text)
+  "Run the command TEXT names, as M-x does.  Said exactly (\"run magit
+status\"), it runs at once; else the commands open, the closest to what was
+said first, to pick by tap or by voice.  One whose name kills, deletes,
+reverts, quits or evaluates asks first, and that question is yours."
+  (let* ((index (voice--commands-index))
+         (query (voice-match-tokens text))
+         (ranked (and query (voice-match-rank index query 30)))
+         (exact (seq-find (lambda (r) (equal (voice-match-tokens (plist-get (nth 2 r) :title)) query))
+                          ranked))
+         (name (if exact
+                   (plist-get (nth 2 exact) :title)
+                 (let ((voice--fill nil)
+                       (names (delete-dups
+                               (append (mapcar (lambda (r) (plist-get (nth 2 r) :title)) ranked)
+                                       (mapcar (lambda (e) (plist-get e :title))
+                                               (voice-match-index-entries index))))))
+                   (completing-read (if ranked (format "Run (closest to \"%s\" first): " text) "Run: ")
+                                    (voice--best-first names) nil t nil 'voice-command-history))))
+         (cmd (intern-soft name)))
+    (unless (commandp cmd) (user-error "Voice: no command %s" name))
+    (when (and (voice--denied-p cmd)
+               (not (let ((voice--fill nil))
+                      (y-or-n-p (format "Run %s?  Answer by hand " name)))))
+      (user-error "Voice: not run"))
+    (command-execute cmd 'record)
+    (format "Ran %s" name)))
+
+;; Collected once Emacs is idle, so the first "run …" doesn't wait for it.
+(when voice--android (run-with-idle-timer 60 nil #'voice--commands-index))
+
 ;;;; What you can say
 
 (defun voice--when-label (when)
@@ -1534,6 +1591,9 @@ from what was said."
 (voice-action '("bottom" "go to bottom" "end") #'end-of-buffer :quiet t :name "bottom")
 (voice-action '("bigger" "bigger text" "zoom in" "text bigger") #'text-scale-increase :quiet t :name "bigger text")
 (voice-action '("smaller" "smaller text" "zoom out" "text smaller") #'text-scale-decrease :quiet t :name "smaller text")
+;; Any command
+(voice-action '("run …" "m x …" "mx …" "meta x …" "execute …" "run command …") #'voice-run-command
+              :slot 'text :name "run command")
 ;; Planning
 (voice-action '("walk" "walk tasks" "date tasks" "undated tasks") #'org-flow-date-undated :name "walk tasks")
 (voice-action '("plan tomorrow" "time box tomorrow" "timebox tomorrow" "timebox") #'timebox-tomorrow

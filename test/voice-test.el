@@ -403,6 +403,33 @@ SCHEDULED: <2020-01-01 Wed>
         (voice-dispatch "mark it done" :source "test")
         (should (equal (org-get-todo-state) "DONE"))))))
 
+(defvar voice-test--ran nil)
+(defun voice-test-water-the-plants () (interactive) (setq voice-test--ran 'plants))
+(defun voice-test-delete-the-plants () (interactive) (setq voice-test--ran 'deleted))
+
+(ert-deftest voice-test-run-any-command ()
+  (voice-test--with
+    (let ((voice--commands-cache nil) (voice-test--ran nil))
+      ;; Said by its exact name, it runs.
+      (voice-dispatch "run voice test water the plants" :source "test")
+      (should (eq voice-test--ran 'plants))
+      ;; A dangerous one asks first, and no is no.
+      (setq voice-test--ran nil)
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil)))
+        (voice-dispatch "run voice test delete the plants" :source "test"))
+      (should-not voice-test--ran)
+      ;; Voice never answers that question itself.
+      (let ((voice--choice (cons "Run voice-test-delete-the-plants?  Answer by hand " '(?y ?n))))
+        (should (string-match-p "doesn't answer" (voice--answer-prompt "yes"))))
+      ;; Not exact: the list opens, the closest first.
+      (let (first)
+        (cl-letf (((symbol-function 'completing-read)
+                   (lambda (_p table &rest _)
+                     (setq first (car (all-completions "" table)))
+                     "voice-test-water-the-plants")))
+          (voice-dispatch "run water plants" :source "test"))
+        (should (equal first "voice-test-water-the-plants"))))))
+
 (ert-deftest voice-test-stale-words-are-dropped ()
   (let* ((dir (make-temp-file "voice-home" t))
          (emacs-home-dir (file-name-as-directory dir)))

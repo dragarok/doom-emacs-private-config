@@ -228,6 +228,12 @@ already typed: tap the one you meant.
 - "diary went for a long walk", "motto stay curious"
 - "save everything", "zen"
 
+** Any command: "run …"
+"run magit status", "M-x org agenda": a command said by its exact name
+runs at once.  Otherwise the commands open, the closest to what you
+said first: tap one, or say "the second one".  One that kills, deletes,
+reverts, quits or evaluates asks first, and you answer that by hand.
+
 ** On the phone, in photos, with agents
 - "attach camera photo", "attach latest photo"
 - On a photo: "next", "previous", "rotate", "tag it food and travel"
