@@ -66,6 +66,10 @@ public class FloatService extends Service {
     // toast (from the island, Emacs is not on screen).
     private static final File VOICE_ASK = new File(Catalog.DIR, "voice-ask");
     private static final File VOICE_SAID = new File(Catalog.DIR, "voice-said.tsv");
+    // "Did you mean ...?": Emacs writes the question here when it nearly
+    // understood, and empties it once answered.  The island shows it with
+    // Yes and No; a tap answers as saying it would (VoiceActivity.deliver).
+    private static final File VOICE_CONFIRM = new File(Catalog.DIR, "voice-confirm.tsv");
     // In org, so it syncs to the Mac and is backed up; read by day-log.el.
     private static final File FOREGROUND = new File("/sdcard/org/logs/foreground_localhost.tsv");
     // usage-log.el's file for this machine: Emacs's `system-name' here is
@@ -97,6 +101,7 @@ public class FloatService extends Service {
     private boolean clocked;
     private long start;          // epoch seconds, when clocked
     private String task = "";    // clocked task, or the last one when idle
+    private String question;     // Emacs's "did you mean", while open
 
     private long usageSince = System.currentTimeMillis();
     private String lastForeground;
@@ -119,6 +124,7 @@ public class FloatService extends Service {
                 if (Reminders.FILE.getName().equals(path)) bg.execute(() -> Reminders.schedule(FloatService.this));
                 if (VOICE_ASK.getName().equals(path)) main.post(() -> listen("toolbar"));
                 if (VOICE_SAID.getName().equals(path)) bg.execute(FloatService.this::toastSaid);
+                if (VOICE_CONFIRM.getName().equals(path)) bg.execute(FloatService.this::readQuestion);
             }
         };
         observer.startWatching();
@@ -154,6 +160,8 @@ public class FloatService extends Service {
     };
 
     private void act(String action) {
+        if (action.equals("voice-yes")) { answer("yes"); return; }
+        if (action.equals("voice-no")) { answer("no"); return; }
         if (action.equals("lock")) { press("island-lock"); lock(); return; }
         if (action.equals("unlock")) { unlock(); return; }
         if (action.equals("reattach")) { reattach(); return; }
@@ -367,7 +375,7 @@ public class FloatService extends Service {
 
     private void keepOpen() {
         main.removeCallbacks(autoHide);
-        main.postDelayed(autoHide, 8_000);
+        main.postDelayed(autoHide, question != null ? 30_000 : 8_000);
     }
 
     /** Grow into the card or shrink back into the pill, morphing the window. */
@@ -484,11 +492,14 @@ public class FloatService extends Service {
         markView.setLayoutParams(new LinearLayout.LayoutParams(side, m));
         if (showMinutes) minutes.setLayoutParams(new LinearLayout.LayoutParams(side, pillH));
 
-        title.setText(task.isEmpty() ? "Nothing clocked" : task);
-        sub.setText(clocked ? "Clocked in · " + elapsed()
+        title.setText(question != null ? question : task.isEmpty() ? "Nothing clocked" : task);
+        sub.setText(question != null ? "Say yes or no, or tap"
+                    : clocked ? "Clocked in · " + elapsed()
                     : task.isEmpty() ? "Pick something to do with Flow" : "Paused");
         buttons.removeAllViews();
-        String[][] bs = clocked
+        String[][] bs = question != null
+                ? new String[][] {{"Yes", "voice-yes"}, {"No", "voice-no"}}
+                : clocked
                 ? new String[][] {{"Pause", "pause"}, {"Done", "done"},
                                   {"Cancel", "cancel"}, {"Lock", "lock"}}
                 : task.isEmpty()
@@ -553,12 +564,49 @@ public class FloatService extends Service {
         }
     }
 
-    /** Listen once (VoiceActivity), the words going to Emacs from SOURCE. */
+    /** Listen once (VoiceActivity), the words going to Emacs from SOURCE.
+     *  A question stays up meanwhile: the answer may be tapped or said. */
     private void listen(String source) {
-        if (island != null) setOpen(false);
+        if (island != null && question == null) setOpen(false);
         startActivity(new Intent(this, VoiceActivity.class)
                 .putExtra("source", source)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    /** Emacs asked "did you mean ...?" (or took it back, the file empty). */
+    private void readQuestion() {
+        String q;
+        try {
+            q = new String(Files.readAllBytes(VOICE_CONFIRM.toPath()), StandardCharsets.UTF_8).trim();
+        } catch (Exception x) {
+            q = "";
+        }
+        final String asked = q.isEmpty() ? null : q;
+        main.post(() -> {
+            question = asked;
+            if (island == null) return;
+            if (asked == null) { setOpen(false); updateIsland(); return; }
+            if (opening) { updateIsland(); regrow(); keepOpen(); }
+            else setOpen(true);
+        });
+    }
+
+    /** The island's Yes or No: to Emacs as if said from the island. */
+    private void answer(String word) {
+        press("island-" + word);
+        question = null;
+        setOpen(false);
+        final String line = (System.currentTimeMillis() / 1000) + "\tisland\t" + word + "\n";
+        final Context app = getApplicationContext();
+        bg.execute(() -> VoiceActivity.deliver(app, line));
+    }
+
+    /** Fit the open card to what it now shows. */
+    private void regrow() {
+        island.measure(View.MeasureSpec.makeMeasureSpec(cardW, View.MeasureSpec.EXACTLY),
+                       View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        lp.height = island.getMeasuredHeight();
+        if (island.isAttachedToWindow()) wm.updateViewLayout(island, lp);
     }
 
     /** Show what Emacs said a voice command did. */

@@ -462,14 +462,90 @@ SCHEDULED: <2020-01-01 Wed>
       (should-not (voice--learn-name "clock out on image tagging" "Image Tagging"))
       (should-not wrote))))
 
-(ert-deftest voice-test-stop-said-of-photos-ends-tagging ()
+;;;; Near, not word for word
+
+(ert-deftest voice-test-pattern-with-a-tail ()
+  (should (equal (voice--pattern "mark … done") '(("mark") "done")))
+  (should (equal (voice--pattern "clock in …") '(("clock" "in") . t)))
+  (should (equal (voice--pattern "pause") '(("pause")))))
+
+(ert-deftest voice-test-yes-or-no ()
+  (should (eq (voice--yes-or-no "Yes.") 'yes))
+  (should (eq (voice--yes-or-no "Yeah, do it") 'yes))
+  (should (eq (voice--yes-or-no "No.") 'no))
+  (should (eq (voice--yes-or-no "nope") 'no))
+  (should-not (voice--yes-or-no "next image"))
+  (should-not (voice--yes-or-no "yes I want to clock in to the guitar practice now")))
+
+(ert-deftest voice-test-near-commands-act-or-ask ()
+  (cl-letf (((symbol-function 'voice-context) (lambda (&optional _) '(android clocking))))
+    (voice-test--with
+      ;; Every word one of pause's own: done.
+      (let ((p (voice-plan "pause clocking" "island")))
+        (should (eq (plist-get p :kind) 'action))
+        (should (equal (plist-get (plist-get p :action) :name) "pause")))
+      ;; A stray word: asked about, not clocked in to a task.
+      (let ((p (voice-plan "Stop him is tagging." "island")))
+        (should (eq (plist-get p :kind) 'ask))
+        (should (equal (plist-get (nth 1 (car (plist-get p :options))) :name) "stop tagging")))
+      ;; A task's name is still a task.
+      (should (eq (plist-get (voice-plan "guitar scales" "island") :kind) 'task)))))
+
+(ert-deftest voice-test-yes-does-it-and-learns ()
   (let (did)
-    (cl-letf (((symbol-function 'voice-stop-tagging) (lambda () (setq did 'tagging)))
-              ((symbol-function 'org-clock-out) (lambda (&rest _) (setq did 'clock))))
-      (voice-stop "him is tagging") (should (eq did 'tagging))
-      (voice-stop "image tagging") (should (eq did 'tagging))
-      (voice-stop "") (should (eq did 'clock))
-      (voice-stop "guitar practice") (should (eq did 'clock)))))
+    (cl-letf (((symbol-function 'voice-context) (lambda (&optional _) '(android clocking)))
+              ((symbol-function 'voice-stop-tagging) (lambda () (setq did t) "Tagging done")))
+      (voice-test--with
+        (let ((voice-learn t))
+          (voice-dispatch "Stop him is tagging." :source "test")
+          (should voice--confirm)
+          (should-not did)
+          (voice-dispatch "yes" :source "test")
+          (should did)
+          (should-not voice--confirm)
+          ;; Taught: the same sentence is done straight away now.
+          (setq did nil)
+          (should (eq (plist-get (voice-dispatch "stop him is tagging" :source "test") :kind) 'action))
+          (should did))))))
+
+(ert-deftest voice-test-no-does-nothing ()
+  (let (did)
+    (cl-letf (((symbol-function 'voice-context) (lambda (&optional _) '(android clocking)))
+              ((symbol-function 'voice-stop-tagging) (lambda () (setq did t) "Tagging done"))
+              ((symbol-function 'org-clock-out) (lambda (&rest _) (setq did t))))
+      (voice-test--with
+        (voice-dispatch "Stop him is tagging." :source "test")
+        (voice-dispatch "no" :source "test")
+        (when voice--confirm (voice-dispatch "no" :source "test"))
+        (should-not did)
+        ;; Anything else said drops the question.
+        (voice-dispatch "Stop him is tagging." :source "test")
+        (voice-dispatch "what time is it" :source "test")
+        (should-not voice--confirm)))))
+
+(ert-deftest voice-test-mark-a-task-done-by-name ()
+  (voice-test--with
+    (let ((p (voice-dispatch "mark the bicycle brakes done" :source "test"))
+          (tasks (expand-file-name "tasks.org" dir)))
+      (should (equal (plist-get (plist-get p :action) :name) "mark task done"))
+      (with-current-buffer (find-file-noselect tasks)
+        (goto-char (point-min))
+        (should (re-search-forward "^\\*\\* DONE Fix the bicycle brakes" nil t)))
+      (voice-dispatch "undo" :source "test")
+      (with-current-buffer (find-file-noselect tasks)
+        (goto-char (point-min))
+        (should (re-search-forward "^\\*\\* TODO Fix the bicycle brakes" nil t))))))
+
+(ert-deftest voice-test-mark-done-while-clocked ()
+  (voice-test--with
+    (voice-dispatch "clock in to the bicycle brakes" :source "test")
+    (should (org-clocking-p))
+    (with-temp-buffer                   ; not on an Org heading
+      (voice-dispatch "mark done" :source "test"))
+    (should-not (org-clocking-p))
+    (with-current-buffer (find-file-noselect (expand-file-name "tasks.org" dir))
+      (goto-char (point-min))
+      (should (re-search-forward "^\\*\\* DONE Fix the bicycle brakes" nil t)))))
 
 (defmacro voice-test--with-photos (&rest body)
   "BODY with three photos waiting in a temporary inbox, the first shown."

@@ -76,8 +76,9 @@ public class VoiceActivity extends Activity {
         new Thread(() -> deliver(app, line)).start();
     }
 
-    /** Write what was heard and tell Emacs; start Emacs if it isn't up. */
-    private static void deliver(Context c, String line) {
+    /** Write what was heard and tell Emacs; start Emacs if it isn't up.
+     *  Also the island's Yes and No, as if said (FloatService.answer). */
+    static void deliver(Context c, String line) {
         try (FileOutputStream f = new FileOutputStream(HEARD, false)) {
             f.write(line.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {

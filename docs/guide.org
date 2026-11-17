@@ -209,6 +209,8 @@ usual, and you can answer that by voice too.
 - "pause", "resume", "cancel the clock", "status" (what the clock is
   on, for how long)
 - "set a timer for 25 minutes", "time"
+- "mark guitar scales done", "complete the weekly review": that task
+  done, from anywhere; "mark done" alone: the one here, or clocked in to
 
 ** Going places
 - "open spotify": any app; "find note atomic habits"; "buffer tasks";
@@ -267,6 +269,20 @@ fitness centre=.  Picks from the list add these by themselves.
 
 ** On the Mac: SPC V
 Type what you would say.
+
+** Did you mean
+Said word for word, a command is done.  Otherwise every command, task
+and (on a photo) tag is weighed against what was said, all the same way:
+how much of it a command's words explain (all its phrases' words, so
+"pause clocking" is pause), how much of the command was said, rare words
+counting more than common ones, the opening words more than the rest.
+- A clear winner is done.
+- A near one is asked about: "Did you mean stop tagging?"  Say yes or
+  no (the mic opens again), or tap Yes or No on the island.  A no asks
+  about the next nearest, then offers your tasks.
+- A yes teaches it: the sentence goes under * Phrases in voice.org and
+  is done straight away next time.  Nothing is learned without a yes.
+- "update voice" pulls the config and reloads the voice files.
 
 ** When it gets something wrong
 Every utterance is a line in ~/org/logs/voice_log_HOST.tsv: what was
