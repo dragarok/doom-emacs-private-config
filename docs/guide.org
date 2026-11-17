@@ -234,9 +234,20 @@ runs at once.  Otherwise the commands open, the closest to what you
 said first: tap one, or say "the second one".  One that kills, deletes,
 reverts, quits or evaluates asks first, and you answer that by hand.
 
-** On the phone, in photos, with agents
+** Tagging photos by voice
+"start image tagging" clocks in to Image Tagging and shows the first
+photo waiting in Pictures/S23.  Then, from the clock or the toolbar:
+- say its tags: "food travel memory".  It is tagged, filed in
+  Processed as the e key does, and the next one shows.
+- "delete": into Trash/ beside the photos, kept 30 days
+- "skip", "back", "rotate"
+- "undo": the last tagging or delete taken back
+- "stop tagging": closes the photo and the clock it started
+A tag you say that isn't one yet is left out; say none and the tag
+question opens.
+
+** On the phone, with agents
 - "attach camera photo", "attach latest photo"
-- On a photo: "next", "previous", "rotate", "tag it food and travel"
 - "open herdr", "open kai"; in an agent's chat: "next", "previous",
   "type fix the failing test" (typed, not sent), then "send"
 

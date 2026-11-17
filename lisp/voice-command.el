@@ -131,6 +131,9 @@ it is offered, for a WHEN that is a function."
 
 ;;;; Context
 
+(defvar voice-photo-session nil
+  "While a tagging session runs: (:tagged N :deleted N :clocked BOOL).")
+
 (defun voice-context (&optional source)
   "Flags for now: clocking, minibuffer, android, remote, image, plus the
 major mode and its parents.  From the island, only what holds whatever
@@ -141,7 +144,13 @@ app is in front: you are not looking at an Emacs buffer."
            (list (and (fboundp 'org-clocking-p) (org-clocking-p) 'clocking)
                  (and (active-minibuffer-window) 'minibuffer)
                  (and voice--android 'android)
-                 (and (bound-and-true-p claude-remote--machine-name) 'remote))
+                 (and (bound-and-true-p claude-remote--machine-name) 'remote)
+                 ;; A photo on screen: from the island too while a tagging
+                 ;; session runs, since then you are looking at it.
+                 (and (or buffer-flags voice-photo-session)
+                      (with-current-buffer (window-buffer (selected-window))
+                        (derived-mode-p 'image-mode))
+                      'image))
            (when buffer-flags
              (with-current-buffer (window-buffer (selected-window))
                (let (modes (m major-mode))
@@ -162,7 +171,7 @@ app is in front: you are not looking at an Emacs buffer."
 (defun voice--specificity (when)
   "How particular WHEN is: a buffer's mode beats a global flag beats none."
   (cond ((null when) 0)
-        ((and (symbolp when) (string-suffix-p "-mode" (symbol-name when))) 2)
+        ((and (symbolp when) (or (eq when 'image) (string-suffix-p "-mode" (symbol-name when)))) 2)
         ((symbolp when) 1)
         ((functionp when) 1)
         ((listp when) (apply #'max 0 (mapcar #'voice--specificity when)))
@@ -1043,6 +1052,10 @@ the Diary tile, \"diary went running\" a diary line."
          (action
           (list :kind 'action :text text :action action :slot slot
                 :front (not (plist-get action :quiet))))
+         ;; On a photo, words that are tags are its tags: "food travel".
+         ((and (memq 'image context) (voice--spoken-tags request (voice--photo-tags)))
+          (list :kind 'action :text text :slot request
+                :action (seq-find (lambda (a) (equal (plist-get a :name) "tag image")) voice-actions)))
          (t
           (let ((ranked (voice-rank-tasks request)))
             (list :kind 'task :text text :slot request :ranked ranked
@@ -1404,6 +1417,171 @@ PROMPT, TEXT's words typed, so a tap finishes it."
   (claude-remote--send "\r")
   "Sent")
 
+;;;; Tagging photos
+
+(defvar voice-photo-inbox nil
+  "Where photos wait to be tagged.  Nil: the folder that holds
+`my-image-processed-dir' (Pictures/S23 on the phone).")
+
+(defvar voice-photo-task "image tagging"
+  "The task a tagging session clocks in to, when one clearly is it.")
+
+(defvar voice-photo-trash-days 30
+  "Photos deleted by voice wait this long in Trash/ beside them, for undo.")
+
+(defun voice--photo-inbox ()
+  (require 'image-mode)                 ; image-workflow.el's paths and commands
+  (file-name-as-directory
+   (or voice-photo-inbox
+       (file-name-directory (directory-file-name (bound-and-true-p my-image-processed-dir))))))
+
+(defun voice--photos-in (dir)
+  (sort (seq-remove #'file-directory-p (directory-files dir t (image-file-name-regexp))) #'string<))
+
+(defvar voice--photo-tags-cache nil "(MTIME . TAGS) of imageindex.csv.")
+
+(defun voice--photo-tags ()
+  "Every tag used so far, most used first, then the default ones."
+  (require 'image-mode)
+  (let* ((f (bound-and-true-p my-image-index-file))
+         (mtime (and f (file-exists-p f) (file-attribute-modification-time (file-attributes f)))))
+    (if (and voice--photo-tags-cache (equal (car voice--photo-tags-cache) mtime))
+        (cdr voice--photo-tags-cache)
+      (let ((tags (delete-dups
+                   (copy-sequence
+                    (or (and mtime (fboundp 'read-tags-from-imageindex-csv)
+                             (ignore-errors (read-tags-from-imageindex-csv f)))
+                        (bound-and-true-p my-image-tags))))))
+        (setq voice--photo-tags-cache (cons mtime tags))
+        tags))))
+
+(defun voice--spoken-tags (text tags)
+  "The TAGS (strings) TEXT says, in the order said: by name, by a near
+name, or run together from two words (\"learning note\": learningnote)."
+  (let* ((words (seq-remove (lambda (w) (member w voice-match-stop-words)) (voice-match-words text)))
+         (pairs (cl-loop for (a b) on words while b collect (concat a b)))
+         hits)
+    (dolist (tag tags)
+      (let* ((norm (downcase (replace-regexp-in-string "[^[:alnum:]]" "" tag)))
+             (stem (voice-match-stem norm))
+             (pos (or (cl-position norm words :test #'equal)
+                      (cl-position stem words :test (lambda (st w) (equal st (voice-match-stem w))))
+                      (cl-position norm pairs :test #'equal)
+                      (cl-position stem words
+                                   :test (lambda (st w) (and (>= (length w) 4)
+                                                             (>= (voice-match-sim st (voice-match-stem w)) 0.9)))))))
+        (when (and pos (not (string-empty-p norm))) (push (cons pos tag) hits))))
+    (delete-dups (mapcar #'cdr (sort hits (lambda (a b) (< (car a) (car b))))))))
+
+(defun voice--photo-window ()
+  "The window showing a photo, or an error."
+  (or (seq-find (lambda (w) (with-current-buffer (window-buffer w) (derived-mode-p 'image-mode)))
+                (cons (selected-window) (window-list)))
+      (user-error "Voice: no photo open; say \"tag photos\"")))
+
+(defun voice--photo-count (key)
+  (when voice-photo-session
+    (setq voice-photo-session
+          (plist-put voice-photo-session key (1+ (or (plist-get voice-photo-session key) 0))))))
+
+(defun voice--photos-left (dir)
+  (format "%d to go" (length (voice--photos-in dir))))
+
+(defun voice-start-tagging ()
+  "Clock in to the image tagging task and show the first photo waiting."
+  (let* ((dir (voice--photo-inbox))
+         (photos (voice--photos-in dir))
+         (clocked nil))
+    (unless photos (user-error "Voice: no photos waiting in %s" dir))
+    (voice--prune-photo-trash dir)
+    (let ((ranked (voice-rank-tasks voice-photo-task)))
+      (when (and ranked (eq (voice-match-decide ranked) 'act)
+                 (not (and (fboundp 'org-clocking-p) (org-clocking-p)
+                           (equal (bound-and-true-p org-clock-current-task)
+                                  (plist-get (nth 2 (car ranked)) :title)))))
+        (save-window-excursion (voice-clock-in (nth 2 (car ranked))))
+        (setq clocked t)))
+    (setq voice-photo-session (list :tagged 0 :deleted 0 :clocked clocked))
+    (find-file (car photos))
+    (format "%d photos to tag: say the tags, or delete, skip, back, undo, stop tagging"
+            (length photos))))
+
+(defun voice-stop-tagging ()
+  "End the tagging session: close the photo, and the clock it started."
+  (let ((s voice-photo-session))
+    (setq voice-photo-session nil)
+    (ignore-errors (kill-buffer (window-buffer (voice--photo-window))))
+    (when (and (plist-get s :clocked) (fboundp 'org-clocking-p) (org-clocking-p))
+      (org-clock-out))
+    (format "Tagging done: %d tagged, %d deleted"
+            (or (plist-get s :tagged) 0) (or (plist-get s :deleted) 0))))
+
+(defun voice-tag-photo (text)
+  "Tag the photo with the tags TEXT says, file it as the e key does, and
+show the next.  No tag heard: the tag question is asked as usual."
+  (let* ((tags (voice--spoken-tags text (voice--photo-tags)))
+         (win (voice--photo-window))
+         (file (buffer-file-name (window-buffer win)))
+         (dir (file-name-directory file))
+         (index (bound-and-true-p my-image-index-file)))
+    (with-selected-window win
+      (let ((voice--fill (list :pool nil :answers (and tags (list (cons "\\`Select tags" tags)))
+                               :owned '("\\`Select tags"))))
+        (set-image-tags-and-rename-and-next)))
+    ;; Undo: the photo back where it was, its index line gone.
+    (let ((line (and index (with-temp-buffer
+                             (insert-file-contents index)
+                             (car (last (split-string (buffer-string) "\n" t)))))))
+      (when (and line (string-match "\\`\\([^,]+\\)," line))
+        (let ((moved (match-string 1 line)))
+          (setq voice--last
+                (list :what (format "tags on %s" (file-name-nondirectory file))
+                      :undo (lambda ()
+                              (rename-file moved file)
+                              (with-temp-buffer
+                                (insert-file-contents index)
+                                (goto-char (point-max))
+                                (when (re-search-backward (concat "^" (regexp-quote moved) ",.*\n?") nil t)
+                                  (replace-match "")
+                                  (write-region nil nil index nil 'silent)))
+                              (when (fboundp 'my/image-media-scan) (my/image-media-scan file))
+                              (with-selected-window (voice--photo-window) (find-alternate-file file))))))))
+    (voice--photo-count :tagged)
+    (format "Tagged %s, %s" (if tags (string-join tags ", ") "it") (voice--photos-left dir))))
+
+(defun voice-delete-photo ()
+  "Move the photo to Trash/ beside it, where undo can find it, and show
+the next."
+  (let* ((win (voice--photo-window))
+         (file (buffer-file-name (window-buffer win)))
+         (dir (file-name-directory file))
+         (trash (expand-file-name "Trash/" dir))
+         (dest (expand-file-name (file-name-nondirectory file) trash))
+         (left (length (voice--photos-in dir))))
+    (make-directory trash t)
+    (with-selected-window win
+      (if (> left 1)
+          (image-next-file 1)
+        (kill-buffer (current-buffer))))
+    (rename-file file dest t)
+    (when (fboundp 'my/image-media-scan) (my/image-media-scan file) (my/image-media-scan dest))
+    (setq voice--last
+          (list :what (format "delete of %s" (file-name-nondirectory file))
+                :undo (lambda ()
+                        (rename-file dest file)
+                        (when (fboundp 'my/image-media-scan) (my/image-media-scan file))
+                        (find-file file))))
+    (voice--photo-count :deleted)
+    (format "Deleted, %s" (voice--photos-left dir))))
+
+(defun voice--prune-photo-trash (dir)
+  (let ((trash (expand-file-name "Trash/" dir)))
+    (when (file-directory-p trash)
+      (dolist (f (directory-files trash t "^[^.]"))
+        (when (> (float-time (time-since (file-attribute-modification-time (file-attributes f))))
+                 (* 86400 voice-photo-trash-days))
+          (ignore-errors (delete-file f)))))))
+
 ;;;; Any command, as M-x
 
 (defvar voice--commands-cache nil "(TIME . INDEX) of every command, for \"run …\".")
@@ -1466,7 +1644,7 @@ reverts, quits or evaluates asks first, and that question is yours."
 (defun voice--when-label (when)
   (pcase when
     ('nil nil) ('clocking "while clocked in") ('android "phone") ('remote "in an agent's chat")
-    ('image-mode "on a photo") ((pred symbolp) (symbol-name when)) (_ "sometimes")))
+    ((or 'image 'image-mode) "on a photo") ((pred symbolp) (symbol-name when)) (_ "sometimes")))
 
 (defun voice-help (&optional all)
   "Show what you can say here; with ALL (\\[universal-argument]), everything and when."
@@ -1553,12 +1731,19 @@ from what was said."
               :when 'remote :quiet t :name "next agent")
 (voice-action '("previous" "previous agent" "back" "switch to previous") #'claude-remote-prev-session
               :when 'remote :quiet t :name "previous agent")
-(voice-action '("next" "next image" "next photo") #'image-next-file
-              :when 'image-mode :quiet t :name "next image")
-(voice-action '("previous" "previous image" "previous photo" "back") #'image-previous-file
-              :when 'image-mode :quiet t :name "previous image")
-(voice-action '("tag …" "tag it …" "tags …") #'set-image-tags-and-rename-and-next
-              :when 'image-mode :name "tag image")
+(voice-action '("next" "next image" "next photo" "skip" "skip it" "next one") #'image-next-file
+              :when 'image :quiet t :name "next image")
+(voice-action '("previous" "previous image" "previous photo" "back" "go back") #'image-previous-file
+              :when 'image :quiet t :name "previous image")
+(voice-action '("tag …" "tag it …" "tags …" "tag it as …") #'voice-tag-photo :slot 'text
+              :when 'image :quiet t :name "tag image")
+(voice-action '("delete" "delete it" "delete this" "delete photo" "trash it" "bin it" "remove it")
+              #'voice-delete-photo :when 'image :quiet t :name "delete photo")
+(voice-action '("start image tagging" "image tagging" "tag photos" "tag images" "tag my photos"
+                "start tagging" "tag pictures")
+              #'voice-start-tagging :name "tag photos")
+(voice-action '("stop tagging" "done tagging" "finish tagging" "end tagging" "that's all" "done")
+              #'voice-stop-tagging :when 'image :quiet t :name "stop tagging")
 (voice-action '("agenda" "open agenda" "my agenda") #'my-org-agenda :name "agenda")
 (voice-action '("help" "what can i say" "voice commands" "commands" "show help" "help me"
                 "what can you do")
@@ -1614,7 +1799,7 @@ from what was said."
               :when 'remote :quiet t :name "type to agent")
 (voice-action '("send" "send it" "submit" "press enter" "enter") #'voice-send-to-agent
               :when 'remote :quiet t :name "send to agent")
-(voice-action '("rotate" "rotate it" "rotate image") #'image-rotate :when 'image-mode :quiet t :name "rotate image")
+(voice-action '("rotate" "rotate it" "rotate image") #'image-rotate :when 'image :quiet t :name "rotate image")
 (voice-action '("status" "what am i doing" "what am i on" "what's running" "how long"
                 "what's the status" "what am i working on" "clock status")
               #'voice-status :quiet t :name "status")

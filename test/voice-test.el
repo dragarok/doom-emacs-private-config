@@ -135,7 +135,7 @@ SCHEDULED: <2020-01-01 Wed>
   (should-not (equal (car (voice-test--action "done deep work")) "clock out"))
   (should (equal (car (voice-test--action "done deep work" '(clocking))) "clock out"))
   ;; "next": the image in an image buffer, the agent in a remote session.
-  (should (equal (car (voice-test--action "next" '(remote image-mode))) "next image"))
+  (should (equal (car (voice-test--action "next" '(remote image image-mode))) "next image"))
   (should (equal (car (voice-test--action "next" '(remote))) "next agent")))
 
 (ert-deftest voice-test-rewrites-from-voice-org ()
@@ -429,6 +429,55 @@ SCHEDULED: <2020-01-01 Wed>
                      "voice-test-water-the-plants")))
           (voice-dispatch "run water plants" :source "test"))
         (should (equal first "voice-test-water-the-plants"))))))
+
+;;;; Tagging photos
+
+(ert-deftest voice-test-spoken-tags ()
+  (let ((tags '("food" "travel" "learningnote" "art" "memory" "money")))
+    (should (equal (voice--spoken-tags "travel and food" tags) '("travel" "food")))
+    (should (equal (voice--spoken-tags "learning note memories" tags) '("learningnote" "memory")))
+    (should-not (voice--spoken-tags "the weather today" tags))))
+
+(defmacro voice-test--with-photos (&rest body)
+  "BODY with three photos waiting in a temporary inbox, the first shown."
+  (declare (indent 0))
+  `(let* ((inbox (file-name-as-directory (make-temp-file "voice-photos" t)))
+          (voice-photo-inbox inbox)
+          (voice-photo-session nil)
+          (voice--photo-tags-cache (cons nil '("food" "travel" "art"))))
+     (dolist (n '("a.png" "b.png" "c.png")) (with-temp-file (expand-file-name n inbox) (insert "x")))
+     (unwind-protect
+         (let ((buf (generate-new-buffer "photo")))
+           (with-current-buffer buf
+             (setq buffer-file-name (expand-file-name "a.png" inbox))
+             (setq major-mode 'image-mode))
+           (save-window-excursion
+             (switch-to-buffer buf)
+             ,@body))
+       (delete-directory inbox t))))
+
+(ert-deftest voice-test-say-the-tags ()
+  (voice-test--with-photos
+    (let (asked)
+      (cl-letf (((symbol-function 'set-image-tags-and-rename-and-next)
+                 (lambda () (setq asked (completing-read-multiple "Select tags: " '("food" "travel" "art"))))))
+        ;; Tags alone, on a photo, tag it.
+        (voice-dispatch "food and travel" :source "test")
+        (should (equal asked '("food" "travel")))
+        ;; From the clock island too, while a session runs.
+        (setq asked nil voice-photo-session (list :tagged 0))
+        (voice-dispatch "art" :source "island")
+        (should (equal asked '("art")))))))
+
+(ert-deftest voice-test-delete-photo-and-undo ()
+  (voice-test--with-photos
+    (cl-letf (((symbol-function 'image-next-file) #'ignore)
+              ((symbol-function 'find-file) #'ignore))
+      (voice-dispatch "delete it" :source "test")
+      (should (file-exists-p (expand-file-name "Trash/a.png" inbox)))
+      (should-not (file-exists-p (expand-file-name "a.png" inbox)))
+      (voice-dispatch "undo" :source "test")
+      (should (file-exists-p (expand-file-name "a.png" inbox))))))
 
 (ert-deftest voice-test-stale-words-are-dropped ()
   (let* ((dir (make-temp-file "voice-home" t))
