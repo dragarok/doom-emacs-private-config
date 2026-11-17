@@ -190,6 +190,15 @@
           (revert-buffer t t t))))))
 (advice-add 'org-agenda-prepare-buffers :before #'+org-agenda-reread-changed-a)
 
+;; That covers the agenda, not the walks, the pickers or plain editing.  On
+;; 2026-11-17 the phone edited a tasks.org buffer that still held the text
+;; from before the morning's archive, saved it, and every archived task came
+;; back.  So the phone, like the Mac (ai-workflows.el), rereads any buffer
+;; with no unsaved edits whose file changed on disk.  Doom's lighter revert
+;; only rereads the buffer you switch to.
+(when IS-ANDROID
+  (global-auto-revert-mode 1))
+
 ;; `(org-roam-directory)' is a list holding the SYMBOL; citar wants the
 ;; directory it names.  Only bites when citar falls back to its file-based
 ;; notes source (citar-org-roam is the active one), which is exactly when
