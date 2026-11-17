@@ -508,6 +508,13 @@ SCHEDULED: <2020-01-01 Wed>
           (should (eq (plist-get (voice-dispatch "stop him is tagging" :source "test") :kind) 'action))
           (should did))))))
 
+(ert-deftest voice-test-question-names-the-command ()
+  (let ((pause (list :name "pause")) (tag (list :name "stop tagging")))
+    (should (equal (voice--option-label (list 0.6 pause "stop" nil)) "\"stop\" (pause)"))
+    (should (equal (voice--option-label (list 0.6 tag "stop tagging" nil)) "\"stop tagging\""))
+    (should (equal (voice--option-label (list 0.6 (list :name "add task") "add task …" '(("milk" . "milk"))))
+                   "\"add task milk\""))))
+
 (ert-deftest voice-test-no-does-nothing ()
   (let (did)
     (cl-letf (((symbol-function 'voice-context) (lambda (&optional _) '(android clocking)))

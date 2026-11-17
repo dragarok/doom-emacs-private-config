@@ -772,16 +772,20 @@ or sounds like a command (\"stop him is tagging\" is not Image Tagging)."
                     (expand-file-name "voice-confirm.tsv" emacs-home-dir) nil 'silent))))
 
 (defun voice--option-label (option)
-  "How a near command (S ACTION PHRASE SLOT) is asked about."
-  (let ((slot (voice--join (nth 3 option))))
-    (concat (replace-regexp-in-string "[[:space:]]*\\(…\\|\\.\\.\\.\\)[[:space:]]*" " … " (nth 2 option))
-            (if (string-empty-p slot) "" (concat ": " slot)))))
+  "How a near command (S ACTION PHRASE SLOT) is asked about: the phrase,
+what its … got, and the command's name when the phrase isn't it:
+\"stop\" (pause)."
+  (let* ((slot (voice--join (nth 3 option)))
+         (phrase (string-trim (replace-regexp-in-string "[[:space:]]*\\(…\\|\\.\\.\\.\\)[[:space:]]*" " " (nth 2 option))))
+         (name (plist-get (nth 1 option) :name)))
+    (concat "\"" phrase (if (string-empty-p slot) "" (concat " " slot)) "\""
+            (if (equal (voice-match-normalize name) (voice-match-normalize phrase)) ""
+              (format " (%s)" name)))))
 
 (defun voice--ask (said options ranked source)
   "Ask whether the first of OPTIONS was meant by SAID; keep the rest."
   (let* ((option (car options))
-         (label (string-trim (replace-regexp-in-string " … *\\'" "" (voice--option-label option))))
-         (question (format "Did you mean \"%s\"?" label)))
+         (question (format "Did you mean %s?" (voice--option-label option))))
     (setq voice--confirm
           (list :plan (voice--action-plan said (nth 1 option) (voice--join (nth 3 option)) said)
                 :said said :meant (and (null (nth 3 option)) (not (string-match-p "…" (nth 2 option)))
@@ -1269,7 +1273,10 @@ clearly wins, asked about when near (see `voice--near-actions')."
     (cond
      (answer
       (list :kind 'confirm :text text :answer answer
-            :front (and (eq answer 'yes) (plist-get (plist-get voice--confirm :plan) :front))))
+            ;; Emacs comes forward to do what was meant, if that asks
+            ;; something, or on the last no, for the tasks' list.
+            :front (if (eq answer 'yes) (plist-get (plist-get voice--confirm :plan) :front)
+                     (and (null (plist-get voice--confirm :rest)) (plist-get voice--confirm :ranked) t))))
      ((or voice--choice (memq 'minibuffer context))
       (list :kind 'answer :text text :front t))
      ((null words) (list :kind 'none :text text))
