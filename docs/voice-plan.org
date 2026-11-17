@@ -1,0 +1,279 @@
+#+TITLE: Voice commands for Emacs, phone first: plan
+#+DATE: 2026-11-17
+
+* 1. Summary
+Speak, and Emacs does the closest thing: clock in to a task, clock out,
+add a task, or run a command.  Three rules shape everything:
+- *Offline, for good.*  Speech is recognised by the FUTO fork on the
+  phone, matching is plain Elisp.  No network step exists or is planned.
+- *Java is a dumb pipe, installed once.*  The app only carries text.  All
+  the thinking is Elisp, changed by =git pull=, because an APK install
+  force-stops Emacs and Termux.
+- *Voice text is data.*  It never becomes part of a Lisp form; it can only
+  select an entry from a registry.
+
+#+begin_example
+ Voice button (Emacs toolbar)             long-press the clock island (any app)
+   voice-listen                             FloatService.act("voice")
+   writes .emacs-home/voice-ask                      |
+        | FileObserver (FloatService)                |
+        +-----------------> VoiceActivity <----------+   not exported, translucent
+                 startActivityForResult(RECOGNIZE_SPEECH -> org.futo.voiceinput*)
+                 <- EXTRA_RESULTS[0]        one string, no alternatives, no scores
+                 writes .emacs-home/voice-heard.tsv    EPOCH TAB SOURCE TAB TEXT
+                 emacsclient --eval "(voice-from-app)"   constant form; reply: front | quiet
+                          |
+ Emacs   voice-from-app -> voice-dispatch TEXT
+           1 rewrite        ~/org/voice.org, Phrases
+           2 intent         verb rule for this context, or a bare utterance
+           3 slot           voice-match over tasks and people (later tags, prompt candidates)
+           4 decide         act | pick (top 5, best preselected) | confirm | none
+           5 run            registry action, off the server filter, with-local-quit
+           6 tell           message + .emacs-home/voice-said.tsv -> toast; one log line
+#+end_example
+
+* 2. Files
+** New
+| File | Responsibility |
+|------+----------------|
+| =~/.doom.d/lisp/voice-match.el= | Pure matcher: tokens, similarity, index, rank, decide.  Needs only cl-lib, subr-x, seq, so it loads under =emacs -Q=. |
+| =~/.doom.d/lisp/voice-command.el= | Registry, context, intents, dispatch, slots, picker, undo, feedback, logs, voice.org, the clock/add actions, catalog sources.  No Doom macros; does not require emacs-home or usage-log at load. |
+| =~/.doom.d/emacs-home/src/dev/alok/emacshome/VoiceActivity.java= | Starts the recogniser for a result, hands the text to Emacs. |
+| =~/.doom.d/test/voice-test.el=, =test/voice-corpus.tsv=, =test/voice-fixture/*.org= | ERT, a synthetic public corpus, fixture agenda (hobby examples only: the repo is public). |
+| =~/org/voice.org= (user data, not in the repo) | The rules you edit: =* Names=, =* Phrases=. |
+
+** Changed
+| File | Change |
+|------+--------|
+| =emacs-home/src/.../Emacs.java= | =evalReply()= returns emacsclient's stdout; shared =str()= (the escaping now private at ReminderReceiver.java:75). |
+| =emacs-home/src/.../FloatService.java= | Long-press on the pill's top row (beside the click listener, :343) calls =act("voice")=; =act= (:148) starts VoiceActivity; the observer (:110-114) also handles =voice-ask= (start VoiceActivity) and =voice-said.tsv= (toast). |
+| =emacs-home/AndroidManifest.xml= | =.VoiceActivity=: =exported="false"=, =excludeFromRecents=, =Theme.Translucent.NoTitleBar=, standard launch mode. |
+| =~/.doom.d/lisp/emacs-home.el= | =emacs-home-voice-ask= (writes =voice-ask=, 4 s watchdog message if the app does not take it), =emacs-home-voice-say= (writes =voice-said.tsv=); sets =voice-listen-function= and =voice-notify-function=. |
+| =~/.doom.d/lisp/android-toolbar.el= | Voice button after Apps (:145-149); =toolbar-assets/microphone-svgrepo-com.svg= already exists. |
+| =~/.doom.d/lisp/android-launcher.el= | =android-launcher--handle= (:53-61) refuses a command with =(get cmd 'no-link)=; =voice-listen= carries it (see 4.3). |
+| =~/.doom.d/lisp/productivity_flow.el= | =rts-flow-clock-out (&optional answer)=: line 1089 becomes =(or answer (rts-flow--read-clock-out))=, so "done" needs no question. |
+| =~/.doom.d/lisp/android-extras.el= | Split =my/org-attach-media='s two branches (:220-232) into =my/org-attach-camera= and =my/org-attach-latest=; the button keeps asking. |
+| =~/.doom.d/config.el= | =(require 'voice-command)= with the core modules (~:404); =SPC V= for =voice-command= (=SPC v v= and =SPC v p= open files: blogs and videos, projects). |
+| =~/.doom.d/docs/guide.org=, =emacs-home/README.md= | A =* Voice= section of short tips; a table row and the flow lines. |
+
+** API
+#+begin_src elisp
+(voice-action SAY RUN &key when slot confirm quiet undo)  ; SAY: phrase(s), "…" marks the slot
+(voice-slot TYPE RESOLVER)        ; task, person, text now; tags, choice later
+(voice-dispatch TEXT &key source dry-run)   ; -> plan plist; what tests and the phone replay call
+(voice-command TEXT)              ; interactive, typed: the Mac and M-x entry
+(voice-listen)                    ; toolbar: asks the app; where there is no app, reads typed text
+(voice-from-app)                  ; called by the app; reads voice-heard.tsv; returns front or quiet
+(voice-undo) (voice-log-review) (voice-corpus-report)
+#+end_src
+
+One line adds an action:
+#+begin_src elisp
+(voice-action "save everything"           #'org-save-all-org-buffers  :quiet t)
+(voice-action '("zen" "zen mode")         #'global-writeroom-mode)
+(voice-action "attach camera photo"       #'my/org-attach-camera      :when 'android)
+(voice-action '("open herdr" "open mac")  #'claude-remote-mac         :when 'android)
+(voice-action '("next" "switch to next")  #'claude-remote-next-session :when 'remote)
+(voice-action '("next" "next image")      #'image-next-file           :when 'image-mode)
+(voice-action '("clock in to …" "start …" "work on …") #'voice-clock-in :slot 'task :quiet t)
+(voice-action '("add task …" "remind me to …")         #'voice-add-task :slot 'text :quiet t)
+(voice-action '("done" "finished") (lambda () (rts-flow-clock-out "done")) :when 'clocking :quiet t)
+(voice-action '("tag …" "tag it …")       #'voice-image-tag :slot 'tags :when 'image-mode) ; phase 2
+#+end_src
+
+Zero lines add an action, through =voice-sources=, functions that read what Emacs already has:
+- *Toolbar*: the walk in =android-launcher--buttons= (android-launcher.el:36-51), keeping =:help= (extra match words) and =:visible= (the context, for free: android-toolbar.el:260, :329).  23 commands today.
+- *Homepage*: =android-homepage--sections= (android-homepage.el:44-79), =:title= and =:desc=.  10 commands.
+- *Leader keys* (phase 2): Doom stores =:desc= as =(DESC . COMMAND)= in the keymap, so a walk of =doom-leader-map= recovers it.  On the Mac that gave 369 described commands.
+A new toolbar button, homepage tile or =map! :desc= binding becomes speakable with no voice code.
+
+=:when= is a context symbol, a major mode, a list (all must hold) or a function.  =voice-context= returns flags: =clocking=, =minibuffer=, =android=, =remote= (=claude-remote--machine-name=), =herdr=, =dashboard=, plus the major mode and its parents.  From the island only the global flags count, because you are not looking at the Emacs buffer; the app writes the source into =voice-heard.tsv=.
+
+* 3. Matching and intent
+** Candidates
+Every open heading in the agenda files (about 790 today) except agents.org,
+plus the people in meetings.org (=meetings-people=, meetings.el:48).
+- Not agents.org: only the Mac writes it (agent-time.el), and a clock-in
+  from the phone would make it a two-writer file, which is how Syncthing
+  conflicts start.
+- Not =rts--get-all-task-candidates= (productivity.el:1790): it runs three org-ql queries and lists only today's, NEXT and mundane items.
+- The index is a regexp scan of heading lines.  It records title, keyword, priority, tags, parent, SCHEDULED/DEADLINE and LAST_ACCESSED.
+- It reads a visiting buffer when there is one, else the file in a temp buffer (done keywords from =#+TODO:= lines).  No org-element, no mass file opening.
+- It is cached per file (buffer tick, or mtime and size) and built on the first utterance, not at startup.
+- Clocking in reuses =rts-flow--clock-in-at-point= (productivity_flow.el:884); a person is a plain =org-clock-in=, as =rts-flow-manual= does (:954).
+
+** Normalising
+Lower case, punctuation dropped (transcripts may come capitalised with a full stop), number words to digits, a light stemmer (ing, ies, es, ed, s, e on words of 5+ letters).  Stop words are dropped for task matching and kept for verb matching ("clock in").
+
+** Scoring
+For query tokens q and a candidate c:
+#+begin_example
+sim(x,y) = 1.0   equal after stemming
+           0.9   same consonant skeleton, 4+ letters      (names, near-homophones)
+           0.85  one is a prefix of the other, 3+ letters
+           1 - levenshtein/maxlen   if >= 0.75 and both 4+ letters   (string-distance, in C)
+idf(t)   = ln(1 + N / (1 + df(t)))
+Cq = sum over x in q of idf(x) * max_y sim(x,y) / sum idf(x)        how much of what you said is in the title
+Ct = sum over y in title of idf(y) * max_x sim(y,x) / sum idf(y)    how much of the title you said
+S  = 0.75*Cq + 0.25*Ct  (+0.05 if the words appear as a run in order; an alias hit is 1.0)
+P  = clock history, top 5      up to .08       scheduled today/overdue, deadline in 7d   .06
+     active keyword (NEXT, READING, ...) .04   LAST_ACCESSED within 7 days               .03
+     priority A or B .02                       verb family ("read" -> TOREAD/READING)    .05
+     capped at .15, and only added when S >= .5
+F  = S + P
+#+end_example
+The y in max_y ranges over title and alias tokens at full weight, tags and the parent heading at 0.6.
+
+Why this shape:
+- idf lets the distinctive word carry the match ("guitar", not "practice").
+- The 0.75/0.25 split fits speech: people say fewer words than the title has.
+- Priors only break ties between plausible matches.  The cap sits below the act margin, so priors alone never trigger an action.
+- An inverted index (token to candidates) means only candidates sharing a word are scored.
+
+** Deciding
+- *Act* when S >= 0.80 and F1 - F2 >= 0.20.
+- *Pick* when S >= 0.45: a five-line picker, best preselected (RET or a tap, android-extras.el:91-96), then "New task: «text»" and "Something else" (=rts-flow-manual= with the text typed in, as emacs-home.el:330-336 does).
+- *None* otherwise: say so, log it.
+The three numbers are variables, set from the corpus (section 6).
+
+** Prototype on the real agenda (aggregate figures only, queries made from the titles)
+| Query | Top-1 right | Acted | Acted wrongly |
+|-------+-------------+-------+---------------|
+| Whole title | 99.9% | 84% | 0 |
+| One word dropped | 98.8% | 84% | 0 |
+| First two content words | 91.0% | 63% | 0 |
+| Longest word only | 76.1% | 24% | 0 |
+- A margin of 0.15 let 1 to 2 wrong actions through in the last two rows; 0.20 let none.
+- Speed on the Mac: index 12-22 ms; 0.7-3.4 ms a query byte-compiled with the inverted index, 41 ms interpreted without it.
+- 52 of the 794 titles are duplicates after normalising; those go to the picker.
+- Real speech will do worse than these title-derived queries; the phone log measures that.
+
+** Learning from a correction
+Picking anything but an already confident best writes one line under =* Names= in =~/org/voice.org= and says so:
+: - gym :: Workout at the fitness centre
+A name is an extra title on that candidate, so it works after any verb.  You see it and edit it.  A name whose task is gone is ignored.  Only the phone writes (one writer, so Syncthing has nothing to merge).
+
+** Intents
+A rule is literal words plus at most one slot at the end.
+1. If a prompt is open: one of ours takes the answer; any other gets the text inserted, never run.
+2. =* Phrases= rewrites of the whole utterance (=- wrap up :: clock out=).
+3. Rules whose context holds; verb tokens match at sim >= 0.8.  The longest literal wins, then context-specific over global.  Fillers are stripped from the slot (to, two, too, on, the, my, for, into).
+4. A bare utterance is ranked jointly over action labels and tasks.  A near-exact action label wins; otherwise the picker shows both kinds ("Run: …", "Clock in: …", "Add task: …").
+5. Below 0.45: =voice-fallback-function= (nil; if ever set, on-device only), else "Didn't get: …".
+
+Phase 1 verbs:
+| You say | It does | Notes |
+|---------+---------+-------|
+| clock in (to) / start / work on / read / watch / practice / study … | clock in to the closest task | slot: task |
+| meeting (with) … | clock in to that person | a new name always asks |
+| done / finished (+ "focus", "deep work") | =rts-flow-clock-out= with that answer | when clocking; a meeting still asks its notes line |
+| stop / pause / clock out | =org-clock-out= | keeps Resume |
+| resume / continue | =org-clock-in-last= | |
+| add task / new task / remind me to / todo … | TODO in the inbox, shaped like capture "c" (config.el:1910) | no questions; a trailing "tomorrow" or "friday" becomes SCHEDULED |
+| start new task … | add it and clock in | |
+| cancel | =emacs-home--cancel= (emacs-home.el:196) | always confirms |
+| undo | =voice-undo= | reverses the last voice action |
+New phrasings need no code: a line under =* Phrases=.
+
+** Confirmation, undo, feedback
+- *Just do*: clock in when confident, pause, resume, done, add task, save, anything that only changes what is shown.
+- *Always ask*: discarding clocked time, deleting, anything declared =:confirm=.
+- *Ask once*: a command from the leader catalog, the first time; yes writes it to =* Phrases= and it is direct from then on.
+- *Undo* is best effort: a clock-in is cancelled and the previous clock resumed, DONE goes back to the old keyword, an added task is removed.  The island's Cancel already undoes a wrong clock-in in one tap.
+- *Feedback* always names what matched: "Clocked in: X (heard: …)".  In Emacs it is the echo area; from the island it is a toast, and the island's card shows the task.
+- Every dispatch goes to the usage log as source =voice= (usage-log.el:37).
+
+* 4. Android
+** Flow
+1. *Start.*  Toolbar: =voice-listen= writes =voice-ask= in =emacs-home-dir=; FloatService's observer starts VoiceActivity.  Island: a long-press on the collapsed pill does the same and logs =island-voice= (=press=, :543).
+2. *Listen.*  VoiceActivity calls =startActivityForResult= with =ACTION_RECOGNIZE_SPEECH=, aimed at the installed =org.futo.voiceinput*= package if there is one.  The voice app records; emacs-home needs no microphone permission.
+3. *Result.*  The fork returns exactly one string in =EXTRA_RESULTS= (RecognizeActivity.kt:59-69, :282-291); cancel returns nothing.  VoiceActivity writes =voice-heard.tsv= and runs the constant form =(voice-from-app)=.
+4. *Reply.*  Emacs plans inside the server call (pure and fast) and returns =front= or =quiet=.  On =front= the app brings Emacs forward, as =act= does for Done and Flow (:153-156).  The action itself runs from =run-at-time 0= under =with-local-quit=, like =emacs-home-clock-action= (emacs-home.el:217).
+5. *Tell.*  Emacs writes =voice-said.tsv=; the observer shows it as a toast.
+
+VoiceActivity must differ from LaunchActivity (emacs-home AndroidManifest.xml:48-58) in two ways:
+- No =noHistory=: such an activity never gets its result.
+- No =Theme.NoDisplay=: it would have to finish before resuming.
+It also must not be singleInstance, which would cancel the result.
+
+** When Emacs is not ready
+- *Busy*: emacsclient is given up after 10 s (Emacs.java:26).  =voice-from-app= drops anything heard more than 30 s ago, so a command cannot fire late.
+- *Not running*: start it and retry for 15 s, as ReminderReceiver.java:52-58 does.
+- *A prompt is open*: rule 1 above; nothing runs behind a prompt.
+
+** Security
+1. *Who can make it listen.*  A press inside Emacs (a file only this Linux user can write) or a finger on the island.  VoiceActivity is not exported.
+2. *No link route.*  =emacs-home://= and =org-protocol://= links can be opened by any app or web page (LaunchActivity.java:10-13, android-launcher.el:8-11).  A page could open the microphone and play its own audio, so no link starts voice and none ever carries text.
+3. *A gap this plan closes.*  The toolbar is the allowlist for =org-protocol://emacs-cmd= (android-launcher.el:53-58), so a Voice button would make =voice-listen= link-runnable.  The =no-link= property excludes it; a test asserts the refusal.
+4. *What text can do.*  Select a registry entry, nothing else.  The transcript travels in a file, the evaluated form is constant, and the transcript is never read, interned or evaluated.
+5. *Tiers.*  Direct: =voice-action= lines, toolbar, homepage.  Ask once: leader catalog.  Always confirm: discard and delete.  Never: commands whose name matches =kill-emacs|restart|delete|remove|kill|quit|revert|reset|discard|eval|shell|compile=, unless declared by hand with =:confirm t=.
+6. *Catalog junk.*  Only commands with a human description are in it.  A catalog match needs S >= 0.9.  Carrier words (open, go, show, please, mode) are stripped.  Context filters apply.  A verb rule always beats the catalog.
+7. *Same user.*  Termux and anything else under this Linux user can already call emacsclient; voice adds no power there.
+8. *Privacy.*  Transcripts stay in =~/org/logs=.  The repo gets synthetic examples only.
+
+** Installing
+One APK install covers all of phase 1, done when you say Emacs is free (it stops Emacs and Termux).  Pull the Elisp first.  After that every change is Elisp.
+
+* 5. Phases
+- *Phase 0, the pipe.*  VoiceActivity, island long-press, toolbar button, the three files, toast.  Emacs only logs and echoes.  This settles every Android unknown and starts collecting real utterances.
+- *Phase 1, ships first.*  The verbs table.  Matcher, picker, names learned into voice.org, undo.  Direct actions from the toolbar and homepage sources (33 commands) plus the one-liners: save everything, zen, home, attach camera photo, attach latest photo, open Herdr/Mac, next/previous agent.  Logs, ERT, corpus, guide tips.
+- *Phase 2.*  Answer any open prompt by voice (closest candidate).  Image tagging in image-mode: "tag it food and travel" against the tags of imageindex.csv (image-workflow.el:86-134).  Leader and localleader catalog with ask-once.
+- *Phase 3.*  Agents: "tell the agent …" (the send half of =claude-remote-talk=, claude-remote.el:743), blocked agent, escape.
+- *Phase 4.*  Result and an Undo chip on the island; offline text-to-speech; add clock time by voice; "note …" into the daily note; the assistant gesture as a third entry if wanted.
+- *Phase 5, only if the log shows a residue.*  An on-device resolver behind =voice-fallback-function=, returning registry names only.
+
+* 6. Testing, phone first
+1. *Smoke, first hour.*
+   - =adb shell cmd package query-activities --brief -a android.speech.action.RECOGNIZE_SPEECH= shows the installed handler.
+   - Install, then =adb logcat -s EmacsHome= while long-pressing the island and tapping the toolbar button.
+   - Check that =/sdcard/org/logs/voice_log_localhost.tsv= got a line (=adb pull=, or Syncthing).
+2. *Collect.*  With =voice-dry-run= on, speak 30 to 50 commands as you really would, from the toolbar and from other apps.  Each is logged: time, source, context, text, action, target, S, margin, decision, top five, milliseconds.  A second line records the outcome once acting is on (ok, picked n, new, cancelled, undone).
+3. *Label.*  =M-x voice-log-review=: right, wrong (pick the right one), or drop.  It writes =~/org/logs/voice_corpus.tsv= and =voice_corpus_agenda.org= (the expected heading and the logged top five, cumulative), so old lines replay after the tasks are gone.
+4. *Tune on the Mac.*  =emacs -Q --batch -L lisp -l test/voice-test.el -f ert-run-tests-batch-and-exit= (the repo's convention, test/meetings-test.el:3).  It runs unit tests, the public corpus on the fixture agenda, and the private corpus when present.
+5. *Send to the phone.*  =git pull= inside phone Emacs, or a bundle over adb when offline.  For a quick try: =adb push lisp/voice-*.el /sdcard/Download/=.
+6. *Replay on the phone.*  A pushed =/sdcard/Download/v.el= loads the files and runs:
+   - =(voice-replay "utts.tsv" "voice-out.tsv")=: dry-run dispatch against the phone's own agenda, with timings.
+   - The =^voice-= ERT tests, output to a file.
+   Start it with one short =(load "/sdcard/Download/v.el")= at M-:, typed in the same adb command as the key combination, then =adb pull= the output.  Never =input text= a long form; no Home press just before; reset the dashboard's default-directory after ERT.
+
+*What is measured* (=voice-corpus-report=): intent accuracy, top-1 and top-3, acted rate, wrong actions, picker rate, none rate, p50/p95 ms on the phone, and a sweep of the two thresholds.  Rules: any wrong action on the corpus fails the suite; lines marked ok must stay ok; =todo= lines are reported only.
+
+*Unit tests* (temporary directories; ~/org untouched):
+- Tokens, stemming, number words; similarity; rank; decide.
+- The intent table and the context rules ("done" while clocking; "next" in image-mode).
+- Clock-in end to end (CLOCK line and LAST_ACCESSED); added task has the capture "c" shape.
+- A learned name is written and then matches exactly.
+- A stale command is dropped; an open prompt gets text, not a command.
+- Toolbar source honours =:visible=; the deny pattern holds; the link handler refuses =voice-listen=.
+- Utterances such as =(kill-emacs)= or ="); (kill-emacs)= are only text.
+- agents.org headings are never candidates.
+
+* 7. Risks, and what was not verified
+** Verified
+- The fork returns one transcript, no confidence, plus an optional detected language; the activity is exported for RECOGNIZE_SPEECH and is singleInstance (its manifest :44-59); the release id is =org.futo.voiceinput.moonshine= (README; app/build.gradle:234-237).
+- Doom's =:desc= shape (=modules/doom/compat/+keybinds.el=:265-279) and the count of 369, read from the running Mac Emacs.
+- emacsclient prints a symbol reply as =front= and a newline (Mac).
+- The matcher figures in section 3.
+- =productivity_flow= is required by an existing =-Q= test (test/rts-flow-context-test.el:3); that test was not run here.
+
+** Assumed, to be settled in phase 0
+- A singleInstance recogniser returns its result to =startActivityForResult= (Android 5+ behaviour; not run).
+- FloatService may start an activity from its file observer.  It does so from chip taps today.  Fallback: Emacs runs =am start -n dev.alok.emacshome/.VoiceActivity= (same user; =am start= is already used at android-extras.el:224).
+- A long-press registers on the overlay; a toast from the service shows on this Android.
+- Which package id is installed, and whether a second handler exists.
+- The recogniser stops by itself on silence.
+- Phone speed (assume 5 to 10 times the Mac).  Config Elisp runs interpreted (no .elc in lisp/); if the log shows over 150 ms, compile the hot functions in memory.
+- The consonant-skeleton similarity, the priors and the verb family were designed, not prototyped.
+
+** Risks
+- *Trust.*  One wrong silent clock-in and it stops being used, as Flow did.  Guards: conservative thresholds, the match always named, one-tap undo, a dry-run first session.
+- *Duplicate titles* always cost a tap.
+- *Wider than the Clock in picker.*  Voice sees every open heading; the priors lean towards what the picker shows.
+- *Catalog noise* in phase 2; it is ask-once for that reason.
+- *A meeting's "done"* still asks its notes line, so it brings Emacs forward.
+
+* 8. Open questions
+1. *Which widget gets the long tap?*  Recommended: the clock island's collapsed pill.  It is on screen in every app, and the result shows there.  The dashboard's clock line would work only inside Emacs; the assistant gesture can come in phase 4.
+2. *Where does "add task" go?*  Recommended: the inbox as TODO, no questions, no clock-in; the daily review dates it.  "Start new task …" adds and clocks in.
+3. *When do the leader commands join?*  Recommended: phase 2, ask-once.  Phase 1 has the 33 toolbar and homepage commands plus the one-liners.
+4. *Commands in English only?*  Recommended: yes.  A person or task the recogniser cannot spell gets a line under =* Names=; that also covers Devanagari titles.

@@ -182,6 +182,48 @@ count the archived tasks' time.  =M-x archive-done= does it any time.
 It opens once five of the week's seven dailies are written.  The
 monthly review is =SPC o v m=.
 
+* Voice
+
+** Say it: Voice, or a long press on the clock
+Tap *Voice* on the toolbar, or long-press the clock island from any
+app, and say what to do.  Emacs does the closest thing and tells you
+what it did.
+
+** Clock in by naming the task
+Say "clock in to guitar scales", "work on the paper review" or "read
+atomic habits".  A clear match clocks in at once.  A close one shows
+the best few, the first already chosen: tap, or say "the second one".
+What you pick is remembered, so the same words go straight there next
+time.  "undo" takes a clock-in back.
+
+** Add a task in one sentence
+"add task buy strings to guitar priority b effort one hour" answers
+Add > Task's questions as you go.  Whatever you leave out is asked as
+usual, and you can answer that by voice too.
+
+** Clock out, and the rest
+- "done", "done focus", "done deep work", "not done"
+- "pause", "resume", "cancel the clock"
+- "save everything", "zen", "home", "review", "flow", "agenda"
+- "attach camera photo", "attach latest photo"
+- "open herdr", "next", "previous"; in a photo, "next" and "tag it
+  food and travel"
+Every toolbar button and homepage tile works by its name.
+
+** Answer the question on screen
+With a question open, tap Voice and answer it: a choice by its name or
+"the second one", yes or no, or the text to type.  "cancel" closes it.
+Voice never answers a question about exiting Emacs, deleting or
+discarding: those are yours to answer by hand.
+
+** Your own words: ~/org/voice.org
+Under =* Phrases=, =- wrap up :: pause= makes "wrap up" mean pause.
+Under =* Names=, another name for a task: =- gym :: Workout at the
+fitness centre=.  Picks from the list add these by themselves.
+
+** On the Mac: SPC V
+Type what you would say.
+
 * Agents in Herdr
 
 ** Scroll an agent's chat with C-u and C-d

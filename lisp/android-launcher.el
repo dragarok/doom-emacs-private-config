@@ -53,8 +53,11 @@ outside Emacs."
 (defun android-launcher--handle (info)
   "Run the toolbar command named in INFO's :cmd, if it is on the toolbar."
   (let ((cmd (intern-soft (plist-get info :cmd))))
-    (if (not (assq cmd (mapcar (lambda (b) (cons (nth 1 b) b))
-                               (android-launcher--buttons))))
+    (if (or (not (assq cmd (mapcar (lambda (b) (cons (nth 1 b) b))
+                                   (android-launcher--buttons))))
+            ;; A button that must not run from a link: Voice would let any
+            ;; web page open the microphone.
+            (get cmd 'no-link))
         (message "android-launcher: refusing %S (not a toolbar command)" cmd)
       ;; Off the server's process filter, so a command that prompts
       ;; doesn't leave the emacsclient connection hanging.
@@ -83,7 +86,8 @@ outside Emacs."
         (delete-file file)
         (ignore-errors
           (delete-file (concat icons (file-name-nondirectory file) ".png")))))
-    (pcase-dolist (`(,label ,cmd ,svg) (android-launcher--buttons))
+    (pcase-dolist (`(,label ,cmd ,svg) (seq-remove (lambda (b) (get (nth 1 b) 'no-link))
+                                                    (android-launcher--buttons)))
       ;; Two buttons can share a label ("Add"); the second gets its command.
       (let ((name (if (gethash label seen) (format "%s (%s)" label cmd) label)))
         (puthash label t seen)

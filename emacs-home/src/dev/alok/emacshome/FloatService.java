@@ -37,6 +37,7 @@ import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +61,11 @@ import java.util.concurrent.Executors;
 public class FloatService extends Service {
     private static final String CHANNEL = "clock";
     private static final File CLOCK = new File(Catalog.DIR, "clock.tsv");
+    // Voice: Emacs writes voice-ask when its toolbar's Voice button is
+    // pressed, and voice-said.tsv for what a voice command did, shown as a
+    // toast (from the island, Emacs is not on screen).
+    private static final File VOICE_ASK = new File(Catalog.DIR, "voice-ask");
+    private static final File VOICE_SAID = new File(Catalog.DIR, "voice-said.tsv");
     // In org, so it syncs to the Mac and is backed up; read by day-log.el.
     private static final File FOREGROUND = new File("/sdcard/org/logs/foreground_localhost.tsv");
     // usage-log.el's file for this machine: Emacs's `system-name' here is
@@ -111,6 +117,8 @@ public class FloatService extends Service {
                 if (CLOCK.getName().equals(path)) main.post(FloatService.this::refresh);
                 if (Widgets.WANTED.getName().equals(path)) main.post(widgets::sync);
                 if (Reminders.FILE.getName().equals(path)) bg.execute(() -> Reminders.schedule(FloatService.this));
+                if (VOICE_ASK.getName().equals(path)) main.post(() -> listen("toolbar"));
+                if (VOICE_SAID.getName().equals(path)) bg.execute(FloatService.this::toastSaid);
             }
         };
         observer.startWatching();
@@ -340,7 +348,13 @@ public class FloatService extends Service {
         lp.y = Math.max(0, hole.centerY() - pillH / 2);
 
         // Tap the top row to grow or shrink; a touch anywhere else shrinks it.
+        // A long press listens, and Emacs does what is said.
         top.setOnClickListener(v -> setOpen(!opening));
+        top.setOnLongClickListener(v -> {
+            press("island-voice");
+            listen("island");
+            return true;
+        });
         island.setOnTouchListener((v, e) -> {
             if (e.getAction() == MotionEvent.ACTION_OUTSIDE) setOpen(false);
             else if (opening) keepOpen();
@@ -536,6 +550,25 @@ public class FloatService extends Service {
             f.write(out.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception x) {
             android.util.Log.w("EmacsHome", "foreground log", x);
+        }
+    }
+
+    /** Listen once (VoiceActivity), the words going to Emacs from SOURCE. */
+    private void listen(String source) {
+        if (island != null) setOpen(false);
+        startActivity(new Intent(this, VoiceActivity.class)
+                .putExtra("source", source)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    /** Show what Emacs said a voice command did. */
+    private void toastSaid() {
+        try {
+            String said = new String(Files.readAllBytes(VOICE_SAID.toPath()), StandardCharsets.UTF_8).trim();
+            if (!said.isEmpty())
+                main.post(() -> Toast.makeText(getApplicationContext(), said, Toast.LENGTH_LONG).show());
+        } catch (Exception x) {
+            android.util.Log.w("EmacsHome", "voice-said", x);
         }
     }
 

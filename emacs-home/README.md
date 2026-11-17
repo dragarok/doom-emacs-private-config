@@ -29,6 +29,7 @@ Everything here either removes friction or collects data with no effort.
 | Bypass charging | `emacs-home.el` | "⚡ Bypass ON/off" on the dashboard's Pin/Day line; a tap presses the Bypass Charging app's Quick Settings tile as root (`cmd statusbar click-tile`), and the state is read back from SystemUI's dump. The tile has to be in the QS panel |
 | Toolbar widgets | `../lisp/android-launcher.el` | Older: Termux:Widget shortcuts via `org-protocol://emacs-cmd` (still works) |
 | Reminders | `Reminders`, `ReminderReceiver`, `../lisp/reminders.el` | Emacs writes `reminders.tsv` (next 7 days: a timed task 10 min before, or its `:REMIND:`); the app sets an exact alarm per line and rings it as a notification — tap opens the task, Clock in, Snooze 10m — even with Emacs asleep. Re-read on every write and when FloatService starts (alarms don't survive a reboot) |
+| Voice | `VoiceActivity`, `../lisp/voice-command.el` | The toolbar's Voice button (Emacs writes `voice-ask`, FloatService starts the activity) or a long press on the island → `RECOGNIZE_SPEECH` aimed at the FUTO voice app (offline) → one transcript into `voice-heard.tsv` → emacsclient `(voice-from-app)`, a constant form: the words never travel as Lisp. Emacs answers `front` (it asks something) or `quiet`; what it did comes back in `voice-said.tsv` as a toast. Not exported: no link opens the microphone |
 
 ### The clock island
 

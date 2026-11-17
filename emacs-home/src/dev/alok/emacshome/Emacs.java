@@ -14,6 +14,11 @@ final class Emacs {
 
     /** As eval; true when Emacs answered (it may not be running yet). */
     static boolean tryEval(Context c, String form) {
+        return evalReply(c, form) != null;
+    }
+
+    /** What Emacs printed for FORM, or null when it didn't answer. */
+    static String evalReply(Context c, String form) {
         try {
             String client = c.getPackageManager().getApplicationInfo(PACKAGE, 0)
                     .nativeLibraryDir + "/libemacsclient.so";
@@ -22,11 +27,13 @@ final class Emacs {
                     + android.os.Process.myUid() + "/server";
             Process p = new ProcessBuilder(client, "-s", socket, "--eval", form)
                     .redirectErrorStream(true).start();
-            if (!p.waitFor(10, TimeUnit.SECONDS)) { p.destroy(); return false; }
-            return p.exitValue() == 0;
+            if (!p.waitFor(10, TimeUnit.SECONDS)) { p.destroy(); return null; }
+            String out = new String(p.getInputStream().readAllBytes(),
+                                    java.nio.charset.StandardCharsets.UTF_8);
+            return p.exitValue() == 0 ? out.trim() : null;
         } catch (Exception e) {
             Log.w("EmacsHome", "eval " + form, e);
-            return false;
+            return null;
         }
     }
 }

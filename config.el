@@ -409,6 +409,12 @@
 (require 'qsv-csv)
 (require 'org-project-helpers)
 (require 'image-workflow)
+;; Say it, and Emacs does it: clock in to the task you name, add a task,
+;; answer the question on screen, run a command (voice-command.el).  The
+;; phone listens through the toolbar's Voice button or a long press on the
+;; clock island; SPC V takes typed words the same way.
+(require 'voice-command)
+(map! :leader :desc "Voice command" "V" #'voice-command)
 (require 'review-reminders)
 (require 'momentum)
 

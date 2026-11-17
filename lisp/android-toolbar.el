@@ -148,6 +148,15 @@ POCO devices use 64x64, ONYX e-readers use 80x80."
           :image (image :type svg :file "~/.doom.d/toolbar-assets/apps-grid.svg"
                         :height ,icon-size :width ,icon-size)))
 
+      ;; Say it, and Emacs does the closest thing (voice-command.el): clock
+      ;; in, add a task, answer the question open.  A long press on the
+      ;; clock island listens the same way from any app.
+      (keymap-set-after (default-value 'tool-bar-map) "<voice-listen>"
+        `(menu-item "Voice" voice-listen
+          :help "Say what to do: clock in, add a task, answer the question"
+          :image (image :type svg :file "~/.doom.d/toolbar-assets/microphone-svgrepo-com.svg"
+                        :height ,icon-size :width ,icon-size)))
+
       ;; The one habit the rest stands on: three lines, every task dated,
       ;; tomorrow planned.  Same as SPC o v t and the 8 PM prompt.
       (keymap-set-after (default-value 'tool-bar-map) "<day-log-review>"

@@ -1535,13 +1535,17 @@ One entry point for all additions."
      ((string= choice "Clock Time Direct")
       (add-clock-time-direct)))))
 
+(defvar rts-flow-add-destinations '("Tasks" "Project" "Study" "Guitar" "Piano" "Mundane")
+  "Where Add > Task can put a task.  Voice reads it too: \"add task X to
+mundane\" answers the question.")
+
 (defun rts-flow--add-task-dispatch (&optional title)
   "Dispatch to appropriate task addition based on destination.
 If TITLE is provided, use it; otherwise prompt for it."
   (let* ((title (or title (read-string "Task title: ")))
          (destination (completing-read
                        "Add to: "
-                       '("Tasks" "Project" "Study" "Guitar" "Piano" "Mundane")
+                       rts-flow-add-destinations
                        nil t)))
     (cond
      ;; Tasks - use existing instant task logic

@@ -55,5 +55,14 @@
       </intent-filter>
     </activity>
 
+    <!-- Listens once through the voice app and hands the words to Emacs.
+         Not exported: only the island and Emacs's toolbar (voice-ask) start it.
+         Not noHistory or NoDisplay, or the voice app's result never comes. -->
+    <activity android:name=".VoiceActivity"
+              android:exported="false"
+              android:excludeFromRecents="true"
+              android:taskAffinity=".voice"
+              android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
   </application>
 </manifest>
