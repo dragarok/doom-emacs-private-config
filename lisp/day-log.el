@@ -22,6 +22,11 @@
 ;; the system closed.  The morning pass also rewrites the facts of a review
 ;; written the evening before, to take in the rest of that day.
 ;;
+;; Writing today's review also archives every task closed before today
+;; (archive-done.el; `day-log-archive-done' turns it off), so the agenda
+;; files hold only what is open or finished today.  The facts read the
+;; archives too, so a day's clocks and DONEs stay in its facts.
+;;
 ;; `day-log-today' (the dashboard's Day button) opens today's, drafted.
 ;; `day-log-review' (SPC o v t, and the 8 PM prompt) is the whole review:
 ;; your lines asked for in turn, then every task dated, then tomorrow's
@@ -35,6 +40,7 @@
 ;;; Code:
 
 (require 'org)
+(require 'org-archive)
 (require 'org-clock)
 (require 'org-datetree)
 (require 'org-id)
@@ -48,6 +54,7 @@
 (declare-function org-summary--most-at-once "org-summary")
 (declare-function org-summary--parse-iso "org-summary")
 (declare-function org-summary--link "org-summary")
+(declare-function archive-done "archive-done")
 
 (defvar org-dailyreview-file)            ; config.el: the reviews before 2026-10-25
 (defvar org-roam-directory)
@@ -101,12 +108,17 @@ Package \"-\" is the screen going off, \"+\" coming on.")
 
 ;;; Facts: the clock
 
+(defun day-log--files ()
+  "The agenda files and their archives: a task archived once done
+\(archive-done.el) keeps its clocks and its DONE in its days' facts."
+  (seq-filter #'file-exists-p (org-add-archive-files (org-agenda-files t))))
+
 (defun day-log--clocks (date)
   "Clocked intervals starting on DATE: (START-SECS END-SECS HEADING), in order."
   (let ((re (concat "^[ \t]*CLOCK: \\[" (regexp-quote date)
                     " [^ ]+ \\([0-9:]+\\)\\]--\\[\\([0-9-]+\\) [^ ]+ \\([0-9:]+\\)\\]"))
         clocks)
-    (dolist (file (org-agenda-files t))
+    (dolist (file (day-log--files))
       (with-current-buffer (find-file-noselect file)
         (org-with-wide-buffer
          (goto-char (point-min))
@@ -133,7 +145,7 @@ Package \"-\" is the screen going off, \"+\" coming on.")
   (let ((re (concat "\\(?:CLOSED: \\[\\|- State \"DONE\" +from [^[]*\\[\\)"
                     (regexp-quote date)))
         done)
-    (dolist (file (org-agenda-files t))
+    (dolist (file (day-log--files))
       (with-current-buffer (find-file-noselect file)
         (org-with-wide-buffer
          (goto-char (point-min))
@@ -613,7 +625,19 @@ skips a line or a topic; q stops the walk.  DATE is today's review (the day turn
                    (and (equal (org-entry-get nil "DAY_LOG") "open")
                         (day-log--written-p))))
         (day-log-close today)
-        (message "Today's review closed: written")))))
+        (message "Today's review closed: written")
+        (day-log--archive-done)))))
+
+(defvar day-log-archive-done t
+  "Non-nil: writing today's review archives the done tasks closed before
+today (archive-done.el).")
+
+(defun day-log--archive-done ()
+  "Archive the done tasks closed before today.  The facts read the
+archives too, so no day's facts lose them."
+  (when (and day-log-archive-done (require 'archive-done nil t))
+    (with-demoted-errors "Archiving done tasks: %S"
+      (archive-done (day-log--today)))))
 
 (add-hook 'after-save-hook #'day-log--close-if-written)
 

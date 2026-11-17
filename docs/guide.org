@@ -171,6 +171,13 @@ it:
 6. puts tomorrow in blocks on the calendar
 An empty answer skips; =q= stops a walk.
 
+** Finished tasks leave after the review
+Once the daily review is written, every task finished before today
+moves out of tasks, projects, inbox and ideas into the =archive=
+folder.  On the Mac, the agents' finished tasks go the same way.  What
+you finished today stays until tomorrow's review.  The reviews still
+count the archived tasks' time.  =M-x archive-done= does it any time.
+
 ** The weekly review: SPC o v w
 It opens once five of the week's seven dailies are written.  The
 monthly review is =SPC o v m=.

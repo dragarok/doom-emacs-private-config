@@ -191,9 +191,15 @@ A day heading (2026-10-24 Saturday) gives that day; a month heading
 ;;; Reading org
 
 (defmacro org-summary--in-file (file &rest body)
-  "Run BODY widened in FILE's buffer, visiting it if need be."
+  "Run BODY widened in FILE's buffer, visiting it if need be, reread first
+if the file changed on disk and the buffer has no edits: tasks move
+between files on the other device (archive-done.el), and an old copy of
+one read beside a fresh copy of the other counts them twice."
   (declare (indent 1))
   `(with-current-buffer (or (find-buffer-visiting ,file) (find-file-noselect ,file t))
+     (unless (or (buffer-modified-p) (verify-visited-file-modtime)
+                 (not (file-exists-p buffer-file-name)))
+       (revert-buffer t t t))
      (org-with-wide-buffer ,@body)))
 
 (defun org-summary--files ()

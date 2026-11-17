@@ -47,6 +47,11 @@
 ;;
 ;; The reviews read all three (org-summary.el: `org-summary-runs', the
 ;; time-kinds block; day-log.el's facts).
+;;
+;; Archive.  Once the day's review is written, agents' tasks closed before
+;; that day move to archive/archive_agents.org (`agent-time--archive-done'),
+;; as writing the review moves yours to archive.org (archive-done.el).  The
+;; reviews read the archives as well.
 
 ;;; Code:
 
@@ -57,8 +62,11 @@
 (require 'seq)
 (require 'subr-x)
 (require 'json)
+(require 'archive-done)
 
 (defvar org-tasks-file)                 ; config.el
+(defvar org-roam-directory)
+(defvar org-roam-dailies-directory)
 (defvar herdr--attached-pane)
 (defvar doom-cache-dir)
 (declare-function herdr--snapshot-sync "herdr")
@@ -392,7 +400,55 @@ Runs by itself now and then."
              agent-time--panes)
     (when (called-interactively-p 'any)
       (message "%d agent task%s closed" (length closed) (if (= (length closed) 1) "" "s")))
+    ;; The same sweep empties agents.org of the days before, once a day.
+    (agent-time--archive-done)
     closed))
+
+;;;; Archive: finished agent tasks leave agents.org, as yours leave tasks.org
+
+(defconst agent-time--archive-location "../archive/archive_agents.org::datetree/"
+  "Where agents.org's finished tasks go: a file only this Emacs writes, as
+agents.org is.  The phone archives your tasks into archive.org.")
+
+(defvar agent-time--archived-day nil
+  "The day agents.org's done tasks were last archived for.")
+
+(defun agent-time--review-written-p (date)
+  "Non-nil if DATE's daily review is written (day-log.el).  Read from the
+file itself: the phone writes it, and a buffer here may be behind."
+  (let ((file (expand-file-name (concat date ".org")
+                                (expand-file-name (or (bound-and-true-p org-roam-dailies-directory)
+                                                      "daily/")
+                                                  org-roam-directory))))
+    (and (file-readable-p file)
+         (with-temp-buffer
+           (insert-file-contents file)
+           (re-search-forward "^[ \t]*:DAY_LOG:[ \t]+written[ \t]*$" nil t)))))
+
+(defun agent-time--archive-keyword ()
+  "Give agents.org its own archive file, by a #+ARCHIVE line, which the
+reports read too (`org-add-archive-files')."
+  (org-with-wide-buffer
+   (goto-char (point-min))
+   (unless (let ((case-fold-search t)) (re-search-forward "^#\\+ARCHIVE:" nil t))
+     (insert "#+ARCHIVE: " agent-time--archive-location "\n")
+     (setq-local org-archive-location agent-time--archive-location)
+     (agent-time--save-buffer))))
+
+(defun agent-time--archive-done ()
+  "Once the day's review is written (on the phone, usually), archive the
+agents' tasks closed before that day, as writing it does with yours
+\(archive-done.el) -- but not one an agent is still on."
+  (let ((today (archive-done-today)))
+    (when (and (not (equal today agent-time--archived-day))
+               (agent-time--review-written-p today))
+      (let (live)
+        (maphash (lambda (_ st) (when-let* ((id (plist-get st :task))) (push id live)))
+                 agent-time--panes)
+        (with-current-buffer (agent-time--tasks-buffer)
+          (agent-time--archive-keyword)
+          (when (archive-done-buffer today (lambda () (member (org-entry-get nil "ID") live)))
+            (setq agent-time--archived-day today)))))))
 
 (defun agent-time--project (cwd)
   (when (and cwd (file-directory-p cwd))

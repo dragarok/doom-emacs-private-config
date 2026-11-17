@@ -169,6 +169,27 @@
     (setq org-roam-directory (file-truename "~/org/notes/"))
     (setq org-agenda-files (list (file-truename "~/org/agenda/")))))
 
+;; Syncthing leaves a conflict's losing copy beside the file, named like
+;; tasks.sync-conflict-20261027-165013-ABCDEFG.org.  As an agenda file it
+;; doubled every task in it, and org-id found IDs there, so agent-time went
+;; on writing runs into the copy.  Agenda files are names with no dot but
+;; the one before org.
+(setq org-agenda-file-regexp "\\`[^.]+\\.org\\'")
+
+;; The agenda reads open buffers as they are.  On the phone nothing rereads
+;; them in the background, so a file the other device changed (agents.org
+;; all day, the task files after the review archives them) was shown, and
+;; edited, as it was.  Reread those with no unsaved edits first.
+(defun +org-agenda-reread-changed-a (files)
+  (dolist (file files)
+    (when-let* (((stringp file))
+                (buf (find-buffer-visiting file)))
+      (with-current-buffer buf
+        (unless (or (buffer-modified-p) (verify-visited-file-modtime)
+                    (not (file-exists-p file)))
+          (revert-buffer t t t))))))
+(advice-add 'org-agenda-prepare-buffers :before #'+org-agenda-reread-changed-a)
+
 ;; `(org-roam-directory)' is a list holding the SYMBOL; citar wants the
 ;; directory it names.  Only bites when citar falls back to its file-based
 ;; notes source (citar-org-roam is the active one), which is exactly when
@@ -538,9 +559,12 @@
           herdr-menu-repeat-command #'herdr-agents)
   (herdr-mode 1)                          ; poll, ● N blocked, notifications
   ;; Agents' runs from each poll, and your time with them as you type to them.
-  (with-eval-after-load 'org
-    (require 'agent-time)
-    (agent-time-mode 1))
+  ;; The Mac's only: agents.org must have one writer, and kai runs this
+  ;; config too, on the same synced ~/org.
+  (when IS-MAC
+    (with-eval-after-load 'org
+      (require 'agent-time)
+      (agent-time-mode 1)))
   (map! :leader
         (:prefix ("j" . "herdr")
          :desc "Herdr workspace"                "j" #'herdr-workspace-open
