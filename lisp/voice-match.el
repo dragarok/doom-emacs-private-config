@@ -76,16 +76,23 @@
   "STRING's words joined by single spaces: what equal phrases share."
   (string-join (voice-match-words string) " "))
 
+(defun voice-match--single (word)
+  "WORD with doubled letters single: \"ellen\" and \"elon\" sound alike."
+  (replace-regexp-in-string "\\(.\\)\\1+" "\\1" word))
+
 (defun voice-match--skeleton (word)
   "WORD's first letter and its later consonants: names sound alike by them."
-  (if (string-empty-p word) word
-    (concat (substring word 0 1)
-            (replace-regexp-in-string "[aeiouy]" "" (substring word 1)))))
+  (let ((word (voice-match--single word)))
+    (if (string-empty-p word) word
+      (concat (substring word 0 1)
+              (replace-regexp-in-string "[aeiouy]" "" (substring word 1))))))
 
 (defun voice-match-sim (x y)
   "How alike words X and Y are, 0 to 1."
   (let ((lx (length x)) (ly (length y)))
     (cond ((string= x y) 1.0)
+          ((string-match-p "\\`[0-9]+\\'" (concat x y)) 0.0) ; numbers are exact
+          ((string= (voice-match--single x) (voice-match--single y)) 0.95)
           ((and (>= lx 4) (>= ly 4)
                 (string= (voice-match--skeleton x) (voice-match--skeleton y)))
            0.9)
@@ -161,19 +168,45 @@ other names for it), :extra (string: tags, parent; counts at 0.6), :prior
   "Non-nil when QUERY's words appear in WORDS as a run, in order."
   (and query (cl-search query words :test #'string=)))
 
+(defun voice-match--weight (index token)
+  "How much TOKEN counts: its idf, three times over for a number, which
+tells siblings apart (Chapter 5, not Chapter 15)."
+  (* (voice-match--idf index token) (if (string-match-p "\\`[0-9]+\\'" token) 3 1)))
+
+(defun voice-match--joined (query words)
+  "Pairs of neighbouring WORDS that a long word of QUERY says as one:
+\"escherbach\" for Escher, Bach.  Return (SIM I) for each, I the first's
+position."
+  (let (out)
+    (when (seq-some (lambda (x) (>= (length x) 6)) query)
+      (let ((i 0) (ws words))
+        (while (cdr ws)
+          (let* ((joined (concat (car ws) (cadr ws)))
+                 (sim (apply #'max 0.0 (mapcar (lambda (x) (if (>= (length x) 6) (voice-match-sim x joined) 0.0))
+                                               query))))
+            (when (>= sim 0.85) (push (list sim i joined) out)))
+          (setq ws (cdr ws) i (1+ i)))))
+    out))
+
 (defun voice-match--score-words (index query words extra)
   "S for QUERY tokens against a title's WORDS and its EXTRA tokens."
   (if (or (null query) (null words)) 0.0
-    (let ((num 0.0) (den 0.0) (num2 0.0) (den2 0.0))
+    (let* ((num 0.0) (den 0.0) (num2 0.0) (den2 0.0)
+           (joined (voice-match--joined query words))
+           (joined-words (mapcar #'caddr joined)))
       (dolist (x query)
-        (let ((w (voice-match--idf index x)))
+        (let ((w (voice-match--weight index x)))
           (cl-incf den w)
           (cl-incf num (* w (max (voice-match--best-sim x words)
+                                 (if joined-words (voice-match--best-sim x joined-words) 0.0)
                                  (* 0.6 (voice-match--best-sim x extra)))))))
-      (dolist (y words)
-        (let ((w (voice-match--idf index y)))
-          (cl-incf den2 w)
-          (cl-incf num2 (* w (voice-match--best-sim y query)))))
+      (let ((i 0))
+        (dolist (y words)
+          (let ((w (voice-match--weight index y))
+                (pair (seq-find (lambda (j) (memq i (list (nth 1 j) (1+ (nth 1 j))))) joined)))
+            (cl-incf den2 w)
+            (cl-incf num2 (* w (max (voice-match--best-sim y query) (if pair (car pair) 0.0)))))
+          (cl-incf i)))
       (min 1.0 (+ (* 0.75 (/ num den)) (* 0.25 (/ num2 den2))
                   (if (and (cdr query) (voice-match--in-order-p query words)) 0.05 0.0))))))
 
@@ -211,12 +244,19 @@ Each result is (F S ENTRY): F is S plus the priors, given by ENTRY's
                                           (and (= (car a) (car b)) (> (nth 1 a) (nth 1 b)))))))
     (if (and limit (> (length out) limit)) (seq-take out limit) out)))
 
+(defvar voice-match-exact-margin 0.10
+  "The lead enough when the best matches every word both ways (score 1):
+\"read elon musk\" is the book Elon Musk, not The Elon Musk Blog Series.")
+
 (defun voice-match-decide (ranked)
   "What to do with RANKED (from `voice-match-rank'): act, pick or none."
-  (let ((best (car ranked)) (next (cadr ranked)))
+  (let* ((best (car ranked)) (next (cadr ranked))
+         (lead (and best next (- (car best) (car next)))))
     (cond ((null best) 'none)
           ((and (>= (nth 1 best) voice-match-act-score)
-                (or (null next) (>= (- (car best) (car next)) voice-match-act-margin)))
+                (or (null next) (>= lead voice-match-act-margin)
+                    (and (>= (nth 1 best) 0.99) (< (nth 1 next) 0.99)
+                         (>= lead voice-match-exact-margin))))
            'act)
           ((>= (nth 1 best) voice-match-pick-score) 'pick)
           (t 'none))))

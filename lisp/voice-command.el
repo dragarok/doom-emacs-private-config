@@ -36,6 +36,11 @@
 (require 'seq)
 (require 'voice-match)
 
+;; Android's: bound around su, it must be the dynamic variable everywhere.
+(defvar android-use-exec-loader)
+(defvar recentf-list)
+(defvar org-clock-start-time)
+
 (defvar org-directory)
 (defvar org-logs-directory)
 (defvar org-clock-history)
@@ -103,7 +108,7 @@ root.  On the phone only, not synced: pull it over USB to debug.  Nil: none.")
     (cons (voice-match-tokens (replace-regexp-in-string "…\\|\\.\\.\\." "" phrase) t)
           (and slot t))))
 
-(cl-defun voice-action (say run &key when slot asks confirm quiet name)
+(cl-defun voice-action (say run &key when slot asks confirm quiet name where)
   "Add an action: SAY a phrase or phrases, RUN a command.
 A phrase ending in \"…\" takes the rest of what was said, the slot:
 SLOT \\='text passes it to RUN as its argument, \\='task finds the task it
@@ -112,13 +117,14 @@ WHEN: a major mode, a context flag (see `voice-context'), a list of them,
 or a function; the action is only offered then.  ASKS: questions of RUN
 answered from the slot before it runs; see `voice--claim'.  CONFIRM asks
 first.  QUIET: it asks nothing itself, so the island need not bring Emacs
-forward.  NAME is how logs and messages call it."
+forward.  NAME is how logs and messages call it; WHERE, how help says when
+it is offered, for a WHEN that is a function."
   (let* ((phrases (if (listp say) say (list say)))
          (name (or name (car phrases)))
          (action (list :name name :phrases phrases
                        :patterns (mapcar #'voice--pattern phrases)
                        :run run :when when :slot slot :asks asks
-                       :confirm confirm :quiet quiet)))
+                       :confirm confirm :quiet quiet :where where)))
     (setq voice-actions (cons action (seq-remove (lambda (a) (equal (plist-get a :name) name))
                                                  voice-actions)))
     name))
@@ -144,9 +150,12 @@ app is in front: you are not looking at an Emacs buffer."
 
 (defun voice--when-p (when context)
   "Non-nil when WHEN holds in CONTEXT."
-  ;; A symbol is a flag or a mode, never called: `image-mode' is a command.
+  ;; A mode or a flag is looked up, never called (`image-mode' is a
+  ;; command); any other function is asked.
   (cond ((null when) t)
-        ((symbolp when) (memq when context))
+        ((and (symbolp when)
+              (or (not (fboundp when)) (string-suffix-p "-mode" (symbol-name when))))
+         (memq when context))
         ((functionp when) (ignore-errors (funcall when)))
         ((listp when) (cl-every (lambda (w) (voice--when-p w context)) when))))
 
@@ -227,16 +236,48 @@ the homepage's that run a command none of yours does."
 (defconst voice--fillers '("to" "two" "too" "on" "the" "my" "for" "into" "in" "a" "an")
   "Words dropped from the front of a slot: \"clock in TO the guitar\".")
 
+(defconst voice--chatter-lead
+  '(("okay") ("ok") ("hey") ("please") ("so") ("now") ("um") ("uh") ("umm") ("well")
+    ("alright") ("emacs") ("just") ("then") ("and")
+    ("can" "you") ("could" "you") ("would" "you") ("will" "you")
+    ("i" "want" "to") ("i" "wanna") ("id" "like" "to") ("i" "would" "like" "to")
+    ("lets") ("let" "me") ("let" "us") ("go" "ahead" "and")
+    ("im" "going" "to") ("i" "am" "going" "to") ("im" "gonna") ("i" "am" "gonna")
+    ("i" "will") ("ill") ("im") ("i" "am"))
+  "Ways of starting a request that ask nothing: \"okay, can you save everything\".")
+
+(defconst voice--chatter-tail '(("please") ("thanks") ("thank" "you") ("now") ("for" "me"))
+  "Ways of ending one: \"pause, please\".")
+
+(defun voice--strip-chatter (words)
+  "WORDS (pairs) without the chatter around the request."
+  (let ((plain (lambda (w) (downcase (replace-regexp-in-string "[^[:alnum:]]" "" (car w)))))
+        (changed t))
+    (while changed
+      (setq changed nil)
+      (dolist (seq voice--chatter-lead)
+        (when (and (> (length words) (length seq))
+                   (equal (mapcar plain (seq-take words (length seq))) seq))
+          (setq words (nthcdr (length seq) words) changed t)))
+      (dolist (seq voice--chatter-tail)
+        (when (and (> (length words) (length seq))
+                   (equal (mapcar plain (last words (length seq))) seq))
+          (setq words (butlast words (length seq)) changed t))))
+    words))
+
 (defun voice--match-literal (pattern words)
   "How many of WORDS (pairs) PATTERN's literal words take from the front,
-and how many literal words matched; nil if it does not match.  A literal
+and how well its literal words matched (1 each when exact); nil if it
+does not match.  A literal
 stop word may be left out: \"clock in guitar\" matches \"clock in to …\"."
   (let ((lit (car pattern)) (i 0) (matched 0) (n (length words)) ok)
     (setq ok t)
     (while (and ok lit)
       (let ((l (car lit)))
-        (cond ((and (< i n) (>= (voice-match-sim l (cdr (nth i words))) 0.8))
-               (cl-incf i) (cl-incf matched) (pop lit))
+        (cond ((and (< i n) (>= (voice--literal-sim l (cdr (nth i words))) 0.8))
+               ;; By how well: \"time\" said is the time, not the timer.
+               (cl-incf matched (voice--literal-sim l (cdr (nth i words))))
+               (cl-incf i) (pop lit))
               ((member l voice-match-stop-words) (pop lit))
               (t (setq ok nil)))))
     (and ok (> matched 0) (cons i matched))))
@@ -369,13 +410,46 @@ Return (WORDS-LEFT . ANSWERS)."
   (let ((pool (plist-get voice--fill :pool)))
     (and pool strings (voice-match-mentioned strings pool))))
 
+(defun voice--settle (answer strings strict)
+  "ANSWER as one of STRINGS: itself, or the entry it clearly names, else
+nil.  Unless STRICT (the prompt takes only its entries), only a word for
+word match counts: the words might be new text."
+  (if (or (null strings) (member answer strings))
+      answer
+    (let ((ranked (voice-match-strings strings answer 5)))
+      (and (eq (voice-match-decide ranked) 'act)
+           (or strict (>= (nth 1 (car ranked)) 0.99))
+           (plist-get (nth 2 (car ranked)) :title)))))
+
+(defun voice--typed (text)
+  "TEXT as words to type into a list's filter: what matters, no fillers."
+  (string-join (voice-match-tokens text) " "))
+
+(defun voice--with-initial (args text)
+  "`completing-read' ARGS after the collection and predicate, with TEXT as
+the initial input."
+  (let ((a (copy-sequence args)))
+    (while (< (length a) 2) (setq a (append a (list nil))))
+    (setf (nth 1 a) text)
+    a))
+
 (defun voice--completing-read-a (orig prompt collection &optional predicate &rest args)
-  "Answer PROMPT from what was said, when the running action can; else ask."
-  (let ((ans (and voice--fill
-                  (or (voice--answer-for prompt)
-                      (and (not (voice--owned-p prompt))
-                           (voice--from-pool (voice--collection-strings collection predicate)))))))
-    (or ans (let ((voice--fill nil)) (apply orig prompt collection predicate args)))))
+  "Answer PROMPT from what was said, when the running action can; else ask.
+A spoken answer the list does not hold picks the entry it clearly names,
+or opens the list with its words typed, to finish with a tap."
+  (let* ((claimed (and voice--fill (voice--answer-for prompt)))
+         (ans (or claimed
+                  (and voice--fill (not (voice--owned-p prompt))
+                       (voice--from-pool (voice--collection-strings collection predicate)))))
+         (settled (if (and claimed (stringp claimed))
+                      (voice--settle claimed (voice--collection-strings collection predicate)
+                                     (and (car args) (not (eq (car args) 'confirm-after-completion))))
+                    ans)))
+    (cond (settled settled)
+          (claimed (let ((voice--fill nil))
+                     (apply orig prompt collection predicate
+                            (voice--with-initial args (voice--typed claimed)))))
+          (t (let ((voice--fill nil)) (apply orig prompt collection predicate args))))))
 
 (defun voice--read-string-a (orig prompt &rest args)
   (or (and voice--fill (voice--answer-for prompt))
@@ -553,7 +627,7 @@ by name or place, else TEXT as typed."
          (mtime (and (file-exists-p f) (file-attribute-modification-time (file-attributes f)))))
     (if (and mtime voice--rules-cache (equal (car voice--rules-cache) mtime))
         (cdr voice--rules-cache)
-      (let ((names nil) (phrases nil) (section nil))
+      (let ((names nil) (phrases nil) (sounds nil) (section nil))
         (when mtime
           (with-temp-buffer
             (insert-file-contents f)
@@ -566,11 +640,37 @@ by name or place, else TEXT as typed."
                        (let ((pair (cons (match-string 1 line) (match-string 2 line))))
                          (pcase section
                            ("names" (push pair names))
-                           ("phrases" (push pair phrases)))))))
+                           ("phrases" (push pair phrases))
+                           ("sounds" (push pair sounds)))))))
               (forward-line 1))))
+        (setq voice--user-sounds
+              (mapcar (lambda (p) (cons (voice-match-stem (downcase (car p)))
+                                        (voice-match-stem (downcase (cdr p)))))
+                      sounds))
         (let ((rules (cons (nreverse names) (nreverse phrases))))
           (setq voice--rules-cache (cons mtime rules))
           rules)))))
+
+(defvar voice--user-sounds nil "voice.org's * Sounds, as (HEARD . MEANT) stems.")
+
+(defconst voice-sounds-like
+  '(("talk" . "clock") ("clerk" . "clock") ("lock" . "clock") ("clark" . "clock")
+    ("glock" . "clock") ("clog" . "clock") ("ad" . "add") ("hell" . "help")
+    ("grab" . "graph") ("grass" . "graph") ("graf" . "graph")
+    ("hutter" . "herdr") ("herder" . "herdr") ("header" . "herdr") ("harder" . "herdr")
+    ("hurdle" . "herdr") ("hirder" . "herdr") ("guy" . "kai") ("chai" . "kai") ("kye" . "kai")
+    ("pie" . "kai") ("kay" . "kai") ("no" . "node") ("nod" . "node") ("reed" . "read")
+    ("paw" . "pause") ("pose" . "pause") ("paus" . "pause"))
+  "Words the voice app was heard to write for a command's words, HEARD .
+MEANT, as stems: \"talk into messaging\" is \"clock into messaging\".  Only
+command phrases use them, never task names.  Yours go under * Sounds in
+`voice-file', as - heard :: meant.")
+
+(defun voice--literal-sim (literal token)
+  "How well TOKEN, heard, stands for a command's LITERAL word."
+  (max (voice-match-sim literal token)
+       (if (equal (cdr (or (assoc token voice--user-sounds) (assoc token voice-sounds-like))) literal)
+           0.85 0.0)))
 
 (defun voice--rewrite (text)
   "TEXT, or what voice.org's Phrases say it means."
@@ -670,7 +770,11 @@ meetings.org its people."
               (setq priority (match-string 1 rest) rest (substring rest (match-end 0))))
             (when (string-match "[ \t]+\\(:[[:alnum:]_@#%:]+:\\)\\'" rest)
               (setq tags (match-string 1 rest) rest (substring rest 0 (match-beginning 0))))
-            (setq title (string-trim rest))
+            ;; A link counts by what it shows, not its id.
+            (setq title (string-trim
+                         (replace-regexp-in-string
+                          "\\[\\[\\([^]]*\\)\\]\\]" "\\1"
+                          (replace-regexp-in-string "\\[\\[[^]]*\\]\\[\\([^]]*\\)\\]\\]" "\\1" rest))))
             (while (and stack (>= (caar stack) level)) (pop stack))
             (let ((parent (cdar stack)))
               (push (cons level title) stack)
@@ -761,7 +865,7 @@ and the last few clocked tasks lean in."
          (let ((k (or (plist-get e :keyword) "")))
            (cond ((and (equal verb "read") (string-match-p "READ" k)) 0.05)
                  ((and (equal verb "watch") (string-match-p "WATCH" k)) 0.05)
-                 ((and (equal verb "meeting") (plist-get e :meeting)) 0.05)
+                 ((and (member verb (quote ("meet" "meeting"))) (plist-get e :meeting)) 0.05)
                  (t 0.0)))))))
 
 (defun voice-rank-tasks (text &optional verb)
@@ -915,7 +1019,8 @@ the Diary tile, \"diary went running\" a diary line."
 (defun voice-plan (text &optional source)
   "What TEXT, heard from SOURCE, would do: a plist.  Does nothing itself."
   (let* ((context (voice-context source))
-         (words (voice--words text)))
+         (words (voice--strip-chatter (voice--words text)))
+         (request (if words (voice--join words) text)))
     (cond
      ((or voice--choice (memq 'minibuffer context))
       (list :kind 'answer :text text :front t))
@@ -928,8 +1033,8 @@ the Diary tile, \"diary went running\" a diary line."
         (cond
          ((and action (eq (plist-get action :slot) 'task))
           (let* ((verb (car (voice-match-words (car (plist-get action :phrases)))))
-                 (verb (if (member (car (voice-match-words text)) '("read" "watch" "meeting"))
-                           (car (voice-match-words text)) verb))
+                 (verb (let ((first (car (voice-match-tokens request t))))
+                         (if (member first '("read" "watch" "meet")) first verb)))
                  (ranked (and slot (not (string-empty-p slot)) (voice-rank-tasks slot verb)))
                  (decision (if ranked (voice-match-decide ranked) 'none)))
             (list :kind 'task :text text :action action :slot slot :verb verb
@@ -939,8 +1044,8 @@ the Diary tile, \"diary went running\" a diary line."
           (list :kind 'action :text text :action action :slot slot
                 :front (not (plist-get action :quiet))))
          (t
-          (let ((ranked (voice-rank-tasks text)))
-            (list :kind 'task :text text :slot text :ranked ranked
+          (let ((ranked (voice-rank-tasks request)))
+            (list :kind 'task :text text :slot request :ranked ranked
                   :decision (if ranked 'pick 'none) :front t
                   :action (seq-find (lambda (a) (eq (plist-get a :slot) 'task)) voice-actions))))))))))
 
@@ -1046,7 +1151,17 @@ off (see android-doom-root.el)."
                     (insert (voice--wav-header (buffer-size)))
                     (let ((coding-system-for-write 'binary))
                       (write-region nil nil dest nil 'silent))))
-                (kill-buffer buf))))))))))
+                (kill-buffer buf)
+                (voice--prune-audio))))))))))
+
+(defvar voice-audio-days 7 "How many days of recordings to keep.")
+
+(defun voice--prune-audio ()
+  "Delete recordings older than `voice-audio-days'."
+  (dolist (f (directory-files voice-audio-directory t "\\.wav\\'"))
+    (when (> (float-time (time-since (file-attribute-modification-time (file-attributes f))))
+             (* 86400 voice-audio-days))
+      (ignore-errors (delete-file f)))))
 
 (defun voice--tell (plan message)
   "Show MESSAGE; from the island also as a toast, Emacs being out of sight."
@@ -1201,6 +1316,94 @@ Return how many passed."
       (insert (mapconcat #'identity (nreverse rows) "\n") "\n"))
     (format "%d of %d phrases do what they should" ok n)))
 
+;;;; More things to say
+
+(defun voice--choose (prompt candidates text)
+  "The one of CANDIDATES (strings) TEXT clearly names; else ask with
+PROMPT, TEXT's words typed, so a tap finishes it."
+  (let ((ranked (and text (not (string-empty-p text)) (voice-match-strings candidates text 5))))
+    (if (and ranked (eq (voice-match-decide ranked) 'act))
+        (plist-get (nth 2 (car ranked)) :title)
+      (let ((voice--fill nil))
+        (completing-read prompt candidates nil t (and text (voice--typed text)))))))
+
+(defun voice-switch-buffer (text)
+  "Switch to the buffer TEXT names."
+  (let* ((names (seq-remove (lambda (n) (string-prefix-p " " n)) (mapcar #'buffer-name (buffer-list))))
+         (name (voice--choose "Buffer: " names text)))
+    (switch-to-buffer name)
+    (format "Buffer: %s" name)))
+
+(defun voice-recent-file (text)
+  "Open the recent file TEXT names, by its name."
+  (require 'recentf)
+  (let* ((files (seq-take recentf-list 300))
+         (by-name (mapcar (lambda (f) (cons (format "%s  %s" (file-name-nondirectory f)
+                                                    (abbreviate-file-name (file-name-directory f)))
+                                            f))
+                          files))
+         (pick (voice--choose "Recent file: " (mapcar #'car by-name) text)))
+    (find-file (cdr (assoc pick by-name)))
+    (format "Opened %s" (file-name-nondirectory (cdr (assoc pick by-name))))))
+
+(defun voice--date (text)
+  "TEXT (\"tomorrow\", \"friday\", \"in 3 days\", \"next week\") as
+`org-read-date' input, or nil."
+  (let ((w (voice-match-words (or text ""))))
+    (cond ((member "today" w) ".")
+          ((or (member "tomorrow" w) (member "tmrw" w)) "+1d")
+          ((and (member "next" w) (member "week" w)) "+1w")
+          ((and (member "next" w) (member "month" w)) "+1m")
+          ((let ((n (seq-find (lambda (x) (string-match-p "\\`[0-9]+\\'" x)) w)))
+             (and n (or (member "day" w) (member "days" w)) (format "+%sd" n))))
+          ((let ((n (seq-find (lambda (x) (string-match-p "\\`[0-9]+\\'" x)) w)))
+             (and n (or (member "week" w) (member "weeks" w)) (format "+%sw" n))))
+          ((seq-some (lambda (x)
+                       (car (seq-find (lambda (d) (string-prefix-p (cdr d) x))
+                                      '(("mon" . "mon") ("tue" . "tue") ("wed" . "wed") ("thu" . "thu")
+                                        ("fri" . "fri") ("sat" . "sat") ("sun" . "sun")))))
+                     w)))))
+
+(defun voice-schedule (text)
+  "Schedule the task here (in the agenda, the line's task) for TEXT."
+  (let ((date (or (voice--date text) (user-error "Voice: when?  Say today, tomorrow, friday or in 3 days"))))
+    (if (derived-mode-p 'org-agenda-mode)
+        (org-agenda-schedule nil date)
+      (org-schedule nil date))
+    (format "Scheduled: %s" text)))
+
+(defun voice-mark-done ()
+  "Mark the task here done (in the agenda, the line's task)."
+  (if (derived-mode-p 'org-agenda-mode) (org-agenda-todo 'done) (org-todo 'done))
+  "Marked done")
+
+(defun voice--org-here-p () (derived-mode-p 'org-mode 'org-agenda-mode))
+
+(defun voice-time ()
+  "The time now."
+  (format-time-string "It's %H:%M, %A %e %B"))
+
+(defun voice-timer (text)
+  "An Org countdown of the minutes TEXT says: \"25 minutes\", \"1 hour\"."
+  (require 'org-timer)
+  (let* ((hm (or (voice--duration (voice-match-words text))
+                 (user-error "Voice: how long?  Say 25 minutes or 1 hour")))
+         (minutes (+ (* 60 (string-to-number (car (split-string hm ":"))))
+                     (string-to-number (cadr (split-string hm ":"))))))
+    (when (bound-and-true-p org-timer-countdown-timer) (org-timer-stop))
+    (org-timer-set-timer minutes)
+    (format "Timer: %d minutes" minutes)))
+
+(defun voice-type-to-agent (text)
+  "Type TEXT into the agent's chat, without sending it."
+  (claude-remote--send text)
+  (format "Typed: %s" text))
+
+(defun voice-send-to-agent ()
+  "Send what is typed in the agent's chat."
+  (claude-remote--send "\r")
+  "Sent")
+
 ;;;; What you can say
 
 (defun voice--when-label (when)
@@ -1226,7 +1429,7 @@ Return how many passed."
         (insert (if all "#+title: Everything you can say\n\n" "#+title: What you can say here\n\n")
                 "/A phrase with … takes the rest of what you say./\n\n* Commands\n")
         (dolist (a mine)
-          (let ((label (voice--when-label (plist-get a :when))))
+          (let ((label (or (plist-get a :where) (voice--when-label (plist-get a :when)))))
             (insert (format "- *%s*%s :: %s\n" (plist-get a :name)
                             (if label (format " (%s)" label) "")
                             (mapconcat (lambda (p) (format "\"%s\"" p)) (plist-get a :phrases) ", ")))))
@@ -1259,6 +1462,7 @@ from what was said."
   "Added to the diary")
 
 (voice-action '("clock in to …" "clock into …" "clock in …" "start …" "work on …"
+                "working on …" "start working on …" "switch to …" "time for …"
                 "read …" "watch …" "practice …" "study …" "meeting with …" "meeting …")
               #'voice-clock-in :slot 'task :quiet t :name "clock in")
 (voice-action '("add task …" "new task …" "add a task …" "create task …"
@@ -1299,8 +1503,60 @@ from what was said."
 (voice-action '("tag …" "tag it …" "tags …") #'set-image-tags-and-rename-and-next
               :when 'image-mode :name "tag image")
 (voice-action '("agenda" "open agenda" "my agenda") #'my-org-agenda :name "agenda")
-(voice-action '("help" "what can i say" "voice commands" "commands") #'voice-help :name "help")
-(voice-action '("status" "what am i doing" "what am i on" "what's running" "how long")
+(voice-action '("help" "what can i say" "voice commands" "commands" "show help" "help me"
+                "what can you do")
+              #'voice-help :name "help")
+;; The homepage's tiles, with more ways to say them: one short word alone
+;; is what the voice app most often mishears.
+(voice-action '("tip" "show a tip" "give me a tip" "next tip" "a tip") #'tips-next :name "tip")
+(voice-action '("graph" "show the graph" "open graph" "note graph") #'org-roam-ui-open :name "graph")
+(voice-action '("reread" "re read" "read again" "today's note") #'note-flow-reread :name "reread")
+(voice-action '("buffers" "buffer list" "show buffers" "all buffers") #'ibuffer :name "buffers")
+(voice-action '("diary" "photo diary" "browse photos") #'my/diary-browse-images :name "photo diary")
+(voice-action '("neglect" "neglect report" "what am i neglecting") #'rts-flow-weekly-neglect-report
+              :name "neglect")
+(voice-action '("dailies" "daily notes") #'my/org-roam-dailies-cycle-focus :name "dailies")
+(voice-action '("log" "daily note" "open log" "open the log") #'micro-experiments-log :name "log")
+;; Going places
+(voice-action '("open …" "launch …" "open app …" "start app …") #'emacs-home-launch
+              :when 'android :asks '((:prompt "\\`App: " :type rest)) :name "open app")
+(voice-action '("find note …" "find node …" "open note …" "go to note …" "note called …") #'org-roam-node-find
+              :asks '((:prompt "\\`Node" :type rest)) :name "find note")
+(voice-action '("buffer …" "switch to buffer …" "go to buffer …") #'voice-switch-buffer
+              :slot 'text :name "buffer")
+(voice-action '("open file …" "recent file …" "file …") #'voice-recent-file :slot 'text :name "recent file")
+(voice-action '("today" "today's view" "today view" "my day") (lambda () (org-agenda nil "k")) :name "today")
+(voice-action '("go back" "previous buffer" "last buffer") #'previous-buffer :quiet t :name "go back")
+(voice-action '("close" "close window" "close this") #'quit-window :quiet t :name "close")
+(voice-action '("scroll down" "page down" "down") #'scroll-up-command :quiet t :name "scroll down")
+(voice-action '("scroll up" "page up" "up") #'scroll-down-command :quiet t :name "scroll up")
+(voice-action '("top" "go to top" "beginning") #'beginning-of-buffer :quiet t :name "top")
+(voice-action '("bottom" "go to bottom" "end") #'end-of-buffer :quiet t :name "bottom")
+(voice-action '("bigger" "bigger text" "zoom in" "text bigger") #'text-scale-increase :quiet t :name "bigger text")
+(voice-action '("smaller" "smaller text" "zoom out" "text smaller") #'text-scale-decrease :quiet t :name "smaller text")
+;; Planning
+(voice-action '("walk" "walk tasks" "date tasks" "undated tasks") #'org-flow-date-undated :name "walk tasks")
+(voice-action '("plan tomorrow" "time box tomorrow" "timebox tomorrow" "timebox") #'timebox-tomorrow
+              :name "plan tomorrow")
+(voice-action '("weekly review") (lambda () (org-capture nil "rw")) :name "weekly review")
+(voice-action '("monthly review") (lambda () (org-capture nil "rm")) :name "monthly review")
+(voice-action '("motto …" "set motto …" "set a motto …") (lambda () (org-capture nil "m"))
+              :asks '((:prompt "diary entry" :type rest)) :name "motto")
+(voice-action '("schedule …" "schedule it …" "schedule for …") #'voice-schedule :slot 'text
+              :when #'voice--org-here-p :where "on a task" :name "schedule")
+(voice-action '("mark done" "mark as done" "mark it done" "complete it") #'voice-mark-done
+              :when #'voice--org-here-p :where "on a task" :quiet t :name "mark done")
+(voice-action '("time" "what time is it" "what's the time") #'voice-time :quiet t :name "time")
+(voice-action '("timer …" "set a timer for …" "set timer for …" "set a timer …" "timer for …")
+              #'voice-timer :slot 'text :quiet t :name "timer")
+;; In an agent's chat, and on a photo
+(voice-action '("type …" "tell claude …" "dictate …" "tell it …") #'voice-type-to-agent :slot 'text
+              :when 'remote :quiet t :name "type to agent")
+(voice-action '("send" "send it" "submit" "press enter" "enter") #'voice-send-to-agent
+              :when 'remote :quiet t :name "send to agent")
+(voice-action '("rotate" "rotate it" "rotate image") #'image-rotate :when 'image-mode :quiet t :name "rotate image")
+(voice-action '("status" "what am i doing" "what am i on" "what's running" "how long"
+                "what's the status" "what am i working on" "clock status")
               #'voice-status :quiet t :name "status")
 (voice-action '("diary …" "dear diary …" "diary entry …" "write in diary …") #'voice-diary
               :asks '((:prompt "diary entry" :type rest)) :name "diary")

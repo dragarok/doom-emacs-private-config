@@ -339,6 +339,70 @@ SCHEDULED: <2020-01-01 Wed>
         (insert-file-contents (expand-file-name "test-log.tsv" dir))
         (should (string-match-p "Fix the bicycle brakes.*Would task" (buffer-string)))))))
 
+(ert-deftest voice-test-exact-title-wins-by-less ()
+  ;; Said word for word, a title wins by a smaller lead than a near match.
+  (should (eq (voice-match-decide '((1.09 1.00 a) (0.93 0.88 b))) 'act))
+  ;; Two full matches are still a pick.
+  (should (eq (voice-match-decide '((1.05 1.00 a) (0.95 1.00 b))) 'pick))
+  ;; A near match still needs the full lead.
+  (should (eq (voice-match-decide '((0.95 0.90 a) (0.80 0.80 b))) 'pick)))
+
+;;;; Lists answered by name, dates, near words
+
+(ert-deftest voice-test-settle-on-the-named-entry ()
+  (let ((apps '("Spotify" "Telegram" "Camera" "Firefox" "Files")))
+    (should (equal (voice--settle "spotify" apps t) "Spotify"))
+    (should (equal (voice--settle "the telegram" apps t) "Telegram"))
+    ;; Free text allowed: only a word for word match is taken.
+    (should (equal (voice--settle "camera" apps nil) "Camera"))
+    (should-not (voice--settle "camera roll pictures" apps nil))))
+
+(ert-deftest voice-test-unclear-answer-opens-the-list-typed ()
+  (let (seen)
+    (cl-letf (((symbol-function 'voice--orig-cr)
+               (lambda (_p _c &optional _pr _rm initial &rest _) (setq seen initial) "Atomic Habits")))
+      (let ((voice--fill (list :pool nil :answers '(("\\`Node" . "habits book")) :owned '("\\`Node"))))
+        (should (equal (voice--completing-read-a #'voice--orig-cr "Node: "
+                                                 '("Atomic Habits" "Habit tracker ideas" "Book list"))
+                       "Atomic Habits"))
+        (should (equal seen "habit book"))))))
+
+(ert-deftest voice-test-dates ()
+  (should (equal (voice--date "tomorrow") "+1d"))
+  (should (equal (voice--date "for today") "."))
+  (should (equal (voice--date "in three days") "+3d"))
+  (should (equal (voice--date "next week") "+1w"))
+  (should (equal (voice--date "on Friday") "fri"))
+  (should-not (voice--date "whenever")))
+
+(ert-deftest voice-test-exact-word-beats-near-word ()
+  (voice-test--with
+    (should (equal (plist-get (plist-get (voice-plan "Time." "test") :action) :name) "time"))
+    (should (equal (plist-get (plist-get (voice-plan "set a timer for 25 minutes" "test") :action) :name) "timer"))
+    (should (equal (plist-get (plist-get (voice-plan "timebox" "test") :action) :name) "plan tomorrow"))))
+
+(ert-deftest voice-test-chatter-is-ignored ()
+  (voice-test--with
+    (should (equal (plist-get (plist-get (voice-plan "Okay, can you save everything, please?" "test") :action) :name)
+                   "save everything"))
+    (should (equal (plist-get (plist-get (voice-plan "Let's work on the bicycle brakes." "test") :action) :name)
+                   "clock in"))
+    (should (equal (plist-get (nth 2 (car (plist-get (voice-plan "I'm reading atomic habits" "test") :ranked))) :title)
+                   "Atomic Habits"))))
+
+(ert-deftest voice-test-schedule-and-mark-done-here ()
+  (voice-test--with
+    (with-current-buffer (find-file-noselect (expand-file-name "tasks.org" org-directory))
+      (goto-char (point-min))
+      (search-forward "Call the landlord")
+      (save-window-excursion
+        (switch-to-buffer (current-buffer))
+        (voice-dispatch "schedule it for tomorrow" :source "test")
+        (should (string-match-p (format-time-string "SCHEDULED: <%Y-%m-%d" (time-add nil 86400))
+                                (buffer-substring (line-beginning-position) (save-excursion (forward-line 2) (point)))))
+        (voice-dispatch "mark it done" :source "test")
+        (should (equal (org-get-todo-state) "DONE"))))))
+
 (ert-deftest voice-test-stale-words-are-dropped ()
   (let* ((dir (make-temp-file "voice-home" t))
          (emacs-home-dir (file-name-as-directory dir)))

@@ -187,28 +187,52 @@ monthly review is =SPC o v m=.
 ** Say it: Voice, or a long press on the clock
 Tap *Voice* on the toolbar, or long-press the clock island from any
 app, and say what to do.  Emacs does the closest thing and tells you
-what it did.
+what it did.  Say it as you would to a person: "okay, can you save
+everything, please" works as well as "save everything".  "help" shows
+everything you can say where you are.
 
 ** Clock in by naming the task
-Say "clock in to guitar scales", "work on the paper review" or "read
-atomic habits".  A clear match clocks in at once.  A close one shows
-the best few, the first already chosen: tap, or say "the second one".
-What you pick is remembered, so the same words go straight there next
-time.  "undo" takes a clock-in back.
+"clock in to guitar scales", "work on the paper review", "read atomic
+habits", "I'm reading atomic habits", "watch …", "practice …",
+"switch to …", "meeting with …".  A clear match clocks in at once.  A
+close one shows the best few, the first already chosen: tap, or say
+"the second one".  What you pick is remembered, so the same words go
+straight there next time.  "undo" takes a clock-in back.
 
 ** Add a task in one sentence
 "add task buy strings to guitar priority b effort one hour" answers
 Add > Task's questions as you go.  Whatever you leave out is asked as
 usual, and you can answer that by voice too.
 
-** Clock out, and the rest
-- "done", "done focus", "done deep work", "not done"
-- "pause", "resume", "cancel the clock"
-- "save everything", "zen", "home", "review", "flow", "agenda"
+** The clock
+- "done", "I'm done", "not done": clock out the Flow way
+- "pause", "resume", "cancel the clock", "status" (what the clock is
+  on, for how long)
+- "set a timer for 25 minutes", "time"
+
+** Going places
+- "open spotify": any app; "find note atomic habits"; "buffer tasks";
+  "open file config"
+- "home", "today", "agenda", "go back", "close"
+- "scroll down", "page up", "top", "bottom", "zoom in", "smaller"
+- Every toolbar button and homepage tile by its name: "find node",
+  "dailies", "reread", "tip", …
+When the name could be several things, the list opens with your words
+already typed: tap the one you meant.
+
+** Planning and writing
+- "flow", "walk tasks", "plan tomorrow", "review", "weekly review",
+  "monthly review"
+- On a task, or a line of the agenda: "schedule tomorrow", "schedule
+  friday", "schedule in 3 days", "mark done"
+- "diary went for a long walk", "motto stay curious"
+- "save everything", "zen"
+
+** On the phone, in photos, with agents
 - "attach camera photo", "attach latest photo"
-- "open herdr", "next", "previous"; in a photo, "next" and "tag it
-  food and travel"
-Every toolbar button and homepage tile works by its name.
+- On a photo: "next", "previous", "rotate", "tag it food and travel"
+- "open herdr", "open kai"; in an agent's chat: "next", "previous",
+  "type fix the failing test" (typed, not sent), then "send"
 
 ** Answer the question on screen
 With a question open, tap Voice and answer it: a choice by its name or
@@ -223,6 +247,13 @@ fitness centre=.  Picks from the list add these by themselves.
 
 ** On the Mac: SPC V
 Type what you would say.
+
+** When it gets something wrong
+Every utterance is a line in ~/org/logs/voice_log_HOST.tsv: what was
+heard, what it did, how sure.  On the phone the recording of each is
+kept in Documents/voice-audio for a week.  test/voice-speak-test.py has
+the Mac speak test phrases at the phone and reports what was heard and
+done, with the recordings.
 
 * Agents in Herdr
 
