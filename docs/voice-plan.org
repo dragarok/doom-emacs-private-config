@@ -32,6 +32,63 @@ add a task, or run a command.  Three rules shape everything:
            6 tell           message + .emacs-home/voice-said.tsv -> toast; one log line
 #+end_example
 
+* 1a. How it is built now (2026-11-18)
+A small core, and domains that plug into it.  The planner asks every
+domain the same questions and never names one, so a new part of life or
+of Emacs is a new file, and nothing else changes.
+
+#+begin_example
+ heard ─> words, chatter off (voice-core) ─> your rules applied (voice-rules)
+       ─> an open question takes it first (voice-dialog)
+       ─> word for word a phrase is done
+       ─> else weighed (voice-plan): phrases + every domain's offers and claims
+            claim as near as anything ─> done      said as called ─> done
+            clearly nearest ─> done                near ─> "Did you mean …?"
+            nothing near ─> the best fallback: tasks or commands to pick from
+       ─> run, its questions filled from the sentence (voice-fill)
+       ─> a yes or a pick is learned (voice-rules) ─> logged (voice-log)
+#+end_example
+
+| File (lisp/) | What it is |
+|--------------+------------|
+| voice-match.el | The scorer: tokens, near sounds, idf, rank, decide.  Pure. |
+| voice-emacs.el | Every interactive command as something to say: names, leader labels, menus, synonyms, what it asks (theme, buffer, file…). |
+| voice-command.el | The umbrella: loads the parts in =voice-modules=. |
+| voice/voice-core.el | Settings, actions (=voice-action=), domains (=voice-define-domain=), context, words. |
+| voice/voice-rules.el | ~/org/voice.org: phrases, names, sounds, words; learning into it. |
+| voice/voice-fill.el | A command's minibuffer questions answered from what was said. |
+| voice/voice-dialog.el | Did you mean, the question on screen, moving in a list. |
+| voice/voice-plan.el | Understanding and deciding; doing a plan. |
+| voice/voice-log.el | The log, recordings, checking phrases (corpus), process tracing. |
+| voice/voice-app.el | Where words come in (typed, the phone's voice app); "update voice". |
+| voice/voice-tasks.el | Domain: tasks and the clock. |
+| voice/voice-org.el | Domain: reviews, diary, agenda, notes. |
+| voice/voice-everyday.el | Domain: buffers, files, moving, text size, time. |
+| voice/voice-agents.el, voice-photos.el, voice-home.el, voice-help.el | Domains: agents; photo tagging; toolbar and tiles; what you can say. |
+| voice/voice-anycommand.el | Domain: every command, through voice-emacs.el. |
+
+A domain says, each optional:
+- =:context= flags it adds (clocking, image, remote)
+- =:actions= actions made now (the toolbar's buttons)
+- =:offers= near options besides phrases (any command)
+- =:claim= "this is clearly mine" (a task named, a photo's tags); the nearest claim wins, and must be as near as any option
+- =:fallback= what to show when nothing is near (tasks, commands), the highest scoring
+- =:slots=, =:kinds= how it makes and does its own plans
+- =:enable= / =:disable=, so defining it again (a reload) leaves nothing behind
+
+#+begin_src elisp
+(voice-define-domain 'weather
+  :doc "What the sky is doing."
+  :claim (lambda (u best) (when (string-match-p "weather" (plist-get u :request))
+                            (list :kind 'weather :text (plist-get u :text) :near 1.0)))
+  :kinds `((weather . ,(lambda (_plan) "Sunny"))))
+#+end_src
+
+Learned from voicemacs (jcaw): domains register themselves and tear down
+on redefinition; context is computed by small providers when something
+is said, not pushed after every command.  Not copied: its TCP server,
+grammars by hand per mode, running any command unconfirmed.
+
 * 2. Files
 ** New
 | File | Responsibility |
@@ -221,6 +278,37 @@ One APK install covers all of phase 1, done when you say Emacs is free (it stops
 - *Phase 3.*  Agents: "tell the agent …" (the send half of =claude-remote-talk=, claude-remote.el:743), blocked agent, escape.
 - *Phase 4.*  Result and an Undo chip on the island; offline text-to-speech; add clock time by voice; "note …" into the daily note; the assistant gesture as a third entry if wanted.
 - *Phase 5, only if the log shows a residue.*  An on-device resolver behind =voice-fallback-function=, returning registry names only.
+
+Since 2026-11-18 (later the same day) what hears you is our own engine,
+pulled toward your words, and the island is the whole interface: see
+[[file:voice-engine.org][voice-engine.org]].  The notes below are from before it.
+
+Since 2026-11-18, every command can be said (voice-emacs.el), and what
+is heard is the weak link: a free recogniser does not know "vertico" or
+"magit".  Next:
+- *Hearing our words (no app change).*  The voice app's own recording of
+  each utterance is already kept (voice--save-audio).  A second pass in
+  Termux decodes it again, biased to our vocabulary: whisper.cpp with an
+  initial prompt and a GBNF grammar made from the command catalog, the
+  task names and, while a list is open, its entries.  Phonon 2.5 (in
+  ~/Downloads/phonon-2.5, the C engine phonon-2.5-c) is the other
+  candidate: more accurate than the app's Phonon 2, but it takes no
+  prompt, so it would be the plain second opinion.  Use the second pass
+  only when the first is unclear (an ask or a pick), so the common case
+  stays fast.
+- *Run commands through the command loop* (a synthetic key bound to a
+  runner), as voicemacs does: pre/post-command hooks, =last-command=,
+  undo grouping, "again".  The minibuffer filling has to travel with it.
+- *Numbers on lists* (dired, agenda, ibuffer, magit, completion): digits
+  are heard right far more often than rare names; "three" picks.
+- *Text inserted mid-sentence* is formatted from what surrounds it (the
+  recogniser capitalises and adds a full stop).
+- *One question service for everything that asks you* (reviews, walks,
+  agents): asked on the island, answered by voice or tap, the answer
+  learned.  The agents use it to ask when they need you.
+- *A short voice drill, offered not required*: a command's description,
+  you say it; every answer is audio plus a confirmed meaning, the data a
+  fine-tuned model would need later.
 
 * 6. Testing, phone first
 1. *Smoke, first hour.*

@@ -1,0 +1,11 @@
+open magit
+switch to vertico
+open Hades 2
+launch Hades two
+clock in to image tagging
+open org roam
+run consult ripgrep
+open dired and ibuffer
+sync with syncthing and termux
+open the magic box
+what is the weather like today

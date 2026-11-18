@@ -13,7 +13,8 @@ KS=${EMACS_KEYSTORE:-$HOME/Downloads/emacs.keystore}
 VERSION=${VERSION:-$(git rev-list --count HEAD -- . 2>/dev/null || echo 1)}
 
 rm -rf out && mkdir -p out/classes
-"$BT/aapt2" link -o out/unsigned.apk -I "$JAR" --manifest AndroidManifest.xml \
+"$BT/aapt2" compile --dir res -o out/res.zip
+"$BT/aapt2" link -o out/unsigned.apk -I "$JAR" --manifest AndroidManifest.xml out/res.zip \
   --min-sdk-version 26 --target-sdk-version 28 \
   --version-code "$((VERSION + 1))" --version-name "0.$VERSION"
 javac --release 17 -nowarn -cp "$JAR" -d out/classes $(find src -name '*.java')
@@ -29,6 +30,10 @@ if [ "$1" = install ]; then
   adb shell appops set dev.alok.emacshome SYSTEM_ALERT_WINDOW allow
   adb shell appops set dev.alok.emacshome GET_USAGE_STATS allow
   adb shell pm grant dev.alok.emacshome android.permission.POST_NOTIFICATIONS || true
+  # The island hears you itself (Hear.java); the voice input method for the
+  # keyboard's microphone key (VoiceIme).
+  adb shell pm grant dev.alok.emacshome android.permission.RECORD_AUDIO || true
+  adb shell ime enable dev.alok.emacshome/.VoiceIme || true
   # Host other apps' widgets (Widgets.java) without asking each time.
   adb shell appwidget grantbind --package dev.alok.emacshome --user 0 || true
   # The clock's island above the status bar (IslandAccess), added to the

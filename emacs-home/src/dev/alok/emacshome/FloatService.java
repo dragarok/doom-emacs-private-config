@@ -34,16 +34,17 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -62,13 +63,14 @@ public class FloatService extends Service {
     private static final String CHANNEL = "clock";
     private static final File CLOCK = new File(Catalog.DIR, "clock.tsv");
     // Voice: Emacs writes voice-ask when its toolbar's Voice button is
-    // pressed, and voice-said.tsv for what a voice command did, shown as a
-    // toast (from the island, Emacs is not on screen).
+    // pressed, and voice-said.tsv for what a voice command did, which the
+    // island says (from the island, Emacs is not on screen).
     private static final File VOICE_ASK = new File(Catalog.DIR, "voice-ask");
     private static final File VOICE_SAID = new File(Catalog.DIR, "voice-said.tsv");
     // "Did you mean ...?": Emacs writes the question here when it nearly
-    // understood, and empties it once answered.  The island shows it with
-    // Yes and No; a tap answers as saying it would (VoiceActivity.deliver).
+    // understood, and empties it once answered.  It comes down out of the
+    // island to the middle of the screen (AskCard) with Yes and No, and the
+    // island listens for the answer; a tap answers as saying it would.
     private static final File VOICE_CONFIRM = new File(Catalog.DIR, "voice-confirm.tsv");
     // In org, so it syncs to the Mac and is backed up; read by day-log.el.
     private static final File FOREGROUND = new File("/sdcard/org/logs/foreground_localhost.tsv");
@@ -94,6 +96,20 @@ public class FloatService extends Service {
     private final Runnable autoHide = () -> setOpen(false);
     private FileObserver observer;
     private Widgets widgets;
+
+    // The island's voice: it grows in place into what it hears, then what
+    // was done, and shrinks back -- one place for all of it, no toasts.
+    private enum Voice { OFF, LISTENING, THINKING, RESULT }
+    private Voice voice = Voice.OFF;
+    private Hear hear;                // the utterance being heard
+    private String hearing;           // where it goes: island, toolbar, field, keyboard
+    private long held;                // when the long press began (hold to talk)
+    private FrameLayout leftBox, rightBox;
+    private VoiceBars bars;
+    private TextView check, close, words;
+    private LinearLayout wordsRow;
+    private AskCard ask;
+    private final Runnable voiceAway = this::voiceOff;
 
     // Locked: shrunk to a dot that touches pass through (games), until
     // Emacs is back in front -- Home, or the foreground log seeing it.
@@ -160,6 +176,7 @@ public class FloatService extends Service {
     };
 
     private void act(String action) {
+        if (action.equals("voice-keyboard")) { listen("keyboard"); return; }
         if (action.equals("voice-yes")) { answer("yes"); return; }
         if (action.equals("voice-no")) { answer("no"); return; }
         if (action.equals("lock")) { press("island-lock"); lock(); return; }
@@ -316,9 +333,45 @@ public class FloatService extends Service {
         top.setGravity(Gravity.CENTER);
         top.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, pillH));
+
+        // Voice, either side of the camera: the bars (or a tick) | the close.
+        bars = new VoiceBars(ui);
+        bars.color(pillAccent());
+        check = text(17, "sans-serif-medium");
+        check.setText("\u2713");
+        check.setTextColor(pillAccent());
+        check.setVisibility(View.GONE);
+        leftBox = new FrameLayout(ui);
+        leftBox.setPadding(dp(18), 0, 0, 0);
+        leftBox.addView(bars, new FrameLayout.LayoutParams(dp(30), dp(16), Gravity.START | Gravity.CENTER_VERTICAL));
+        leftBox.addView(check, new FrameLayout.LayoutParams(-2, -2, Gravity.START | Gravity.CENTER_VERTICAL));
+        close = text(15, "sans-serif-medium");
+        close.setText("\u2715");
+        close.setTextColor(0xFF8E8E93);
+        close.setGravity(Gravity.CENTER);
+        close.setOnClickListener(v -> cancelVoice());
+        rightBox = new FrameLayout(ui);
+        rightBox.setPadding(0, 0, dp(8), 0);
+        rightBox.addView(close, new FrameLayout.LayoutParams(dp(40), dp(40), Gravity.END | Gravity.CENTER_VERTICAL));
+        leftBox.setVisibility(View.GONE);
+        rightBox.setVisibility(View.GONE);
+
+        top.addView(leftBox, new LinearLayout.LayoutParams(0, pillH, 1f));
         top.addView(markView);
         top.addView(new View(ui), new LinearLayout.LayoutParams(gapW, 1));
         top.addView(minutes);
+        top.addView(rightBox, new LinearLayout.LayoutParams(0, pillH, 1f));
+
+        // What it hears, then what was done: under the camera, the latest words in view.
+        words = text(16, "sans-serif-medium");
+        words.setTextColor(0xFFF5F5F7);
+        words.setGravity(Gravity.CENTER);
+        words.setEllipsize(TextUtils.TruncateAt.START);
+        wordsRow = new LinearLayout(ui);
+        wordsRow.setGravity(Gravity.CENTER);
+        wordsRow.setPadding(dp(22), 0, dp(22), dp(12));
+        wordsRow.addView(words, new LinearLayout.LayoutParams(-1, dp(30)));
+        wordsRow.setVisibility(View.GONE);
 
         title = text(17, "sans-serif-medium");
         sub = text(13, "sans-serif");
@@ -337,6 +390,7 @@ public class FloatService extends Service {
         shape = new GradientDrawable();
         island.setBackground(shape);
         island.addView(top);
+        island.addView(wordsRow);
         island.addView(details);
 
         lp = new WindowManager.LayoutParams(
@@ -356,18 +410,36 @@ public class FloatService extends Service {
         lp.y = Math.max(0, hole.centerY() - pillH / 2);
 
         // Tap the top row to grow or shrink; a touch anywhere else shrinks it.
-        // A long press listens, and Emacs does what is said.
-        top.setOnClickListener(v -> setOpen(!opening));
+        // A long press listens, and Emacs does what is said: held, letting go
+        // is the end of it; let go at once, it stops when you do.  While it
+        // listens a tap means "that's all", the cross means never mind.
+        top.setOnClickListener(v -> {
+            if (voice == Voice.LISTENING && hear != null) hear.finish();
+            else if (voice != Voice.OFF) voiceOff();
+            else setOpen(!opening);
+        });
         top.setOnLongClickListener(v -> {
+            if (voice != Voice.OFF) return true;
             press("island-voice");
+            held = System.currentTimeMillis();
             listen("island");
             return true;
+        });
+        top.setOnTouchListener((v, e) -> {
+            int a = e.getActionMasked();
+            if ((a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) && held > 0) {
+                if (System.currentTimeMillis() - held > 650 && voice == Voice.LISTENING && hear != null)
+                    hear.finish();
+                held = 0;
+            }
+            return false;
         });
         island.setOnTouchListener((v, e) -> {
             if (e.getAction() == MotionEvent.ACTION_OUTSIDE) setOpen(false);
             else if (opening) keepOpen();
             return false;
         });
+        ask = new AskCard(ui, wm, lp.type);
 
         updateIsland();
         wm.addView(island, lp);
@@ -381,7 +453,7 @@ public class FloatService extends Service {
     /** Grow into the card or shrink back into the pill, morphing the window. */
     private void setOpen(boolean want) {
         main.removeCallbacks(autoHide);
-        if (island == null || want == opening || (want && locked)) return;
+        if (island == null || want == opening || (want && (locked || voice != Voice.OFF))) return;
         opening = want;
         if (want) {
             press("island-open");
@@ -418,7 +490,8 @@ public class FloatService extends Service {
     private void paint() {
         ArgbEvaluator mix = new ArgbEvaluator();
         shape.setColor((int) mix.evaluate(open, 0xFF000000, surface()));
-        shape.setCornerRadius(pillH / 2f + (dp(26) - pillH / 2f) * open);
+        shape.setCornerRadius(voice != Voice.OFF ? Math.min(lp.height / 2f, dp(30))
+                              : pillH / 2f + (dp(26) - pillH / 2f) * open);
         int fg = (int) mix.evaluate(open, 0xFFF2F2F2, onSurface());
         mark.colors(fg, (int) mix.evaluate(open, pillAccent(), accent()));
         minutes.setTextColor(fg);
@@ -481,6 +554,7 @@ public class FloatService extends Service {
     /** Mark, minutes, and the card's task and buttons, from the clock state. */
     private void updateIsland() {
         if (island == null) return;
+        if (voice != Voice.OFF) return;      // the voice has the island; voiceOff() brings the clock back
         mark.set(locked ? Mark.Kind.LOCKED : clocked ? Mark.Kind.CLOCKED
                  : task.isEmpty() ? Mark.Kind.IDLE : Mark.Kind.PAUSED);
         int m = markSize();
@@ -492,14 +566,11 @@ public class FloatService extends Service {
         markView.setLayoutParams(new LinearLayout.LayoutParams(side, m));
         if (showMinutes) minutes.setLayoutParams(new LinearLayout.LayoutParams(side, pillH));
 
-        title.setText(question != null ? question : task.isEmpty() ? "Nothing clocked" : task);
-        sub.setText(question != null ? "Say yes or no, or tap"
-                    : clocked ? "Clocked in · " + elapsed()
+        title.setText(task.isEmpty() ? "Nothing clocked" : task);
+        sub.setText(clocked ? "Clocked in · " + elapsed()
                     : task.isEmpty() ? "Pick something to do with Flow" : "Paused");
         buttons.removeAllViews();
-        String[][] bs = question != null
-                ? new String[][] {{"Yes", "voice-yes"}, {"No", "voice-no"}}
-                : clocked
+        String[][] bs = clocked
                 ? new String[][] {{"Pause", "pause"}, {"Done", "done"},
                                   {"Cancel", "cancel"}, {"Lock", "lock"}}
                 : task.isEmpty()
@@ -508,7 +579,7 @@ public class FloatService extends Service {
                                   {"Flow", "flow"}, {"Lock", "lock"}};
         for (String[] b : bs) buttons.addView(chip(b[0], b[1]));
         paint();
-        if (!opening && (morph == null || !morph.isRunning())) {
+        if (!opening && voice == Voice.OFF && (morph == null || !morph.isRunning())) {
             lp.width = collapsedWidth();
             lp.height = pillH;
             if (island.isAttachedToWindow()) wm.updateViewLayout(island, lp);
@@ -564,16 +635,221 @@ public class FloatService extends Service {
         }
     }
 
-    /** Listen once (VoiceActivity), the words going to Emacs from SOURCE.
-     *  A question stays up meanwhile: the answer may be tapped or said. */
+    // ---- voice ----------------------------------------------------------
+
+    /** Listen once, the words going where SOURCE says: island and toolbar to
+     *  Emacs; keyboard typed where you are; from the island while a text
+     *  field of another app has the cursor, field: Emacs does it if it is
+     *  clearly a command, else it is typed.  Heard by the engine (Hear) when
+     *  it is installed, else by the voice app (VoiceActivity). */
     private void listen(String source) {
+        if (locked) return;
+        if (!Hear.SOCKET.exists() || island == null) { listenWithApp(source); return; }
+        if (hear != null) hear.cancel();
+        String where = source;
+        if (source.equals("island")) {
+            String pkg = IslandAccess.editorPackage();
+            if (pkg != null && !pkg.equals(Emacs.PACKAGE) && !pkg.equals(getPackageName())) where = "field";
+        }
+        final String to = where;
+        boolean answering = ask != null && ask.showing();
+        String options = "tag=" + to
+                + (answering ? " nospeech=4000 maxsec=6 hangover=450" : " partial=400")
+                + (to.equals("keyboard") || to.equals("field") ? " boost=2.5" : "");
+        hearing = to;
+        final Hear[] self = new Hear[1];
+        final Hear h = new Hear(this, options, new Hear.Listener() {
+            boolean live() { return self[0] != null && self[0] == hear; }
+            @Override public void level(float l) {
+                if (bars != null) bars.level(l);
+                if (ask != null) ask.level(l);
+            }
+            @Override public void speech() {
+                main.post(() -> { if (!live()) return;
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.HEARING, null);
+                    else bars.mode(VoiceBars.Mode.HEARING); });
+            }
+            @Override public void partial(String w) {
+                main.post(() -> { if (!live()) return;
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.HEARING, w);
+                    else setWords(w, false); });
+            }
+            @Override public void end() {
+                main.post(() -> { if (!live()) return;
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.THINKING, null);
+                    else { voice = Voice.THINKING; bars.mode(VoiceBars.Mode.THINKING); } });
+            }
+            @Override public void heard(String text, List<String> alts) {
+                main.post(() -> { if (live()) heardWords(to, text, alts); });
+            }
+            @Override public void nothing() {
+                main.post(() -> { if (!live()) return;
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.DONE, "Didn't catch that · tap yes or no");
+                    else result("Didn't catch that", false); });
+            }
+            @Override public void failed(String why) {
+                main.post(() -> { if (!live()) return;
+                    if (why.equals("engine")) { voiceOff(); listenWithApp(to); }
+                    else result("The microphone is busy", false); });
+            }
+        });
+        self[0] = h;
+        hear = h;
+        if (!answering) voiceUp();
+        h.start();
+    }
+
+    /** The voice app's way: its own screen, then the words to Emacs. */
+    private void listenWithApp(String source) {
         if (island != null && question == null) setOpen(false);
         startActivity(new Intent(this, VoiceActivity.class)
-                .putExtra("source", source)
+                .putExtra("source", source.equals("field") || source.equals("keyboard") ? "island" : source)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
-    /** Emacs asked "did you mean ...?" (or took it back, the file empty). */
+    /** What was heard: typed, or to Emacs (with the engine's other readings). */
+    private void heardWords(String to, String text, List<String> alts) {
+        if (to.equals("keyboard")) { typeIt(text); return; }
+        if (!ask.showing()) setWords(text, false);
+        StringBuilder line = new StringBuilder().append(System.currentTimeMillis() / 1000)
+                .append('\t').append(to).append('\t').append(clean(text));
+        for (String a : alts) line.append('\t').append(clean(a));
+        line.append('\n');
+        final Context app = getApplicationContext();
+        bg.execute(() -> {
+            String reply = VoiceActivity.deliver(app, line.toString());
+            main.post(() -> {
+                if (reply != null && reply.contains("type")) typeIt(text);
+                else if (reply != null && reply.contains("front")) voiceOff();
+                else if (voice == Voice.THINKING) {
+                    // Emacs says what it did in voice-said.tsv; if it says nothing, go.
+                    main.removeCallbacks(voiceAway);
+                    main.postDelayed(voiceAway, 2500);
+                }
+            });
+        });
+    }
+
+    private static String clean(String s) { return s.replaceAll("[\\t\\r\\n]+", " ").trim(); }
+
+    /** Into the text field that has the cursor, in whatever app. */
+    private void typeIt(String text) {
+        if (IslandAccess.type(text)) result(text, true);
+        else {
+            android.content.ClipboardManager cb = getSystemService(android.content.ClipboardManager.class);
+            cb.setPrimaryClip(android.content.ClipData.newPlainText("voice", text));
+            result("Copied · " + text, true);
+        }
+    }
+
+    private void setWords(String w, boolean muted) {
+        if (words == null) return;
+        words.setTextColor(muted ? 0xFF8E8E93 : 0xFFF5F5F7);
+        if (w.equals(words.getText().toString())) return;
+        words.setText(w);
+        words.setAlpha(0.55f);
+        words.animate().alpha(1f).setDuration(140).start();
+    }
+
+    /** Grow from the pill into the voice island: bars, the cross, the words. */
+    private void voiceUp() {
+        if (island == null) return;
+        main.removeCallbacks(voiceAway);
+        main.removeCallbacks(autoHide);
+        if (opening) { opening = false; open = 0f; details.setVisibility(View.GONE); paint(); }
+        voice = Voice.LISTENING;
+        bars.mode(VoiceBars.Mode.WAITING);
+        bars.setVisibility(View.VISIBLE);
+        check.setVisibility(View.GONE);
+        setWords(hearing.equals("keyboard") || hearing.equals("field") ? "Listening · typing" : "Listening", true);
+        markView.setVisibility(View.GONE);
+        minutes.setVisibility(View.GONE);
+        for (View v : new View[] {leftBox, rightBox, wordsRow}) { v.setVisibility(View.VISIBLE); v.setAlpha(0f); }
+        morphVoice(true);
+    }
+
+    /** Say a result in the island -- growing into it first if it was a pill. */
+    private void result(String said, boolean done) {
+        if (island == null) return;
+        if (voice == Voice.OFF) { hearing = "island"; voiceUp(); }
+        voice = Voice.RESULT;
+        bars.mode(VoiceBars.Mode.DONE);
+        bars.setVisibility(done ? View.GONE : View.VISIBLE);
+        check.setVisibility(done ? View.VISIBLE : View.GONE);
+        if (done) { check.setScaleX(0.4f); check.setScaleY(0.4f);
+                    check.animate().scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(Spring.GROW).start(); }
+        setWords(said, !done);
+        main.removeCallbacks(voiceAway);
+        main.postDelayed(voiceAway, done ? Math.min(4000, 1600 + 25L * said.length()) : 1300);
+    }
+
+    private void cancelVoice() {
+        press("island-voice-cancel");
+        if (hear != null) hear.cancel();
+        hear = null;
+        voiceOff();
+    }
+
+    /** Back to the pill. */
+    private void voiceOff() {
+        main.removeCallbacks(voiceAway);
+        if (hear != null && !hear.done()) hear.cancel();
+        hear = null;
+        if (voice == Voice.OFF || island == null) return;
+        morphVoice(false);
+    }
+
+    private int voiceHeight() { return pillH + dp(42); }
+
+    /** The window grows or shrinks on a spring; the voice fades in once there's room, out first. */
+    private void morphVoice(boolean grow) {
+        int fromW = lp.width, fromH = lp.height;
+        int toW = grow ? cardW : collapsedWidthPlain(), toH = grow ? voiceHeight() : pillH;
+        if (morph != null) morph.cancel();
+        morph = ValueAnimator.ofFloat(0f, 1f).setDuration(grow ? 560 : 420);
+        morph.setInterpolator(grow ? Spring.GROW : Spring.SETTLE);
+        morph.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            lp.width = Math.max(pillH, Math.round(fromW + (toW - fromW) * f));
+            lp.height = Math.max(pillH, Math.round(fromH + (toH - fromH) * f));
+            float in = grow ? Math.max(0f, Math.min(1f, f * 1.8f - 0.6f)) : Math.max(0f, 1f - f * 2.5f);
+            for (View v : new View[] {leftBox, rightBox, wordsRow}) v.setAlpha(in);
+            shape.setCornerRadius(Math.min(lp.height / 2f, dp(30)));
+            if (island.isAttachedToWindow()) wm.updateViewLayout(island, lp);
+        });
+        morph.addListener(new AnimatorListenerAdapter() {
+            boolean cancelled;
+            @Override public void onAnimationCancel(Animator a) { cancelled = true; }
+            @Override public void onAnimationEnd(Animator a) {
+                if (grow || cancelled) return;
+                voice = Voice.OFF;
+                for (View v : new View[] {leftBox, rightBox, wordsRow}) v.setVisibility(View.GONE);
+                markView.setVisibility(View.VISIBLE);
+                updateIsland();
+            }
+        });
+        morph.start();
+    }
+
+    /** The pill's width with the clock showing as it will once the voice is gone. */
+    private int collapsedWidthPlain() {
+        boolean showMinutes = clocked && !locked;
+        minutes.setText(showMinutes ? elapsed() : "");
+        minutes.setVisibility(showMinutes ? View.VISIBLE : View.GONE);
+        int w = collapsedWidth();
+        minutes.setVisibility(View.GONE);
+        return w;
+    }
+
+    /** The island where it is now, on screen: where the question card comes from and goes back to. */
+    private Rect islandRect() {
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        int w = lp.width > 0 ? lp.width : collapsedWidth();
+        return new Rect((sw - w) / 2, lp.y, (sw + w) / 2, lp.y + Math.max(pillH, lp.height));
+    }
+
+    /** Emacs asked "did you mean ...?" (or took it back, the file empty):
+     *  the card comes down out of the island, and the island listens. */
     private void readQuestion() {
         String q;
         try {
@@ -585,36 +861,34 @@ public class FloatService extends Service {
         main.post(() -> {
             question = asked;
             if (island == null) return;
-            if (asked == null) { setOpen(false); updateIsland(); return; }
-            if (opening) { updateIsland(); regrow(); keepOpen(); }
-            else setOpen(true);
+            if (asked == null) {
+                if (hear != null && !hear.done() && ask.showing()) { hear.cancel(); hear = null; }
+                ask.dismiss(islandRect());
+                return;
+            }
+            boolean fresh = !ask.showing();
+            if (voice != Voice.OFF) { main.removeCallbacks(voiceAway); if (hear != null && !hear.done()) hear.cancel(); hear = null; voiceOff(); }
+            ask.show(asked, islandRect(), pillAccent(), this::answer);
+            if (fresh) main.postDelayed(() -> { if (ask.showing()) listen("island"); }, 380);
         });
     }
 
-    /** The island's Yes or No: to Emacs as if said from the island. */
+    /** The card's Yes or No: to Emacs as if said from the island. */
     private void answer(String word) {
         press("island-" + word);
         question = null;
-        setOpen(false);
+        if (hear != null) { hear.cancel(); hear = null; }
+        ask.dismiss(islandRect());
         final String line = (System.currentTimeMillis() / 1000) + "\tisland\t" + word + "\n";
         final Context app = getApplicationContext();
         bg.execute(() -> VoiceActivity.deliver(app, line));
     }
 
-    /** Fit the open card to what it now shows. */
-    private void regrow() {
-        island.measure(View.MeasureSpec.makeMeasureSpec(cardW, View.MeasureSpec.EXACTLY),
-                       View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-        lp.height = island.getMeasuredHeight();
-        if (island.isAttachedToWindow()) wm.updateViewLayout(island, lp);
-    }
-
-    /** Show what Emacs said a voice command did. */
+    /** What Emacs said a voice command did: the island says it. */
     private void toastSaid() {
         try {
             String said = new String(Files.readAllBytes(VOICE_SAID.toPath()), StandardCharsets.UTF_8).trim();
-            if (!said.isEmpty())
-                main.post(() -> Toast.makeText(getApplicationContext(), said, Toast.LENGTH_LONG).show());
+            if (!said.isEmpty()) main.post(() -> { if (ask == null || !ask.showing()) result(said, true); });
         } catch (Exception x) {
             android.util.Log.w("EmacsHome", "voice-said", x);
         }

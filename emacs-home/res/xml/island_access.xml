@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IslandAccess: no events, nothing read; the island's window above the
+     status bar, and the focused text field for typing what was said. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/island_access"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagInputMethodEditor"
+    android:canRetrieveWindowContent="false" />

@@ -1,0 +1,179 @@
+#+TITLE: Voice, 1 to 100: our own engine, your words, the island
+#+DATE: 2026-11-18
+
+* 1. What changed
+Before: the island asked the FUTO voice app to listen (its own screen in
+the middle), took one string back, and showed what Emacs did as a toast.
+The model was Phonon 2, pinned by the app, and it knew none of our words
+("magit" came back "magic", "Hades 2" came back "head is too").
+
+Now:
+- *The engine is ours*: =hear= (voice-engine/), Phonon 2.5 in plain C,
+  kept loaded in Termux, behind a Unix socket.  0.10 to 0.15 s for a
+  sentence on the phone.  Same program on the Mac.
+- *It knows your words*: a context graph over the model's word pieces
+  pulls the decoder toward your tasks, apps, the commands' jargon and
+  voice.org's names.  On synthetic speech: 11 of 33 right before, 29 of
+  33 after, and 30 of 30 ordinary sentences unchanged.
+- *The island is the interface*: it grows where it is into what it hears
+  and then what was done; questions come down out of it to the middle of
+  the screen and listen for the answer.  No second screen, no toasts.
+- *Typing anywhere*: in another app's text field the words are typed
+  (unless clearly a command); the keyboard's microphone key works too.
+- *Every utterance is kept* with what was heard: the data for training
+  the model on your voice every week.
+
+#+begin_example
+ long press / hold the island          the keyboard's mic key (VoiceIme)
+        |  FloatService                          |
+        +--> Hear.java: AudioRecord 16 kHz ------+
+                 | PCM over a Unix socket (.emacs-home/hear.sock)
+                 v
+ hear serve (Termux, Phonon 2.5 loaded, P25_THREADS=6)
+   finds speech start/end (energy, adaptive floor); decodes speculatively
+   at 250 ms of quiet, so at the end (700 ms, or letting go) it is ready
+   beam search + your words (vocab.txt, read again on change)
+   -> START, PARTIAL words, END, TEXT best, ALT others; saves WAV + heard.tsv
+                 |
+ Hear.java -> island (bars, words)      keyboard: typed (IslandAccess)
+          -> voice-heard.tsv: EPOCH TAB SOURCE TAB TEXT TAB ALT...
+             emacsclient (voice-from-app): the reading that makes sense wins
+             reply: quiet (did it) | front (a list to pick from) | type
+          -> voice-said.tsv: the island says what was done
+          -> voice-confirm.tsv: the question card, listening for yes or no
+#+end_example
+
+* 2. Measured
+Phone: Snapdragon 8s Gen 4 (SM8735), 8 cores, ARMv9 with dot product and
+i8mm, no SVE (the kernel turns it off), Android 17.  Engine built with
+the NDK, =-march=armv8.2-a+dotprod=, run from adb's shell.
+
+| Utterance (TTS) | Encoder | Decoder, plain | Decoder, your words | Plain | With your words |
+|-----------------+---------+----------------+---------------------+-------+-----------------|
+| open Hades 2 (Rishi) | 70 ms | 12 ms | 66 ms | Open head is too. | Open Hades 2. |
+| run consult ripgrep (Samantha) | 91 ms | 13 ms | 58 ms | Run consult rib grab. | Run consult ripgrep. |
+| open magit (Daniel) | 64 ms | 8 ms | 49 ms | Open magic. | Open Magit. |
+
+- A whole process, model loading included: 0.34 s; kept loaded: 0.10 s.
+  So a daemon, not a command per utterance.
+- Threads: 6 best (4: slower decoder; 8: no better).
+- The M5 Max does the same in 62 ms.
+- Streaming test on the Mac (real-time audio, 0.5 s quiet, speech, quiet):
+  END and TEXT together 0.5 s after the last word, =wait=0.000= — the
+  speculative decode was ready.  Holding the island makes that 0.
+
+Vocabulary, three voices (Samantha, Daniel, Rishi), 11 phrases, scored by
+=voice-engine/test/check.sh= (=test/expect.tsv=, =test/negative.tsv=):
+
+| Setting | Your words right | Ordinary sentences unchanged |
+|---------+------------------+------------------------------|
+| plain (greedy) | 11/33 | - |
+| boost 1.5, flat | 20/33 | 30/30 |
+| boost 3, deeper pieces more (default) | 27/33 | 30/30 |
+| boost 4, deeper pieces more | 29/33 | 30/30 |
+
+The island asks with boost 3; text for a field or the keyboard with 2.5.
+Still missed: "dired" (the voices say it two ways), "Syncthing" (heard as
+two words; Emacs's near-sound matching takes it), "vertico" by two voices.
+
+* 3. Research (2026-11-18), with references
+Three questions, researched in parallel; the full reports are summarised
+here.
+
+** Engines
+- *phonon-2.5-c* is NEON with SDOT int8 dot products, a C library
+  (=p25_engine_open=, =p25_transcribe=, stages exported), greedy TDT
+  decoding in ~40 lines; =--stream= only emits per 25–35 s window, and
+  there is no server.  [[https://github.com/eschmidbauer/phonon-2.5-c][github.com/eschmidbauer/phonon-2.5-c]] (MIT; weights
+  CC-BY-4.0, [[https://huggingface.co/eschmidbauer/phonon-2.5-c][huggingface.co/eschmidbauer/phonon-2.5-c]]).  Phonon 2.5: 5.06 %
+  average English WER vs Phonon 2's 5.21 %
+  ([[https://huggingface.co/FermionResearch/Phonon-2.5][model card]]).
+- *sherpa-onnx* runs in Termux (v2.0.1 tarballs), has Parakeet TDT
+  0.6B v2/v3 and hotwords for NeMo transducers with modified beam search
+  ([[https://k2-fsa.github.io/sherpa/onnx/hotwords/index.html][hotwords]], [[https://github.com/k2-fsa/sherpa-onnx/pull/3077][PR 3077]]); TDT beam search dropped speech until
+  [[https://github.com/k2-fsa/sherpa-onnx/pull/4084][PR 4084]] (2026-10-27).  The reference for boost values; not needed.
+- *Moonshine v2* streaming (Tiny/Small/Medium: 12.0 / 7.84 / 6.65 % WER)
+  has key-term biasing built in, =boost·(1+ln depth)=; 98–180 ms after
+  speech on an iPad ([[https://arxiv.org/abs/2602.12241][arXiv 2602.12241]],
+  [[https://moonshine-voice.readthedocs.io/en/latest/models/domain-customization/][domain customisation]]).  The next model to try; its runtime in Termux
+  is unverified.
+- *whisper.cpp* steers with a prompt and GBNF grammars but is slow on
+  phone CPUs for short audio ([[https://github.com/ggml-org/whisper.cpp/blob/master/examples/cli/README.md][CLI README]]).
+
+** Biasing toward your words
+- Shallow fusion with a biasing graph: [[https://www.isca-archive.org/interspeech_2019/zhao19d_interspeech.html][Zhao et al. 2019]]; trie-based deep
+  biasing: [[https://arxiv.org/abs/2104.02194][Le et al. 2021]]; an Aho-Corasick context graph on icefall's:
+  [[https://arxiv.org/abs/2409.13514][arXiv 2409.13514]].
+- NeMo's GPU-PB boosts RNN-T/TDT in greedy or beam, with depth scaling
+  ([[https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/asr_customization/word_boosting.html][NeMo word boosting]]); TurboBias notes flat weights work poorly in greedy
+  ([[https://arxiv.org/html/2508.07014v2][arXiv 2508.07014]]).
+- What hear does (voice-engine/bias.c): sherpa-onnx's ContextGraph
+  scoring (a bonus per piece, taken back if the phrase is left unfinished,
+  kept when it completes), every spelling of a phrase in its fewest
+  pieces or one more, deeper pieces boosted more, on a frame-synchronous
+  beam search of 4 over the TDT decoder.  The tokenizer is multilingual
+  and small: even "open" is two pieces, so "known words" can't be told
+  from piece counts; Emacs sends only names and jargon instead (a word is
+  jargon when it names a loaded Emacs library).
+
+** Android, without being a keyboard
+- Recording from the app (=AudioRecord=, =VOICE_RECOGNITION=, 16 kHz)
+  inside the running service; audioserver silences background UIDs
+  ([[https://developer.android.com/media/platform/sharing-audio-input][sharing audio input]]); an enabled accessibility service is bound with
+  =BIND_INCLUDE_CAPABILITIES=, which carries the microphone capability to
+  the app's processes ([[https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android17-release/services/accessibility/java/com/android/server/accessibility/AccessibilityServiceConnection.java][AccessibilityServiceConnection]]).  Unverified on the
+  phone; =dumpsys activity processes= should show =M=.
+- Typing: an accessibility service with =flagInputMethodEditor= gets the
+  focused field's input connection, as a keyboard does (Android 13,
+  [[https://developer.android.com/reference/android/accessibilityservice/InputMethod][InputMethod]]); =commitText= inserts at the cursor.
+- The keyboard's mic key: Unexpected Keyboard (and CleverKeys when its
+  own engine is off) switch to an IME with a =voice= subtype
+  ([[https://github.com/Julow/Unexpected-Keyboard/blob/master/srcs/juloo.keyboard2/VoiceImeSwitcher.java][VoiceImeSwitcher]], [[https://github.com/tribixbite/CleverKeys/blob/main/src/main/kotlin/tribixbite/cleverkeys/VoiceKeyRouting.kt][CleverKeys VoiceKeyRouting]]).  VoiceIme is that,
+  shows nothing, and hands straight back.
+- End of speech: Home Assistant's hangovers are 0.25 / 0.7 / 1.25 s
+  ([[https://github.com/home-assistant/core/blob/dev/homeassistant/components/assist_pipeline/vad.py][vad.py]]); FUTO's fork stops after ~1–3 s.  Hold to talk pays none.
+
+** The apps you named
+whisperIME (TFLite Whisper, RecognitionService, MIT), whisperIMEplus
+(ONNX Whisper, GPLv3), the FUTO fork (many runtimes, glossary prompt,
+audio history, source-first non-commercial), BiBi-Keyboard (sherpa-onnx,
+accessibility floating ball, Apache-2.0), Dictate (FlorisBoard fork,
+sherpa-onnx, Apache-2.0), Transcribro (whisper.cpp tiny, Silero VAD with
+partials, ISC).  Taken: the engine out of process and kept warm, record
+first and connect meanwhile, audio on disk with its transcript, a speech
+gate, the typing route.  Not taken: model catalogues and downloaders,
+benchmark UIs, cloud vendors, LLM cleanup, a keyboard.
+Why Phonon 2.5 can't go into the FUTO app: it pins Phonon 2's sizes and
+SHA-256s (=PhononModel.kt=), an install marker, and the native loader
+refuses any format but =phonon-2-c-weights-v1=.
+
+* 4. Training it on your voice, weekly
+Every utterance is in Documents/voice-audio/heard (WAV + heard.tsv);
+Emacs's voice log says what it was taken to mean, and a yes or a pick
+confirms it.  The plan the research supports:
+- Retrain only the prediction network and joint (17 MB of the model; the
+  five-value encoder stays), from the base model each week on everything
+  collected, with general speech mixed in so it forgets nothing
+  ([[https://arxiv.org/abs/1912.09251][Sim et al.]]: decoder-only fine-tuning on 50 utterances took name WER
+  from 67 % to 55 %).  The encoder's outputs are computed once per
+  utterance by hear; the TDT loss runs on the Mac's CPU in plain PyTorch
+  ([[https://github.com/huggingface/transformers/blob/main/src/transformers/loss/loss_tdt.py][transformers loss_tdt.py]]; NeMo's is CUDA only).
+- Text-only adaptation of the prediction network from task names and
+  commands ([[https://arxiv.org/abs/2104.11127][Pylkkönen et al. 2021]]).
+- Names that change (a new task, a new app) stay with the vocabulary: no
+  training needed, the file changes and the engine reads it again.
+
+* 5. Next
+1. On the phone: =update voice=, =M-x voice-engine-setup=, then the
+   Emacs Home APK (restarts Emacs and Termux) with
+   =./build.sh install=.  Check the microphone capability (=M=) and
+   the island's look; tune the hangover from real use.
+2. The joint for all beams in one matrix product: the decoder from
+   ~60 ms to ~20 ms.
+3. The Mac: =hear client= with the microphone (=rec= or =ffmpeg=) behind
+   =voice-listen=; a hotkey in rift.
+4. The weekly retraining script (section 4), once a few hundred
+   utterances are kept.
+5. A =RecognitionService= and =RECOGNIZE_SPEECH= handler, so other apps'
+   mic buttons use it too.
+6. Moonshine v2 streaming as a second model, for words while you speak.

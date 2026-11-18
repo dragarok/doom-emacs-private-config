@@ -77,21 +77,25 @@ public class VoiceActivity extends Activity {
     }
 
     /** Write what was heard and tell Emacs; start Emacs if it isn't up.
-     *  Also the island's Yes and No, as if said (FloatService.answer). */
-    static void deliver(Context c, String line) {
+     *  Also the island's Yes and No, as if said (FloatService.answer).
+     *  LINE is EPOCH TAB SOURCE TAB TEXT, then the engine's other readings,
+     *  a tab before each.  Returns Emacs's reply: front (it brought itself
+     *  forward), type (type the words where the cursor is), quiet, or null. */
+    static String deliver(Context c, String line) {
         try (FileOutputStream f = new FileOutputStream(HEARD, false)) {
             f.write(line.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             Log.w("EmacsHome", "voice-heard", e);
-            return;
+            return null;
         }
         String reply = Emacs.evalReply(c, "(voice-from-app)");
         for (int i = 0; reply == null && i < 15; i++) {
             if (i == 0) front(c);
-            try { Thread.sleep(1000); } catch (InterruptedException e) { return; }
+            try { Thread.sleep(1000); } catch (InterruptedException e) { return null; }
             reply = Emacs.evalReply(c, "(voice-from-app)");
         }
         if (reply != null && reply.contains("front")) front(c);
+        return reply;
     }
 
     private static void front(Context c) {

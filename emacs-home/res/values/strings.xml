@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="voice_ime">Emacs voice</string>
+  <string name="voice_subtype">Voice</string>
+  <string name="island_access">The clock island above the status bar, and typing what you say into the app you are in.</string>
+</resources>

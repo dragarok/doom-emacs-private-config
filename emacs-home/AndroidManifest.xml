@@ -12,6 +12,8 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
   <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+  <!-- The island hears you itself (Hear.java): granted once over adb, see build.sh. -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
   <application android:label="Emacs Home">
 
@@ -28,6 +30,20 @@
       <intent-filter>
         <action android:name="android.accessibilityservice.AccessibilityService" />
       </intent-filter>
+      <meta-data android:name="android.accessibilityservice"
+                 android:resource="@xml/island_access" />
+    </service>
+
+    <!-- The keyboard's microphone key: a voice-only input method that hands
+         straight back and has the island listen (VoiceIme). -->
+    <service android:name=".VoiceIme"
+             android:exported="true"
+             android:label="@string/voice_ime"
+             android:permission="android.permission.BIND_INPUT_METHOD">
+      <intent-filter>
+        <action android:name="android.view.InputMethod" />
+      </intent-filter>
+      <meta-data android:name="android.view.im" android:resource="@xml/voice_ime" />
     </service>
 
     <!-- Home button: bring Emacs forward, tell it, refresh the app list. -->

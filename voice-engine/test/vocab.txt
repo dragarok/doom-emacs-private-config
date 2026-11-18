@@ -1,0 +1,15 @@
+# Emacs and apps: words a general model doesn't know
+magit
+vertico
+consult ripgrep
+org-roam
+org roam
+dired
+ibuffer
+Hades 2
+Hades II
+Image Tagging
+Termux
+Syncthing
+Herdr
+Image Tagging

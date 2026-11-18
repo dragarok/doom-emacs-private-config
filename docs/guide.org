@@ -184,12 +184,25 @@ monthly review is =SPC o v m=.
 
 * Voice
 
-** Say it: Voice, or a long press on the clock
-Tap *Voice* on the toolbar, or long-press the clock island from any
-app, and say what to do.  Emacs does the closest thing and tells you
-what it did.  Say it as you would to a person: "okay, can you save
-everything, please" works as well as "save everything".  "help" shows
-everything you can say where you are.
+** Say it: a long press on the island, or Voice
+Long-press the clock island from any app (or tap *Voice* on the
+toolbar) and say what to do.  The island grows where it is: bars that
+follow your voice, your words as you say them, then what Emacs did, with
+a tick; then it is a pill again.  Say it as you would to a person:
+"okay, can you save everything, please" works as well as "save
+everything".  "help" shows everything you can say where you are.
+- Hold the island while you speak: letting go is the end, nothing to
+  wait for.  Let go at once instead, and it stops when you stop.
+- Tap the grown island: that's all, hear it now.  The cross: never mind.
+- A question ("Did you mean …?") comes down out of the island to the
+  middle of the screen and listens for yes or no; or tap.
+
+** Typing by voice, in any app
+With the cursor in a text field of another app, long-press the island
+and speak: the words are typed there.  Something clearly a command
+("clock in to guitar scales") is done instead.  The keyboard's
+microphone key types too: pick *Emacs voice* as its voice input (in
+CleverKeys, with its own voice engine off).
 
 ** Clock in by naming the task
 "clock in to guitar scales", "work on the paper review", "read atomic
@@ -230,11 +243,28 @@ already typed: tap the one you meant.
 - "diary went for a long walk", "motto stay curious"
 - "save everything", "zen"
 
-** Any command: "run …"
-"run magit status", "M-x org agenda": a command said by its exact name
-runs at once.  Otherwise the commands open, the closest to what you
-said first: tap one, or say "the second one".  One that kills, deletes,
-reverts, quits or evaluates asks first, and you answer that by hand.
+** Any command, by what you call it
+Every command in Emacs can be said, not only the ones above.
+- By its name: "magit status", "describe key", "list buffers".
+- By what its key says: Doom's leader names, within their prefix ("line
+  numbers" under toggle is SPC t l).
+- In your words: change, switch, set and load mean the same in command
+  names; so do open and find, show and view, bigger and increase; a mode
+  is toggled.  "change theme" is load-theme (consult-theme in Doom).
+- With what it asks, in the same sentence: "change theme to doom acario
+  dark" loads it; "switch to buffer messages" goes there.  No one entry
+  named ("change theme to dark mode"): its list opens with the nearest
+  first (the dark themes: each theme says in its file whether it is
+  dark), to say which or tap.
+- Only the thing: "doom one theme", "switch to dark mode": "Did you mean
+  load theme doom one?"  Misheard names come close too ("a car io dark"
+  is acario dark).
+- "run …" or "M-x …" in front says it is a command.
+Nothing near enough: the closest commands open, to say or tap which.
+What you pick is learned with what its question got, so next time
+"switch to dark mode" just loads that theme.  A mode's own commands
+count less outside it.  One that kills, deletes, reverts, quits or
+evaluates asks first, and you answer that by hand.
 
 ** Tagging photos by voice
 "start image tagging" clocks in to Image Tagging and shows the first
@@ -258,14 +288,35 @@ such tag: exploration"); say none and the tag question opens.  Big
 
 ** Answer the question on screen
 With a question open, tap Voice and answer it: a choice by its name or
-"the second one", yes or no, or the text to type.  "cancel" closes it.
-Voice never answers a question about exiting Emacs, deleting or
-discarding: those are yours to answer by hand.
+"the second one", yes or no, or the text to type.  In a list: "next",
+"previous", "more" (a page), "this one" or "ok" for the one shown,
+"clear" to show them all, "cancel" to close.  From the clock or the
+toolbar the mic opens again while the list is open.  Voice never
+answers a question about exiting Emacs, deleting or discarding: those
+are yours to answer by hand.
 
 ** Your own words: ~/org/voice.org
 Under =* Phrases=, =- wrap up :: pause= makes "wrap up" mean pause.
 Under =* Names=, another name for a task: =- gym :: Workout at the
-fitness centre=.  Picks from the list add these by themselves.
+fitness centre=.  Under =* Words=, a word meaning another in command
+names: =- colours :: theme=.  Picks and yeses add phrases and names by
+themselves.
+
+** Words it hears well
+The engine is told the names a general recogniser gets wrong, and
+pulled toward them: your tasks and people, the phone's apps ("Hades 2"),
+the libraries your commands come from (magit, vertico, org roam), every
+name in voice.org and every word a =* Sounds= line says was misheard.
+Add more under =* Hear= in voice.org, one per line: =- Hades 2=.  The
+list is read again whenever it changes.
+
+** The engine
+What hears you is Phonon 2.5, in Termux, kept loaded: about a tenth of a
+second for a sentence, offline.  Emacs builds it and puts the model in
+place the first time (=M-x voice-engine-setup= does it again), and keeps
+it running.  Every utterance is
+kept with what was heard in Documents/voice-audio/heard, for training
+it on your voice later.  Without it, the FUTO voice app hears instead.
 
 ** On the Mac: SPC V
 Type what you would say.
@@ -279,9 +330,12 @@ counting more than common ones, the opening words more than the rest.
 - A clear winner is done.
 - A near one is asked about: "Did you mean stop tagging?"  Say yes or
   no (the mic opens again), or tap Yes or No on the island.  A no asks
-  about the next nearest, then offers your tasks.
+  about the next nearest, then offers your tasks or the closest
+  commands.
 - A yes teaches it: the sentence goes under * Phrases in voice.org and
-  is done straight away next time.  Nothing is learned without a yes.
+  is done straight away next time; for a command, with what its
+  question got (=- switch to dark mode :: run load-theme doom-one=).
+  Nothing is learned without a yes or a pick.
 - "update voice" pulls the config and reloads the voice files.
 
 ** When it gets something wrong

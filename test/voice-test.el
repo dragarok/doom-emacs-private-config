@@ -357,15 +357,28 @@ SCHEDULED: <2020-01-01 Wed>
     (should (equal (voice--settle "camera" apps nil) "Camera"))
     (should-not (voice--settle "camera roll pictures" apps nil))))
 
-(ert-deftest voice-test-unclear-answer-opens-the-list-typed ()
-  (let (seen)
+(ert-deftest voice-test-unclear-answer-opens-the-list-nearest-first ()
+  ;; "habits book" names no one entry: the list opens with the nearest
+  ;; first, nothing typed (both words typed would empty it).
+  (let (seen typed)
     (cl-letf (((symbol-function 'voice--orig-cr)
-               (lambda (_p _c &optional _pr _rm initial &rest _) (setq seen initial) "Atomic Habits")))
+               (lambda (_p c &optional _pr _rm initial &rest _)
+                 (setq seen (all-completions "" c) typed initial) "Atomic Habits")))
       (let ((voice--fill (list :pool nil :answers '(("\\`Node" . "habits book")) :owned '("\\`Node"))))
         (should (equal (voice--completing-read-a #'voice--orig-cr "Node: "
-                                                 '("Atomic Habits" "Habit tracker ideas" "Book list"))
+                                                 '("Garden plan" "Atomic Habits" "Habit tracker ideas" "Book list"))
                        "Atomic Habits"))
-        (should (equal seen "habit book"))))))
+        (should (equal (car (last seen)) "Garden plan"))
+        (should-not typed)))))
+
+(ert-deftest voice-test-unclear-answer-types-only-words-the-list-has ()
+  (let (typed)
+    (cl-letf (((symbol-function 'voice--orig-cr)
+               (lambda (_p _c &optional _pr _rm initial &rest _) (setq typed initial) "x"))
+              ((symbol-function 'voice-emacs-order) (lambda (&rest _) nil)))
+      (let ((voice--fill (list :pool nil :answers '(("\\`Node" . "garden zebra")) :owned '("\\`Node"))))
+        (voice--completing-read-a #'voice--orig-cr "Node: " '("Garden plan" "Book list"))
+        (should (equal typed "garden"))))))
 
 (ert-deftest voice-test-dates ()
   (should (equal (voice--date "tomorrow") "+1d"))
@@ -409,7 +422,7 @@ SCHEDULED: <2020-01-01 Wed>
 
 (ert-deftest voice-test-run-any-command ()
   (voice-test--with
-    (let ((voice--commands-cache nil) (voice-test--ran nil))
+    (let ((voice-test--ran nil))
       ;; Said by its exact name, it runs.
       (voice-dispatch "run voice test water the plants" :source "test")
       (should (eq voice-test--ran 'plants))
@@ -421,14 +434,18 @@ SCHEDULED: <2020-01-01 Wed>
       ;; Voice never answers that question itself.
       (let ((voice--choice (cons "Run voice-test-delete-the-plants?  Answer by hand " '(?y ?n))))
         (should (string-match-p "doesn't answer" (voice--answer-prompt "yes"))))
-      ;; Not exact: the list opens, the closest first.
+      ;; Not exact but clear: it runs.
+      (setq voice-test--ran nil)
+      (voice-dispatch "run water plants" :source "test")
+      (should (eq voice-test--ran 'plants))
+      ;; Unclear: the list opens, the closest first.
       (let (first)
         (cl-letf (((symbol-function 'completing-read)
                    (lambda (_p table &rest _)
-                     (setq first (car (all-completions "" table)))
+                     (setq first (seq-take (all-completions "" table) 2))
                      "voice-test-water-the-plants")))
-          (voice-dispatch "run water plants" :source "test"))
-        (should (equal first "voice-test-water-the-plants"))))))
+          (voice-dispatch "run the plants" :source "test"))
+        (should (member "voice-test-water-the-plants" first))))))
 
 ;;;; Tagging photos
 
@@ -605,5 +622,148 @@ SCHEDULED: <2020-01-01 Wed>
           (should (eq (voice-from-app) 'quiet)))
       (delete-directory dir t))))
 
+;;;; Any command, by what it is called
+
+(defun voice-test-paint-theme (theme)
+  "A command that asks for a theme, as load-theme does."
+  (interactive (list (intern (completing-read "Theme: " (mapcar #'symbol-name (custom-available-themes)) nil t))))
+  (setq voice-test--ran theme))
+
+(ert-deftest voice-test-words-that-mean-the-same ()
+  (should (member "load" (voice-emacs-related "change")))
+  (should (member "mode" (voice-emacs-related "toggle")))
+  (should-not (member "mode" (voice-emacs-related "switch"))))
+
+(ert-deftest voice-test-words-said-apart ()
+  ;; "a car io dark" for doom-acario-dark: words run together count.
+  (should (equal (plist-get (nth 2 (car (voice-match-strings '("doom-acario-dark" "doom-acario-light" "doom-one")
+                                                             "a car io dark")))
+                            :title)
+                 "doom-acario-dark"))
+  ;; ...but one word the start of a run is no match: switch is not switchdark.
+  (should (< (voice-match--whole-sim "switch" "switchdark") 0.8)))
+
+(ert-deftest voice-test-theme-describes-itself ()
+  (should (string-match-p "dark" (or (voice-emacs--theme-doc 'tango-dark) ""))))
+
+(ert-deftest voice-test-what-a-command-asks ()
+  (should (eq (car (voice-emacs-asks 'voice-test-paint-theme)) 'theme))
+  (should (eq (car (voice-emacs-asks 'switch-to-buffer)) 'buffer))
+  (should (null (cdr (voice-emacs-asks 'forward-char)))))
+
+(ert-deftest voice-test-command-by-its-name-runs ()
+  (voice-test--with
+    (should (voice-expect-ok "cmd:describe-function" (voice-plan "describe function" "test")))))
+
+(ert-deftest voice-test-command-then-what-it-asks ()
+  (voice-test--with
+    (let ((voice-emacs--catalog nil) (voice-test--ran nil))
+      ;; The command, then a value of its kind: run with it, no list.
+      (let ((plan (voice-plan "paint theme to tango dark" "test")))
+        (should (voice-expect-ok "cmd:voice-test-paint-theme" plan))
+        (should (equal (plist-get (plist-get plan :action) :value) "tango-dark")))
+      (voice-dispatch "paint theme to tango dark" :source "test")
+      (should (eq voice-test--ran 'tango-dark)))))
+
+(ert-deftest voice-test-a-value-its-command-unsaid-asks-then-learns ()
+  ;; "switch to dark mode": no command says dark, themes do.  Asked; on a
+  ;; yes the themes open, the dark ones first; the pick is learned.
+  (voice-test--with
+    (let* ((voice-emacs--catalog nil) (voice-test--ran nil) (voice-learn t) (voice--confirm nil)
+           (plan (voice-plan "switch to dark mode" "test"))
+           (first (nth 1 (car (plist-get plan :options))))
+           seen)
+      (should (eq (plist-get plan :kind) 'ask))
+      (should (eq (car (voice-emacs-asks (plist-get first :run))) 'theme))
+      (let ((completing-read-function (lambda (_p coll &rest _) (setq seen (all-completions "" coll)) (car seen)))
+            (custom-safe-themes t))
+        (cl-letf (((symbol-function 'voice--run-command)
+                   (lambda (_cmd answer &optional _source)
+                     ;; The same as the real one, on the test's command.
+                     (let ((voice--fill (list :pool nil :answers (list (cons "" answer)) :owned nil))
+                           (voice--recording t) (voice--answers nil))
+                       (call-interactively #'voice-test-paint-theme)
+                       (setq voice--last-run (list :cmd 'voice-test-paint-theme
+                                                   :answer (seq-find #'stringp voice--answers)))
+                       "ran"))))
+          (voice-dispatch "switch to dark mode" :source "test")
+          (should voice--confirm)
+          (voice-dispatch "yes" :source "test")))
+      (should voice-test--ran)
+      (should (string-match-p "dark" (or (voice-emacs--theme-doc (intern (car seen))) (car seen))))
+      (should (string-match-p (format "switch to dark mode :: run voice-test-paint-theme %s" (car seen))
+                              (with-temp-buffer (insert-file-contents voice-file) (buffer-string)))))))
+
+(ert-deftest voice-test-learned-command-sentence-runs ()
+  (voice-test--with
+    (let ((voice-test--ran nil))
+      (with-temp-file voice-file (insert "* Phrases\n- night colours :: run voice-test-paint-theme tango-dark\n"))
+      (voice-dispatch "night colours" :source "test")
+      (should (eq voice-test--ran 'tango-dark)))))
+
+(ert-deftest voice-test-press-in-a-list ()
+  (let ((unread-command-events nil))
+    (voice--press "<down>")
+    (should (equal unread-command-events '(down)))))
+(ert-deftest voice-test-a-domain-plugs-in ()
+  "A new domain is one form: its claim is weighed with everything else,
+its kind of plan done by it; defined again, the old one is taken down."
+  (let ((voice-domains voice-domains) (down 0) done)
+    (voice-test--with
+      (voice-define-domain 'test-weather
+        :claim (lambda (u _best)
+                 (when (string-match-p "weather" (plist-get u :request))
+                   (list :kind 'weather :text (plist-get u :text) :near 1.0)))
+        :kinds `((weather . ,(lambda (_plan) (setq done t) "Sunny")))
+        :disable (lambda () (cl-incf down)))
+      (should (eq (plist-get (voice-plan "how is the weather" "test") :kind) 'weather))
+      (should (equal (plist-get (voice-dispatch "how is the weather" :source "test") :result) "Sunny"))
+      (should done)
+      (voice-define-domain 'test-weather :doc "Nothing now.")
+      (should (= down 1))
+      (should-not (eq (plist-get (voice-plan "how is the weather" "test") :kind) 'weather)))))
+
 (provide 'voice-test)
 ;;; voice-test.el ends here
+
+;;;; The engine: its readings, a text field, your words
+
+(ert-deftest voice-test-the-reading-that-makes-sense-wins ()
+  ;; The engine's best guess means nothing here; its second names a task.
+  (voice-test--with
+    (let ((best (voice--best-reading '("glorp the wibble fnord" "clock in to the bicycle brakes")
+                                     "island")))
+      (should (equal (car best) "clock in to the bicycle brakes"))
+      (should (voice--decisive-p (cddr best))))))
+
+(ert-deftest voice-test-a-field-gets-words-typed ()
+  ;; From another app's text field, what is no command is typed there.
+  (voice-test--with
+    (let* ((dir (file-name-directory voice-log-file))
+           (emacs-home-dir dir)
+           (voice-test-marker nil))
+      (with-temp-file (expand-file-name "voice-heard.tsv" dir)
+        (insert (format "%d\tfield\tthanks for the update see you soon\n" (float-time))))
+      (should (eq (voice-from-app) 'type))
+      (accept-process-output nil 0.3)
+      (should-not (org-clocking-p)))))
+
+(ert-deftest voice-test-a-field-still-takes-a-clear-command ()
+  (voice-test--with
+    (let* ((dir (file-name-directory voice-log-file))
+           (emacs-home-dir dir)
+           (voice-test-marker nil))
+      (with-temp-file (expand-file-name "voice-heard.tsv" dir)
+        (insert (format "%d\tfield\tclock in to the bicycle brakes\tclock in to the bicycle breaks\n"
+                        (float-time))))
+      (should (memq (voice-from-app) '(quiet front)))
+      (accept-process-output nil 0.5)
+      (should (org-clocking-p))
+      (should (string-match-p "bicycle brakes" org-clock-current-task)))))
+
+(ert-deftest voice-test-the-engine-hears-task-names ()
+  (voice-test--with
+    (let ((words (voice-engine-vocabulary)))
+      (should (member "Fix the bicycle brakes" words))
+      (should-not (member "Old finished thing" words))
+      (should-not (seq-some (lambda (w) (string-match-p "[\t\n]" w)) words)))))

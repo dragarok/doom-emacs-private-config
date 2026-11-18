@@ -76,28 +76,50 @@
   "STRING's words joined by single spaces: what equal phrases share."
   (string-join (voice-match-words string) " "))
 
+(defvar voice-match--forms (make-hash-table :test 'equal)
+  "Word -> (SINGLE SKELETON DEVOICED), worked out once: commands repeat
+the same few thousand words.")
+
+(defun voice-match--forms (word)
+  "WORD's sound forms: see `voice-match--single', `--skeleton', `--devoice'."
+  (or (gethash word voice-match--forms)
+      (let* ((single (replace-regexp-in-string "\\(.\\)\\1+" "\\1" word))
+             (skeleton (if (string-empty-p single) single
+                         (concat (substring single 0 1)
+                                 (replace-regexp-in-string "[aeiouy]" "" (substring single 1)))))
+             (devoiced (copy-sequence single)))
+        (dotimes (i (length devoiced))
+          (let ((c (assq (aref devoiced i) '((?d . ?t) (?b . ?p) (?g . ?k) (?v . ?f) (?z . ?s)))))
+            (when c (aset devoiced i (cdr c)))))
+        (when (> (hash-table-count voice-match--forms) 200000) (clrhash voice-match--forms))
+        (puthash word (list single skeleton devoiced) voice-match--forms))))
+
 (defun voice-match--single (word)
   "WORD with doubled letters single: \"ellen\" and \"elon\" sound alike."
-  (replace-regexp-in-string "\\(.\\)\\1+" "\\1" word))
+  (nth 0 (voice-match--forms word)))
 
 (defun voice-match--skeleton (word)
   "WORD's first letter and its later consonants: names sound alike by them."
-  (let ((word (voice-match--single word)))
-    (if (string-empty-p word) word
-      (concat (substring word 0 1)
-              (replace-regexp-in-string "[aeiouy]" "" (substring word 1))))))
+  (nth 1 (voice-match--forms word)))
 
 (defun voice-match--devoice (word)
   "WORD single, its voiced consonants unvoiced: recognisers swap d and t
 \(\"dagging\" for \"tagging\"), b and p, g and k, v and f, z and s."
-  (let ((w (voice-match--single word)))
-    (dotimes (i (length w))
-      (let ((c (assq (aref w i) '((?d . ?t) (?b . ?p) (?g . ?k) (?v . ?f) (?z . ?s)))))
-        (when c (aset w i (cdr c)))))
-    w))
+  (nth 2 (voice-match--forms word)))
+
+(defvar voice-match--sims (make-hash-table :test 'equal)
+  "(X . Y) -> `voice-match-sim', remembered: the same pairs come up for
+every candidate.")
 
 (defun voice-match-sim (x y)
   "How alike words X and Y are, 0 to 1."
+  (let ((key (cons x y)))
+    (or (gethash key voice-match--sims)
+        (progn (when (> (hash-table-count voice-match--sims) 300000) (clrhash voice-match--sims))
+               (puthash key (voice-match--sim x y) voice-match--sims)))))
+
+(defun voice-match--sim (x y)
+  "`voice-match-sim' worked out."
   (let ((lx (length x)) (ly (length y)))
     (cond ((string= x y) 1.0)
           ((string-match-p "\\`[0-9]+\\'" (concat x y)) 0.0) ; numbers are exact
@@ -114,11 +136,39 @@
              (if (>= s 0.75) s 0.0)))
           (t 0.0))))
 
+(defvar voice-match-related nil
+  "Nil, or a function of two words giving how alike they are in meaning,
+0 to 1: words for one thing in command names (voice-emacs.el binds it
+while it ranks commands).  Task titles never use it.")
+
+(defvar voice-match-expand nil
+  "Nil, or a function giving the words related to a word: looked up too,
+and lending their weight to a word no title has.")
+
+(defun voice-match--whole-sim (x y)
+  "How alike X and Y are as whole words, for words run together: as
+`voice-match-sim', but one the start of the other is no likeness
+\(\"switch\" is not \"switchdark\")."
+  (let ((lx (length x)) (ly (length y)))
+    (cond ((string= x y) 1.0)
+          ((string= (voice-match--single x) (voice-match--single y)) 0.95)
+          ((and (>= lx 4) (>= ly 4)
+                (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
+                    (string= (voice-match--devoice x) (voice-match--devoice y))))
+           0.9)
+          ((and (>= lx 4) (>= ly 4))
+           (let ((s (- 1.0 (/ (float (string-distance x y)) (max lx ly)))))
+             (if (>= s 0.8) s 0.0)))
+          (t 0.0))))
+
 (defun voice-match--best-sim (word words)
-  "The best `voice-match-sim' of WORD against WORDS."
+  "The best `voice-match-sim' of WORD against WORDS (or, while
+`voice-match-related' is set, of their meanings)."
   (let ((best 0.0))
     (while (and words (< best 0.999))
-      (setq best (max best (voice-match-sim word (pop words)))))
+      (let ((w (pop words)))
+        (setq best (max best (voice-match-sim word w)
+                        (if voice-match-related (funcall voice-match-related word w) 0.0)))))
     best))
 
 ;;;; Index
@@ -170,7 +220,15 @@ other names for it), :extra (string: tags, parent; counts at 0.6), :prior
                              :default-idf (log (+ 1.0 n)) :keys keys)))
 
 (defun voice-match--idf (index token)
-  (gethash token (voice-match-index-idf index) (voice-match-index-default-idf index)))
+  "TOKEN's idf in INDEX.  One no title has weighs as the rarest, unless
+`voice-match-expand' relates it to words titles have: then as the
+rarest of those."
+  (or (gethash token (voice-match-index-idf index))
+      (and voice-match-expand
+           (let ((known (delq nil (mapcar (lambda (x) (gethash x (voice-match-index-idf index)))
+                                          (funcall voice-match-expand token)))))
+             (and known (apply #'max known))))
+      (voice-match-index-default-idf index)))
 
 ;;;; Scoring
 
@@ -192,32 +250,68 @@ position."
       (let ((i 0) (ws words))
         (while (cdr ws)
           (let* ((joined (concat (car ws) (cadr ws)))
-                 (sim (apply #'max 0.0 (mapcar (lambda (x) (if (>= (length x) 6) (voice-match-sim x joined) 0.0))
+                 (sim (apply #'max 0.0 (mapcar (lambda (x) (if (>= (length x) 6) (voice-match--whole-sim x joined) 0.0))
                                                query))))
             (when (>= sim 0.85) (push (list sim i joined) out)))
           (setq ws (cdr ws) i (1+ i)))))
     out))
+
+(defun voice-match--runs (query words)
+  "Runs of two or three neighbouring QUERY words said for one long word of
+WORDS: \"car io\" for acario.  Only words no word of WORDS is like on its
+own, and no numbers (\"chapter 5\" is not \"chapter\").  Return (SIM WORD
+. POSITIONS) for each."
+  (let* ((v (vconcat query)) (n (length query))
+         (loose (vconcat (mapcar (lambda (x) (and (not (string-match-p "[0-9]" x))
+                                                  (< (voice-match--best-sim x words) 0.85)))
+                                 query)))
+         out)
+    (when (cdr query)
+      (dolist (y words)
+        (when (>= (length y) 5)
+          (dotimes (i n)
+            (dolist (len '(2 3))
+              (when (and (<= (+ i len) n)
+                         (cl-loop for j from i below (+ i len) always (aref loose j)))
+                (let ((sim (voice-match--whole-sim y (apply #'concat (append (seq-subseq v i (+ i len)) nil)))))
+                  (when (>= sim 0.8)
+                    (push (cons sim (cons y (number-sequence i (+ i len -1)))) out)))))))))
+    out))
+
+(defvar voice-match-title-share 0.25
+  "How much of S is the title's words being said; the rest is what was
+said being in the title.  Commands' names, where every word picks one
+out, bind it higher.")
 
 (defun voice-match--score-words (index query words extra)
   "S for QUERY tokens against a title's WORDS and its EXTRA tokens."
   (if (or (null query) (null words)) 0.0
     (let* ((num 0.0) (den 0.0) (num2 0.0) (den2 0.0)
            (joined (voice-match--joined query words))
-           (joined-words (mapcar #'caddr joined)))
-      (dolist (x query)
-        (let ((w (voice-match--weight index x)))
-          (cl-incf den w)
-          (cl-incf num (* w (max (voice-match--best-sim x words)
-                                 (if joined-words (voice-match--best-sim x joined-words) 0.0)
-                                 (* 0.6 (voice-match--best-sim x extra)))))))
+           (joined-words (mapcar #'caddr joined))
+           ;; Words said apart for one, only when some word said is
+           ;; not in the title as it is.
+           (runs (and (seq-some (lambda (x) (< (voice-match--best-sim x words) 0.85)) query)
+                      (voice-match--runs query words)))
+           (run-sim (lambda (pred) (apply #'max 0.0 (mapcar #'car (seq-filter pred runs))))))
+      (let ((i 0))
+        (dolist (x query)
+          (let ((w (voice-match--weight index x)) (pos i))
+            (cl-incf den w)
+            (cl-incf num (* w (max (voice-match--best-sim x words)
+                                   (if joined-words (voice-match--best-sim x joined-words) 0.0)
+                                   (* 0.6 (voice-match--best-sim x extra))
+                                   (if runs (funcall run-sim (lambda (r) (memq pos (cddr r)))) 0.0)))))
+          (cl-incf i)))
       (let ((i 0))
         (dolist (y words)
           (let ((w (voice-match--weight index y))
                 (pair (seq-find (lambda (j) (memq i (list (nth 1 j) (1+ (nth 1 j))))) joined)))
             (cl-incf den2 w)
-            (cl-incf num2 (* w (max (voice-match--best-sim y query) (if pair (car pair) 0.0)))))
+            (cl-incf num2 (* w (max (voice-match--best-sim y query) (if pair (car pair) 0.0)
+                                    (if runs (funcall run-sim (lambda (r) (equal (cadr r) y))) 0.0)))))
           (cl-incf i)))
-      (min 1.0 (+ (* 0.75 (/ num den)) (* 0.25 (/ num2 den2))
+      (min 1.0 (+ (* (- 1 voice-match-title-share) (/ num den)) (* voice-match-title-share (/ num2 den2))
                   (if (and (cdr query) (voice-match--in-order-p query words)) 0.05 0.0))))))
 
 (defun voice-match--score (index query entry)
@@ -226,6 +320,14 @@ position."
     (apply #'max (voice-match--score-words index query (plist-get entry :words) extra)
            (mapcar (lambda (a) (voice-match--score-words index query a nil))
                    (plist-get entry :aliases)))))
+
+(defvar voice-match-shortlist nil
+  "Nil, or how many entries, the best by a rough score, are weighed in
+full: for big indexes (every command).")
+
+(defvar voice-match-common-key 300
+  "A lookup key shared by more entries than this is too common to bring
+in candidates alone.")
 
 (defun voice-match-rank (index query &optional limit prior-fn)
   "Candidates of INDEX for QUERY (a string), best first, at most LIMIT.
@@ -236,9 +338,28 @@ Each result is (F S ENTRY): F is S plus the priors, given by ENTRY's
          (seen (make-hash-table))
          out)
     (dolist (x query)
-      (dolist (k (voice-match--keys x))
-        (dolist (i (gethash k (voice-match-index-keys index)))
-          (puthash i t seen))))
+      ;; A related word is looked up as itself only: its near sounds
+      ;; would bring in half the index.  A key most entries share (mode,
+      ;; among commands) brings in no one by itself, when the query has
+      ;; other words: it still counts in the score.  Each entry found
+      ;; gets a rough score, the idf of the words that found it.
+      (let ((mine (make-hash-table)) (w (voice-match--idf index x)))
+        (dolist (k (voice-match--keys x))
+          (let ((hits (gethash k (voice-match-index-keys index))))
+            (unless (and (cdr query) (> (length hits) voice-match-common-key))
+              (dolist (i hits) (puthash i (max (gethash i mine 0) (if (equal k x) w (* 0.7 w))) mine)))))
+        (dolist (k (and voice-match-expand (funcall voice-match-expand x)))
+          (let ((hits (gethash k (voice-match-index-keys index))))
+            (unless (and (cdr query) (> (length hits) voice-match-common-key))
+              (dolist (i hits) (puthash i (max (gethash i mine 0) (* 0.8 w)) mine)))))
+        (maphash (lambda (i v) (puthash i (+ v (gethash i seen 0)) seen)) mine)))
+    ;; Only the best by that rough score are weighed in full.
+    (when (and voice-match-shortlist (> (hash-table-count seen) voice-match-shortlist))
+      (let (all)
+        (maphash (lambda (i v) (push (cons v i) all)) seen)
+        (setq all (seq-take (sort all (lambda (a b) (> (car a) (car b)))) voice-match-shortlist))
+        (clrhash seen)
+        (dolist (a all) (puthash (cdr a) t seen))))
     (maphash
      (lambda (i _)
        (let* ((e (aref (voice-match-index-entries index) i))

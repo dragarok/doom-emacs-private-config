@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A voice-only input method: what a keyboard's microphone key switches to (VoiceIme). -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android">
+  <subtype android:label="@string/voice_subtype"
+           android:imeSubtypeMode="voice"
+           android:imeSubtypeLocale="en_US"
+           android:isAuxiliary="true"
+           android:overridesImplicitlyEnabledSubtype="true" />
+</input-method>
