@@ -26,6 +26,8 @@ import android.view.inputmethod.SurroundingText;
  */
 public class IslandAccess extends AccessibilityService {
     static volatile IslandAccess instance;
+    /** Remembered across restarts: it was on, and you haven't switched it off. */
+    private static final String PREFS = "island", WANTED = "access-wanted";
 
     @Override
     protected void onServiceConnected() {
@@ -36,14 +38,23 @@ public class IslandAccess extends AccessibilityService {
         if (Build.VERSION.SDK_INT >= 33) info.flags |= AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR;
         setServiceInfo(info);
         instance = this;
+        wanted(this, true);
         reattach();
     }
 
+    /** Switched off in Settings: Android unbinds it while the app runs.  A
+     *  force stop or a kill ends the process without this, so only you
+     *  switching it off makes it unwanted. */
     @Override
     public boolean onUnbind(Intent intent) {
         instance = null;
+        wanted(this, false);
         reattach();
         return super.onUnbind(intent);
+    }
+
+    private static void wanted(Context c, boolean on) {
+        c.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(WANTED, on).apply();
     }
 
     /** Have the clock re-add its island in the right kind of window. */
@@ -52,24 +63,26 @@ public class IslandAccess extends AccessibilityService {
     }
 
     /**
-     * Bound again if Android has given up on it.  When the app's process dies
-     * (killed, restarted) Android counts this service as crashed and doesn't
-     * bind it again until it is switched off and on; meanwhile the island is
-     * an app overlay under the status bar, which takes its taps -- the island
-     * there but deaf.  So: switched off and on here, as Settings would, if it
-     * is on in settings yet not bound.  Needs WRITE_SECURE_SETTINGS (build.sh
-     * install grants it).  Never switched on if you switched it off.  Call it
-     * off the main thread.
+     * Bound again if Android has let go of it.  When the app's process dies
+     * Android either counts this service as crashed and doesn't bind it again
+     * until it is switched off and on (a kill), or switches it off outright (a
+     * force stop); either way the island is left an app overlay under the
+     * status bar, which takes its taps -- there, but deaf.  So when it was on
+     * and you didn't switch it off, it is switched on again here as Settings
+     * would (off first, if Android still lists it).  Needs
+     * WRITE_SECURE_SETTINGS (build.sh install grants it).  Call it off the
+     * main thread.
      */
     static void heal(Context c) {
         if (instance != null) return;
+        if (!c.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(WANTED, false)) return;
         if (c.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != PackageManager.PERMISSION_GRANTED) {
             Log.w("EmacsHome", "island access not bound, and no WRITE_SECURE_SETTINGS to bind it again");
             return;
         }
         ContentResolver r = c.getContentResolver();
         String on = Settings.Secure.getString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (on == null) return;
+        if (on == null || on.equals("null")) on = "";
         ComponentName me = new ComponentName(c, IslandAccess.class);
         StringBuilder others = new StringBuilder();
         boolean mine = false;
@@ -79,16 +92,19 @@ public class IslandAccess extends AccessibilityService {
             if (others.length() > 0) others.append(':');
             others.append(s);
         }
-        if (!mine) return;
-        Log.i("EmacsHome", "island access not bound: switching it off and on");
-        try {
-            Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.toString());
-            Thread.sleep(800);
-        } catch (Exception e) {
-            Log.w("EmacsHome", "island access off", e);
+        Log.i("EmacsHome", "island access not bound" + (mine ? " (crashed): off and on" : " (switched off by Android): on"));
+        if (mine) {
+            try {
+                Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.toString());
+                Thread.sleep(800);
+            } catch (Exception e) {
+                Log.w("EmacsHome", "island access off", e);
+            }
         }
         try {
-            Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, on);
+            String all = others.length() == 0 ? me.flattenToString() : others + ":" + me.flattenToString();
+            Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, all);
+            Settings.Secure.putInt(r, Settings.Secure.ACCESSIBILITY_ENABLED, 1);
         } catch (Exception e) {
             Log.w("EmacsHome", "island access on", e);
         }
