@@ -767,3 +767,17 @@ its kind of plan done by it; defined again, the old one is taken down."
       (should (member "Fix the bicycle brakes" words))
       (should-not (member "Old finished thing" words))
       (should-not (seq-some (lambda (w) (string-match-p "[\t\n]" w)) words)))))
+
+(ert-deftest voice-test-open-names-an-app-only-clearly ()
+  ;; "open firefox" is the app; "open magit" names none, so the command
+  ;; called that wins, as "clock in to …" gives way when no task is named.
+  (voice-test--with
+    (let ((voice--android t) (voice--app-index nil))
+      (cl-letf (((symbol-function 'emacs-home--apps)
+                 (lambda () '(("Hades II" "com.example.hades" "A") ("Firefox" "org.mozilla" "B")))))
+        (let ((app (voice-plan "open firefox" "island")))
+          (should (equal (plist-get (plist-get app :action) :name) "open app"))
+          (should (eq (plist-get app :decision) 'act))
+          (should (equal (plist-get app :slot) "Firefox")))
+        (let ((other (voice-plan "open magit" "island")))
+          (should-not (equal (plist-get (plist-get other :action) :name) "open app")))))))

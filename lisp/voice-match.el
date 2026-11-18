@@ -43,7 +43,17 @@
     ("five" . "5") ("six" . "6") ("seven" . "7") ("eight" . "8") ("nine" . "9")
     ("ten" . "10") ("eleven" . "11") ("twelve" . "12") ("fifteen" . "15")
     ("twenty" . "20") ("thirty" . "30") ("forty" . "40") ("fifty" . "50")
-    ("sixty" . "60") ("ninety" . "90") ("hundred" . "100")))
+    ("sixty" . "60") ("ninety" . "90") ("hundred" . "100")
+    ;; A name's number in Roman numerals ("Hades II") is the same number;
+    ;; i, v and x alone are words or letters first.
+    ("ii" . "2") ("iii" . "3") ("iv" . "4") ("vi" . "6") ("vii" . "7")
+    ("viii" . "8") ("ix" . "9") ("xi" . "11") ("xii" . "12")))
+
+(defconst voice-match-number-sounds
+  '(("to" . "2") ("too" . "2") ("for" . "4") ("won" . "1") ("ate" . "8"))
+  "Words that sound like a number, as a recogniser writes a spoken one:
+\"open hades too\" is Hades II.  Near a number, not the same: they are
+words in their own right everywhere else.")
 
 ;;;; Words
 
@@ -122,6 +132,9 @@ every candidate.")
   "`voice-match-sim' worked out."
   (let ((lx (length x)) (ly (length y)))
     (cond ((string= x y) 1.0)
+          ((or (equal (cdr (assoc x voice-match-number-sounds)) y)
+               (equal (cdr (assoc y voice-match-number-sounds)) x))
+           0.9)
           ((string-match-p "\\`[0-9]+\\'" (concat x y)) 0.0) ; numbers are exact
           ((string= (voice-match--single x) (voice-match--single y)) 0.95)
           ((and (>= lx 4) (>= ly 4)
@@ -353,11 +366,18 @@ Each result is (F S ENTRY): F is S plus the priors, given by ENTRY's
             (unless (and (cdr query) (> (length hits) voice-match-common-key))
               (dolist (i hits) (puthash i (max (gethash i mine 0) (* 0.8 w)) mine)))))
         (maphash (lambda (i v) (puthash i (+ v (gethash i seen 0)) seen)) mine)))
-    ;; Only the best by that rough score are weighed in full.
+    ;; Only the best by that rough score are weighed in full; of those
+    ;; scoring the same, the shortest names first, the ones what was said
+    ;; explains most of: "magit" shares its word with 600 commands, and
+    ;; the one called just that must not be left out by chance.
     (when (and voice-match-shortlist (> (hash-table-count seen) voice-match-shortlist))
-      (let (all)
-        (maphash (lambda (i v) (push (cons v i) all)) seen)
-        (setq all (seq-take (sort all (lambda (a b) (> (car a) (car b)))) voice-match-shortlist))
+      (let ((entries (voice-match-index-entries index)) all)
+        (maphash (lambda (i v) (push (list v (length (plist-get (aref entries i) :words)) i) all)) seen)
+        (setq all (mapcar (lambda (a) (cons (car a) (nth 2 a)))
+                          (seq-take (sort all (lambda (a b) (or (> (car a) (car b))
+                                                                (and (= (car a) (car b))
+                                                                     (< (nth 1 a) (nth 1 b))))))
+                                    voice-match-shortlist)))
         (clrhash seen)
         (dolist (a all) (puthash (cdr a) t seen))))
     (maphash

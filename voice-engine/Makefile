@@ -7,6 +7,10 @@
 P25_REPO   ?= https://github.com/eschmidbauer/phonon-2.5-c
 P25_COMMIT ?= 510e1f7
 P25_DIR    ?= build/phonon-2.5-c
+# WebRTC's voice detector, standalone (BSD-3): where speech starts and ends.
+FVAD_REPO   ?= https://github.com/dpirch/libfvad
+FVAD_COMMIT ?= 532ab66
+FVAD_DIR    ?= build/libfvad
 MODELS     ?= $(HOME)/.local/share/hear
 WEIGHTS_URL = https://huggingface.co/eschmidbauer/phonon-2.5-c/resolve/main/phonon-2.5-c-weights-v1.tar.gz
 WEIGHTS_SHA = ed622ca97bc4ec044c7ba5fb69c10985b1b3897e600dbf611840d9a0692b4cfe
@@ -26,9 +30,19 @@ endif
 CC     ?= cc
 CFLAGS  = -O3 -ffast-math $(ARCH) -funroll-loops -std=c11 -pthread $(EXTRA)
 LIB     = $(P25_DIR)/csrc/libphonon25.a
+FVAD_SRC = $(addprefix $(FVAD_DIR)/src/,fvad.c vad/vad_core.c vad/vad_filterbank.c vad/vad_gmm.c vad/vad_sp.c \
+             signal_processing/division_operations.c signal_processing/energy.c \
+             signal_processing/get_scaling_square.c signal_processing/resample_48khz.c \
+             signal_processing/resample_by_2_internal.c signal_processing/resample_fractional.c \
+             signal_processing/spl_inl.c)
 
-hear: hear.c bias.c bias.h $(LIB)
-	$(CC) $(CFLAGS) -I$(P25_DIR)/csrc -o $@ hear.c bias.c $(LIB) -lm
+hear: hear.c bias.c bias.h $(LIB) | $(FVAD_DIR)
+	$(CC) $(CFLAGS) -I$(P25_DIR)/csrc -I$(FVAD_DIR)/include -o $@ hear.c bias.c $(FVAD_SRC) $(LIB) -lm
+
+$(FVAD_DIR):
+	mkdir -p build
+	git clone -q $(FVAD_REPO) $(FVAD_DIR)
+	cd $(FVAD_DIR) && git checkout -q $(FVAD_COMMIT)
 
 $(LIB): | $(P25_DIR)
 	$(MAKE) -C $(P25_DIR)/csrc libphonon25.a CC="$(CC)" CFLAGS="$(CFLAGS) -Wall"
@@ -37,6 +51,18 @@ $(P25_DIR):
 	mkdir -p build
 	git clone -q $(P25_REPO) $(P25_DIR)
 	cd $(P25_DIR) && git checkout -q $(P25_COMMIT)
+
+# The phone's engine built on the Mac (the NDK's clang): `make android`, then put build/android/hear in
+# /sdcard/Download/hear-model/, where setup.sh on the phone takes it from when it can't build.
+NDK      ?= $(lastword $(sort $(wildcard $(HOME)/Library/Android/sdk/ndk/*)))
+NDK_CC    = $(NDK)/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android28-clang
+P25_SRC   = $(addprefix $(P25_DIR)/csrc/,blas.c decoder.c encoder.c engine.c json.c mel.c resample.c segment.c \
+              tensor_ops.c threadpool.c tokens.c wav.c weights.c)
+android: build/android/hear
+build/android/hear: hear.c bias.c bias.h | $(P25_DIR) $(FVAD_DIR)
+	mkdir -p build/android
+	$(NDK_CC) -O3 -ffast-math -march=armv8.2-a+dotprod -funroll-loops -std=c11 -pthread -D_GNU_SOURCE \
+	  -I$(P25_DIR)/csrc -I$(FVAD_DIR)/include -o $@ hear.c bias.c $(FVAD_SRC) $(P25_SRC) -lm
 
 weights: $(MODELS)/phonon-2.5/weights.bin
 $(MODELS)/phonon-2.5/weights.bin:
@@ -53,4 +79,4 @@ check: hear
 clean:
 	rm -f hear
 
-.PHONY: weights check clean
+.PHONY: weights check clean android

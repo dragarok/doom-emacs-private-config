@@ -25,7 +25,7 @@ A client opens with one line, then (for `LISTEN`) raw audio:
 
 | Request | Then | Answers, one line each |
 |---|---|---|
-| `LISTEN [vocab=F,G] [hangover=MS] [nospeech=MS] [maxsec=S] [partial=MS] [beam=N] [boost=B] [save=0\|1] [tag=WORD]` | 16 kHz mono s16le | `START` · `PARTIAL text` · `END` · `TEXT best` · `ALT other`… · `NONE` · `INFO …` |
+| `LISTEN [vocab=F,G] [hangover=MS] [nospeech=MS] [maxsec=S] [partial=MS] [beam=N] [boost=B] [save=0\|1] [tag=WORD] [tail=MS] [preroll=MS] [pad=MS] [snr=DB] [vadmode=0-3]` | 16 kHz mono s16le | `START` · `PARTIAL text` · `END` · `TEXT best` · `ALT other`… · `NONE` · `INFO …` |
 | `FILE /path.wav [vocab=…]` | – | `TEXT`, `ALT`…, `INFO` |
 | `PING` | – | `PONG phonon-2.5 phrases=N` |
 | `QUIT` | – | `BYE`, and it exits |

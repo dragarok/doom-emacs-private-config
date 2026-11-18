@@ -72,8 +72,10 @@ PROMPT, TEXT's words typed, so a tap finishes it."
 (voice-action '("buffers" "buffer list" "show buffers" "all buffers") #'ibuffer :name "buffers")
 
 ;; Going places
+;; The … must name one of the phone's apps clearly (voice-home.el), as
+;; "clock in to …" must a task: "open magit" is no app, so the command wins.
 (voice-action '("open …" "launch …" "open app …" "start app …") #'emacs-home-launch
-              :when 'android :asks '((:prompt "\\`App: " :type rest)) :name "open app")
+              :when 'android :asks '((:prompt "\\`App: " :type rest)) :slot 'app :name "open app")
 
 (voice-action '("buffer …" "switch to buffer …" "go to buffer …") #'voice-switch-buffer
               :slot 'text :name "buffer")

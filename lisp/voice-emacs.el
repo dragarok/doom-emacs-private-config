@@ -219,13 +219,22 @@ beancount-mode), or nil."
          (not (boundp mode))            ; a minor mode has a variable
          mode)))
 
+(defun voice-emacs--entry-point-p (cmd)
+  "Non-nil when CMD is a way into its package, meant to be run from
+anywhere: named just as the package (magit, dired, calendar), or
+autoloaded, which is a package saying so."
+  (or (not (string-match-p "[-/]" (symbol-name cmd)))
+      (and (fboundp 'help-fns--autoloaded-p)
+           (ignore-errors (help-fns--autoloaded-p cmd)))))
+
 (defun voice-emacs--entry (cmd labels history)
   "CMD as a candidate for voice-match: its name, labels, prefixes, prior,
 and the major mode it belongs to unless a global key or the leader has it."
   (let* ((l (gethash cmd labels))
          (count (gethash (symbol-name cmd) history 0)))
     (list :title (voice-emacs--name-words cmd)
-          :mode (and (not l) (zerop count) (voice-emacs--own-mode cmd))
+          :mode (and (not l) (zerop count) (not (voice-emacs--entry-point-p cmd))
+                     (voice-emacs--own-mode cmd))
           :aliases (nth 0 l)
           :extra (and (nth 1 l) (string-join (nth 1 l) " "))
           :prior (+ (cond ((nth 2 l) 0.04) (l 0.02) (t 0.0))

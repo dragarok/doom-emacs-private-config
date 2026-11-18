@@ -48,11 +48,11 @@ tasks while the Mac speaks at the phone.")
 
 (defun voice--decisive-p (plan)
   "Non-nil when PLAN does something by itself: no question to ask, no list
-to pick from."
+to pick from (a task or app its words named clearly, if it names one)."
   (and plan
        (not (memq (plist-get plan :kind) '(ask none)))
        (not (plist-get plan :fallen))
-       (not (and (eq (plist-get plan :kind) 'task) (not (eq (plist-get plan :decision) 'act))))))
+       (memq (plist-get plan :decision) '(nil act))))
 
 (defvar voice-readings-tried 3
   "How many of the engine's readings are weighed, best first.")

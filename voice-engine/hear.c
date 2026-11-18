@@ -8,6 +8,7 @@
  *  The server holds the model and listens on a Unix socket, one client at a time.  A client opens with a line:
  *
  *    LISTEN [vocab=F,G] [hangover=MS] [nospeech=MS] [maxsec=S] [partial=MS] [beam=N] [boost=B] [save=0|1] [tag=WORD]
+ *         [tail=MS] [preroll=MS] [pad=MS] [snr=DB] [vadmode=0-3]
  *        then streams raw 16 kHz mono s16le.  The server finds where speech starts and ends and answers, a line each:
  *        START (speech began) · PARTIAL text (with partial=MS) · END (stop sending) · TEXT best · ALT other ·
  *        NONE (nothing said) · INFO timings.  Closing the stream early (shutdown write) means "done, decode now";
@@ -15,6 +16,15 @@
  *    FILE /path.wav [vocab=…]   transcribe a file: TEXT, ALT, INFO.
  *    PING                       PONG with the phrase count.
  *    QUIT                       the server exits.
+ *
+ *  Where speech starts and ends: a frame is speech when WebRTC's voice detector (libfvad, fetched by the Makefile),
+ *  in its strictest mode as FUTO's voice input uses it, says so and the frame stands `snr' dB (3) above the room's
+ *  own floor.  Speech has begun after 150 ms of it (or a frame of it clearly loud) and ended after `hangover' (1 s)
+ *  of none.  Once begun, a frame carries it on only in a run of three (90 ms) standing half way from the room to the
+ *  speaker's level: a keyboard's clicks don't keep it listening.  Measured on real recordings over a typing room
+ *  (test/endpoint.py): ends 0.5-0.8 s after speech, room alone never speech; 6 dB louder, the same.  The lenient
+ *  modes catch a voice at arm's length (-50 dBFS) but end seconds late in the louder room; 12 dB louder, every
+ *  mode does, and only a neural detector would tell typing from talk.
  *
  *  The words come from the vocabulary files at every request, read again whenever one changes: the phrases the
  *  decoder is pulled toward (bias.h).  Saved utterances (--save DIR) are DIR/STAMP.wav plus a line in
@@ -26,6 +36,7 @@
 #endif
 #include "phonon25.h"
 #include "bias.h"
+#include "fvad.h"
 
 #include <errno.h>
 #include <math.h>
@@ -42,9 +53,9 @@
 #include <unistd.h>
 
 #define RATE        16000
-#define FRAME       320            /* 20 ms analysis frames */
+#define VAD_FRAME   480            /* 30 ms: the voice detector's frames */
+#define IGNORE      (RATE * 15 / 100)  /* the first 150 ms: the press itself is heard */
 #define PREROLL     (RATE * 3 / 10)
-#define TAIL        (RATE / 4)     /* audio kept after the last loud frame */
 #define MAX_ALTS    4
 
 static const P25Engine *engine;
@@ -206,7 +217,8 @@ static int say(int fd, const char *fmt, ...)
 
 typedef struct {
     char  vocab[2048], tag[32];
-    int   hangover, nospeech, maxsec, partial, beam, save;
+    int   hangover, nospeech, maxsec, partial, beam, save, preroll, tail, pad, vadmode;
+    float snr;
     float boost;
 } Opts;
 
@@ -214,7 +226,7 @@ static void parse_opts(char *words, Opts *o)
 {
     snprintf(o->vocab, sizeof(o->vocab), "%s", g_vocab);
     snprintf(o->tag, sizeof(o->tag), "listen");
-    o->hangover = 700; o->nospeech = 5000; o->maxsec = 30; o->partial = 0;
+    o->hangover = 1000; o->nospeech = 5000; o->preroll = 300; o->tail = 250; o->pad = 0; o->vadmode = 3; o->snr = 3; o->maxsec = 30; o->partial = 0;
     o->beam = g_beam; o->boost = g_boost; o->save = g_save[0] != 0;
     for (char *w = strtok(words, " "); w; w = strtok(NULL, " ")) {
         char *eq = strchr(w, '=');
@@ -229,8 +241,13 @@ static void parse_opts(char *words, Opts *o)
             o->tag[j] = 0;
         }
         else if (!strcmp(w, "hangover")) o->hangover = atoi(v);
+        else if (!strcmp(w, "preroll")) o->preroll = atoi(v);
+        else if (!strcmp(w, "tail")) o->tail = atoi(v);
         else if (!strcmp(w, "nospeech")) o->nospeech = atoi(v);
         else if (!strcmp(w, "maxsec")) o->maxsec = atoi(v);
+        else if (!strcmp(w, "pad")) o->pad = atoi(v);
+        else if (!strcmp(w, "vadmode")) o->vadmode = atoi(v);
+        else if (!strcmp(w, "snr")) o->snr = (float)atof(v);
         else if (!strcmp(w, "partial")) o->partial = atoi(v);
         else if (!strcmp(w, "beam")) o->beam = atoi(v);
         else if (!strcmp(w, "boost")) o->boost = (float)atof(v);
@@ -290,11 +307,35 @@ static void save_utterance(const Opts *o, const float *a, int n, const Heard *h,
     fclose(f);
 }
 
-static float energy_db(const float *a, int n)
+/* The room's floor: the 20th percentile of the last frames not taken for speech (3 s of them), in dB.  Too few
+   yet, a quiet room's. */
+#define FLOOR_FRAMES 100
+static int cmp_float(const void *a, const void *b)
 {
-    double s = 0;
-    for (int i = 0; i < n; i++) s += (double)a[i] * a[i];
-    return (float)(10.0 * log10(s / n + 1e-10));
+    float x = *(const float *)a, y = *(const float *)b;
+    return x < y ? -1 : x > y;
+}
+static float room_floor(const float *db, int n)
+{
+    if (n < 5) return -70.0f;
+    float s[FLOOR_FRAMES];
+    memcpy(s, db, (size_t)n * sizeof(float));
+    qsort(s, (size_t)n, sizeof(float), cmp_float);
+    return s[n / 5];
+}
+
+/* DECODE of A with PAD ms of silence after it: a transducer emits the last word only once it has heard a little
+   past it (FUTO pads 200 ms, Dictate 400). */
+static int decode_padded(const float *a, int n, int pad, const HearContext *ctx, int beam, Heard *o)
+{
+    int z = pad * (RATE / 1000);
+    if (z <= 0) return decode(a, n, ctx, beam, o);
+    float *b = (float *)calloc((size_t)(n + z), sizeof(float));
+    if (!b) return decode(a, n, ctx, beam, o);
+    memcpy(b, a, (size_t)n * sizeof(float));
+    int rc = decode(b, n + z, ctx, beam, o);
+    free(b);
+    return rc;
 }
 
 /* LISTEN: take audio until speech has started and then stopped, and say what was said. */
@@ -305,12 +346,19 @@ static void listen_stream(int fd, Opts *o)
     float *buf = (float *)malloc(cap * sizeof(float));
     unsigned char bytes[8192];
     int carry = -1;                                  /* a byte of a sample split across reads */
-    float floor_db = 0;
-    int frames = 0, loud_run = 0, started = 0, start = 0, last_loud = 0, analysed = 0;
+    Fvad *vad = fvad_new();
+    if (vad && (fvad_set_sample_rate(vad, RATE) != 0 || fvad_set_mode(vad, o->vadmode) != 0)) { fvad_free(vad); vad = NULL; }
+    int16_t frame16[VAD_FRAME];
+    float quiet_db[FLOOR_FRAMES];                    /* recent frames not taken for speech, in dB */
+    int quiet_n = 0, quiet_i = 0;
+    float voice_db = 0;                              /* how loud the speaker is, once begun */
+    int speech_run = 0, started = 0, start = 0, run_start = 0, last_loud = 0, analysed = 0;
     Heard spec = { 0 };
     int spec_end = -1, spec_from = 0;
     double last_partial = p25_now_sec(), t_end = 0;
-    int spec_ms = o->hangover > 350 ? 250 : o->hangover * 2 / 3;
+    int tail = o->tail * (RATE / 1000);
+    /* The guess made early is of the audio up to TAIL after the speech: it needs that much quiet. */
+    int spec_ms = o->tail + 50 < o->hangover ? o->tail + 50 : o->hangover * 2 / 3;
     int eof = 0;
 
     while (!done) {
@@ -328,20 +376,42 @@ static void listen_stream(int fd, Opts *o)
                 carry = -1;
             }
         }
-        /* Where speech is: loud against a floor that follows the quietest audio (rising 1 dB a second). */
-        while (analysed + FRAME <= n) {
-            float e = energy_db(buf + analysed, FRAME);
-            frames++;
-            if (frames == 1 || e < floor_db) floor_db = e;
-            else floor_db += 0.02f;
-            if (floor_db > -45) floor_db = -45;
-            int loud = e > floor_db + 12 && e > -55;
-            loud_run = loud ? loud_run + 1 : 0;
-            analysed += FRAME;
-            if (loud) last_loud = analysed;
-            if (!started && loud_run >= 3) {
+        /* Where speech is: the voice detector, frame by frame.  Begun after five frames of speech running (150
+           ms), or one clearly loud (as FUTO's: RMS over 0.01); the speech ends where its last frame does. */
+        while (analysed + VAD_FRAME <= n) {
+            const float *f = buf + analysed;
+            double s2 = 0;
+            for (int i = 0; i < VAD_FRAME; i++) {
+                float x = f[i] * 32768.0f;
+                frame16[i] = (int16_t)(x > 32767.0f ? 32767 : x < -32768.0f ? -32768 : x);
+                s2 += (double)f[i] * f[i];
+            }
+            float rms = (float)sqrt(s2 / VAD_FRAME);
+            float db = 10.0f * log10f((float)(s2 / VAD_FRAME) + 1e-12f);
+            float floor_db = room_floor(quiet_db, quiet_n);
+            /* Once begun, the bar is half way from the room to the speaker: a voice at -32 dBFS over a room at
+               -57 isn't carried on by a keyboard's clicks at -48, and a quiet voice still gets a low bar. */
+            float bar = floor_db + o->snr;
+            if (started && (floor_db + voice_db) / 2 > bar) bar = (floor_db + voice_db) / 2;
+            int speech = (vad ? fvad_process(vad, frame16, VAD_FRAME) == 1 : rms > 0.01f) && db >= bar;
+            if (!speech && db > -90.0f) {               /* the room, as it is now; digital silence isn't it */
+                quiet_db[quiet_i] = db;
+                quiet_i = (quiet_i + 1) % FLOOR_FRAMES;
+                if (quiet_n < FLOOR_FRAMES) quiet_n++;
+            }
+            analysed += VAD_FRAME;
+            if (analysed <= IGNORE) continue;
+            if (!speech) { speech_run = 0; continue; }
+            if (speech_run++ == 0) { run_start = analysed - VAD_FRAME; if (!started) voice_db = db; }
+            voice_db = started ? 0.95f * voice_db + 0.05f * db : (voice_db * (speech_run - 1) + db) / speech_run;
+            /* Once begun, a frame or two of noise taken for speech is not the speaker going on: it takes a run
+               of three (90 ms).  Else one cough or click in a noisy room keeps it listening. */
+            if (!started || speech_run >= 3) last_loud = analysed;
+            /* Begun after 150 ms of speech running, or a frame of it clearly loud (FUTO's RMS over 0.01): a
+               short "no" is no more than that. */
+            if (!started && (speech_run >= 5 || rms > 0.01f)) {
                 started = 1;
-                start = analysed - 3 * FRAME - PREROLL;
+                start = run_start - o->preroll * (RATE / 1000);
                 if (start < 0) start = 0;
                 if (say(fd, "START") != 0) goto out;
             }
@@ -352,6 +422,8 @@ static void listen_stream(int fd, Opts *o)
             if (n >= RATE / 1000 * o->nospeech) {
                 say(fd, "END");
                 say(fd, "NONE");
+                Heard none = { 0 };
+                save_utterance(o, buf, n, &none, 0);     /* the room as it was: what tuning for it learns from */
                 goto out;
             }
             continue;
@@ -359,8 +431,8 @@ static void listen_stream(int fd, Opts *o)
         int quiet_ms = (n - last_loud) / (RATE / 1000);
         if (spec_end >= 0 && spec_end != last_loud) { heard_free(&spec); spec_end = -1; }   /* spoke again */
         if (quiet_ms >= spec_ms && spec_end < 0) {
-            int end = last_loud + TAIL < n ? last_loud + TAIL : n;
-            decode(buf + start, end - start, ctx, o->beam, &spec);
+            int end = last_loud + tail < n ? last_loud + tail : n;
+            decode_padded(buf + start, end - start, o->pad, ctx, o->beam, &spec);
             spec_end = last_loud;
             spec_from = end;
         }
@@ -381,15 +453,19 @@ static void listen_stream(int fd, Opts *o)
         int from = started ? start : 0, to;
         if (done && spec_end == last_loud) { h = spec; memset(&spec, 0, sizeof(spec)); to = spec_from; }
         else {
-            to = started && !eof ? (last_loud + TAIL < n ? last_loud + TAIL : n) : n;
-            decode(buf + from, to - from, ctx, o->beam, &h);
+            to = started && !eof ? (last_loud + tail < n ? last_loud + tail : n) : n;
+            decode_padded(buf + from, to - from, o->pad, ctx, o->beam, &h);
         }
         double wait = p25_now_sec() - t_end;
+        /* Where it found speech, in the stream: what the tests measure end-pointing by. */
+        say(fd, "INFO at start=%d speech_end=%d end=%d why=%s", started ? start * 1000 / RATE : -1,
+            last_loud * 1000 / RATE, n * 1000 / RATE, done ? "quiet" : eof ? "eof" : n >= cap ? "maxsec" : "?");
         reply_heard(fd, &h, (to - from) / (double)RATE, wait);
         save_utterance(o, buf + from, to - from, &h, wait * 1000);
         heard_free(&h);
     }
 out:
+    if (vad) fvad_free(vad);
     heard_free(&spec);
     free(buf);
 }

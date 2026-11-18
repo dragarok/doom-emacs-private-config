@@ -109,6 +109,8 @@ public class FloatService extends Service {
     private TextView check, close, words;
     private LinearLayout wordsRow;
     private AskCard ask;
+    private boolean askListened;      // the question card has listened by itself since your last press
+    private long lastSpoke;           // when the island last heard words
     private final Runnable voiceAway = this::voiceOff;
 
     // Locked: shrunk to a dot that touches pass through (games), until
@@ -144,6 +146,8 @@ public class FloatService extends Service {
             }
         };
         observer.startWatching();
+        // The screen going off is the end of anything being said: never a microphone left on.
+        registerReceiver(screenOff, new android.content.IntentFilter(Intent.ACTION_SCREEN_OFF));
         bg.execute(() -> Reminders.schedule(this));  // alarms don't outlive a reboot
         widgets = new Widgets(this, main);
         widgets.start();
@@ -161,6 +165,7 @@ public class FloatService extends Service {
     public void onDestroy() {
         main.removeCallbacks(tick);
         if (observer != null) observer.stopWatching();
+        try { unregisterReceiver(screenOff); } catch (Exception e) { /* not registered */ }
         if (widgets != null) widgets.stop();
         if (island != null) wm.removeView(island);
         super.onDestroy();
@@ -172,6 +177,13 @@ public class FloatService extends Service {
             updateIsland();
             bg.execute(FloatService.this::logForeground);
             main.postDelayed(this, locked ? 10_000 : 30_000);
+        }
+    };
+
+    private final android.content.BroadcastReceiver screenOff = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            if (hear != null) { hear.cancel(); hear = null; }
+            if (voice != Voice.OFF) voiceOff();
         }
     };
 
@@ -413,13 +425,11 @@ public class FloatService extends Service {
         // A long press listens, and Emacs does what is said: held, letting go
         // is the end of it; let go at once, it stops when you do.  While it
         // listens a tap means "that's all", the cross means never mind.
-        top.setOnClickListener(v -> {
-            if (voice == Voice.LISTENING && hear != null) hear.finish();
-            else if (voice != Voice.OFF) voiceOff();
-            else setOpen(!opening);
-        });
+        top.setOnClickListener(v -> tapIsland());
+        // While it listens the whole island is the stop button, not just its top row.
+        wordsRow.setOnClickListener(v -> { if (voice != Voice.OFF) tapIsland(); });
         top.setOnLongClickListener(v -> {
-            if (voice != Voice.OFF) return true;
+            if (voice == Voice.LISTENING || voice == Voice.THINKING) return true;
             press("island-voice");
             held = System.currentTimeMillis();
             listen("island");
@@ -443,6 +453,18 @@ public class FloatService extends Service {
 
         updateIsland();
         wm.addView(island, lp);
+    }
+
+    /** A tap on the island: while listening, that's all (decode now); deciding or
+     *  saying a result, never mind; else open or close the card. */
+    private void tapIsland() {
+        if (voice == Voice.LISTENING && hear != null) {
+            press("island-voice-stop");
+            hear.finish();
+            voice = Voice.THINKING;
+            bars.mode(VoiceBars.Mode.THINKING);
+        } else if (voice != Voice.OFF) cancelVoice();
+        else setOpen(!opening);
     }
 
     private void keepOpen() {
@@ -640,11 +662,15 @@ public class FloatService extends Service {
     /** Listen once, the words going where SOURCE says: island and toolbar to
      *  Emacs; keyboard typed where you are; from the island while a text
      *  field of another app has the cursor, field: Emacs does it if it is
-     *  clearly a command, else it is typed.  Heard by the engine (Hear) when
-     *  it is installed, else by the voice app (VoiceActivity). */
-    private void listen(String source) {
-        if (locked) return;
-        if (!Hear.SOCKET.exists() || island == null) { listenWithApp(source); return; }
+     *  clearly a command, else it is typed.  Heard by our engine (Hear); if
+     *  it isn't up, Emacs starts it while the audio waits. */
+    private void listen(String source) { listen(source, true); }
+
+    /** GESTURE: you asked for it (a press, the keyboard's mic), not a question
+     *  card listening for its answer by itself, which it does once per gesture. */
+    private void listen(String source, boolean gesture) {
+        if (locked || island == null) return;
+        if (gesture) askListened = false;
         if (hear != null) hear.cancel();
         String where = source;
         if (source.equals("island")) {
@@ -653,16 +679,25 @@ public class FloatService extends Service {
         }
         final String to = where;
         boolean answering = ask != null && ask.showing();
+        boolean typing = to.equals("keyboard") || to.equals("field");
+        // Commands are short: 12 s at most.  Typing may pause to think: 2 s of quiet ends it, 30 s at most.
         String options = "tag=" + to
-                + (answering ? " nospeech=4000 maxsec=6 hangover=450" : " partial=400")
-                + (to.equals("keyboard") || to.equals("field") ? " boost=2.5" : "");
+                + (answering ? " nospeech=4000 maxsec=8 hangover=600"
+                   : typing ? " partial=400 hangover=1600 maxsec=32 boost=2.5"
+                   : " partial=400 maxsec=14");
+        long most = answering ? 6_000 : typing ? 30_000 : 12_000;
         hearing = to;
         final Hear[] self = new Hear[1];
-        final Hear h = new Hear(this, options, new Hear.Listener() {
+        final Hear h = new Hear(this, options, most, new Hear.Listener() {
             boolean live() { return self[0] != null && self[0] == hear; }
             @Override public void level(float l) {
                 if (bars != null) bars.level(l);
                 if (ask != null) ask.level(l);
+            }
+            @Override public void waiting() {
+                main.post(() -> { if (!live()) return;
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.HEARING, "Starting the voice engine…");
+                    else setWords("Starting the voice engine · keep talking", true); });
             }
             @Override public void speech() {
                 main.post(() -> { if (!live()) return;
@@ -676,21 +711,30 @@ public class FloatService extends Service {
             }
             @Override public void end() {
                 main.post(() -> { if (!live()) return;
+                    island.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK);
                     if (ask.showing()) ask.listening(VoiceBars.Mode.THINKING, null);
-                    else { voice = Voice.THINKING; bars.mode(VoiceBars.Mode.THINKING); } });
+                    else { voice = Voice.THINKING; bars.mode(VoiceBars.Mode.THINKING); }
+                    // Whatever happens after, the island doesn't stay deciding.
+                    main.removeCallbacks(voiceAway);
+                    main.postDelayed(voiceAway, 15_000); });
             }
             @Override public void heard(String text, List<String> alts) {
-                main.post(() -> { if (live()) heardWords(to, text, alts); });
+                main.post(() -> { if (!live()) return; lastSpoke = System.currentTimeMillis(); heardWords(to, text, alts); });
             }
             @Override public void nothing() {
                 main.post(() -> { if (!live()) return;
-                    if (ask.showing()) ask.listening(VoiceBars.Mode.DONE, "Didn't catch that · tap yes or no");
+                    hear = null;
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.DONE, "Didn't catch that · tap here to say it");
                     else result("Didn't catch that", false); });
             }
             @Override public void failed(String why) {
                 main.post(() -> { if (!live()) return;
-                    if (why.equals("engine")) { voiceOff(); listenWithApp(to); }
-                    else result("The microphone is busy", false); });
+                    hear = null;
+                    String said = why.equals("engine") ? "The voice engine isn't answering"
+                                : why.equals("muted") ? "The microphone is off"
+                                : "The microphone is busy";
+                    if (ask.showing()) ask.listening(VoiceBars.Mode.DONE, said + " · tap yes or no");
+                    else result(said, false); });
             }
         });
         self[0] = h;
@@ -699,16 +743,9 @@ public class FloatService extends Service {
         h.start();
     }
 
-    /** The voice app's way: its own screen, then the words to Emacs. */
-    private void listenWithApp(String source) {
-        if (island != null && question == null) setOpen(false);
-        startActivity(new Intent(this, VoiceActivity.class)
-                .putExtra("source", source.equals("field") || source.equals("keyboard") ? "island" : source)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-    }
-
     /** What was heard: typed, or to Emacs (with the engine's other readings). */
     private void heardWords(String to, String text, List<String> alts) {
+        hear = null;
         if (to.equals("keyboard")) { typeIt(text); return; }
         if (!ask.showing()) setWords(text, false);
         StringBuilder line = new StringBuilder().append(System.currentTimeMillis() / 1000)
@@ -868,8 +905,13 @@ public class FloatService extends Service {
             }
             boolean fresh = !ask.showing();
             if (voice != Voice.OFF) { main.removeCallbacks(voiceAway); if (hear != null && !hear.done()) hear.cancel(); hear = null; voiceOff(); }
-            ask.show(asked, islandRect(), pillAccent(), this::answer);
-            if (fresh) main.postDelayed(() -> { if (ask.showing()) listen("island"); }, 380);
+            ask.show(asked, islandRect(), pillAccent(), this::answer, () -> listen("island"));
+            // Asked just after you spoke: it listens for the answer, once.  Never again by
+            // itself: a card that keeps opening the microphone is one you can't get away from.
+            if (fresh && !askListened && System.currentTimeMillis() - lastSpoke < 10_000) {
+                askListened = true;
+                main.postDelayed(() -> { if (ask.showing() && hear == null) listen("island", false); }, 380);
+            } else ask.listening(VoiceBars.Mode.DONE, "Tap here to answer by voice");
         });
     }
 

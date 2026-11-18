@@ -19,8 +19,9 @@ import android.widget.TextView;
  * A question from Emacs, in the middle of the screen: it grows out of the
  * island and goes back into it once answered.  The same black as the
  * island, so it reads as the island come down to ask.  While it is up the
- * island listens for the answer, and the card shows that it does; Yes and
- * No answer by touch, a tap outside is a no.
+ * island listens for the answer once, if you had just spoken, and the card
+ * shows that it does; a tap on that line listens again.  Yes and No answer
+ * by touch, a tap outside is a no.
  */
 final class AskCard {
     interface Answer { void answer(String word); }
@@ -84,8 +85,9 @@ final class AskCard {
         }
     }
 
-    /** Ask QUESTION, growing out of ISLAND (its rect on screen). */
-    void show(String question, Rect island, int accent, Answer answer) {
+    /** Ask QUESTION, growing out of ISLAND (its rect on screen); a tap on the
+     *  listening line is LISTEN: answer by voice. */
+    void show(String question, Rect island, int accent, Answer answer, Runnable listen) {
         if (root != null && !leaving) {             // a new question while one is up: just the words
             title.animate().alpha(0f).setDuration(90).withEndAction(() -> {
                 setQuestion(question);
@@ -132,7 +134,8 @@ final class AskCard {
         hint.setText("Say yes or no");
         hint.setPadding(dp(8), 0, 0, 0);
         listening.addView(hint);
-        listening.setPadding(0, 0, 0, dp(20));
+        listening.setPadding(0, dp(6), 0, dp(20));
+        listening.setOnClickListener(v -> listen.run());
 
         LinearLayout row = new LinearLayout(ui);
         row.addView(button("No", 0xFF1C1C1E, 0xFFF5F5F7, () -> answer.answer("no")));

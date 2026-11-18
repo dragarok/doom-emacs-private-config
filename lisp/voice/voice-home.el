@@ -50,9 +50,34 @@ button is."
           (mapcar (lambda (a) (plist-get a :name))
                   (append (voice--toolbar-actions) (voice--homepage-actions)))))
 
+(defvar voice--app-index nil "(APPS . INDEX) of the phone's apps by name.")
+
+(defun voice--app-index ()
+  "The phone's apps, indexed by name as tasks are; nil without any."
+  (let ((apps (and (fboundp 'emacs-home--apps) (emacs-home--apps))))
+    (when apps
+      (unless (equal (car voice--app-index) apps)
+        (setq voice--app-index
+              (cons apps (voice-match-index (mapcar (lambda (a) (list :title (car a))) apps)))))
+      (cdr voice--app-index))))
+
+(defun voice--app-slot-plan (text action slot _request)
+  "The plan for ACTION, whose … names an app (\"open …\"): weighed against
+the phone's apps as a task name is against the tasks.  Named clearly, it
+opens; else the phrase can give way to an option nearer (\"open magit\" is
+the command), and failing that the app list opens with the words typed."
+  (let* ((index (and slot (not (string-empty-p slot)) (voice--app-index)))
+         (ranked (and index (voice-match-rank index slot 5)))
+         (decision (if ranked (voice-match-decide ranked) 'none)))
+    (list :kind 'action :text text :action action
+          :slot (if (eq decision 'act) (plist-get (nth 2 (car ranked)) :title) slot)
+          :decision decision :found (if ranked (nth 1 (car ranked)) 0.0)
+          :front (not (eq decision 'act)))))
+
 (voice-define-domain 'home
   :doc "The toolbar's buttons and the homepage's tiles, by their labels."
   :vocab #'voice--home-vocab
+  :slots '((app . voice--app-slot-plan))
   :actions (lambda (_context) (append (voice--toolbar-actions) (voice--homepage-actions))))
 
 (provide 'voice-home)

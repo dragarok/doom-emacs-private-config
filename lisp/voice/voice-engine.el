@@ -65,6 +65,7 @@ was heard, other readings.  Private: never in the repo.")
 (defvar voice-engine--process nil)
 (defvar voice-engine--restarts nil "Times it restarted on its own, lately.")
 (defvar voice-engine--vocab-time 0 "When the words were last written.")
+(defvar voice-engine--timers nil "The timers this file set, so loading it again replaces them.")
 
 (defun voice-engine--weights () (expand-file-name voice-engine-model voice-engine-dir))
 (defun voice-engine--vocab-file () (expand-file-name "vocab.txt" voice-engine-dir))
@@ -150,12 +151,14 @@ can't reach it, and keeps what you said meanwhile."
       (run-at-time 2 nil #'voice-engine-start))))
 
 (defun voice-engine-stop ()
-  "Stop the engine."
+  "Stop the engine.  Its socket goes too, so the island asks Emacs to
+start it again rather than waiting on a dead one."
   (interactive)
   (when (voice-engine-running-p)
     (process-put voice-engine--process 'stopping t)
     (delete-process voice-engine--process))
-  (setq voice-engine--process nil))
+  (setq voice-engine--process nil)
+  (when (file-exists-p voice-engine-socket) (delete-file voice-engine-socket)))
 
 (defun voice-engine-restart ()
   "Stop and start the engine: after a rebuild, or another model."
@@ -168,6 +171,11 @@ can't reach it, and keeps what you said meanwhile."
 then start it.  On the phone the model comes from /sdcard/Download/hear-model
 when a Mac pushed it there, else it is downloaded (183 MB)."
   (interactive)
+  (if (process-live-p (get-process "hear-setup"))
+      (message "Voice engine: already setting up")
+    (voice-engine--setup)))
+
+(defun voice-engine--setup ()
   (let ((default-directory voice-engine-source)
         (process-environment (cons (concat "HEAR_DIR=" (expand-file-name voice-engine-dir))
                                    process-environment)))
@@ -196,14 +204,17 @@ when a Mac pushed it there, else it is downloaded (183 MB)."
 ;; On the phone it runs from the start, so the island never waits for it;
 ;; the first time, it sets itself up when it can (a compiler in Termux, or
 ;; what a Mac pushed to /sdcard/Download/hear-model).
+(mapc #'cancel-timer voice-engine--timers)
+(setq voice-engine--timers nil)
 (when (and voice--android (not noninteractive))
-  (run-with-idle-timer
-   4 nil (lambda ()
-           (cond ((voice-engine-ready-p) (voice-engine-start))
-                 ((or (executable-find "cc")
-                      (file-exists-p "/sdcard/Download/hear-model/hear"))
-                  (voice-engine-setup)))))
-  (run-with-idle-timer 30 t #'voice-engine--refresh))
+  (setq voice-engine--timers
+        (list (run-with-idle-timer
+               4 nil (lambda ()
+                       (cond ((voice-engine-ready-p) (voice-engine-start))
+                             ((or (executable-find "cc")
+                                  (file-exists-p "/sdcard/Download/hear-model/hear"))
+                              (voice-engine-setup)))))
+              (run-with-idle-timer 30 t #'voice-engine--refresh))))
 
 (provide 'voice-engine)
 ;;; voice-engine.el ends here
