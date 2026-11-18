@@ -8,6 +8,7 @@
 
 (require 'voice-core)
 (require 'voice-emacs)
+(declare-function voice--exact-command "voice-plan" (commands near))
 
 ;; Bound here, defined in another part.
 (defvar voice--answers)
@@ -36,7 +37,7 @@ learn on a yes or a pick.")
     (list :name (symbol-name cmd) :run cmd :slot 'command :command t
           :runner #'voice--run-command-plan
           :value (plist-get r :value) :kind (plist-get r :kind)
-          :exact (plist-get r :exact) :f (plist-get r :f)
+          :exact (plist-get r :exact) :literal (plist-get r :literal) :f (plist-get r :f)
           :phrases (list (plist-get r :label)) :patterns nil)))
 
 (defun voice--command-options (words _actions context)
@@ -48,7 +49,8 @@ SLOT-WORDS), best first."
 
 (defun voice--run-command (cmd &optional answer source)
   "Run CMD as M-x does; ANSWER, if given, answers its first question (a
-list's entry it names, else the list opens with the nearest first).  One
+list's entry it names, else the list opens with the nearest first); a
+number is its count too, its prefix argument (\"down 5\": C-u 5 <down>).  One
 whose name kills, deletes, reverts, quits or evaluates asks first, and
 that question is yours to answer by hand."
   (let ((real (or (command-remapping cmd) cmd)))
@@ -59,12 +61,18 @@ that question is yours to answer by hand."
       (user-error "Voice: not run"))
     (setq voice--last-run nil)
     (voice--listen-soon source)
-    (let ((voice--fill (and answer (list :pool nil :answers (list (cons "" answer)) :owned nil)))
-          (voice--recording t)
-          (voice--answers nil))
+    (let* ((count (and (numberp answer) answer))
+           (answer (if count (number-to-string count) answer))
+           (voice--fill (and answer (list :pool nil :answers (list (cons "" answer)) :owned nil)))
+           (voice--recording t)
+           (voice--answers nil)
+           (prefix-arg (or count prefix-arg)))
       (command-execute real 'record)
+      ;; What Emacs's repeat (C-x z, "repeat") does again, with its count.
+      (unless (eq real 'repeat)
+        (setq last-repeatable-command real last-prefix-arg count))
       (let ((got (seq-find #'stringp (reverse voice--answers))))
-        (setq voice--last-run (list :cmd cmd :answer got))
+        (setq voice--last-run (list :cmd cmd :answer (or got answer)))
         (format "Ran %s%s" real (if got (format ": %s" got) ""))))))
 
 (defun voice--canonical (run)
@@ -107,19 +115,36 @@ closest commands open, to pick by voice or tap."
   (let* ((parts (split-string (string-trim text) "[[:space:]]+" t))
          (named (and parts (string-match-p "[-/:]" (car parts)) (intern-soft (car parts)))))
     (if (and named (commandp named))
-        (voice--run-command named (and (cdr parts) (string-join (cdr parts) " ")) voice--source)
-      (let* ((words (voice--words text))
-             (options (and words (voice--command-options words nil (voice-context voice--source))))
-             (top (car options))
-             (next (cadr options)))
-        (if (and top (or (plist-get (nth 1 top) :exact)
-                         (and (>= (car top) voice-act-score)
-                              (>= (- (car top) (if next (car next) 0.0)) voice-act-margin))))
+        (let ((rest (and (cdr parts) (string-join (cdr parts) " "))))
+          ;; "run next-line 5", as voice.org writes a count learned.
+          (voice--run-command named (if (and rest (string-match-p "\\`[0-9]+\\'" rest)
+                                             (eq (car (voice-emacs-asks named)) 'number))
+                                        (string-to-number rest)
+                                      rest)
+                              voice--source))
+      (let* ((options (voice--command-options-for text voice--source))
+             (top (voice--command-choice options)))
+        (if top
             (voice--run-command (plist-get (nth 1 top) :run)
                                 (or (plist-get (nth 1 top) :value)
                                     (and (nth 3 top) (voice--join (nth 3 top))))
                                 voice--source)
           (voice--pick-command (or voice--said text) options voice--source))))))
+
+(defun voice--command-options-for (text source)
+  "The commands TEXT, said from SOURCE, may mean (`voice--command-options')."
+  (let ((words (voice--words text)))
+    (and words (voice--command-options words nil (voice-context source)))))
+
+(defun voice--command-choice (options)
+  "Of OPTIONS (`voice--command-options'), the one \"run …\" runs: one said
+just as it is called (`voice--exact-command'), else one clearly nearest;
+nil when it is for you to pick."
+  (let ((top (car options)) (next (cadr options)))
+    (or (voice--exact-command options nil)
+        (and top (>= (car top) voice-act-score)
+             (>= (- (car top) (if next (car next) 0.0)) voice-act-margin)
+             top))))
 
 ;; Collected once Emacs is idle, so the first command said doesn't wait.
 (when voice--android (run-with-idle-timer 60 nil #'voice-emacs-catalog))

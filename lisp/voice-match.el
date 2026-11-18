@@ -35,8 +35,9 @@
 
 (defconst voice-match-stop-words
   '("a" "an" "the" "to" "of" "for" "in" "on" "at" "my" "and" "or" "with"
-    "into" "is" "it" "this" "that" "please" "some" "up" "me" "i" "be")
-  "Words dropped before matching titles.")
+    "into" "is" "it" "this" "that" "please" "me" "i" "be")
+  "Words dropped before matching titles.  Not \"some\" or \"up\":
+save-some-buffers is not save-buffer, \"up 10\" not \"10\".")
 
 (defconst voice-match-numbers
   '(("zero" . "0") ("one" . "1") ("two" . "2") ("three" . "3") ("four" . "4")
@@ -218,12 +219,14 @@ other names for it), :extra (string: tags, parent; counts at 0.6), :prior
                    candidates)))
          (idf (make-hash-table :test 'equal)))
     (dotimes (i (length entries))
+      ;; Copies throughout (the final nil): delete-dups is destructive, and
+      ;; an uncopied last list is the entry's own -- a label cut short.
       (let* ((e (aref entries i))
              (all (delete-dups (append (plist-get e :words)
                                        (apply #'append (plist-get e :aliases))
-                                       (plist-get e :extra)))))
+                                       (plist-get e :extra) nil))))
         (dolist (tok (delete-dups (append (plist-get e :words)
-                                          (apply #'append (plist-get e :aliases)))))
+                                          (apply #'append (plist-get e :aliases)) nil)))
           (puthash tok (1+ (gethash tok df 0)) df))
         (dolist (tok all)
           (dolist (k (voice-match--keys tok))

@@ -651,6 +651,76 @@ SCHEDULED: <2020-01-01 Wed>
   (should (eq (car (voice-emacs-asks 'switch-to-buffer)) 'buffer))
   (should (null (cdr (voice-emacs-asks 'forward-char)))))
 
+(ert-deftest voice-test-an-index-keeps-its-labels-whole ()
+  ;; Words the name and its last label share were cut from the label once
+  ;; (delete-dups on the label's own list): "Find file in notes" became
+  ;; "find file", and some commands went missing from the ranking.
+  (let ((e (aref (voice-match-index-entries
+                  (voice-match-index (list (list :title "default find in notes"
+                                                 :aliases '("Find file in notes")))))
+                 0)))
+    (should (equal (plist-get e :aliases) '(("find" "file" "note"))))))
+
+(defvar voice-test--count nil)
+(defun voice-test-step (n)
+  "A command counting by its prefix argument, as forward-word does."
+  (interactive "p")
+  (setq voice-test--count n))
+(defun voice-test-hop (&optional count)
+  "A command whose form is no string, taking a count, as evil's motions do."
+  (interactive (list (prefix-numeric-value current-prefix-arg)))
+  (setq voice-test--count count))
+
+(ert-deftest voice-test-a-number-is-a-count ()
+  (should (eq (car (voice-emacs-asks 'voice-test-step)) 'number))
+  (should (eq (car (voice-emacs-asks 'voice-test-hop)) 'number))
+  (should (eq (voice-emacs--count '("5")) 5))
+  (should (eq (voice-emacs--count '("40" "2")) 42))
+  ;; Its own words said again are no more than it: "down 5 lines".
+  (should (eq (voice-emacs--count '("5" "line") '("next" "line")) 5))
+  (should-not (voice-emacs--count '("dark")))
+  (voice-test--with
+    (let ((voice-emacs--catalog nil) (voice-test--count nil))
+      (let ((plan (voice-plan "voice test step 4" "test")))
+        (should (voice-expect-ok "cmd:voice-test-step" plan))
+        (should (eql (plist-get (plist-get plan :action) :value) 4)))
+      ;; Run: the count is its prefix argument, as C-u 4 would give.
+      (voice--run-command 'voice-test-step 4)
+      (should (eql voice-test--count 4))
+      (voice--run-command 'voice-test-hop 7)
+      (should (eql voice-test--count 7)))))
+
+(dotimes (i 9)
+  (defalias (intern (format "voice-test-slot-%d" (1+ i)))
+    (lambda (&optional n) (interactive "p") (setq voice-test--count n))
+    "One of nine numbered commands taking a count, as winum-select-window-N."))
+
+(ert-deftest voice-test-a-numbered-name-is-not-a-count ()
+  ;; "voice test slot 3" is that command, though each of the nine is as
+  ;; near read as "voice test slot N" with a count of 3.
+  (voice-test--with
+    (let ((voice-emacs--catalog nil))
+      (should (voice-expect-ok "cmd:voice-test-slot-3" (voice-plan "voice test slot 3" "test"))))))
+
+(ert-deftest voice-test-a-key-is-called-what-it-says ()
+  ;; The keyboard's keys by their names: <down> is next-line; with a
+  ;; number, so many times.  The menu bar's name, when no other has it.
+  (voice-test--with
+    (let ((voice-emacs--catalog nil))
+      (let ((plan (voice-plan "down 5" "test")))
+        (should (voice-expect-ok "cmd:next-line" plan))
+        (should (eql (plist-get (plist-get plan :action) :value) 5)))
+      (should (voice-expect-ok "cmd:mark-whole-buffer" (voice-plan "select all" "test"))))))
+
+(ert-deftest voice-test-what-a-label-is-called ()
+  (should (equal (voice-emacs--label-name "Add project (C-u: shell only)") "Add project"))
+  (should (equal (voice-emacs--label-name "Remote: add session") "Remote: add session"))
+  ;; Past its namespace: a library's name, a Doom module's.
+  (let ((voice-emacs--features (let ((h (make-hash-table :test 'equal))) (puthash "evil" t h) h)))
+    (should (equal (voice-emacs--short-name 'evil-window-left) '("window" "left")))
+    (should (equal (voice-emacs--short-name 'doom/window-enlargen) '("window" "enlargen")))
+    (should-not (voice-emacs--short-name '+zen/toggle))))
+
 (ert-deftest voice-test-command-by-its-name-runs ()
   (voice-test--with
     (should (voice-expect-ok "cmd:describe-function" (voice-plan "describe function" "test")))))

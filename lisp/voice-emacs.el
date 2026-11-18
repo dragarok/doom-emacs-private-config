@@ -140,36 +140,72 @@ voice.org); yours go under * Words there, as - said :: means.")
 
 (defun voice-emacs--name-words (cmd)
   "CMD's name as words: doom/reload-theme is \"doom reload theme\"; a
-leading + or my/ is no word."
-  (let ((name (replace-regexp-in-string "\\`\\(?:[+]+\\|my[/-]\\)" "" (symbol-name cmd))))
-    (string-join (split-string name "[^[:alnum:]]+" t) " ")))
+leading + or my/ is no word.  A key's lambda (`voice-emacs--key-command')
+is what its key calls it."
+  (or (get cmd 'voice-label)
+      (let ((name (replace-regexp-in-string "\\`\\(?:[+]+\\|my[/-]\\)" "" (symbol-name cmd))))
+        (string-join (split-string name "[^[:alnum:]]+" t) " "))))
 
-(defun voice-emacs--walk (map fn &optional prefixes seen depth)
+(defun voice-emacs--walk (map fn &optional prefixes seen depth keys)
   "Call FN with each command bound in MAP, its label (a description, as
-Doom's leader gives, or a menu item's name; else nil) and the names of the
-prefixes above it, innermost first."
+Doom's leader gives, or a menu item's name; else nil), the names of the
+prefixes above it, innermost first, and its keys (a vector, from MAP).
+A command bound as a lambda (Doom's cmd!) comes as that function."
   (let ((seen (or seen (make-hash-table :test 'eq)))
         (depth (or depth 0)))
     (unless (or (> depth 6) (gethash map seen))
       (puthash map t seen)
       (map-keymap
-       (lambda (_key def)
-         (let (label)
+       (lambda (key def)
+         (let (label (here (vconcat keys (vector key))))
            ;; ("Description" . DEF), ("Name" "Help" . DEF), (menu-item "Name" DEF ...)
            (when (and (consp def) (stringp (car def)))
              (setq label (car def) def (cdr def))
              (when (and (consp def) (stringp (car def))) (setq def (cdr def))))
            (when (eq (car-safe def) 'menu-item)
              (setq label (nth 1 def) def (nth 2 def)))
-           (cond ((and def (symbolp def) (commandp def) (not (keymapp def)))
-                  (funcall fn def (and (stringp label) label) prefixes))
+           (cond ((and def (or (symbolp def) (functionp def)) (commandp def) (not (keymapp def)))
+                  (funcall fn def (and (stringp label) label) prefixes here))
                  ((and (keymapp def)
                        ;; A keymap still to be loaded stays so.
                        (not (and (symbolp def) (autoloadp (indirect-function def)))))
                   (voice-emacs--walk (if (symbolp def) (indirect-function def) def) fn
                                      (if (stringp label) (cons label prefixes) prefixes)
-                                     seen (1+ depth))))))
+                                     seen (1+ depth) here)))))
        map))))
+
+(defun voice-emacs--key-command (def label keys &optional local)
+  "DEF, a command bound under KEYS, as a symbol: itself, or for a lambda
+with a LABEL (Doom's cmd!: SPC o v w \"Weekly review\") a name standing
+for that key, voice-key/SPC_o_v_w, so it can be found and run like any.
+LOCAL: the key is a mode's, so its name is for that mode's buffers only,
+never in the catalog."
+  (cond ((symbolp def) def)
+        ((and label keys)
+         (let ((sym (intern (concat "voice-key/" (replace-regexp-in-string
+                                                  " " "_" (key-description keys))))))
+           (unless (eq (symbol-function sym) def) (defalias sym def))
+           (put sym 'voice-label (voice-emacs--label-name label))
+           (when local (put sym 'voice-skip t))
+           sym))))
+
+(defun voice-emacs--literal (string)
+  "STRING's words as said, sorted, unstemmed, no stop words."
+  (sort (seq-remove (lambda (w) (member w voice-match-stop-words)) (voice-match-words string))
+        #'string<))
+
+(defvar voice-emacs-key-names
+  '((up . "up") (down . "down") (left . "left") (right . "right")
+    (home . "home") (end . "end") (next . "page down") (prior . "page up")
+    (delete . "delete") (deletechar . "delete") (insert . "insert") (escape . "escape"))
+  "The keyboard's keys, by the names on them: what a command bound to one
+alone in the global map is called (<down>: next-line).")
+
+(defun voice-emacs--label-name (label)
+  "LABEL without its notes: \"Add project (C-u: shell only)\" is called
+\"Add project\"; \"Remote: add session\" keeps its words."
+  (let ((name (string-trim (replace-regexp-in-string "[[:space:]]*([^)]*)" "" label))))
+    (if (string-empty-p name) label name)))
 
 (defun voice-emacs--within (label prefix)
   "LABEL with PREFIX's words it lacks: \"Find file\" in notes is \"Find
@@ -180,27 +216,49 @@ file notes\", \"Save buffer\" in buffer stays."
                  " ")))
 
 (defun voice-emacs--labels ()
-  "Command -> (LABELS MENU-WORDS LEADER): what the leader's keys call
-it; the menus' names for it and the prefixes above (\"buffer\"), which only
-describe it (a package's menu says \"Open file\" for its own); whether the
-leader has it."
+  "Command -> (LABELS MENU-WORDS LEADER BARE PLAIN MENU): what the leader's
+keys call it, within their group, and the keyboard's own keys (<down>:
+\"down\", <next>: \"page down\"); the menus' names for it and the prefixes
+above (\"buffer\"), which only describe it; whether the leader has it;
+the labels as the keys show them, group unsaid (\"Restart emacs\" under
+quit/session); without their notes (\"Add project\" for \"Add project
+\(C-u: shell only)\"); and the menu bar's names for it (\"Select All\"),
+said just so only when nothing else is (a package's menu says \"Open
+file\" for its own)."
   (let ((table (make-hash-table :test 'eq)))
     (dolist (spec (list (cons (and (boundp 'doom-leader-map) doom-leader-map) t)
                         (cons global-map nil)))
       (when (keymapp (car spec))
         (voice-emacs--walk
          (car spec)
-         (lambda (cmd label prefixes)
-           (let ((e (or (gethash cmd table) (list nil nil nil))))
-             ;; A leader key's description is within its prefix: SPC n f
-             ;; "Find file" finds a file in notes.
-             (let ((label (and label (cdr spec) (voice-emacs--within label (car prefixes)))))
-               (when (and label (not (member label (nth 0 e))))
-                 (setf (nth 0 e) (cons label (nth 0 e)))))
-             (dolist (p (if (and label (not (cdr spec))) (cons label prefixes) prefixes))
-               (unless (member p (nth 1 e)) (setf (nth 1 e) (cons p (nth 1 e)))))
-             (when (cdr spec) (setf (nth 2 e) t))
-             (puthash cmd e table))))))
+         (lambda (def label prefixes keys)
+           ;; The leader's lambdas too, by what it calls them.
+           (let* ((cmd (if (cdr spec) (voice-emacs--key-command def label keys) (and (symbolp def) def)))
+                  (e (and cmd (or (gethash cmd table) (list nil nil nil nil nil nil))))
+                  (named-key (and (not (cdr spec)) (= (length keys) 1)
+                                  (alist-get (aref keys 0) voice-emacs-key-names))))
+             (when cmd
+               ;; A leader key's description is within its prefix: SPC n f
+               ;; "Find file" finds a file in notes.
+               (when (and label (cdr spec))
+                 (let ((within (voice-emacs--within label (car prefixes)))
+                       (plain (voice-emacs--label-name label)))
+                   (unless (member within (nth 0 e)) (setf (nth 0 e) (cons within (nth 0 e))))
+                   (unless (member label (nth 3 e)) (setf (nth 3 e) (cons label (nth 3 e))))
+                   (unless (equal plain label)
+                     (dolist (p (list plain (voice-emacs--within plain (car prefixes))))
+                       (unless (member p (nth 4 e)) (setf (nth 4 e) (cons p (nth 4 e))))))))
+               (when named-key
+                 (unless (member named-key (nth 0 e)) (setf (nth 0 e) (cons named-key (nth 0 e))))
+                 (unless (member named-key (nth 3 e)) (setf (nth 3 e) (cons named-key (nth 3 e)))))
+               (when (and label (not (cdr spec)) (eq (aref keys 0) 'menu-bar))
+                 (let ((m (voice-emacs--label-name label)))
+                   (unless (member m (nth 5 e)) (setf (nth 5 e) (cons m (nth 5 e))))))
+               (dolist (p (if (and label (not (cdr spec))) (cons label prefixes) prefixes))
+                 (unless (member p (nth 1 e)) (setf (nth 1 e) (cons p (nth 1 e)))))
+               (when (cdr spec) (setf (nth 2 e) t))
+               (puthash cmd e table))))
+         nil nil nil (and (cdr spec) (vector ?\s)))))
     table))
 
 (defun voice-emacs--history ()
@@ -211,13 +269,21 @@ leader has it."
     h))
 
 (defun voice-emacs--own-mode (cmd)
-  "The major mode CMD belongs to, by its name (beancount-insert-date:
-beancount-mode), or nil."
-  (let* ((first (car (split-string (symbol-name cmd) "[-/]" t)))
-         (mode (and first (intern-soft (concat first "-mode")))))
-    (and mode (fboundp mode) (not (memq mode minor-mode-list))
-         (not (boundp mode))            ; a minor mode has a variable
-         mode)))
+  "The major modes CMD belongs to, by its name, longest first
+\(beancount-insert-date: beancount-mode; org-agenda-goto-date:
+org-agenda-mode and org-mode), or nil."
+  (let* ((words (split-string (symbol-name cmd) "[-/]" t)) modes)
+    (dotimes (i (1- (length words)))
+      (let ((mode (intern-soft (concat (string-join (seq-take words (1+ i)) "-") "-mode"))))
+        (when (and mode (fboundp mode) (not (memq mode minor-mode-list))
+                   (not (boundp mode)))            ; a minor mode has a variable
+          (push mode modes))))
+    ;; The first word alone, as ever, even when the name is one word more.
+    (unless modes
+      (let ((mode (and words (intern-soft (concat (car words) "-mode")))))
+        (when (and mode (fboundp mode) (not (memq mode minor-mode-list)) (not (boundp mode)))
+          (push mode modes))))
+    modes))
 
 (defun voice-emacs--entry-point-p (cmd)
   "Non-nil when CMD is a way into its package, meant to be run from
@@ -226,6 +292,26 @@ autoloaded, which is a package saying so."
   (or (not (string-match-p "[-/]" (symbol-name cmd)))
       (and (fboundp 'help-fns--autoloaded-p)
            (ignore-errors (help-fns--autoloaded-p cmd)))))
+
+(defvar voice-emacs--features nil "Names of the features loaded, a hash, while the catalog is made.")
+
+(defun voice-emacs--short-name (cmd)
+  "CMD's name past its namespace, as tokens, when that says something
+alone (two words or more): doom/window-enlargen is \"window enlargen\",
+evil-window-left (evil is a library) \"window left\"; +zen/toggle is no
+\"toggle\".  A key's lambda has none."
+  (let ((name (symbol-name cmd)) rest)
+    (unless (get cmd 'voice-label)
+      (if (string-match "/\\([^/]+\\)\\'" name)
+          (setq rest (match-string 1 name))
+        ;; The longest leading words naming a library loaded.
+        (let ((words (split-string name "-" t)))
+          (cl-loop for i from (- (length words) 2) downto 1
+                   when (and voice-emacs--features
+                             (gethash (string-join (seq-take words i) "-") voice-emacs--features))
+                   return (setq rest (string-join (nthcdr i words) "-")))))
+      (let ((toks (and rest (voice-match-tokens rest))))
+        (and (cdr toks) toks)))))
 
 (defun voice-emacs--entry (cmd labels history)
   "CMD as a candidate for voice-match: its name, labels, prefixes, prior,
@@ -236,6 +322,12 @@ and the major mode it belongs to unless a global key or the leader has it."
           :mode (and (not l) (zerop count) (not (voice-emacs--entry-point-p cmd))
                      (voice-emacs--own-mode cmd))
           :aliases (nth 0 l)
+          :bare (mapcar #'voice-match-tokens (nth 3 l))
+          :plain (mapcar #'voice-match-tokens (nth 4 l))
+          :menu (mapcar #'voice-match-tokens (nth 5 l))
+          ;; As said, unstemmed: \"pull request\" is not \"pull requests\".
+          :literal (mapcar #'voice-emacs--literal (append (nth 0 l) (nth 3 l) (nth 4 l)))
+          :short (voice-emacs--short-name cmd)
           :extra (and (nth 1 l) (string-join (nth 1 l) " "))
           :prior (+ (cond ((nth 2 l) 0.04) (l 0.02) (t 0.0))
                     (if (> count 0) (min 0.08 (+ 0.03 (* 0.01 count))) 0.0))
@@ -258,30 +350,166 @@ commands came or went (a package loaded)."
   (if (and voice-emacs--catalog
            (< (float-time (time-since (car voice-emacs--catalog))) voice-emacs-refresh-seconds))
       (cddr voice-emacs--catalog)
-    (let ((cmds (voice-emacs--commands)))
+    ;; The labels first: they name the leader's lambdas, which are commands then.
+    (let* ((labels (voice-emacs--labels))
+           (cmds (voice-emacs--commands)))
       (if (and voice-emacs--catalog (= (length cmds) (cadr voice-emacs--catalog)))
           (progn (setcar voice-emacs--catalog (current-time))
                  (cddr voice-emacs--catalog))
-        (let* ((labels (voice-emacs--labels))
-               (history (voice-emacs--history))
+        (let* ((history (voice-emacs--history))
+               (voice-emacs--features (let ((h (make-hash-table :test 'equal :size (length features))))
+                                        (dolist (f features h) (puthash (symbol-name f) t h))))
                (index (voice-match-index
                        (mapcar (lambda (c) (voice-emacs--entry c labels history)) cmds))))
           (setq voice-emacs--catalog (cons (current-time) (cons (length cmds) index)))
           index)))))
 
+(defvar voice-emacs--by-cmd nil "(INDEX . TABLE): command -> its entry in INDEX.")
+(defvar voice-emacs--said nil "(INDEX . TABLE): what commands are called, sorted tokens joined -> ((CMD . WAY)...).")
+
+(defconst voice-emacs-exact-order '(here key label plain name short menu)
+  "Which way of being said just so wins, first first: what a key of the
+buffer in front calls it, what a leader key calls it (what you see, and
+chose) with its group or without, then without its note (\"Open repl\"
+before \"Open repl (same window)\"), then a command's own name, with its
+namespace or without (doom/window-enlargen: \"window enlargen\"), and
+last the menu bar's name (\"select all\").")
+
+(defconst voice-emacs-shared-ways '(short menu)
+  "Ways of being called that name a command only when no other command
+there is so called: \"next heading\" is outline's, reftex's and others'
+short name, so none of theirs.")
+
+(defun voice-emacs--sole-p (cmd way toks modes)
+  "Non-nil when CMD is the one command called TOKS (sorted) the WAY given,
+of those for MODES (or for any mode)."
+  (let ((hits (seq-filter
+               (lambda (h)
+                 (and (eq (cdr h) way)
+                      (let ((m (plist-get (voice-emacs--entry-of (car h)) :mode)))
+                        (or (null m) (seq-intersection m modes)))))
+               (gethash (string-join toks " ") (voice-emacs--said-index)))))
+    (and hits (null (cdr (delete-dups (mapcar #'car hits)))) (eq (caar hits) cmd))))
+
+(defun voice-emacs--better-way-p (a b)
+  "Non-nil when way A of being said just so is better than B."
+  (and a (or (null b) (< (cl-position a voice-emacs-exact-order) (cl-position b voice-emacs-exact-order)))))
+
+(defun voice-emacs--said-index ()
+  "What each command of the catalog is called, any order: an index from
+the words (sorted tokens) to the commands so called and how (key, label,
+plain, short, menu), so being said just so never waits on ranking."
+  (let ((index (voice-emacs-catalog)))
+    (unless (eq (car voice-emacs--said) index)
+      (let ((h (make-hash-table :test 'equal)))
+        (seq-doseq (e (voice-match-index-entries index))
+          (dolist (way '((:aliases . key) (:bare . label) (:plain . plain) (:menu . menu)))
+            (dolist (toks (plist-get e (car way)))
+              ;; A menu's one word says too little alone ("Reload": envrc's).
+              (when (and toks (or (cdr toks) (not (eq (cdr way) 'menu))))
+                (push (cons (plist-get e :cmd) (cdr way))
+                      (gethash (string-join (sort (copy-sequence toks) #'string<) " ") h)))))
+          (let ((short (plist-get e :short)))
+            (when short
+              (push (cons (plist-get e :cmd) 'short)
+                    (gethash (string-join (sort (copy-sequence short) #'string<) " ") h)))))
+        (setq voice-emacs--said (cons index h))))
+    (cdr voice-emacs--said)))
+
+(defun voice-emacs--entry-of (cmd)
+  "CMD's entry in the catalog, or nil."
+  (let ((index (voice-emacs-catalog)))
+    (unless (eq (car voice-emacs--by-cmd) index)
+      (let ((h (make-hash-table :test 'eq)))
+        (seq-doseq (e (voice-match-index-entries index)) (puthash (plist-get e :cmd) e h))
+        (setq voice-emacs--by-cmd (cons index h))))
+    (gethash cmd (cdr voice-emacs--by-cmd))))
+
 (defun voice-emacs-label (cmd)
   "How CMD is shown: what its key calls it, else its name's words."
-  (let ((e (seq-find (lambda (e) (eq (plist-get e :cmd) cmd))
-                     (voice-match-index-entries (voice-emacs-catalog)))))
+  (let ((e (voice-emacs--entry-of cmd)))
     (or (car (plist-get e :aliases)) (voice-emacs--name-words cmd))))
 
+(defvar voice-emacs--here-cache nil
+  "(MAPS TIME HERE): the keymaps of the buffer in front last asked about,
+when, and what they bind.")
+
 (defun voice-emacs-here ()
-  "Commands the buffer in front binds: its mode's keys."
-  (let ((h (make-hash-table :test 'eq)))
-    (with-current-buffer (window-buffer (selected-window))
-      (when (keymapp (current-local-map))
-        (voice-emacs--walk (current-local-map) (lambda (cmd _l _p) (puthash cmd t h)) nil nil 4)))
+  "Commands the buffer in front binds -- its mode's keys, its local leader,
+its minor modes' -- as `voice-emacs--here-of' gives them; walked again
+when the keymaps differ, or are `voice-emacs-refresh-seconds' old."
+  (with-current-buffer (window-buffer (selected-window))
+    (let ((maps (cons (current-local-map) (current-minor-mode-maps)))
+          (c voice-emacs--here-cache))
+      (if (and c (= (length maps) (length (car c))) (cl-every #'eq maps (car c))
+               (< (float-time (time-since (nth 1 c))) voice-emacs-refresh-seconds))
+          (nth 2 c)
+        (let ((h (voice-emacs--here-of maps)))
+          (setq voice-emacs--here-cache (list maps (current-time) h))
+          h)))))
+
+(defun voice-emacs--here-of (maps)
+  "The commands MAPS bind, each to what those keys call it, (WITHIN-GROUP
+. LABEL) pairs (\"Deadline date\" . \"Deadline\"), or t when they call it
+nothing.  A lambda with a label comes as its `voice-emacs--key-command'
+name."
+  (let ((h (make-hash-table :test 'eq))
+        (seen (make-hash-table :test 'eq)))
+    (dolist (map maps)
+      (when (keymapp map)
+        (voice-emacs--walk
+         map
+         (lambda (def label prefixes keys)
+           (let ((cmd (voice-emacs--key-command def label keys t)))
+             (when cmd
+               (let ((old (gethash cmd h)))
+                 (puthash cmd (if label
+                                  (let ((plain (voice-emacs--label-name label)))
+                                    (append (list (cons (voice-emacs--within label (car prefixes)) label))
+                                            (and (not (equal plain label))
+                                                 (list (cons (voice-emacs--within plain (car prefixes)) plain)))
+                                            (and (consp old) old)))
+                                (or old t))
+                          h)))))
+         nil seen)))
     h))
+
+(defvar voice-emacs--here-labels-cache (make-hash-table :test 'eq :weakness 'key)
+  "HERE -> its labels, as `voice-emacs--here-labels' makes them once.")
+
+(defun voice-emacs--here-labels (here)
+  "HERE (`voice-emacs-here')'s labels: (VECTOR . KEYS), VECTOR of (CMD
+WITHIN-TOKENS LABEL-TOKENS), one per label, KEYS the lookup keys of their
+words (`voice-match--keys') to indices in VECTOR."
+  (or (and (hash-table-p here) (gethash here voice-emacs--here-labels-cache))
+      (let (all (keys (make-hash-table :test 'equal)))
+        (when (hash-table-p here)
+          (maphash (lambda (cmd labels)
+                     (when (consp labels)
+                       (dolist (l labels)
+                         (push (list cmd (voice-match-tokens (car l)) (voice-match-tokens (cdr l))) all))))
+                   here))
+        (let ((vec (vconcat all)))
+          (dotimes (i (length vec))
+            (dolist (tok (delete-dups (append (nth 1 (aref vec i)) (nth 2 (aref vec i)) nil)))
+              (dolist (k (voice-match--keys tok)) (push i (gethash k keys)))))
+          (let ((r (cons vec keys)))
+            (when (hash-table-p here) (puthash here r voice-emacs--here-labels-cache))
+            r)))))
+
+(defun voice-emacs--here-candidates (here toks)
+  "The labels of HERE that TOKS may say: those sharing a lookup key with
+a word of TOKS or a word it means (`voice-match-expand'), as the catalog
+finds its candidates."
+  (let* ((labels (voice-emacs--here-labels here)) (seen (make-hash-table)) out)
+    (dolist (x toks)
+      (dolist (k (append (voice-match--keys x)
+                         (and voice-match-expand (funcall voice-match-expand x))))
+        (dolist (i (gethash k (cdr labels)))
+          (unless (gethash i seen)
+            (puthash i t seen)
+            (push (aref (car labels) i) out)))))
+    out))
 
 ;;;; What a command asks for
 
@@ -413,7 +641,33 @@ An autoloaded command is never loaded for this: its name tells."
                              (seq-find (lambda (d) (and (plist-get (cdr d) :values)
                                                         (equal (symbol-name (car d)) (car (last words)))))
                                        voice-emacs-domains))))))
-    (cons kind (cond (silent nil) ((or kind codes) t) (t 'maybe)))))
+    ;; Nothing else asked, a count it may take: \"down 5\" is <down> five times.
+    (when (and (null kind) (voice-emacs--takes-count-p spec first))
+      (setq kind 'number))
+    (cons kind (cond (silent nil) ((or (and kind (not (eq kind 'number))) codes) t) (t 'maybe)))))
+
+(defvar voice-emacs-count-args "\\`\\(?:count\\|n\\|lines?\\|num\\|number\\)\\'"
+  "A command's first argument so named is a count, when its interactive
+form is not a string to tell (evil's motions: count; goto-line: line).")
+
+(defun voice-emacs--takes-count-p (spec first)
+  "Non-nil when a command with interactive SPEC and FIRST argument takes a
+number: its prefix argument (p, P), one it reads (n, N), or, its form no
+string, a first argument named so (`voice-emacs-count-args')."
+  (if (stringp spec)
+      (string-match-p "\\(?:\\`\\|\n\\)[*@^]*[pPnN]" spec)
+    (and first (string-match-p voice-emacs-count-args (downcase (symbol-name first))))))
+
+(defun voice-emacs--count (tokens &optional own)
+  "The number TOKENS say, words OWN has (the command's own: \"down 5
+lines\") aside: \"5\", \"forty two\" (40 2); else nil."
+  (let ((toks (seq-remove (lambda (x) (member x own)) tokens)))
+    (and toks (seq-every-p (lambda (x) (string-match-p "\\`[0-9]+\\'" x)) toks)
+         (let ((ns (mapcar #'string-to-number toks)))
+           (pcase ns
+             (`(,a) a)
+             ;; forty two: tens then a unit
+             (`(,a ,b) (and (>= a 20) (zerop (% a 10)) (< b 10) (+ a b))))))))
 
 (defun voice-emacs-values (kind)
   "The values of KIND there are now."
@@ -480,6 +734,10 @@ theme's \"dark\"); nil when none is near."
   "TOKENS (an index entry's alias) as words again."
   (if (stringp tokens) tokens (string-join tokens " ")))
 
+(defun voice-emacs--said-as (said names)
+  "Non-nil when SAID (sorted tokens) is one of NAMES (token lists), in any order."
+  (seq-some (lambda (a) (equal said (sort (copy-sequence a) #'string<))) names))
+
 (defun voice-emacs--tokens (words)
   (voice-match-tokens (mapconcat #'car words " ")))
 
@@ -509,7 +767,11 @@ insert date, said in an Org buffer.")
 LIMIT: plists with :s (how near, 0 to 1), :f (:s plus the priors, which
 only break ties), :cmd, :slot (the words left for what it asks, as
 pairs), :value (the answer they name), :label (how it is called), :kind,
-:exact (name: what was said is its name; key: what its key calls it).
+:exact (here: what a key of the buffer in front calls it; key: what the
+leader's key calls it, with its group; label: the same, its group unsaid;
+plain: its note unsaid too; name: what was said is its name; short: its
+name, namespace unsaid; menu: the menu bar's name), :literal (said word
+for word, unstemmed).
 CONTEXT: (:here COMMANDS :modes MODES), the commands the buffer in front
 binds (`voice-emacs-here') and its major mode and parents; a mode's own
 command outside it counts `voice-emacs-elsewhere'.
@@ -526,6 +788,7 @@ nothing for a command that asks nothing."
           (modes (plist-get context :modes))
           (prior-fn (and here (lambda (e) (and (gethash (plist-get e :cmd) here) 0.06))))
           (n (length words))
+          (literal (voice-emacs--literal (mapconcat #'car words " ")))
           (memo (make-hash-table :test 'equal))
           (rank (lambda (toks lim)
                   (let ((key (cons lim toks)))
@@ -555,13 +818,26 @@ nothing for a command that asks nothing."
                   ;; better way it was said, the higher of their priors.
                   (let* ((key (voice-emacs--key cmd))
                          (old (gethash key best))
-                         (s (if (and (plist-get e :mode) (not (memq (plist-get e :mode) modes)))
+                         (s (if (and (plist-get e :mode) (not (seq-intersection (plist-get e :mode) modes)))
                                 (* s voice-emacs-elsewhere)
                               s))
                          (p (max p (or (plist-get old :p) 0.0))))
-                    (if (> s (or (plist-get old :s) -1.0))
+                    ;; Said just so one way, nearer another: still said just so,
+                    ;; the better way.
+                    (when (and old (null slot) (eq cmd (plist-get old :cmd))
+                               (voice-emacs--better-way-p (plist-get old :exact) exact))
+                      (setq exact (plist-get old :exact)))
+                    (when (and old (null slot) (eq cmd (plist-get old :cmd)) (= s (plist-get old :s))
+                               (voice-emacs--better-way-p exact (plist-get old :exact)))
+                      (plist-put old :exact exact))
+                    ;; Nearer, or as near and said a better way (org-timestamp
+                    ;; said, org-time-stamp its alias found first).
+                    (if (or (> s (or (plist-get old :s) -1.0))
+                            (and old (= s (plist-get old :s))
+                                 (voice-emacs--better-way-p exact (plist-get old :exact))))
                         (puthash key (list :s s :p p :f (+ s (if (>= s 0.5) p 0.0)) :cmd cmd
                                            :slot slot :value value :kind kind :exact exact
+                                           :literal (and exact (member literal (plist-get e :literal)) t)
                                            :label (if (plist-get e :aliases)
                                                       (voice-emacs--spoken (car (plist-get e :aliases)))
                                                     (plist-get e :title)))
@@ -575,7 +851,9 @@ nothing for a command that asks nothing."
              (tail (and (< k n) (voice-emacs--lead-off (nthcdr k words))))
              (htoks (voice-emacs--tokens head))
              (ttoks (voice-emacs--tokens tail)))
-        (when (and htoks (<= (length htoks) voice-emacs-head-words)
+        ;; All that was said may be a name however long ("jupyter org
+        ;; next busy src block"); a name with words after it, at most so long.
+        (when (and htoks (or (= k n) (<= (length htoks) voice-emacs-head-words))
                    (or (= k n) ttoks)
                    (not (member (cons htoks ttoks) seen)))
           (push (cons htoks ttoks) seen)
@@ -586,17 +864,33 @@ nothing for a command that asks nothing."
               (let* ((e (nth 2 r)) (cmd (plist-get e :cmd)) (s (nth 1 r)) (p (- (car r) s)))
                 (if (= k n)
                     (funcall keep cmd s p nil nil e nil
-                             (cond ((equal htoks (plist-get e :words)) 'name)
-                                   ;; In any order: "toggle line numbers" is
-                                   ;; SPC t l, "Line numbers" under toggle.
-                                   ((let ((said (sort (copy-sequence htoks) #'string<)))
-                                      (seq-some (lambda (a) (equal said (sort (copy-sequence a) #'string<)))
-                                                (plist-get e :aliases)))
-                                    'key)))
+                             (let ((said (sort (copy-sequence htoks) #'string<)))
+                               ;; The best way it was said (`voice-emacs-exact-order').
+                               ;; In any order: "toggle line numbers" is SPC t l,
+                               ;; "Line numbers" under toggle.
+                               (cond ((voice-emacs--said-as said (plist-get e :aliases)) 'key)
+                                     ;; Its group unsaid: "restart emacs", SPC q r.
+                                     ((voice-emacs--said-as said (plist-get e :bare)) 'label)
+                                     ;; Its note unsaid: "add project".
+                                     ((voice-emacs--said-as said (plist-get e :plain)) 'plain)
+                                     ((equal htoks (plist-get e :words)) 'name)
+                                     ;; Its namespace unsaid: "window enlargen".
+                                     ((and (equal htoks (plist-get e :short))
+                                           (voice-emacs--sole-p cmd 'short said modes))
+                                      'short)
+                                     ;; The menu bar's name: "select all".
+                                     ((and (cdr said) (voice-emacs--said-as said (plist-get e :menu))
+                                           (voice-emacs--sole-p cmd 'menu said modes))
+                                      'menu))))
                   (let* ((asks (voice-emacs-asks cmd)) (kind (car asks))
-                         (d (and kind (funcall kind-data kind)))
-                         (v (and d (funcall value kind d ttoks)))
-                         (explained (cond ((null (cdr asks)) 0.0)
+                         (d (and kind (not (eq kind 'number)) (funcall kind-data kind)))
+                         (v (if (eq kind 'number)
+                                (let ((n (voice-emacs--count
+                                          ttoks (append (plist-get e :words) (apply #'append (plist-get e :aliases))))))
+                                  (and n (cons n 1.0)))
+                              (and d (funcall value kind d ttoks))))
+                         (explained (cond ((eq kind 'number) (if v 1.0 0.0))
+                                          ((null (cdr asks)) 0.0)
                                           (v (cdr v))
                                           ((and d (plist-get (cdr (assq kind voice-emacs-domains)) :alone))
                                            (funcall evidence kind d ttoks))
@@ -633,6 +927,32 @@ nothing for a command that asks nothing."
                               (funcall keep (plist-get e :cmd)
                                        (* 0.9 voice-emacs-unsaid factor (if top (/ (nth 1 r) top) 1.0))
                                        (- (car r) (nth 1 r)) tail (car v) e kind))))))))))))))
+     ;; Called just so, whether the ranking found it or not: "select all"
+     ;; (the menu's mark-whole-buffer), "window left".
+     (let ((all (voice-emacs--tokens words)))
+       (when all
+         (let ((said (sort (copy-sequence all) #'string<)))
+           (dolist (hit (gethash (string-join said " ") (voice-emacs--said-index)))
+             (let ((e (voice-emacs--entry-of (car hit))))
+               (when (and e (or (not (memq (cdr hit) voice-emacs-shared-ways))
+                                (voice-emacs--sole-p (car hit) (cdr hit) said modes)))
+                 (funcall keep (car hit) 1.0 (or (plist-get e :prior) 0.0) nil nil e nil (cdr hit))))))))
+     ;; What the keys of the buffer in front call a command: "next cell" in
+     ;; a notebook, "deadline" under Org's local leader.  Said just so, it
+     ;; is that command (:exact here), before any other of the name.
+     (let ((all (voice-emacs--tokens words)))
+       (when all
+         (let ((said (sort (copy-sequence all) #'string<)))
+           (dolist (l (voice-emacs--here-candidates here all))
+             (let ((s (max (voice-match--score-words catalog all (nth 1 l) nil)
+                           (voice-match--score-words catalog all (nth 2 l) nil))))
+               (when (>= s 0.5)
+                 (let* ((cmd (car l))
+                        (e (append (list :aliases (list (nth 1 l)) :mode nil)
+                                   (or (voice-emacs--entry-of cmd)
+                                       (list :title (voice-emacs--name-words cmd) :cmd cmd)))))
+                   (funcall keep cmd s 0.06 nil nil e nil
+                            (and (voice-emacs--said-as said (cdr l)) 'here)))))))))
      ;; A value alone, of a kind whose names are its own: "doom acario
      ;; dark" is a theme, to load.
      (let ((all (voice-emacs--tokens (voice-emacs--lead-off words))))
@@ -657,9 +977,14 @@ nothing for a command that asks nothing."
                               (- (car r) (nth 1 r)) (voice-emacs--lead-off words) (car v) e kind)))))))))
      (let (out)
        (maphash (lambda (_k v) (push v out)) best)
-       (setq out (sort out (lambda (a b) (or (> (plist-get a :f) (plist-get b :f))
-                                             (and (= (plist-get a :f) (plist-get b :f))
-                                                  (> (plist-get a :s) (plist-get b :s)))))))
+       ;; On a tie, what was said just so first: nine winum-select-window-N
+       ;; are as near "winum select window 1" (a count), one is called so.
+       (setq out (sort out (lambda (a b)
+                             (or (> (plist-get a :f) (plist-get b :f))
+                                 (and (= (plist-get a :f) (plist-get b :f))
+                                      (or (voice-emacs--better-way-p (plist-get a :exact) (plist-get b :exact))
+                                          (and (eq (plist-get a :exact) (plist-get b :exact))
+                                               (> (plist-get a :s) (plist-get b :s)))))))))
        (if (and limit (> (length out) limit)) (seq-take out limit) out)))))
 
 (provide 'voice-emacs)

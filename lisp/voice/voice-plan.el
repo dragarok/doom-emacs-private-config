@@ -222,6 +222,16 @@ else the closest shown (see `voice--decide')."
     (when (and literal (< (nth 2 hit) (nth 4 hit)))
       (let ((exact (seq-find (lambda (c) (eq (plist-get (nth 1 c) :exact) 'name)) (voice--offers u))))
         (when exact (setq literal (voice--action-plan text (nth 1 exact) "" request)))))
+    ;; A phrase whose … took words, not clearly naming its thing, gives way
+    ;; to a command the whole sentence names just so: "run project" is SPC
+    ;; p R's, not M-x "project"; "diary add image to today" the image key's,
+    ;; not a diary entry saying "add image to today".
+    (when (and literal (not (eq (plist-get literal :decision) 'act))
+               (not (string-empty-p (or (plist-get literal :slot) ""))))
+      (let ((exact (voice--exact-command (voice--offers u) nil)))
+        (when exact
+          (setq literal (plist-put (voice--action-plan text (nth 1 exact) "" request)
+                                   :near-score (car exact))))))
     (or literal (voice--decide u unnamed))))
 
 (defun voice--fallback (u strict)
@@ -408,12 +418,22 @@ of thing and would get the same answer: load-theme and enable-theme, for
          (plist-get a :kind) (eq (plist-get a :kind) (plist-get b :kind))
          (plist-get a :value) (equal (plist-get a :value) (plist-get b :value)))))
 
+(defvar voice-emacs-exact-order)
+
 (defun voice--exact-command (commands near)
-  "The command of COMMANDS said just as it is called: by its name first,
-else what its key says, the best by priors; none when an action is as near."
+  "The command of COMMANDS said just as it is called -- by `voice-emacs-exact-order',
+then word for word unstemmed (\"browse an issue\" not \"browse issues\"),
+then the best by priors; none when an action is as near."
   (let* ((exact (seq-filter (lambda (c) (plist-get (nth 1 c) :exact)) commands))
-         (pick (or (seq-find (lambda (c) (eq (plist-get (nth 1 c) :exact) 'name)) exact)
-                   (car (sort exact (lambda (a b) (> (plist-get (nth 1 a) :f) (plist-get (nth 1 b) :f))))))))
+         (pick (cl-loop for way in voice-emacs-exact-order
+                        for these = (seq-filter (lambda (c) (eq (plist-get (nth 1 c) :exact) way)) exact)
+                        when these
+                        return (car (sort these (lambda (a b)
+                                                  (let ((la (plist-get (nth 1 a) :literal))
+                                                        (lb (plist-get (nth 1 b) :literal)))
+                                                    (if (eq (not la) (not lb))
+                                                        (> (plist-get (nth 1 a) :f) (plist-get (nth 1 b) :f))
+                                                      la))))))))
     (and pick
          (not (seq-some (lambda (n) (and (not (plist-get (nth 1 n) :command)) (>= (car n) (car pick)))) near))
          pick)))

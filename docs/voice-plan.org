@@ -326,6 +326,8 @@ is heard is the weak link: a free recogniser does not know "vertico" or
 
 *What is measured* (=voice-corpus-report=): intent accuracy, top-1 and top-3, acted rate, wrong actions, picker rate, none rate, p50/p95 ms on the phone, and a sweep of the two thresholds.  Rules: any wrong action on the corpus fails the suite; lines marked ok must stay ok; =todo= lines are reported only.
 
+*Keys* (=test/voice-keys-check.el=, in an Emacs running the config): every binding said by its label or name through the planner, yours first, then Doom's leader, then global, evil and mode maps; =keys.tsv= and =summary.txt= per run, kept in =test/voice-runs/= (private).  It names what isn't voice's to fix: keys bound only on the phone (elsewhere), keys another binding took (shadowed), commands not loaded (absent).
+
 *Unit tests* (temporary directories; ~/org untouched):
 - Tokens, stemming, number words; similarity; rank; decide.
 - The intent table and the context rules ("done" while clocking; "next" in image-mode).
