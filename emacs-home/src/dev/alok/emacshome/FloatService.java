@@ -149,6 +149,9 @@ public class FloatService extends Service {
         // The screen going off is the end of anything being said: never a microphone left on.
         registerReceiver(screenOff, new android.content.IntentFilter(Intent.ACTION_SCREEN_OFF));
         bg.execute(() -> Reminders.schedule(this));  // alarms don't outlive a reboot
+        // Restarted: Android may have stopped binding the island's accessibility
+        // service, leaving the island under the status bar, deaf to taps.
+        main.postDelayed(() -> bg.execute(() -> IslandAccess.heal(this)), 4_000);
         widgets = new Widgets(this, main);
         widgets.start();
         main.post(tick);

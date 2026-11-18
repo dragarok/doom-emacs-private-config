@@ -5,7 +5,10 @@
  *    hear client SOCKET [key=value…]     raw 16 kHz mono s16le on stdin, the replies on stdout
  *    hear send   SOCKET LINE             one request line (PING, QUIT, FILE /x.wav), the replies on stdout
  *
- *  The server holds the model and listens on a Unix socket, one client at a time.  A client opens with a line:
+ *  The server holds the model and listens on a Unix socket, one client at a time, and none can hold it: the request
+ *  line must come within 2 s, a stream that stops coming for 2 s is taken as ended, and none goes on past maxsec + 4 s
+ *  of the clock (a client once went quiet without closing, the server waited on it, and the next client's microphone
+ *  stayed on behind it).  A client opens with a line:
  *
  *    LISTEN [vocab=F,G] [hangover=MS] [nospeech=MS] [maxsec=S] [partial=MS] [beam=N] [boost=B] [save=0|1] [tag=WORD]
  *         [tail=MS] [preroll=MS] [pad=MS] [snr=DB] [vadmode=0-3]
@@ -48,6 +51,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
@@ -57,6 +61,9 @@
 #define IGNORE      (RATE * 15 / 100)  /* the first 150 ms: the press itself is heard */
 #define PREROLL     (RATE * 3 / 10)
 #define MAX_ALTS    4
+#define LINE_MS     2000           /* for the request line */
+#define IDLE_MS     2000           /* no audio this long: the client has stopped sending without saying so */
+#define OVERRUN_S   4              /* a stream ends this long past maxsec, by the clock */
 
 static const P25Engine *engine;
 static int   g_beam = 4;
@@ -113,6 +120,25 @@ static int decode(const float *a, int n, const HearContext *ctx, int beam, Heard
         o->text[o->n++] = p25_tokens_text(tk, toks, k);
         free(toks);
     } else {
+        /* Your words may change how what was said is spelled, never make speech of what wasn't: with no words
+           at all from the model left to itself, nothing was said.  On a whisper from across the desk and on a
+           breath, the vocabulary alone made "12 Rules for Life ... Play Store" and "Thank you"; the model alone,
+           nothing.  Greedy, on the encoder's output already there: a few ms. */
+        if (ctx) {
+            P25Token *toks;
+            int k = p25_greedy_decode(m, enc, T, &toks);
+            char *plain = p25_tokens_text(tk, toks, k);
+            free(toks);
+            char w[1024];
+            words_only(plain ? plain : "", w, sizeof(w));
+            free(plain);
+            if (!w[0]) {
+                free(enc);
+                o->enc_s = t1 - t0;
+                o->dec_s = p25_now_sec() - t1;
+                return 0;
+            }
+        }
         HearHyp hy[MAX_ALTS];
         int k = hear_beam_decode(m, enc, T, ctx, beam, hy, MAX_ALTS);
         for (int i = 0; i < k; i++) {
@@ -360,6 +386,8 @@ static void listen_stream(int fd, Opts *o)
     /* The guess made early is of the audio up to TAIL after the speech: it needs that much quiet. */
     int spec_ms = o->tail + 50 < o->hangover ? o->tail + 50 : o->hangover * 2 / 3;
     int eof = 0;
+    const char *gone = NULL;                         /* why it stopped by the clock: idle, clock */
+    double t_begin = p25_now_sec(), t_data = t_begin;
 
     while (!done) {
         struct pollfd p = { fd, POLLIN, 0 };
@@ -369,6 +397,7 @@ static void listen_stream(int fd, Opts *o)
             ssize_t r = read(fd, bytes, sizeof(bytes));
             if (r < 0 && errno != EINTR) goto out;           /* reset: cancelled */
             if (r == 0) eof = 1;
+            if (r > 0) t_data = p25_now_sec();
             for (ssize_t i = 0; i < r && n < cap; i++) {
                 if (carry < 0) { carry = bytes[i]; continue; }
                 short s = (short)(carry | (bytes[i] << 8));
@@ -416,6 +445,14 @@ static void listen_stream(int fd, Opts *o)
                 if (say(fd, "START") != 0) goto out;
             }
         }
+        /* Never held by a client: one that stops sending without closing is taken as done, and none goes on
+           past its time (counted in samples above, which a stalled client never reaches). */
+        if (!eof) {
+            double now = p25_now_sec();
+            if ((now - t_data) * 1000 >= IDLE_MS) gone = "idle";
+            else if (now - t_begin >= o->maxsec + OVERRUN_S) gone = "clock";
+            if (gone) eof = 1;
+        }
         if (eof) break;
         if (n >= cap) break;
         if (!started) {
@@ -459,7 +496,7 @@ static void listen_stream(int fd, Opts *o)
         double wait = p25_now_sec() - t_end;
         /* Where it found speech, in the stream: what the tests measure end-pointing by. */
         say(fd, "INFO at start=%d speech_end=%d end=%d why=%s", started ? start * 1000 / RATE : -1,
-            last_loud * 1000 / RATE, n * 1000 / RATE, done ? "quiet" : eof ? "eof" : n >= cap ? "maxsec" : "?");
+            last_loud * 1000 / RATE, n * 1000 / RATE, done ? "quiet" : gone ? gone : eof ? "eof" : n >= cap ? "maxsec" : "?");
         reply_heard(fd, &h, (to - from) / (double)RATE, wait);
         save_utterance(o, buf + from, to - from, &h, wait * 1000);
         heard_free(&h);
@@ -485,7 +522,11 @@ static void serve_one(int fd)
 {
     char line[4096];
     int len = 0;
+    double until = p25_now_sec() + LINE_MS / 1000.0;
     while (len < (int)sizeof(line) - 1) {               /* the request line, byte by byte: audio follows it */
+        int left = (int)((until - p25_now_sec()) * 1000);
+        struct pollfd p = { fd, POLLIN, 0 };
+        if (left <= 0 || poll(&p, 1, left) <= 0) return;  /* connected and said nothing: not held by it */
         ssize_t r = read(fd, line + len, 1);
         if (r <= 0) return;
         if (line[len] == '\n') break;
@@ -545,6 +586,8 @@ static int cmd_serve(const char *sock)
     for (;;) {
         int c = accept(s, NULL, NULL);
         if (c < 0) { if (errno == EINTR) continue; perror("hear: accept"); return 1; }
+        struct timeval tv = { 2, 0 };                   /* a client that doesn't read its answers: not held by it */
+        setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
         serve_one(c);
         close(c);
     }

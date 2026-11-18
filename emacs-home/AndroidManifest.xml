@@ -14,6 +14,10 @@
   <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
   <!-- The island hears you itself (Hear.java): granted once over adb, see build.sh. -->
   <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <!-- Only to switch the island's own accessibility service off and on when
+       Android stops binding it after a restart (IslandAccess.heal); granted
+       by build.sh install. -->
+  <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
   <application android:label="Emacs Home">
 

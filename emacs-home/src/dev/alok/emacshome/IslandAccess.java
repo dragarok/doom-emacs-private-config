@@ -3,8 +3,14 @@ package dev.alok.emacshome;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.InputMethod;
+import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.provider.Settings;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.SurroundingText;
@@ -43,6 +49,49 @@ public class IslandAccess extends AccessibilityService {
     /** Have the clock re-add its island in the right kind of window. */
     private void reattach() {
         startForegroundService(new Intent(this, FloatService.class).putExtra("action", "reattach"));
+    }
+
+    /**
+     * Bound again if Android has given up on it.  When the app's process dies
+     * (killed, restarted) Android counts this service as crashed and doesn't
+     * bind it again until it is switched off and on; meanwhile the island is
+     * an app overlay under the status bar, which takes its taps -- the island
+     * there but deaf.  So: switched off and on here, as Settings would, if it
+     * is on in settings yet not bound.  Needs WRITE_SECURE_SETTINGS (build.sh
+     * install grants it).  Never switched on if you switched it off.  Call it
+     * off the main thread.
+     */
+    static void heal(Context c) {
+        if (instance != null) return;
+        if (c.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != PackageManager.PERMISSION_GRANTED) {
+            Log.w("EmacsHome", "island access not bound, and no WRITE_SECURE_SETTINGS to bind it again");
+            return;
+        }
+        ContentResolver r = c.getContentResolver();
+        String on = Settings.Secure.getString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (on == null) return;
+        ComponentName me = new ComponentName(c, IslandAccess.class);
+        StringBuilder others = new StringBuilder();
+        boolean mine = false;
+        for (String s : on.split(":")) {
+            if (s.isEmpty()) continue;
+            if (me.equals(ComponentName.unflattenFromString(s))) { mine = true; continue; }
+            if (others.length() > 0) others.append(':');
+            others.append(s);
+        }
+        if (!mine) return;
+        Log.i("EmacsHome", "island access not bound: switching it off and on");
+        try {
+            Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.toString());
+            Thread.sleep(800);
+        } catch (Exception e) {
+            Log.w("EmacsHome", "island access off", e);
+        }
+        try {
+            Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, on);
+        } catch (Exception e) {
+            Log.w("EmacsHome", "island access on", e);
+        }
     }
 
     private static InputMethod.AccessibilityInputConnection field() {

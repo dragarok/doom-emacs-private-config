@@ -46,5 +46,8 @@ if [ "$1" = install ]; then
     *) adb shell settings put secure enabled_accessibility_services "$ON:$ISLAND" ;;
   esac
   adb shell settings put secure accessibility_enabled 1
+  # After a restart Android stops binding that service until it is switched
+  # off and on; the app does that itself (IslandAccess.heal) with this.
+  adb shell pm grant dev.alok.emacshome android.permission.WRITE_SECURE_SETTINGS || true
 fi
 exit 0

@@ -79,6 +79,14 @@ was heard, other readings.  Private: never in the repo.")
   (and (file-executable-p voice-engine-program)
        (file-exists-p (expand-file-name "weights.bin" (voice-engine--weights)))))
 
+(defun voice-engine-stale-p ()
+  "Non-nil when the engine was built before its source last changed: a
+pull (\"update voice\") brought a new one, so it is built again."
+  (and (file-exists-p voice-engine-program)
+       (seq-some (lambda (f) (file-newer-than-file-p (expand-file-name f voice-engine-source)
+                                                     voice-engine-program))
+                 '("hear.c" "bias.c" "bias.h"))))
+
 ;;;; Your words
 
 (defun voice-engine-vocabulary ()
@@ -203,17 +211,20 @@ when a Mac pushed it there, else it is downloaded (183 MB)."
 
 ;; On the phone it runs from the start, so the island never waits for it;
 ;; the first time, it sets itself up when it can (a compiler in Termux, or
-;; what a Mac pushed to /sdcard/Download/hear-model).
+;; what a Mac pushed to /sdcard/Download/hear-model).  When a pull brought
+;; a new engine (this file is loaded again by "update voice"), it is built
+;; again and restarted.
 (mapc #'cancel-timer voice-engine--timers)
 (setq voice-engine--timers nil)
 (when (and voice--android (not noninteractive))
   (setq voice-engine--timers
         (list (run-with-idle-timer
                4 nil (lambda ()
-                       (cond ((voice-engine-ready-p) (voice-engine-start))
-                             ((or (executable-find "cc")
-                                  (file-exists-p "/sdcard/Download/hear-model/hear"))
-                              (voice-engine-setup)))))
+                       (let ((can-build (or (executable-find "cc")
+                                            (file-exists-p "/sdcard/Download/hear-model/hear"))))
+                         (cond ((and can-build (voice-engine-stale-p)) (voice-engine-setup))
+                               ((voice-engine-ready-p) (voice-engine-start))
+                               (can-build (voice-engine-setup))))))
               (run-with-idle-timer 30 t #'voice-engine--refresh))))
 
 (provide 'voice-engine)
