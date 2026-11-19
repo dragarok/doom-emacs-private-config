@@ -471,6 +471,47 @@ SCHEDULED: <2020-01-01 Wed>
   (should (>= (voice-match-sim "bizza" "pissa") 0.9))
   (should (< (voice-match-sim "dog" "tok") 0.9)))   ; short words stay apart
 
+(ert-deftest voice-test-words-that-sound-the-same ()
+  ;; Spelled apart, said alike.
+  (should (>= (voice-match-sim "lite" "light") 0.9))
+  (should (>= (voice-match-sim "knight" "night") 0.9))
+  (should (>= (voice-match-sim "team" "theme") 0.9))
+  (should (< (voice-match-sim "tagging" "dark") 0.9))   ; an r is said
+  (should (< (voice-match-sim "thing" "theme") 0.9))
+  ;; A list's names as they are said, not as they are spelled.
+  (let ((themes '("doom-ayu-light" "doom-ayu-dark" "doom-ayu-mirage" "doom-one-light"
+                  "doom-tokyo-night" "light-blue" "doom-opera-light")))
+    (should (equal (voice--list-answer "Are you light?" themes) '(pick . "doom-ayu-light")))
+    (should (equal (voice--list-answer "Doom Tokyo Knight." themes) '(pick . "doom-tokyo-night")))
+    ;; Two words heard as one: near, so asked about.
+    (should (equal (cdr (voice--list-answer "Doom Ayulite." themes)) "doom-ayu-light"))
+    (should-not (voice--list-answer "Down the book." themes))))
+
+(ert-deftest voice-test-a-dot-is-said ()
+  (let ((buffers '("tasks.org" "archive_tasks.org" "log_books.org" "*scratch*")))
+    (should (equal (voice--list-answer "tasks dot org" buffers) '(pick . "tasks.org")))
+    (should (equal (voice--list-answer "log books dot org" buffers) '(pick . "log_books.org")))))
+
+(ert-deftest voice-test-a-near-entry-is-asked-and-learned ()
+  (let (learned picked (voice--confirm nil))
+    (cl-letf (((symbol-function 'voice--add-rule)
+               (lambda (section said meant) (setq learned (list section said meant)) "learned"))
+              ((symbol-function 'voice--answer-prompt)
+               (lambda (text &optional _source) (setq picked text) (format "Answered: %s" text))))
+      (voice--ask-entry "Doom Ayulite." "doom-ayu-light" "test")
+      (should (eq (plist-get (plist-get voice--confirm :plan) :kind) 'answer))
+      (voice--answer-confirm 'yes)
+      (should (equal picked "doom-ayu-light"))
+      (should (equal learned '("Phrases" "Doom Ayulite." "doom-ayu-light"))))))
+
+(ert-deftest voice-test-noise-around-a-name-is-not-learned ()
+  ;; The name was said: what else was heard is noise, nothing to learn.
+  (should (voice--said-in-p "split window right" "Play Store split window right."))
+  (should (voice--said-in-p "calendar" "Calculator. Calendar"))
+  ;; A name heard otherwise, or in another order, is learned.
+  (should-not (voice--said-in-p "beginning of buffer" "top of buffer."))
+  (should-not (voice--said-in-p "dashboard open" "open dashboard.")))
+
 (ert-deftest voice-test-stop-sentences-are-never-learned ()
   (let ((voice-learn t) wrote)
     (cl-letf (((symbol-function 'voice--rules) (lambda () '(nil)))

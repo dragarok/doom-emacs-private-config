@@ -25,7 +25,11 @@ typedef struct {
     P25Token *tokens;
     int       n;
     float     score;      /* acoustic log-probability plus the bonus kept */
+    float     am;         /* the acoustic log-probability alone: how well the audio bears it out */
 } HearHyp;
+
+/* The bonus the graph gives TOKENS (an unfinished phrase's taken back): to weigh a reading found without it. */
+float hear_context_score(const HearContext *c, const P25Token *tokens, int n);
 
 /* Beam TDT decoding over enc [T × 640], biased toward CTX's phrases (CTX may be NULL: a plain beam search).
  * Fills OUT with up to MAX_N distinct hypotheses, best first, and returns how many; free each one's tokens. */

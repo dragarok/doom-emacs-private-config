@@ -122,6 +122,51 @@ in voice.org, each once, short phrases with a letter in them."
       (write-region text nil file nil 'silent))
     file))
 
+;;;; An open list: what you'll say next
+
+(defvar voice-engine-list-max 300
+  "At most this many of an open list's entries go to the engine.")
+
+(defvar voice-engine-list-boost 4
+  "How hard an open list's entries pull: while a list is open, its
+entries are what is said next (the theme list: doom ayu light, not
+\"down the book\").  Your other words pull with 3.")
+
+(defun voice-engine--list-file () (expand-file-name "list.txt" voice-engine-dir))
+
+(defun voice-engine--spoken (entry)
+  "ENTRY as it is said: doom-ayu-light is doom ayu light, tasks.org
+tasks dot org."
+  (string-trim (replace-regexp-in-string
+                "\\(?:[]~_/*:<>()[-]\\|\\. \\|\\.\\'\\| \\)+" " "
+                (replace-regexp-in-string "\\([[:alnum:]]\\)\\.\\([[:alnum:]]\\)" "\\1 dot \\2" entry))))
+
+(defun voice-engine--list-open ()
+  "A list opened in the minibuffer: the engine is pulled toward its entries
+until it closes.  Not M-x, Lisp or a shell command: voice answers none;
+nor every symbol there is (describe-function): too many to say."
+  (when (and (voice-engine-running-p) minibuffer-completion-table
+             (not (obarrayp minibuffer-completion-table))
+             (not (memq minibuffer-history-variable
+                        '(extended-command-history read-expression-history shell-command-history))))
+    (with-demoted-errors "voice engine list: %S"
+      (let* ((all (all-completions "" minibuffer-completion-table minibuffer-completion-predicate))
+             (lines (delete-dups
+                     (seq-filter (lambda (s) (and (string-match-p "[[:alpha:]]" s) (< (length s) 60)))
+                                 (mapcar #'voice-engine--spoken (seq-take all voice-engine-list-max))))))
+        (write-region (mapconcat (lambda (l) (format "%s\t%s\n" l voice-engine-list-boost)) lines "")
+                      nil (voice-engine--list-file) nil 'silent)))))
+
+(defun voice-engine--list-closed ()
+  "The list closed: its entries pull no more."
+  (let ((f (voice-engine--list-file)))
+    (when (and (<= (minibuffer-depth) 1) (file-exists-p f)
+               (> (file-attribute-size (file-attributes f)) 0))
+      (with-demoted-errors "voice engine list: %S" (write-region "" nil f nil 'silent)))))
+
+(add-hook 'minibuffer-setup-hook #'voice-engine--list-open)
+(add-hook 'minibuffer-exit-hook #'voice-engine--list-closed)
+
 (defun voice-engine--refresh ()
   "Now and then, when Emacs is idle: the words again."
   (when (and (voice-engine-running-p) (> (- (float-time) voice-engine--vocab-time) 600))
@@ -148,7 +193,8 @@ can't reach it, and keeps what you said meanwhile."
              :command (list (expand-file-name voice-engine-program) "serve"
                             (expand-file-name (voice-engine--weights))
                             (expand-file-name voice-engine-socket)
-                            "--vocab" (expand-file-name (voice-engine--vocab-file))
+                            "--vocab" (concat (expand-file-name (voice-engine--vocab-file)) ","
+                                              (expand-file-name (voice-engine--list-file)))
                             "--save" (directory-file-name (expand-file-name voice-engine-save-directory)))
              :sentinel #'voice-engine--sentinel)))
     'started)))

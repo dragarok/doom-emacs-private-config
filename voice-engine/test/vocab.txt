@@ -13,3 +13,13 @@ Termux
 Syncthing
 Herdr
 Image Tagging
+# Keys by name: phrases that share their opening with everyday speech
+Switch to 1st workspace
+Switch to 2nd workspace
+Switch to 3rd workspace
+Switch to 4th workspace
+Switch to 8th workspace
+Switch to last buffer
+Play Store
+Help
+The Long Book About Order and Chaos

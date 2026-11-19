@@ -87,13 +87,52 @@ words in their own right everywhere else.")
   "STRING's words joined by single spaces: what equal phrases share."
   (string-join (voice-match-words string) " "))
 
-(defvar voice-match--forms (make-hash-table :test 'equal)
-  "Word -> (SINGLE SKELETON DEVOICED), worked out once: commands repeat
-the same few thousand words.")
+(defvar voice-match--word-forms (make-hash-table :test 'equal)
+  "Word -> (SINGLE SKELETON DEVOICED SOUND), worked out once: commands
+repeat the same few thousand words.  (Named anew when the forms change:
+a live reload keeps a defvar's old table.)")
+
+(defconst voice-match--sound-words
+  '(("are" . "a") ("you" . "yu") ("your" . "yo") ("i" . "ai") ("eye" . "ai")
+    ("the" . "ta") ("to" . "tu") ("too" . "tu") ("two" . "tu") ("of" . "of") ("one" . "wan"))
+  "Words English doesn't spell the way it says them, as
+`voice-match--sound' writes what they sound like.")
+
+(defconst voice-match--sound-rules
+  '(("\\`kn" . "n") ("\\`wr" . "r") ("\\`ps" . "s") ("\\`x" . "s")
+    ("igh" . "I") ("gh" . "")
+    ("tch" . "C") ("ch" . "C") ("sh" . "C") ("ti\\(on\\|al\\)" . "C\\1") ("sion" . "Con")
+    ("ph" . "f") ("th" . "t") ("wh" . "w") ("ck" . "k") ("qu" . "kw") ("q" . "k") ("x" . "ks")
+    ("c\\([eiy]\\)" . "s\\1") ("c" . "k") ("dge" . "je") ("ge\\'" . "je")
+    ;; One vowel, one consonant and a silent e: the vowel says its name.
+    ("\\(\\`\\|[^aeiouy]\\)a\\([^aeiouy]\\)e\\'" . "\\1E\\2")
+    ("\\(\\`\\|[^aeiouy]\\)e\\([^aeiouy]\\)e\\'" . "\\1i\\2")
+    ("\\(\\`\\|[^aeiouy]\\)i\\([^aeiouy]\\)e\\'" . "\\1I\\2")
+    ("\\(\\`\\|[^aeiouy]\\)o\\([^aeiouy]\\)e\\'" . "\\1o\\2")
+    ("\\(\\`\\|[^aeiouy]\\)u\\([^aeiouy]\\)e\\'" . "\\1u\\2")
+    ("ee\\|ea" . "i") ("ie\\'" . "I") ("ie" . "i") ("a[iy]\\([^aeiou]\\|\\'\\)" . "E\\1")
+    ("oo\\|ew\\|ue\\'" . "u") ("oa" . "o") ("ow\\'" . "o") ("au\\|aw" . "o") ("oy" . "oi")
+    ("\\([^aeiouy]\\)e\\'" . "\\1")
+    ;; Y: a consonant before a vowel, else the vowel of happy.
+    ("\\(\\`\\|[aeiouEI]\\)y\\([aeiouEI]\\)" . "\\1Y\\2") ("y" . "i") ("Y" . "y")
+    ("d" . "t") ("b" . "p") ("g" . "k") ("v" . "f") ("z" . "s")
+    ("I" . "ai") ("E" . "ei") ("C" . "c") ("\\(.\\)\\1+" . "\\1"))
+  "How a word's letters say it, roughly, in order: see `voice-match--sound'.")
+
+(defun voice-match--sound (word)
+  "WORD as it sounds, roughly: \"lite\" and \"light\" are lait, \"are
+you\" said together is ayu, as the theme doom-ayu-light writes it.
+Voiced consonants are unvoiced, as in `voice-match--devoice'."
+  (or (cdr (assoc word voice-match--sound-words))
+      (if (string-match-p "[^a-z]" word) word
+        (let ((case-fold-search nil) (s word))
+          (dolist (r voice-match--sound-rules s)
+            (setq s (replace-regexp-in-string (car r) (cdr r) s t)))))))
 
 (defun voice-match--forms (word)
-  "WORD's sound forms: see `voice-match--single', `--skeleton', `--devoice'."
-  (or (gethash word voice-match--forms)
+  "WORD's sound forms: see `voice-match--single', `--skeleton', `--devoice'
+and `--sound'."
+  (or (gethash word voice-match--word-forms)
       (let* ((single (replace-regexp-in-string "\\(.\\)\\1+" "\\1" word))
              (skeleton (if (string-empty-p single) single
                          (concat (substring single 0 1)
@@ -102,8 +141,8 @@ the same few thousand words.")
         (dotimes (i (length devoiced))
           (let ((c (assq (aref devoiced i) '((?d . ?t) (?b . ?p) (?g . ?k) (?v . ?f) (?z . ?s)))))
             (when c (aset devoiced i (cdr c)))))
-        (when (> (hash-table-count voice-match--forms) 200000) (clrhash voice-match--forms))
-        (puthash word (list single skeleton devoiced) voice-match--forms))))
+        (when (> (hash-table-count voice-match--word-forms) 200000) (clrhash voice-match--word-forms))
+        (puthash word (list single skeleton devoiced (voice-match--sound word)) voice-match--word-forms))))
 
 (defun voice-match--single (word)
   "WORD with doubled letters single: \"ellen\" and \"elon\" sound alike."
@@ -118,16 +157,26 @@ the same few thousand words.")
 \(\"dagging\" for \"tagging\"), b and p, g and k, v and f, z and s."
   (nth 2 (voice-match--forms word)))
 
-(defvar voice-match--sims (make-hash-table :test 'equal)
+(defun voice-match--sounds (word)
+  "WORD's sound, remembered: see `voice-match--sound'."
+  (nth 3 (voice-match--forms word)))
+
+(defun voice-match--sound-alike-p (x y)
+  "Non-nil when words X and Y, four letters or more, sound the same:
+shorter ones (dog, tock) are told apart by little else."
+  (and (>= (min (length x) (length y)) 4)
+       (string= (voice-match--sounds x) (voice-match--sounds y))))
+
+(defvar voice-match--sim-memo (make-hash-table :test 'equal)
   "(X . Y) -> `voice-match-sim', remembered: the same pairs come up for
 every candidate.")
 
 (defun voice-match-sim (x y)
   "How alike words X and Y are, 0 to 1."
   (let ((key (cons x y)))
-    (or (gethash key voice-match--sims)
-        (progn (when (> (hash-table-count voice-match--sims) 300000) (clrhash voice-match--sims))
-               (puthash key (voice-match--sim x y) voice-match--sims)))))
+    (or (gethash key voice-match--sim-memo)
+        (progn (when (> (hash-table-count voice-match--sim-memo) 300000) (clrhash voice-match--sim-memo))
+               (puthash key (voice-match--sim x y) voice-match--sim-memo)))))
 
 (defun voice-match--sim (x y)
   "`voice-match-sim' worked out."
@@ -138,9 +187,10 @@ every candidate.")
            0.9)
           ((string-match-p "\\`[0-9]+\\'" (concat x y)) 0.0) ; numbers are exact
           ((string= (voice-match--single x) (voice-match--single y)) 0.95)
-          ((and (>= lx 4) (>= ly 4)
-                (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
-                    (string= (voice-match--devoice x) (voice-match--devoice y))))
+          ((or (and (>= lx 4) (>= ly 4)
+                    (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
+                        (string= (voice-match--devoice x) (voice-match--devoice y))))
+               (voice-match--sound-alike-p x y))
            0.9)
           ((and (>= (min lx ly) 3)
                 (or (string-prefix-p x y) (string-prefix-p y x)))
@@ -166,9 +216,10 @@ and lending their weight to a word no title has.")
   (let ((lx (length x)) (ly (length y)))
     (cond ((string= x y) 1.0)
           ((string= (voice-match--single x) (voice-match--single y)) 0.95)
-          ((and (>= lx 4) (>= ly 4)
-                (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
-                    (string= (voice-match--devoice x) (voice-match--devoice y))))
+          ((or (and (>= lx 4) (>= ly 4)
+                    (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
+                        (string= (voice-match--devoice x) (voice-match--devoice y))))
+               (voice-match--sound-alike-p x y))
            0.9)
           ((and (>= lx 4) (>= ly 4))
            (let ((s (- 1.0 (/ (float (string-distance x y)) (max lx ly)))))
@@ -266,7 +317,11 @@ position."
       (let ((i 0) (ws words))
         (while (cdr ws)
           (let* ((joined (concat (car ws) (cadr ws)))
-                 (sim (apply #'max 0.0 (mapcar (lambda (x) (if (>= (length x) 6) (voice-match--whole-sim x joined) 0.0))
+                 (sound (concat (voice-match--sounds (car ws)) (voice-match--sounds (cadr ws))))
+                 (sim (apply #'max 0.0 (mapcar (lambda (x)
+                                                 (cond ((< (length x) 6) 0.0)
+                                                       ((string= (voice-match--sounds x) sound) 0.9)
+                                                       (t (voice-match--whole-sim x joined))))
                                                query))))
             (when (>= sim 0.85) (push (list sim i joined) out)))
           (setq ws (cdr ws) i (1+ i)))))
@@ -274,7 +329,8 @@ position."
 
 (defun voice-match--runs (query words)
   "Runs of two or three neighbouring QUERY words said for one long word of
-WORDS: \"car io\" for acario.  Only words no word of WORDS is like on its
+WORDS, or one that sounds as they do together: \"car io\" for acario,
+\"are you\" for ayu.  Only words no word of WORDS is like on its
 own, and no numbers (\"chapter 5\" is not \"chapter\").  Return (SIM WORD
 . POSITIONS) for each."
   (let* ((v (vconcat query)) (n (length query))
@@ -284,12 +340,15 @@ own, and no numbers (\"chapter 5\" is not \"chapter\").  Return (SIM WORD
          out)
     (when (cdr query)
       (dolist (y words)
-        (when (>= (length y) 5)
+        (when (>= (length y) 3)
           (dotimes (i n)
             (dolist (len '(2 3))
               (when (and (<= (+ i len) n)
                          (cl-loop for j from i below (+ i len) always (aref loose j)))
-                (let ((sim (voice-match--whole-sim y (apply #'concat (append (seq-subseq v i (+ i len)) nil)))))
+                (let* ((run (append (seq-subseq v i (+ i len)) nil))
+                       (sim (cond ((string= (voice-match--sounds y) (mapconcat #'voice-match--sounds run "")) 0.9)
+                                  ((>= (length y) 5) (voice-match--whole-sim y (apply #'concat run)))
+                                  (t 0.0))))
                   (when (>= sim 0.8)
                     (push (cons sim (cons y (number-sequence i (+ i len -1)))) out)))))))))
     out))
@@ -419,8 +478,14 @@ Each result is (F S ENTRY): F is S plus the priors, given by ENTRY's
 
 (defun voice-match-strings (strings query &optional limit)
   "Rank STRINGS for QUERY, as `voice-match-rank' does; the entries' :title
-is the string.  For the few choices of a prompt."
-  (voice-match-rank (voice-match-index (mapcar (lambda (s) (list :title s)) strings))
+is the string.  For the few choices of a prompt.  A dot inside a name is
+said \"dot\" too: tasks.org is \"tasks dot org\"."
+  (voice-match-rank (voice-match-index
+                     (mapcar (lambda (s)
+                               (if (string-match-p "[[:alnum:]]\\.[[:alnum:]]" s)
+                                   (list :title s :aliases (list (replace-regexp-in-string "\\." " dot " s)))
+                                 (list :title s)))
+                             strings))
                     query limit))
 
 (defun voice-match-mentioned (strings tokens)

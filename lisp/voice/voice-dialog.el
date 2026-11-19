@@ -9,6 +9,8 @@
 
 ;; Bound here, defined in another part.
 (defvar voice--choice)
+(defvar voice-ask-score)
+(defvar voice--confirm)
 
 ;;;; Answering the question on screen
 
@@ -46,9 +48,14 @@ the exit throws, and the voice step that called this still logs."
 (defun voice--prompt-wants-duration-p (prompt)
   (string-match-p "effort\\|duration\\|how long\\|[0-9]:[0-9][0-9]" (downcase prompt)))
 
-(defun voice--answer-prompt (text)
-  "Answer the open question with TEXT: a key for a key question, a choice
-by name or place, else TEXT as typed."
+(defun voice--answer-prompt (text &optional source)
+  "Answer the open question with TEXT, heard from SOURCE: a key for a key
+question, a choice by name or place, else TEXT as typed.  A name near one
+of a list's entries but not clearly it is asked about (\"Did you mean
+doom-ayu-light?\"); a yes picks it and is learned."
+  (when (eq (plist-get (plist-get voice--confirm :plan) :kind) 'answer)
+    (setq voice--confirm nil)
+    (voice--show-question ""))
   (let ((words (voice-match-words text)) (tokens (voice-match-tokens text t)))
     (cond
      ((let ((p (or (car voice--choice)
@@ -92,27 +99,41 @@ by name or place, else TEXT as typed."
                               (format "Answered: %s" (string-join hits ", ")))
                 (delete-minibuffer-contents) (insert text) "Typed it in")))
            (table
-            (let* ((cands (voice--collection-strings table minibuffer-completion-predicate))
-                   (n (voice--ordinal words))
-                   (shown (and (bound-and-true-p vertico--candidates) vertico--candidates))
-                   (letters (and cands (cl-every (lambda (c) (= 1 (length c))) cands)))
-                   (hit (cond ((and n shown (<= n (length shown))) (nth (1- n) shown))
-                              ((and n cands (<= n (length cands))) (nth (1- n) cands))
-                              ((and letters (null (cdr words)))
-                               (let ((l (cdr (assoc (car words) voice--letters))))
-                                 (seq-find (lambda (c) (equal (upcase c) l)) cands)))
-                              (t (or (voice-match-mentioned cands tokens)
-                                     (let ((r (voice-match-strings cands text 2)))
-                                       (and (eq (voice-match-decide r) 'act)
-                                            (plist-get (nth 2 (car r)) :title))))))))
-              (if hit (progn (voice--set-and-exit hit) (format "Answered: %s" hit))
-                (delete-minibuffer-contents) (insert text) "Typed it in: pick, or say which")))
+            (let ((a (voice--list-answer text (voice--collection-strings table minibuffer-completion-predicate)
+                                         (and (bound-and-true-p vertico--candidates) vertico--candidates))))
+              (pcase (car a)
+                ('pick (voice--set-and-exit (cdr a)) (format "Answered: %s" (cdr a)))
+                ('ask (voice--ask-entry text (cdr a) source))
+                (_ (delete-minibuffer-contents) (insert text) "Typed it in: pick, or say which"))))
            (t
             (let ((s (or (and (voice--prompt-wants-duration-p prompt) (voice--duration words))
                          text)))
               (voice--set-and-exit s)
               (format "Answered: %s" s)))))))
      (t nil))))
+
+(defun voice--list-answer (text cands &optional shown)
+  "What TEXT says of a list's entries CANDS, SHOWN the ones on screen:
+\(pick . ENTRY) when it names one, by name, as it sounds, or by place
+\(\"the second one\"); (ask . ENTRY) when it is near one but not clearly
+it; else nil."
+  (let* ((words (voice-match-words text)) (tokens (voice-match-tokens text t))
+         (n (voice--ordinal words))
+         (letters (and cands (cl-every (lambda (c) (= 1 (length c))) cands)))
+         ranked
+         (hit (cond ((car (member text cands)))
+                    ((and n shown (<= n (length shown))) (nth (1- n) shown))
+                    ((and n cands (<= n (length cands))) (nth (1- n) cands))
+                    ((and letters (null (cdr words)))
+                     (let ((l (cdr (assoc (car words) voice--letters))))
+                       (seq-find (lambda (c) (equal (upcase c) l)) cands)))
+                    (t (or (voice-match-mentioned cands tokens)
+                           (progn (setq ranked (voice-match-strings cands text 2))
+                                  (and (eq (voice-match-decide ranked) 'act)
+                                       (plist-get (nth 2 (car ranked)) :title))))))))
+    (cond (hit (cons 'pick hit))
+          ((and ranked (>= (nth 1 (car ranked)) voice-ask-score))
+           (cons 'ask (plist-get (nth 2 (car ranked)) :title))))))
 
 ;;;; Did you mean
 
@@ -171,22 +192,45 @@ FALLBACK, a plan (the tasks or commands to pick from), for the last no."
     (setq voice--confirm
           (list :plan (voice--action-plan said (nth 1 option) (voice--join (nth 3 option)) said)
                 :said said :command command
+                :phrase (concat (replace-regexp-in-string "…\\|\\.\\.\\." " " (nth 2 option))
+                                " " (voice--join (nth 3 option)))
                 :meant (and (not command) (null (nth 3 option)) (not (string-match-p "…" (nth 2 option)))
                             (nth 2 option))
                 :rest (seq-remove (lambda (o) (eq (nth 1 o) (nth 1 option))) (cdr options))
                 :fallback fallback :source source
                 :until (+ (float-time) voice-confirm-seconds)))
-    (voice--show-question question)
-    ;; Unanswered, it goes, and off the island too.
-    (let ((c voice--confirm))
-      (run-at-time (1+ voice-confirm-seconds) nil
-                   (lambda () (when (eq voice--confirm c)
-                                (setq voice--confirm nil)
-                                (voice--show-question "")))))
-    ;; From the island or the toolbar, listen for the answer right away.
-    (when (and voice--android (member source '("island" "toolbar" "app")) voice-listen-function)
-      (run-at-time 1.2 nil (lambda () (ignore-errors (funcall voice-listen-function source)))))
-    (concat question " Say yes or no")))
+    (voice--pose question source)))
+
+(defun voice--ask-entry (said entry source)
+  "Ask whether SAID, answering the open list, meant its ENTRY: a yes picks
+it, and voice.org learns that SAID is ENTRY (\"are you light\" for
+doom-ayu-light, as you say it)."
+  (setq voice--confirm
+        (list :plan (list :kind 'answer :text entry :source source :front t)
+              :said said :meant entry :phrase entry :source source
+              :until (+ (float-time) voice-confirm-seconds)))
+  (voice--pose (format "Did you mean %s?" entry) source))
+
+(defun voice--pose (question source)
+  "Show QUESTION, the one in `voice--confirm', and listen for its answer.
+Return what to tell."
+  (voice--show-question question)
+  ;; Unanswered, it goes, and off the island too.
+  (let ((c voice--confirm))
+    (run-at-time (1+ voice-confirm-seconds) nil
+                 (lambda () (when (eq voice--confirm c)
+                              (setq voice--confirm nil)
+                              (voice--show-question "")))))
+  ;; From the island or the toolbar, listen for the answer right away.
+  (when (and voice--android (member source '("island" "toolbar" "app")) voice-listen-function)
+    (run-at-time 1.2 nil (lambda () (ignore-errors (funcall voice-listen-function source)))))
+  (concat question " Say yes or no"))
+
+(defun voice--said-in-p (phrase said)
+  "Non-nil when SAID has PHRASE's words in a row: nothing to learn from
+it, the rest was noise (\"Play Store split window right\")."
+  (let ((p (voice-match-tokens (or phrase ""))))
+    (and p (voice-match--in-order-p p (voice-match-tokens (or said ""))))))
 
 (defun voice--answer-confirm (answer)
   "Do what the open question asked about on a yes; on a no, ask about the
@@ -199,7 +243,7 @@ next near command, or offer the tasks."
                ;; Taught: the same sentence is that command from now on,
                ;; with what its question got.
                (meant (if (plist-get c :command) (voice--canonical voice--last-run) (plist-get c :meant))))
-          (when meant
+          (when (and meant (not (voice--said-in-p (plist-get c :phrase) (plist-get c :said))))
             (let ((learned (voice--add-rule "Phrases" (plist-get c :said) meant)))
               (when learned (setq result (format "%s; %s" (or result "Done") learned)))))
           result)

@@ -39,5 +39,15 @@ One phrase per line (`phrase<TAB>boost` for its own boost). Each also
 goes in lower-cased and capitalised, in every way the model's pieces can
 spell it in the fewest pieces or one more. A piece that continues a phrase
 gets `boost · (1 + ln depth)`; leaving the phrase unfinished takes the
-bonus back (sherpa-onnx's ContextGraph scoring). Defaults: beam 4, boost
-3. The files are read again whenever one changes.
+bonus back (sherpa-onnx's ContextGraph scoring), but not what a shorter
+phrase it passed through earned: "doom" and "doom ayu light" are both
+heard. Defaults: beam 4, boost 3. The files are read again whenever one
+changes; Emacs keeps a second one, list.txt, with the entries of the list
+open in the minibuffer (boost 4).
+
+Your words tip close calls; they never outvote the audio. The model also
+searches by itself, each of its readings gets the bonus your words would
+give it, and the best of both is the answer: a search pulled toward
+"Switch to 8th workspace" loses "switch to a light theme" from its beam
+otherwise. Another reading is offered only within `--margin` nats (10)
+of what the model, alone, finds likeliest.

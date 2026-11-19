@@ -207,7 +207,7 @@ else the closest shown (see `voice--decide')."
       (let ((move (and (not voice--choice) (voice--minibuffer-move words text))))
         (if move
             (list :kind 'action :text text :action move :slot "" :front t)
-          (list :kind 'answer :text text :front t))))
+          (list :kind 'answer :text text :source source :front t))))
      ((null words) (list :kind 'none :text text))
      (t (voice--plan-said (voice--utterance text source context words request
                                             (voice--all-actions context)))))))
@@ -341,7 +341,7 @@ what was said."
   "Do what PLAN says; return what to tell.  A kind of plan a domain makes
 is done by that domain."
   (pcase (plist-get plan :kind)
-    ('answer (or (voice--answer-prompt (plist-get plan :text)) "No question open"))
+    ('answer (or (voice--answer-prompt (plist-get plan :text) (plist-get plan :source)) "No question open"))
     ('action (voice--run-action plan))
     ('ask (voice--ask (plist-get plan :text) (plist-get plan :options) (plist-get plan :fallback)
                       (plist-get plan :source)))

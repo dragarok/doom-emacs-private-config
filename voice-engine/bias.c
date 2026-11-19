@@ -127,6 +127,8 @@ static char *to_pieces_text(const char *phrase)
 typedef struct {
     int   token, first_child, sibling, fail, output, is_end, phrase;
     float token_score, node_score, output_score;
+    float bank;               /* of node_score, what is kept even if the phrase goes no further: a shorter phrase
+                                 it passed through, or one it ends with */
 } CNode;
 
 struct HearContext {
@@ -207,6 +209,15 @@ static void link(HearContext *c)
     for (int k = 1; k < c->count; k++) {
         CNode *v = &c->n[k];
         v->output_score = v->is_end ? v->node_score : (v->output ? c->n[v->output].node_score : 0.0f);
+    }
+    /* Banks, parents before children (the queue is breadth first). */
+    for (int i = 0; i < tail; i++) {
+        int u = queue[i];
+        CNode *pu = &c->n[u];
+        if (pu->is_end) pu->bank = pu->node_score;
+        else if (pu->output && c->n[pu->output].node_score > pu->bank) pu->bank = c->n[pu->output].node_score;
+        if (pu->bank > pu->node_score) pu->bank = pu->node_score;
+        for (int v = pu->first_child; v; v = c->n[v].sibling) c->n[v].bank = pu->bank;
     }
     free(queue);
 }
@@ -290,9 +301,9 @@ void hear_context_free(HearContext *c)
 int hear_context_phrases(const HearContext *c) { return c ? c->n_phrases : 0; }
 int hear_context_nodes(const HearContext *c)   { return c ? c->count - 1 : 0; }
 
-/* One piece through the graph (sherpa-onnx ContextGraph::ForwardOneStep, non-strict): the bonus to add, and the
- * next state.  Leaving a phrase unfinished takes its bonus back; finishing one keeps it and starts again at the
- * root. */
+/* One piece through the graph (sherpa-onnx ContextGraph::ForwardOneStep): the bonus to add, and the next state.
+ * Leaving a phrase unfinished takes back its bonus but what is banked; finishing one keeps it, and starts again at
+ * the root unless a longer phrase goes on from there ("doom", then "doom ayu light": both your words). */
 static float ctx_step(const HearContext *c, int state, int tok, int *next)
 {
     int nd = child(c, state, tok);
@@ -302,9 +313,10 @@ static float ctx_step(const HearContext *c, int state, int tok, int *next)
         int f = c->n[state].fail;
         while (f && !child(c, f, tok)) f = c->n[f].fail;
         nd = child(c, f, tok);
-        score = c->n[nd].node_score - c->n[state].node_score;
+        score = c->n[nd].node_score - c->n[state].node_score + c->n[state].bank;
     }
     const CNode *v = &c->n[nd];
+    if (nd && v->first_child) { *next = nd; return score; }
     if (nd && v->output_score != 0.0f) {
         float out = v->is_end ? v->node_score : c->n[v->output].node_score;
         *next = 0;
@@ -312,6 +324,17 @@ static float ctx_step(const HearContext *c, int state, int tok, int *next)
     }
     *next = nd;
     return score + v->output_score;
+}
+
+/* The bonus TOKENS would keep: what a reading found without the graph would have been given on it. */
+float hear_context_score(const HearContext *c, const P25Token *tokens, int n)
+{
+    if (!c) return 0.0f;
+    int state = 0;
+    float b = 0.0f;
+    for (int i = 0; i < n; i++) b += ctx_step(c, state, tokens[i].id, &state);
+    if (state) b -= c->n[state].node_score - c->n[state].bank;
+    return b;
 }
 
 /* ── Beam search ──────────────────────────────────────────────────────────── */
@@ -507,7 +530,7 @@ int hear_beam_decode(const P25Model *m, const float *enc, int T, const HearConte
 
     for (int i = 0; i < done.n; i++) {
         Hyp *h = done.h[i];
-        if (ctx && h->ctx) { h->bias -= ctx->n[h->ctx].node_score; h->ctx = 0; }
+        if (ctx && h->ctx) { h->bias -= ctx->n[h->ctx].node_score - ctx->n[h->ctx].bank; h->ctx = 0; }
     }
     /* Merge finished duplicates, then the best distinct ones out. */
     for (int i = 0; i < done.n; i++) {
@@ -531,6 +554,7 @@ int hear_beam_decode(const P25Model *m, const float *enc, int T, const HearConte
             out[n_out].tokens = h->toks;
             out[n_out].n = h->n;
             out[n_out].score = (float)total(h);
+            out[n_out].am = (float)h->am;
             n_out++;
             free(h);
         } else hyp_free(h);

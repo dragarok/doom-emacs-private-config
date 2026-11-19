@@ -8,3 +8,6 @@ I need a bigger buffer	bigger_buffer
 the dye is red	dye
 open the magic box	magic_box
 what is the weather like today	weather
+switch to a light theme	light_theme
+switch to a dark theme	dark_theme
+next heading	next_heading

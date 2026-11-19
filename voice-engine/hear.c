@@ -1,7 +1,7 @@
 /*  hear – speech to text, kept loaded, for Emacs on the phone and the Mac.
  *
- *    hear serve  WEIGHTS SOCKET [--vocab FILE[,FILE…]] [--save DIR] [--beam N] [--boost B] [--cache-codes]
- *    hear file   WEIGHTS AUDIO.wav… [--vocab FILE[,FILE…]] [--beam N] [--boost B]
+ *    hear serve  WEIGHTS SOCKET [--vocab FILE[,FILE…]] [--save DIR] [--beam N] [--boost B] [--margin NATS] [--cache-codes]
+ *    hear file   WEIGHTS AUDIO.wav… [--vocab FILE[,FILE…]] [--beam N] [--boost B] [--margin NATS]
  *    hear client SOCKET [key=value…]     raw 16 kHz mono s16le on stdin, the replies on stdout
  *    hear send   SOCKET LINE             one request line (PING, QUIT, FILE /x.wav), the replies on stdout
  *
@@ -68,6 +68,7 @@
 static const P25Engine *engine;
 static int   g_beam = 4;
 static float g_boost = 3.0f;
+static float g_bias_nats = 10.0f; /* another reading: at most this much less likely, to the model alone, than its best */
 static char  g_vocab[2048];
 static char  g_save[1024];
 
@@ -139,15 +140,35 @@ static int decode(const float *a, int n, const HearContext *ctx, int beam, Heard
                 return 0;
             }
         }
-        HearHyp hy[MAX_ALTS];
+        /* Your words may tip a close call, never outvote the audio.  The search pulled toward them can lose what
+           was said altogether: its beam keeps a phrase's bonus while the phrase goes on and drops the reading that
+           doesn't follow it, and the bonus goes back when the phrase stops short.  "Switch to a light theme" came
+           out "switch to 8th" (a key's name: Switch to 8th workspace), "page down" one of your task titles.  So
+           the model also searches by itself, its readings get the bonus your words give them, and the best of
+           both is what was said.  Another reading is offered only when the model finds its sound near its own
+           best: else it is your words speaking, not you. */
+        HearHyp hy[2 * MAX_ALTS];
         int k = hear_beam_decode(m, enc, T, ctx, beam, hy, MAX_ALTS);
-        for (int i = 0; i < k; i++) {
+        int kp = ctx ? hear_beam_decode(m, enc, T, NULL, beam, hy + k, MAX_ALTS) : 0;
+        for (int i = k; i < k + kp; i++) hy[i].score = hy[i].am + hear_context_score(ctx, hy[i].tokens, hy[i].n);
+        int order[2 * MAX_ALTS], nh = k + kp;
+        for (int i = 0; i < nh; i++) order[i] = i;
+        for (int i = 1; i < nh; i++)                     /* best first, by acoustic score plus bonus */
+            for (int j = i; j > 0 && hy[order[j]].score > hy[order[j - 1]].score; j--) {
+                int x = order[j]; order[j] = order[j - 1]; order[j - 1] = x;
+            }
+        double floor_am = kp ? hy[k].am - g_bias_nats : -1e30;
+        for (int r = 0; r < nh; r++) {
+            int i = order[r];
             char *t = p25_tokens_text(tk, hy[i].tokens, hy[i].n);
-            int dup = 0;
+            int dup = 0, weak = o->n > 0 && hy[i].am < floor_am;
             char wa[1024], wb[1024];
             words_only(t, wa, sizeof(wa));
+            if (getenv("HEAR_DEBUG"))
+                fprintf(stderr, "  %s am=%.2f score=%.2f%s  %s\n", i < k ? "bias " : "plain", hy[i].am, hy[i].score,
+                        weak ? " (weak)" : "", t);
             for (int j = 0; j < o->n; j++) { words_only(o->text[j], wb, sizeof(wb)); if (!strcmp(wa, wb)) dup = 1; }
-            if (dup) free(t); else o->text[o->n++] = t;
+            if (dup || weak || o->n == MAX_ALTS) free(t); else o->text[o->n++] = t;
             free(hy[i].tokens);
         }
     }
@@ -668,6 +689,7 @@ static int options(int argc, char **argv, int i0, int *cache)
         else if (!strcmp(argv[i], "--save") && i + 1 < argc) snprintf(g_save, sizeof(g_save), "%s", argv[++i]);
         else if (!strcmp(argv[i], "--beam") && i + 1 < argc) g_beam = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--boost") && i + 1 < argc) g_boost = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "--margin") && i + 1 < argc) g_bias_nats = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--cache-codes")) *cache = 1;
         else argv[k++] = argv[i];
     }
@@ -682,7 +704,7 @@ int main(int argc, char **argv)
     argc = options(argc, argv, 1, &cache);
     if (argc < 4 || (strcmp(argv[1], "serve") && strcmp(argv[1], "file"))) {
         fprintf(stderr, "usage: hear serve WEIGHTS SOCKET | hear file WEIGHTS AUDIO… [--vocab F,G] [--save DIR]"
-                        " [--beam N] [--boost B] [--cache-codes]\n       hear client SOCKET [key=value…] | hear send SOCKET LINE\n");
+                        " [--beam N] [--boost B] [--margin NATS] [--cache-codes]\n       hear client SOCKET [key=value…] | hear send SOCKET LINE\n");
         return 2;
     }
     p25_verbose = 0;

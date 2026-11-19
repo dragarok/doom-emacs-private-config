@@ -247,7 +247,19 @@ already typed: tap the one you meant.
 Every command in Emacs can be said, not only the ones above.
 - By its name: "magit status", "describe key", "list buffers".
 - By what its key says: Doom's leader names, within their prefix ("line
-  numbers" under toggle is SPC t l).
+  numbers" under toggle is SPC t l) or alone ("restart emacs", SPC q r),
+  a note in brackets unsaid ("add project" for "Add project (C-u: shell
+  only)").  Your own keys too, lambdas included ("weekly review", SPC o
+  v w), and the buffer's local leader ("next cell" in a notebook).  When
+  a name is a leader key's and a command's both, the key you see wins:
+  "save buffer" is SPC b s.
+- By the key on the keyboard ("down", "page up"), the menu bar's name
+  ("select all"), or a name past its library or namespace ("window
+  left" is evil-window-left, "window enlargen" doom/window-enlargen) when
+  no other command there has it.
+- With a number, that many times: "down 5", "up ten", "go to line 42" --
+  the count a command takes, as C-u 5 would give.  "repeat" does the
+  last one again, count and all.
 - In your words: change, switch, set and load mean the same in command
   names; so do open and find, show and view, bigger and increase; a mode
   is toggled.  "change theme" is load-theme (consult-theme in Doom).
@@ -294,6 +306,13 @@ With a question open, tap Voice and answer it: a choice by its name or
 toolbar the mic opens again while the list is open.  Voice never
 answers a question about exiting Emacs, deleting or discarding: those
 are yours to answer by hand.
+- Say an entry as you would pronounce it: "are you light" is
+  doom-ayu-light, "tokyo knight" doom-tokyo-night, "tasks dot org"
+  tasks.org.  Names are compared by how they sound, not only how they
+  are spelled.
+- Near one but not clearly it, voice asks: "Did you mean
+  doom-ayu-light?"  A yes picks it and teaches voice.org that what you
+  said is that entry; a no leaves the list open to say another or tap.
 
 ** Your own words: ~/org/voice.org
 Under =* Phrases=, =- wrap up :: pause= makes "wrap up" mean pause.
@@ -308,7 +327,13 @@ pulled toward them: your tasks and people, the phone's apps ("Hades 2"),
 the libraries your commands come from (magit, vertico, org roam), every
 name in voice.org and every word a =* Sounds= line says was misheard.
 Add more under =* Hear= in voice.org, one per line: =- Hades 2=.  The
-list is read again whenever it changes.
+list is read again whenever it changes.  While a list is open (themes,
+buffers, files), its entries are what it listens for first.
+
+Your words only tip a close call: a phrase from them wins when it fits
+what was heard about as well as what the model hears by itself.  So
+"switch to a light theme" stays that, not "switch to 8th" (a key's name),
+and a quiet "page down" doesn't become one of your task titles.
 
 ** The engine
 What hears you is Phonon 2.5, in Termux, kept loaded: about a tenth of a
@@ -335,7 +360,9 @@ counting more than common ones, the opening words more than the rest.
 - A yes teaches it: the sentence goes under * Phrases in voice.org and
   is done straight away next time; for a command, with what its
   question got (=- switch to dark mode :: run load-theme doom-one=).
-  Nothing is learned without a yes or a pick.
+  Nothing is learned without a yes or a pick, nor when the command's
+  name was there all along among other words ("Play Store split window
+  right": the rest was noise).
 - "update voice" pulls the config and reloads the voice files.
 
 ** When it gets something wrong

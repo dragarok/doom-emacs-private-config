@@ -50,7 +50,9 @@
     ("open" "find" "visit" "launch" "browse")
     ("show" "view" "display" "list" "see")
     ("goto" "go" "jump" "navigate")
-    ("close" "quit" "exit" "dismiss" "bury" "hide")
+    ;; Emacs's own File menu calls kill-this-buffer "Close"; burying one
+    ;; only moves it down the list.
+    ("close" "quit" "exit" "dismiss" "hide" "kill")
     ("delete" "remove" "erase" "trash" "kill")
     ("cut" "kill")
     ("paste" "yank")
@@ -67,6 +69,8 @@
     ("next" "forward" "following")
     ("previous" "prev" "back" "backward" "prior")
     ("top" "beginning" "first")
+    ("down" "below" "under" "lower")
+    ("up" "above" "upper")
     ("bottom" "end" "last")
     ("help" "describe" "explain" "documentation" "doc" "manual" "info")
     ("theme" "color" "colour" "scheme" "colorscheme" "look")
