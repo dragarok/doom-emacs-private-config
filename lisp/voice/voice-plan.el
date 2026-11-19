@@ -97,11 +97,28 @@ an average word, since it tells nothing about which; a small word
 (\"to\", \"on\") a quarter of that, though it still tells \"clock in\" from
 \"clock out\".  What is said first counts more: commands open with their
 verb.  A phrase said in full at the start (\"clock out\" on image tagging)
-is at least worth asking about."
+is at least worth asking about.
+
+A phrase whose … names a thing of a kind a domain knows (an app, a task,
+a buffer) counts as a command's rest does: S times its share of what was
+said, plus the rest's share times how well it names one of them.
+\"switch to a dark theme\" is near \"switch to buffer …\", but no buffer
+is called dark theme."
   (let* ((tokens (mapcar #'cdr words))
          (vocabs (mapcar (lambda (a) (cons a (voice--action-vocab a))) actions))
          (df (make-hash-table :test 'equal))
          (n (length actions))
+         (slots (voice--domain-table :slots))
+         (found-memo (make-hash-table :test 'equal))
+         (found (lambda (a slot)
+                  (let ((make (alist-get (plist-get a :slot) slots)))
+                    (when make
+                      (let* ((text (voice--join (voice--slot-words slot)))
+                             (key (cons (plist-get a :slot) text)))
+                        (if (string-empty-p text) 0.0
+                          (with-memoization (gethash key found-memo)
+                            (or (ignore-errors (plist-get (funcall make "" a text "") :found))
+                                0.0))))))))
          out)
     (dolist (v vocabs) (dolist (w (cdr v)) (puthash w (1+ (gethash w df 0)) df)))
     (let* ((idf (lambda (d) (log (+ 1.0 (/ (float n) (+ 1 d))))))
@@ -131,7 +148,13 @@ is at least worth asking about."
                   (let* ((heard (append head end))
                          (s (+ (* 0.75 (voice--covered heard (if slot-p (append lit tail) (cdr v))
                                                        said-weight heard-sim))
-                               (* 0.25 (voice--covered (append lit tail) heard phrase-weight cmd-sim)))))
+                               (* 0.25 (voice--covered (append lit tail) heard phrase-weight cmd-sim))))
+                         (named (and slot (funcall found a slot))))
+                    (when named
+                      (let* ((w (lambda (xs) (apply #'+ 0.0 (mapcar word-weight xs))))
+                             (all (funcall w tokens))
+                             (share (if (> all 0) (/ (funcall w heard) all) 1.0)))
+                        (setq s (* s (+ share (* (- 1 share) named))))))
                     ;; Said in full, first: worth asking about.
                     (when (and (not slot-p) (voice--match-literal p words))
                       (setq s (max s voice-ask-score)))
@@ -309,7 +332,7 @@ what was said."
       (user-error "Voice: not done"))
     (let ((voice--fill (list :pool pool :answers (cdr claimed)
                              :owned (mapcar (lambda (a) (plist-get a :prompt)) asks))))
-      (let ((result (cond ((eq kind 'text) (funcall run slot))
+      (let ((result (cond ((or (eq kind 'text) (and kind (not (commandp run)))) (funcall run slot))
                           ((commandp run) (call-interactively run))
                           (t (funcall run)))))
         (if (stringp result) result (format "Done: %s" (plist-get action :name)))))))
@@ -412,11 +435,14 @@ is there once, the nearer way."
 (defun voice--same-intent-p (a b)
   "Non-nil when near options A and B are commands that ask the same kind
 of thing and would get the same answer: load-theme and enable-theme, for
-\"change theme to tango dark\".  Then the priors pick, no question."
-  (let ((a (nth 1 a)) (b (nth 1 b)))
+\"change theme to tango dark\", or for \"switch to a dark theme\" (no one
+theme named: the same list, dark ones first).  Then the priors pick, no
+question."
+  (let ((sa (nth 3 a)) (sb (nth 3 b)) (a (nth 1 a)) (b (nth 1 b)))
     (and (plist-get a :command) (plist-get b :command)
          (plist-get a :kind) (eq (plist-get a :kind) (plist-get b :kind))
-         (plist-get a :value) (equal (plist-get a :value) (plist-get b :value)))))
+         (equal (plist-get a :value) (plist-get b :value))
+         (or (plist-get a :value) (and sa (equal sa sb))))))
 
 (defvar voice-emacs-exact-order)
 

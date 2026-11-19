@@ -44,17 +44,24 @@ button is."
                     out)))))
       out)))
 
+(defun voice--launchable ()
+  "What \"open …\" can open: the launcher's list (pinned shortcuts,
+Hail's freeze, the apps), as (LABEL …) entries."
+  (cond ((fboundp 'emacs-home--launchable) (emacs-home--launchable))
+        ((fboundp 'emacs-home--apps) (emacs-home--apps))))
+
 (defun voice--home-vocab ()
   "The phone's apps by name, and the toolbar's and homepage's labels."
-  (append (and (fboundp 'emacs-home--apps) (mapcar #'car (emacs-home--apps)))
+  (append (mapcar #'car (voice--launchable))
           (mapcar (lambda (a) (plist-get a :name))
                   (append (voice--toolbar-actions) (voice--homepage-actions)))))
 
-(defvar voice--app-index nil "(APPS . INDEX) of the phone's apps by name.")
+(defvar voice--app-index nil "(APPS . INDEX) of what the launcher opens, by name.")
 
 (defun voice--app-index ()
-  "The phone's apps, indexed by name as tasks are; nil without any."
-  (let ((apps (and (fboundp 'emacs-home--apps) (emacs-home--apps))))
+  "What the launcher opens (\"Hail: freeze apps\" as well as Hail),
+indexed by name as tasks are; nil without any."
+  (let ((apps (voice--launchable)))
     (when apps
       (unless (equal (car voice--app-index) apps)
         (setq voice--app-index

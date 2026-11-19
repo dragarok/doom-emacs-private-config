@@ -23,7 +23,7 @@ PROMPT, TEXT's words typed, so a tap finishes it."
 
 (defun voice-switch-buffer (text)
   "Switch to the buffer TEXT names."
-  (let* ((names (seq-remove (lambda (n) (string-prefix-p " " n)) (mapcar #'buffer-name (buffer-list))))
+  (let* ((names (voice--buffer-names))
          (name (voice--choose "Buffer: " names text)))
     (switch-to-buffer name)
     (format "Buffer: %s" name)))
@@ -78,7 +78,7 @@ PROMPT, TEXT's words typed, so a tap finishes it."
               :when 'android :asks '((:prompt "\\`App: " :type rest)) :slot 'app :name "open app")
 
 (voice-action '("buffer …" "switch to buffer …" "go to buffer …") #'voice-switch-buffer
-              :slot 'text :name "buffer")
+              :slot 'buffer :name "buffer")
 
 (voice-action '("open file …" "recent file …" "file …") #'voice-recent-file :slot 'text :name "recent file")
 
@@ -102,6 +102,26 @@ PROMPT, TEXT's words typed, so a tap finishes it."
 
 (voice-action '("timer …" "set a timer for …" "set timer for …" "set a timer …" "timer for …")
               #'voice-timer :slot 'text :quiet t :name "timer")
+
+(defun voice--buffer-names ()
+  (seq-remove (lambda (n) (string-prefix-p " " n)) (mapcar #'buffer-name (buffer-list))))
+
+(defun voice--buffer-slot-plan (text action slot _request)
+  "The plan for ACTION, whose … names a buffer (\"switch to buffer …\"):
+weighed against the buffers there are, as \"open …\" against the apps.
+Named clearly, it switches; else the phrase can give way to an option
+nearer (\"switch to a dark theme\" names no buffer: a theme)."
+  (let* ((ranked (and slot (not (string-empty-p slot))
+                      (voice-match-strings (voice--buffer-names) slot 5)))
+         (decision (if ranked (voice-match-decide ranked) 'none)))
+    (list :kind 'action :text text :action action
+          :slot (if (eq decision 'act) (plist-get (nth 2 (car ranked)) :title) slot)
+          :decision decision :found (if ranked (nth 1 (car ranked)) 0.0)
+          :front (not (eq decision 'act)))))
+
+(voice-define-domain 'everyday
+  :doc "Going places in Emacs: a buffer by its name."
+  :slots '((buffer . voice--buffer-slot-plan)))
 
 (provide 'voice-everyday)
 ;;; voice-everyday.el ends here

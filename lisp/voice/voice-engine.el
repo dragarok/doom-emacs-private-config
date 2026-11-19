@@ -96,6 +96,10 @@ in voice.org, each once, short phrases with a letter in them."
     (dolist (f (voice--domains :vocab))
       (setq all (append (with-demoted-errors "voice vocab: %S" (funcall f)) all)))
     (dolist (n (car (ignore-errors (voice--rules)))) (push (car n) all))
+    ;; Voice's own phrases, word for word ("go back", "what can i say").
+    (dolist (a (bound-and-true-p voice-actions))
+      (dolist (p (plist-get a :phrases))
+        (unless (string-match-p "…" p) (push p all))))
     (setq all (append (bound-and-true-p voice--hear-words)
                       (mapcar #'cdr (bound-and-true-p voice-sounds-like))
                       all))

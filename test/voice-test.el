@@ -838,6 +838,28 @@ its kind of plan done by it; defined again, the old one is taken down."
       (should-not (member "Old finished thing" words))
       (should-not (seq-some (lambda (w) (string-match-p "[\t\n]" w)) words)))))
 
+(ert-deftest voice-test-open-names-what-the-launcher-opens ()
+  ;; The launcher opens pinned shortcuts and Hail's freeze besides apps:
+  ;; "launch hail freeze apps" is that tile, "launch hail" the app.
+  (voice-test--with
+    (let ((voice--android t) (voice--app-index nil))
+      (cl-letf (((symbol-function 'emacs-home--launchable)
+                 (lambda () '(("Hail: freeze apps" "hail" "FREEZE_AUTO")
+                              ("Hail" "com.aistra.hail" "A") ("Firefox" "org.mozilla" "B")))))
+        (let ((tile (voice-plan "launch hail freeze apps" "island")))
+          (should (eq (plist-get tile :decision) 'act))
+          (should (equal (plist-get tile :slot) "Hail: freeze apps")))
+        (should (equal (plist-get (voice-plan "launch hail" "island") :slot) "Hail"))))))
+
+(ert-deftest voice-test-a-buffer-is-named-or-not-meant ()
+  ;; "switch to buffer …" switches when a buffer is called that; a theme
+  ;; described, with the theme said after, is the theme's command.
+  (voice-test--with
+    (let ((voice-emacs--catalog nil))
+      (should (equal (plist-get (voice-plan "switch to buffer messages" "test") :slot) "*Messages*"))
+      (should (voice-expect-ok "cmd:load-theme" (voice-plan "switch to a dark theme" "test")))
+      (should (voice-expect-ok "cmd:load-theme" (voice-plan "tango dark theme" "test"))))))
+
 (ert-deftest voice-test-open-names-an-app-only-clearly ()
   ;; "open firefox" is the app; "open magit" names none, so the command
   ;; called that wins, as "clock in to …" gives way when no task is named.

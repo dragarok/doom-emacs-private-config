@@ -644,7 +644,31 @@ An autoloaded command is never loaded for this: its name tells."
     ;; Nothing else asked, a count it may take: \"down 5\" is <down> five times.
     (when (and (null kind) (voice-emacs--takes-count-p spec first))
       (setq kind 'number))
-    (cons kind (cond (silent nil) ((or (and kind (not (eq kind 'number))) codes) t) (t 'maybe)))))
+    ;; READS: t, it asks; maybe, it may (its kind only guessed by name, or
+    ;; none known); nil, it asks nothing.
+    (cons kind (cond (silent nil)
+                     ((or codes (and kind (not (eq kind 'number))
+                                     (not (voice-emacs--kind-by-name-p cmd kind codes first))))
+                      t)
+                     (t 'maybe)))))
+
+(defun voice-emacs--kind-by-name-p (cmd kind codes first)
+  "Non-nil when CMD's KIND is known only by its name's last word: no
+CODES or FIRST argument says so (toggle-theme, a theme's variant only
+when it has variants)."
+  (and (not codes)
+       (not (and first (let ((re (plist-get (cdr (assq kind voice-emacs-domains)) :args)))
+                         (and re (string-match-p re (downcase (symbol-name first)))))))
+       (equal (symbol-name kind) (car (last (split-string (voice-emacs--name-words cmd)))))))
+
+(defvar voice-emacs-guessed 0.9
+  "How near a command counts, chosen for the kind of thing it asks, when
+that kind is only guessed from its name: load-theme (its argument a theme)
+before toggle-theme (a theme's variant, when there are any).")
+
+(defun voice-emacs--kind-sure (cmd)
+  "1.0 when CMD's kind is known, `voice-emacs-guessed' when guessed by name."
+  (if (eq (cdr (voice-emacs-asks cmd)) 'maybe) voice-emacs-guessed 1.0))
 
 (defvar voice-emacs-count-args "\\`\\(?:count\\|n\\|lines?\\|num\\|number\\)\\'"
   "A command's first argument so named is a count, when its interactive
@@ -899,18 +923,24 @@ nothing for a command that asks nothing."
                     (funcall keep cmd (* s (+ share (* (- 1 share) explained))) p
                              tail (car v) e kind)))))
             ;; A value said, its kind not: "switch to DARK mode" is a theme.
+            ;; Or its kind said after it, saying what the words are: "switch
+            ;; to a dark THEME" (said first, "change theme to dark", the
+            ;; splits above have it).
             (when (< k n)
               (dolist (dom voice-emacs-domains)
                 (let* ((kind (car dom))
-                       ;; (Its kind said anywhere, the splits above have it.)
-                       (d (and (plist-get (cdr dom) :alone)
+                       (said (member (symbol-name kind) ttoks))
+                       (vtoks (remove (symbol-name kind) ttoks))
+                       (d (and vtoks (plist-get (cdr dom) :alone)
                                (not (member (symbol-name kind) htoks))
-                               (not (member (symbol-name kind) ttoks))
                                (funcall kind-data kind)))
-                       (ev (if d (funcall evidence kind d ttoks) 0.0)))
+                       (ev (if d (funcall evidence kind d vtoks) 0.0)))
                   (when (>= ev 0.5)
-                    (let* ((v (funcall value kind d ttoks))
-                           (factor (+ share (* (- 1 share) (if v (cdr v) ev)))))
+                    (let* ((v (funcall value kind d vtoks))
+                           (factor (+ share (* (- 1 share) (if v (cdr v) ev))))
+                           ;; What it asks gets the words, its kind's name not.
+                           (vtail (if said (seq-remove (lambda (w) (equal (cdr w) (symbol-name kind))) tail)
+                                    tail)))
                       ;; The kind was not said: how its name says it
                       ;; tells nothing, the priors pick; but with no verb
                       ;; said either, the commands that use the thing.
@@ -924,9 +954,14 @@ nothing for a command that asks nothing."
                         (dolist (r ranked)
                           (let ((e (nth 2 r)))
                             (when (eq (car (voice-emacs-asks (plist-get e :cmd))) kind)
+                              ;; Its kind said, the verb and it name the
+                              ;; command as any name does ("switch theme":
+                              ;; load-theme); unsaid, only guessed.
                               (funcall keep (plist-get e :cmd)
-                                       (* 0.9 voice-emacs-unsaid factor (if top (/ (nth 1 r) top) 1.0))
-                                       (- (car r) (nth 1 r)) tail (car v) e kind))))))))))))))
+                                       (* (voice-emacs--kind-sure (plist-get e :cmd))
+                                          (if said (* (nth 1 r) factor)
+                                            (* 0.9 voice-emacs-unsaid factor (if top (/ (nth 1 r) top) 1.0))))
+                                       (- (car r) (nth 1 r)) vtail (car v) e kind))))))))))))))
      ;; Called just so, whether the ranking found it or not: "select all"
      ;; (the menu's mark-whole-buffer), "window left".
      (let ((all (voice-emacs--tokens words)))
@@ -973,7 +1008,11 @@ nothing for a command that asks nothing."
                (dolist (r ranked)
                  (let ((e (nth 2 r)))
                    (when (eq (car (voice-emacs-asks (plist-get e :cmd))) kind)
-                     (funcall keep (plist-get e :cmd) (* 0.9 voice-emacs-unsaid (cdr v) (/ (nth 1 r) top))
+                     ;; Its kind said too ("doom one theme"), not guessed.
+                     (funcall keep (plist-get e :cmd) (* (voice-emacs--kind-sure (plist-get e :cmd))
+                                                         (if (member (symbol-name kind) all) 1.0
+                                                           (* 0.9 voice-emacs-unsaid))
+                                                         (cdr v) (/ (nth 1 r) top))
                               (- (car r) (nth 1 r)) (voice-emacs--lead-off words) (car v) e kind)))))))))
      (let (out)
        (maphash (lambda (_k v) (push v out)) best)

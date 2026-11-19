@@ -263,15 +263,20 @@ APPS, if given, is what to choose from instead of the installed apps."
                                  (url-hexify-string (substring (nth 2 entry) (match-end 0))))))
     (_ (emacs-home-open entry))))
 
+(defun emacs-home--launchable ()
+  "What `emacs-home-launch' offers: the pinned shortcuts and Hail's freeze,
+then the installed apps.  Voice's \"open …\" names one of these."
+  (let* ((apps (emacs-home--apps))
+         (pins (emacs-home--pins)))
+    (append (seq-filter (lambda (e) (and (member (nth 1 e) '("shortcut" "hail"))
+                                         (member (emacs-home--key e) pins)))
+                        (emacs-home--pinnable apps))
+            apps)))
+
 (defun emacs-home-launch ()
   "Pick an installed app, or a pinned shortcut or Hail's freeze, and launch it."
   (interactive)
-  (let* ((apps (emacs-home--apps))
-         (pins (emacs-home--pins))
-         (pinned (seq-filter (lambda (e) (and (member (nth 1 e) '("shortcut" "hail"))
-                                              (member (emacs-home--key e) pins)))
-                             (emacs-home--pinnable apps))))
-    (emacs-home--run (emacs-home--read-app "App: " nil (append pinned apps)) "app")))
+  (emacs-home--run (emacs-home--read-app "App: " nil (emacs-home--launchable)) "app"))
 
 (defun emacs-home-toggle-pin ()
   "Pin an app to the homepage, or unpin it if it is pinned."

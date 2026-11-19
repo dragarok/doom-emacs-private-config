@@ -136,6 +136,10 @@ works without a restart, or anyone typing into the phone."
       (dolist (v '(voice-emacs-synonyms voice-emacs-domains voice-emacs-skip-regexp))
         (makunbound v))
       (setq voice-emacs--catalog nil)
+      ;; What commands ask is worked out again too: how it is worked out
+      ;; may be what changed.
+      (when (hash-table-p (bound-and-true-p voice-emacs--asks-cache))
+        (clrhash voice-emacs--asks-cache))
       ;; The libraries, then the umbrella (it names the parts, new ones
       ;; too), then every part again, so a changed one is the new one.
       (dolist (f '("lisp/voice-match.el" "lisp/voice-emacs.el" "lisp/voice-command.el"))
@@ -145,6 +149,9 @@ works without a restart, or anyone typing into the phone."
           (when (file-exists-p f) (load (expand-file-name f) nil t))))
       (when (file-exists-p "lisp/image-workflow.el")
         (load (expand-file-name "lisp/image-workflow.el") nil t))
+      ;; The engine hears what can now be said, without waiting its turn.
+      (when (and (fboundp 'voice-engine-running-p) (voice-engine-running-p))
+        (with-demoted-errors "voice vocab: %S" (voice-engine-write-vocab)))
       (format "Voice updated: %s" (cdr (funcall git "log" "--oneline" "-1"))))))
 
 ;;;; What to say

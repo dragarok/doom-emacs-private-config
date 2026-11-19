@@ -192,7 +192,23 @@ org roam).  A word is jargon when it names a library Emacs has loaded;
               (unless (gethash lib seen)
                 (puthash lib t seen)
                 (when (featurep (intern lib)) (push (string-replace "-" " " lib) out))))))))
-    out))
+    (append (voice--key-label-vocab labels) out)))
+
+(defun voice--key-label-vocab (labels)
+  "What the leader's keys are called (\"Habits this month\", \"Find file\"),
+as they are said: the words a recogniser should hear as one phrase, not
+pulled toward a task's title that sounds alike.  LABELS: `voice-emacs--labels'."
+  (let (out)
+    (maphash (lambda (_cmd v)
+               (when (nth 2 v)
+                 ;; As the key shows it, its group unsaid (the BARE labels).
+                 (dolist (l (nth 3 v))
+                   (let ((name (and (stringp l) (string-trim (voice-emacs--label-name l)))))
+                     (when (and name (string-match-p "[[:alpha:]]" name)
+                                (not (string-match-p "[→←]" name)))
+                       (push name out))))))
+             labels)
+    (delete-dups out)))
 
 (voice-define-domain 'anycommand
   :doc "Every command, by its name, what its key says, or words meaning the same."
