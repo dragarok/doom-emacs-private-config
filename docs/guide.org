@@ -309,7 +309,10 @@ are yours to answer by hand.
 - Say an entry as you would pronounce it: "are you light" is
   doom-ayu-light, "tokyo knight" doom-tokyo-night, "tasks dot org"
   tasks.org.  Names are compared by how they sound, not only how they
-  are spelled.
+  are spelled: a vowel off still counts ("akariu light" is
+  doom-acario-light), and letters it heard ("A U light") are said as
+  letters are.  Of what the engine heard, the reading that names an
+  entry is the one taken.
 - Near one but not clearly it, voice asks: "Did you mean
   doom-ayu-light?"  A yes picks it and teaches voice.org that what you
   said is that entry; a no leaves the list open to say another or tap.

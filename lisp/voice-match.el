@@ -71,9 +71,19 @@ words in their own right everywhere else.")
           (t word))))
 
 (defun voice-match-words (string)
-  "STRING as lower-case words, number words as digits, not stemmed."
-  (mapcar (lambda (w) (or (cdr (assoc w voice-match-numbers)) w))
-          (split-string (downcase (or string "")) "[^[:alnum:]]+" t)))
+  "STRING as lower-case words, number words as digits, not stemmed.
+Capital letters said one by one are one word, as a recogniser writes a
+name said as letters: \"A U light\" is au light, as \"AU light\" is."
+  (let ((case-fold-search nil) out run)
+    (dolist (w (append (split-string (or string "") "[^[:alnum:]]+" t) '(nil)))
+      (if (and w (string-match-p "\\`[[:upper:]]\\'" w))
+          (push w run)
+        (when run
+          (push (apply #'concat (nreverse run)) out)
+          (setq run nil))
+        (when w (push w out))))
+    (mapcar (lambda (w) (let ((w (downcase w))) (or (cdr (assoc w voice-match-numbers)) w)))
+            (nreverse out))))
 
 (defun voice-match-tokens (string &optional keep-stop)
   "STRING's words, stemmed, without stop words unless KEEP-STOP."
@@ -89,8 +99,11 @@ words in their own right everywhere else.")
 
 (defvar voice-match--word-forms (make-hash-table :test 'equal)
   "Word -> (SINGLE SKELETON DEVOICED SOUND), worked out once: commands
-repeat the same few thousand words.  (Named anew when the forms change:
-a live reload keeps a defvar's old table.)")
+repeat the same few thousand words.")
+
+;; Loading this file anew may change how forms are worked out: a reload
+;; keeps a defvar's table, so empty it.
+(clrhash voice-match--word-forms)
 
 (defconst voice-match--sound-words
   '(("are" . "a") ("you" . "yu") ("your" . "yo") ("i" . "ai") ("eye" . "ai")
@@ -167,9 +180,114 @@ shorter ones (dog, tock) are told apart by little else."
   (and (>= (min (length x) (length y)) 4)
        (string= (voice-match--sounds x) (voice-match--sounds y))))
 
+(defun voice-match--vowels-p (segment)
+  (memq (aref segment 0) '(?a ?e ?i ?o ?u)))
+
+(defun voice-match--segments (sound)
+  "SOUND's consonants one by one and its vowels a run at a time."
+  (let ((i 0) (n (length sound)) out)
+    (while (< i n)
+      (let ((j (1+ i)))
+        (when (memq (aref sound i) '(?a ?e ?i ?o ?u))
+          (while (and (< j n) (memq (aref sound j) '(?a ?e ?i ?o ?u))) (cl-incf j)))
+        (push (substring sound i j) out)
+        (setq i j)))
+    (vconcat (nreverse out))))
+
+(defun voice-match--sound-sim (a b)
+  "How alike sounds A and B are, 0 to 1: one less the edits from one to
+the other, in consonants and runs of vowels, over the longer one's
+length.  A vowel for another, or one more or less, costs half: vowels
+are where accents and recognisers differ (\"akariu\" for acario, an o
+for the a of acario)."
+  (let* ((x (voice-match--segments a)) (y (voice-match--segments b))
+         (m (length x)) (n (length y)))
+    (if (or (zerop m) (zerop n)) (if (= m n) 1.0 0.0)
+      ;; No closures here: interpreted (as the files are loaded), each
+      ;; lambda made costs more than the whole sum.
+      (let ((prev (make-vector (1+ n) 0.0)) (cur (make-vector (1+ n) 0.0)))
+        (dotimes (j n)
+          (aset prev (1+ j) (+ (aref prev j) (if (voice-match--vowels-p (aref y j)) 0.5 1.0))))
+        (dotimes (i m)
+          (let* ((sx (aref x i)) (vx (voice-match--vowels-p sx)) (cx (if vx 0.5 1.0)))
+            (aset cur 0 (+ (aref prev 0) cx))
+            (dotimes (j n)
+              (let* ((sy (aref y j)) (vy (voice-match--vowels-p sy)))
+                (aset cur (1+ j) (min (+ (aref prev j) (cond ((string= sx sy) 0.0) ((and vx vy) 0.5) (t 1.0)))
+                                      (+ (aref prev (1+ j)) cx)
+                                      (+ (aref cur j) (if vy 0.5 1.0))))))
+            (let ((tmp prev)) (setq prev cur cur tmp))))
+        (- 1.0 (/ (aref prev n) (max m n)))))))
+
+(defvar voice-match--sound-memo (make-hash-table :test 'equal)
+  "(A . B) -> `voice-match--sound-score' of sounds A and B, remembered:
+the same pairs of names come up for every candidate.")
+
+(clrhash voice-match--sound-memo)
+
+(defun voice-match--sound-score (a b)
+  "How alike sounds A and B are as a likeness of words: 0.9 when the
+same, a little less when only a vowel or so apart (`voice-match--sound-sim'
+0.85 or more: one vowel in five sounds), else nil."
+  (cond ((string= a b) 0.9)
+        ((> (abs (- (length a) (length b))) (/ (max (length a) (length b)) 4)) nil)
+        ;; Each consonant edit costs a whole one, so the consonants' own
+        ;; distance is never more than the full one: most pairs stop here.
+        ((> (string-distance (replace-regexp-in-string "[aeiou]+" "" a)
+                             (replace-regexp-in-string "[aeiou]+" "" b))
+            (* 0.15 (max (length a) (length b))))
+         nil)
+        (t (let* ((key (cons a b)) (v (gethash key voice-match--sound-memo 'none)))
+             (if (not (eq v 'none)) v
+               (when (> (hash-table-count voice-match--sound-memo) 300000)
+                 (clrhash voice-match--sound-memo))
+               (puthash key (let ((s (voice-match--sound-sim a b))) (and (>= s 0.85) (min 0.9 s)))
+                        voice-match--sound-memo))))))
+
+(defun voice-match--sound-near (x y)
+  "`voice-match--sound-score' of words X and Y, five letters or more."
+  (and (>= (min (length x) (length y)) 5)
+       (voice-match--sound-score (voice-match--sounds x) (voice-match--sounds y))))
+
+(defconst voice-match--letter-sounds
+  '((?a "a" "ei") (?b "pi") (?c "si") (?d "ti") (?e "e" "i") (?f "ef") (?g "ji")
+    (?h "eic") (?i "i" "ai") (?j "jei") (?k "kei") (?l "el") (?m "em") (?n "en")
+    (?o "o") (?p "pi") (?q "kyu") (?r "ar") (?s "es") (?t "ti") (?u "u" "yu")
+    (?v "fi") (?w "tapelyu") (?x "eks") (?y "wai") (?z "si"))
+  "Each letter said as a letter, as `voice-match--sound' writes it: a
+vowel by its name or its sound.")
+
+(defvar voice-match--spellings-memo (make-hash-table :test 'equal)
+  "Word -> `voice-match--spellings', remembered.")
+
+(clrhash voice-match--spellings-memo)
+
+(defun voice-match--spellings (word)
+  "What WORD of two or three letters sounds like said as its letters:
+\"au\" is ayu among others, as a recogniser writes doom-ayu-light's
+ayu said as two sounds it took for letters."
+  (when (and (<= 2 (length word) 3) (string-match-p "\\`[a-z]+\\'" word))
+    (let ((v (gethash word voice-match--spellings-memo 'none)))
+      (if (not (eq v 'none)) v
+        (let ((out (list "")))
+          (dotimes (i (length word))
+            (setq out (cl-loop for s in out
+                               append (cl-loop for l in (cdr (assq (aref word i) voice-match--letter-sounds))
+                                               collect (concat s l)))))
+          (puthash word (cl-loop for s in out collect (replace-regexp-in-string "\\(.\\)\\1+" "\\1" s))
+                   voice-match--spellings-memo))))))
+
+(defun voice-match--spelled-alike-p (x y)
+  "Non-nil when one of words X and Y said as letters sounds as the other,
+three letters or more, does: \"au\" and ayu, \"ok\" and okay."
+  (or (and (>= (length y) 3) (member (voice-match--sounds y) (voice-match--spellings x)))
+      (and (>= (length x) 3) (member (voice-match--sounds x) (voice-match--spellings y)))))
+
 (defvar voice-match--sim-memo (make-hash-table :test 'equal)
   "(X . Y) -> `voice-match-sim', remembered: the same pairs come up for
 every candidate.")
+
+(clrhash voice-match--sim-memo)
 
 (defun voice-match-sim (x y)
   "How alike words X and Y are, 0 to 1."
@@ -190,8 +308,10 @@ every candidate.")
           ((or (and (>= lx 4) (>= ly 4)
                     (or (string= (voice-match--skeleton x) (voice-match--skeleton y))
                         (string= (voice-match--devoice x) (voice-match--devoice y))))
-               (voice-match--sound-alike-p x y))
+               (voice-match--sound-alike-p x y)
+               (voice-match--spelled-alike-p x y))
            0.9)
+          ((voice-match--sound-near x y))
           ((and (>= (min lx ly) 3)
                 (or (string-prefix-p x y) (string-prefix-p y x)))
            0.85)
@@ -221,6 +341,7 @@ and lending their weight to a word no title has.")
                         (string= (voice-match--devoice x) (voice-match--devoice y))))
                (voice-match--sound-alike-p x y))
            0.9)
+          ((voice-match--sound-near x y))
           ((and (>= lx 4) (>= ly 4))
            (let ((s (- 1.0 (/ (float (string-distance x y)) (max lx ly)))))
              (if (>= s 0.8) s 0.0)))
@@ -320,7 +441,7 @@ position."
                  (sound (concat (voice-match--sounds (car ws)) (voice-match--sounds (cadr ws))))
                  (sim (apply #'max 0.0 (mapcar (lambda (x)
                                                  (cond ((< (length x) 6) 0.0)
-                                                       ((string= (voice-match--sounds x) sound) 0.9)
+                                                       ((voice-match--sound-score (voice-match--sounds x) sound))
                                                        (t (voice-match--whole-sim x joined))))
                                                query))))
             (when (>= sim 0.85) (push (list sim i joined) out)))
@@ -346,7 +467,8 @@ own, and no numbers (\"chapter 5\" is not \"chapter\").  Return (SIM WORD
               (when (and (<= (+ i len) n)
                          (cl-loop for j from i below (+ i len) always (aref loose j)))
                 (let* ((run (append (seq-subseq v i (+ i len)) nil))
-                       (sim (cond ((string= (voice-match--sounds y) (mapconcat #'voice-match--sounds run "")) 0.9)
+                       (sim (cond ((voice-match--sound-score (voice-match--sounds y)
+                                                             (mapconcat #'voice-match--sounds run "")))
                                   ((>= (length y) 5) (voice-match--whole-sim y (apply #'concat run)))
                                   (t 0.0))))
                   (when (>= sim 0.8)
@@ -400,6 +522,10 @@ out, bind it higher.")
   "Nil, or how many entries, the best by a rough score, are weighed in
 full: for big indexes (every command).")
 
+(defvar voice-match-weigh-all 300
+  "An index of at most this many entries has every one weighed, not only
+those sharing a lookup key with what was said: a prompt's list.")
+
 (defvar voice-match-common-key 300
   "A lookup key shared by more entries than this is too common to bring
 in candidates alone.")
@@ -428,6 +554,11 @@ Each result is (F S ENTRY): F is S plus the priors, given by ENTRY's
             (unless (and (cdr query) (> (length hits) voice-match-common-key))
               (dolist (i hits) (puthash i (max (gethash i mine 0) (* 0.8 w)) mine)))))
         (maphash (lambda (i v) (puthash i (+ v (gethash i seen 0)) seen)) mine)))
+    ;; A few entries are all weighed: a name said as it sounds shares no
+    ;; key with how it is written ("okariolite", acario light).
+    (let ((n (length (voice-match-index-entries index))))
+      (when (<= n voice-match-weigh-all)
+        (dotimes (i n) (puthash i (gethash i seen 0) seen))))
     ;; Only the best by that rough score are weighed in full; of those
     ;; scoring the same, the shortest names first, the ones what was said
     ;; explains most of: "magit" shares its word with 600 commands, and

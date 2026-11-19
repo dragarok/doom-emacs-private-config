@@ -487,6 +487,43 @@ SCHEDULED: <2020-01-01 Wed>
     (should (equal (cdr (voice--list-answer "Doom Ayulite." themes)) "doom-ayu-light"))
     (should-not (voice--list-answer "Down the book." themes))))
 
+(ert-deftest voice-test-names-said-as-letters ()
+  ;; A recogniser writes ayu, said as two sounds, as the letters A U.
+  (should (equal (voice-match-words "A U light") '("au" "light")))
+  (should (equal (voice-match-words "I want a book") '("i" "want" "a" "book")))
+  (should (>= (voice-match-sim "au" "ayu") 0.9))
+  (should (>= (voice-match-sim "ok" "okay") 0.9))
+  (should (< (voice-match-sim "the" "tea") 0.85))
+  (let ((themes '("doom-ayu-light" "doom-ayu-dark" "doom-acario-light" "doom-acario-dark"
+                  "doom-one-light" "light-blue" "tsdh-light" "doom-nord-light")))
+    (should (equal (voice--list-answer "AU light." themes) '(pick . "doom-ayu-light")))
+    (should (equal (voice--list-answer "A U Light," themes) '(pick . "doom-ayu-light")))
+    ;; "light" alone is every light theme's: no guess at one of them.
+    (should-not (voice--list-answer "A Ulight," themes))))
+
+(ert-deftest voice-test-a-vowel-apart-is-near ()
+  ;; Vowels are where accents and recognisers differ.
+  (should (>= (voice-match-sim "akariu" "acario") 0.85))
+  (should (< (voice-match-sim "light" "late") 0.85))   ; short: a vowel is half the word
+  (should (< (voice-match-sim "dog" "dig") 0.85))
+  (should (< (voice-match-sim "tagging" "dark") 0.85))
+  (let ((themes '("doom-ayu-light" "doom-acario-light" "doom-acario-dark" "doom-one-light")))
+    (should (equal (voice--list-answer "Akariu light." themes) '(pick . "doom-acario-light")))
+    ;; Said as one word, and found though it shares no letters' key.
+    (should (equal (voice--list-answer "Okariolite," themes) '(pick . "doom-acario-light")))))
+
+(ert-deftest voice-test-the-reading-that-names-an-entry-wins ()
+  ;; With a list open, the engine's first reading that names one of its
+  ;; entries is the one done, not a first that names none.
+  (let ((themes '("doom-ayu-light" "doom-acario-light" "doom-acario-dark")))
+    (cl-letf (((symbol-function 'voice--open-list) (lambda () (cons themes nil)))
+              ((symbol-function 'voice-context) (lambda (&rest _) '(minibuffer))))
+      (should (eq (voice--answer-decision "Help you light.") 'type))
+      (should (eq (voice--answer-decision "cancel") nil))
+      (let ((best (voice--best-reading '("Help you light." "Accariolite.") "island")))
+        (should (equal (car best) "Accariolite."))
+        (should (eq (plist-get (cddr best) :decision) 'act))))))
+
 (ert-deftest voice-test-a-dot-is-said ()
   (let ((buffers '("tasks.org" "archive_tasks.org" "log_books.org" "*scratch*")))
     (should (equal (voice--list-answer "tasks dot org" buffers) '(pick . "tasks.org")))

@@ -112,6 +112,36 @@ doom-ayu-light?\"); a yes picks it and is learned."
               (format "Answered: %s" s)))))))
      (t nil))))
 
+(defun voice--open-list ()
+  "The open minibuffer's list, when what is said is answered from it as
+`voice--answer-prompt' does: (ENTRIES . SHOWN), SHOWN the ones on
+screen; else nil (no list, a y-or-n, a key question, one never answered)."
+  (when (and (not voice--choice) (active-minibuffer-window))
+    (with-selected-window (active-minibuffer-window)
+      (let ((prompt (or (minibuffer-prompt) "")) (table minibuffer-completion-table))
+        (and table
+             (not (memq minibuffer-history-variable voice--refused-histories))
+             (not (let ((case-fold-search t)) (string-match-p voice-refused-prompt-regexp prompt)))
+             (not (string-match-p "(y or n)" prompt))
+             (not (and (boundp 'crm-completion-table) crm-completion-table
+                       (eq table 'crm--collection-fn)))
+             (cons (voice--collection-strings table minibuffer-completion-predicate)
+                   (and (bound-and-true-p vertico--candidates) vertico--candidates)))))))
+
+(defun voice--answer-decision (text)
+  "How TEXT answers the open minibuffer's list: act when it names an
+entry, ask when it is near one, type when neither; nil when no list is
+open to pick from, or TEXT cancels.  Of the engine's readings, the first
+that names an entry is the one done (`voice--best-reading')."
+  (let ((open (voice--open-list)))
+    (when (and open (not (member (string-join (voice-match-words text) " ")
+                                 '("cancel" "never mind" "nevermind" "stop" "quit" "escape"))))
+      (pcase (car (voice--list-answer text (car open) (cdr open)))
+        ('pick 'act) ('ask 'ask) (_ 'type)))))
+
+(defvar voice-list-ask-lead 0.05
+  "Least lead of a list's nearest entry over the next for asking about it.")
+
 (defun voice--list-answer (text cands &optional shown)
   "What TEXT says of a list's entries CANDS, SHOWN the ones on screen:
 \(pick . ENTRY) when it names one, by name, as it sounds, or by place
@@ -132,7 +162,11 @@ it; else nil."
                                   (and (eq (voice-match-decide ranked) 'act)
                                        (plist-get (nth 2 (car ranked)) :title))))))))
     (cond (hit (cons 'pick hit))
-          ((and ranked (>= (nth 1 (car ranked)) voice-ask-score))
+          ((and ranked (>= (nth 1 (car ranked)) voice-ask-score)
+                ;; Near several alike ("light" of every light theme),
+                ;; asking about one would be a guess.
+                (or (null (cadr ranked))
+                    (>= (- (car (car ranked)) (car (cadr ranked))) voice-list-ask-lead)))
            (cons 'ask (plist-get (nth 2 (car ranked)) :title))))))
 
 ;;;; Did you mean

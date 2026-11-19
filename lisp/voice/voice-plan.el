@@ -207,7 +207,8 @@ else the closest shown (see `voice--decide')."
       (let ((move (and (not voice--choice) (voice--minibuffer-move words text))))
         (if move
             (list :kind 'action :text text :action move :slot "" :front t)
-          (list :kind 'answer :text text :source source :front t))))
+          (list :kind 'answer :text text :source source :front t
+                :decision (voice--answer-decision text)))))
      ((null words) (list :kind 'none :text text))
      (t (voice--plan-said (voice--utterance text source context words request
                                             (voice--all-actions context)))))))
