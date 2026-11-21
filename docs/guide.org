@@ -44,6 +44,21 @@ Settings tile for you, so that tile has to stay in Quick Settings.  If you
 switch it inside the app instead, the button can show the old state until
 you next pull Quick Settings down.
 
+** The first unlock of the morning opens Hacker News
+From 3 AM on, the first time you unlock the phone, Emacs comes to the
+front with Hacker News open.  It happens once a day: unlocking again later
+leaves the phone as it was.  If the app missed the unlock, your next Home
+press opens it instead.
+
+To open more in the morning, add commands to =morning-ritual-commands= in
+=lisp/morning-ritual.el=; they open in order.  =M-x morning-ritual-run=
+opens them again whenever you like.
+
+** The motto on the home page
+The bold lines across the top of the home page are =emacs-home-motto= in
+=lisp/emacs-home.el=.  Each line of it is a line on screen, and a line too
+long for the screen breaks again.  Set it to =nil= to show nothing.
+
 * Notes
 
 ** A new note: SPC n r f, then a new title

@@ -148,6 +148,7 @@ public class FloatService extends Service {
         observer.startWatching();
         // The screen going off is the end of anything being said: never a microphone left on.
         registerReceiver(screenOff, new android.content.IntentFilter(Intent.ACTION_SCREEN_OFF));
+        registerReceiver(unlocked, new android.content.IntentFilter(Intent.ACTION_USER_PRESENT));
         bg.execute(() -> Reminders.schedule(this));  // alarms don't outlive a reboot
         // Restarted: Android may have stopped binding the island's accessibility
         // service, leaving the island under the status bar, deaf to taps.
@@ -169,6 +170,7 @@ public class FloatService extends Service {
         main.removeCallbacks(tick);
         if (observer != null) observer.stopWatching();
         try { unregisterReceiver(screenOff); } catch (Exception e) { /* not registered */ }
+        try { unregisterReceiver(unlocked); } catch (Exception e) { /* not registered */ }
         if (widgets != null) widgets.stop();
         if (island != null) wm.removeView(island);
         super.onDestroy();
@@ -189,6 +191,23 @@ public class FloatService extends Service {
             if (voice != Voice.OFF) voiceOff();
         }
     };
+
+    /** Unlocked: the first time from 3am on, Emacs comes forward with the
+     *  morning ritual (morning-ritual.el says what it opens, and whether
+     *  today's has run). */
+    private final android.content.BroadcastReceiver unlocked = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            bg.execute(FloatService.this::morning);
+        }
+    };
+
+    private void morning() {
+        String due = Emacs.evalReply(this, "(and (fboundp 'morning-ritual-due-p) (morning-ritual-due-p))");
+        if (!"t".equals(due)) return;
+        Intent emacs = getPackageManager().getLaunchIntentForPackage(Emacs.PACKAGE);
+        if (emacs != null) startActivity(emacs.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        Emacs.eval(this, "(morning-ritual-run)");
+    }
 
     private void act(String action) {
         if (action.equals("voice-keyboard")) { listen("keyboard"); return; }

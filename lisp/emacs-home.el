@@ -17,6 +17,7 @@
 (require 'subr-x)
 (require 'svg)
 (require 'usage-log)
+(require 'morning-ritual)
 
 (defconst emacs-home-dir "/data/data/com.termux/files/home/.emacs-home/"
   "Where the app writes the catalog.  It shares Emacs's uid, so both can.")
@@ -316,6 +317,8 @@ Only a minibuffer is closed; the toolbar's Home button is the homepage."
     (run-at-time 0 nil #'+dashboard-reload t))  ; fresh clock line
   (when (active-minibuffer-window)
     (run-at-time 0 nil #'abort-recursive-edit))
+  ;; The app runs it on unlocking; this is for an unlock it missed.
+  (morning-ritual-run)
   nil)
 
 (defvar emacs-home--started nil
@@ -586,6 +589,52 @@ crossed out otherwise.")
         (insert "\n")))))
 
 (add-to-list '+dashboard-functions #'emacs-home-widget)
+
+;;; The motto, across the top
+
+(defvar emacs-home-motto
+  "Remember that Buddha left his wife and child to learn the truth.
+Despite loving them, he left them for liberation.
+Both his wife and his son became monks when he came back."
+  "Printed in bold across the top of the homepage: a line for each line
+here, broken again where the screen is too narrow.  nil prints nothing.")
+
+(defface emacs-home-motto
+  '((t :weight bold :height 1.4))
+  "The motto across the top of the homepage.")
+
+(defun emacs-home--wrap (text face width)
+  "TEXT's lines, broken at spaces so none is wider than WIDTH pixels in FACE."
+  (let (lines)
+    (dolist (para (split-string text "\n" t "[ \t]+"))
+      (let (line)
+        (dolist (word (split-string para " " t))
+          (let ((longer (if line (concat line " " word) word)))
+            (if (and line (> (string-pixel-width (propertize longer 'face face)) width))
+                (progn (push line lines) (setq line word))
+              (setq line longer))))
+        (when line (push line lines))))
+    (nreverse lines)))
+
+(defun emacs-home-motto-widget ()
+  "Dashboard widget: `emacs-home-motto', bold, each line centred."
+  (when (and emacs-home-motto (not (string-blank-p emacs-home-motto)))
+    (let* ((window (get-buffer-window (current-buffer)))
+           (width (- (window-body-width window t) (* 2 (frame-char-width)))))
+      ;; Air under the status bar: a line, since the dashboard strips
+      ;; newlines from the top.
+      (insert (propertize " \n" 'face '(:height 0.5)))
+      (dolist (line (emacs-home--wrap emacs-home-motto 'emacs-home-motto width))
+        (let ((w (string-pixel-width (propertize line 'face 'emacs-home-motto))))
+          (insert (propertize " " 'display `(space :align-to (- center (,(/ w 2)))))
+                  (propertize line 'face 'emacs-home-motto)
+                  "\n"))))))
+
+(add-to-list '+dashboard-functions #'emacs-home-motto-widget)
+
+;; From the top: the motto takes the blank that centring left there.
+(defvar +dashboard-anchor)
+(setq +dashboard-anchor '(top . center))
 
 (provide 'emacs-home)
 ;;; emacs-home.el ends here
