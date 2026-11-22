@@ -13,6 +13,7 @@ counted in `ran', and timers run at once."
   (declare (indent 0))
   `(let* ((dir (make-temp-file "morning-ritual" t))
           (morning-ritual-file (expand-file-name "sub/day" dir))
+          (morning-ritual-errors (expand-file-name "errors.txt" dir))
           (ran nil)
           (morning-ritual-commands '(morning-ritual-test--cmd)))
      (cl-letf (((symbol-function 'morning-ritual-test--cmd)
@@ -54,6 +55,36 @@ counted in `ran', and timers run at once."
       (cl-letf (((symbol-function 'morning-ritual-test--broken)
                  (lambda () (interactive) (error "No network"))))
         (let ((inhibit-message t)) (morning-ritual-run))
-        (should (equal ran '(opened)))))))
+        (should (equal ran '(opened)))
+        ;; Why it failed is kept, with where.
+        (let ((log (with-temp-buffer (insert-file-contents morning-ritual-errors)
+                                     (buffer-string))))
+          (should (string-match-p "morning-ritual-test--broken\t(error \"No network\")" log))
+          (should (string-match-p "^  error(\"No network\")$" log)))))))
+
+(ert-deftest morning-ritual-hackernews-survives-its-visited-links-file ()
+  "A visited-links file with an entry hackernews can't merge (no table)
+failed the first run of every session with \"hash-table-p, nil\"."
+  (skip-unless (locate-library "hackernews"))
+  (require 'hackernews)
+  (let* ((dir (make-temp-file "hn" t))
+         (hackernews-visited-links-file (expand-file-name "visited-links.el" dir))
+         (hackernews--visited-ids (mapcar #'list '(hackernews-link hackernews-comment-count)))
+         (kill-emacs-hook nil)
+         (good (make-hash-table)))
+    (unwind-protect
+        (progn
+          (puthash 42 '(:visited t) good)
+          (with-temp-file hackernews-visited-links-file
+            (prin1 `((hackernews-link) (hackernews-comment-count . ,good) (no-such-type . ,good))
+                   (current-buffer)))
+          (hackernews--init-visited-links)
+          (should (hash-table-p (cdr (assq 'hackernews-link hackernews--visited-ids))))
+          ;; What could be merged was.
+          (should (plist-get (gethash 42 (cdr (assq 'hackernews-comment-count hackernews--visited-ids)))
+                             :visited))
+          ;; So it will save the file again, whole.
+          (should (memq 'hackernews-save-visited-links kill-emacs-hook)))
+      (delete-directory dir t))))
 
 ;;; morning-ritual-test.el ends here

@@ -52,7 +52,8 @@ press opens it instead.
 
 To open more in the morning, add commands to =morning-ritual-commands= in
 =lisp/morning-ritual.el=; they open in order.  =M-x morning-ritual-run=
-opens them again whenever you like.
+opens them again whenever you like.  When one fails, why is kept in
+=~/org/logs/morning_ritual_errors_localhost.txt=.
 
 ** The motto on the home page
 The bold lines across the top of the home page are =emacs-home-motto= in
